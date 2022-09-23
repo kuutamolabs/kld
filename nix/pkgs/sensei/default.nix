@@ -1,4 +1,4 @@
-{ rustPlatform, fetchFromGitHub, callPackage }:
+{ rustPlatform, fetchFromGitHub, callPackage, protobuf }:
 let
   src = fetchFromGitHub {
     owner = "L2-Technology";
@@ -13,7 +13,12 @@ in rustPlatform.buildRustPackage {
   inherit src;
   name = "sensei";
 
+  nativeBuildInputs = [
+    protobuf
+  ];
+
   postPatch = ''
+    mkdir -p web-admin/build
     cp -r ${web-admin}/* web-admin/build
   '';
 

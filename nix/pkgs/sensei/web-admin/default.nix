@@ -14,7 +14,9 @@ nodeComposition.package.override {
   dontNpmInstall = true;
 
   postInstall = ''
+    npm run build
     cd $out
+
     mv lib/node_modules/web-admin/build/* .
     rm -rf lib
   '';
