@@ -1,4 +1,4 @@
-{ rustPlatform, fetchFromGitHub, callPackage, protobuf }:
+{ rustPlatform, fetchFromGitHub, callPackage, protobuf, rustfmt }:
 let
   src = fetchFromGitHub {
     owner = "L2-Technology";
@@ -15,6 +15,7 @@ in rustPlatform.buildRustPackage {
 
   nativeBuildInputs = [
     protobuf
+    rustfmt
   ];
 
   postPatch = ''
