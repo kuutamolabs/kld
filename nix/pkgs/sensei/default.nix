@@ -1,4 +1,4 @@
-{ rustPlatform, fetchFromGitHub, callPackage, protobuf, rustfmt }:
+{ rustPlatform, fetchFromGitHub, callPackage, protobuf, rustfmt, fetchpatch }:
 let
   src = fetchFromGitHub {
     owner = "L2-Technology";
@@ -18,12 +18,20 @@ in rustPlatform.buildRustPackage {
     rustfmt
   ];
 
+  cargoPatches = [
+    # https://github.com/L2-Technology/sensei/pull/115
+    (fetchpatch {
+      url = "https://github.com/L2-Technology/sensei/commit/82ce4440a00ed43b0c81b084403ae949bb3ee3b5.patch";
+      sha256 = "sha256-vwO1LgzmM1oRc283XX2QQ/9zudAZNsf/TNqZE8j5O+Y=";
+    })
+  ];
+
   postPatch = ''
     mkdir -p web-admin/build
     cp -r ${web-admin}/* web-admin/build
   '';
 
-  cargoSha256 = "sha256-X66spc6TzHfGUxqvtSYHtuMrHg3iiawJaxgnRWDRkCk=";
+  cargoSha256 = "sha256-bSkTC2jL3KGxwukbHmfSBHJxwJtlMrjrqNpOY4d6x/M=";
 
   passthru.updateScript = callPackage ./update.nix {};
 }
