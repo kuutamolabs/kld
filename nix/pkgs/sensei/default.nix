@@ -30,6 +30,7 @@ in rustPlatform.buildRustPackage {
     mkdir -p web-admin/build
     cp -r ${web-admin}/* web-admin/build
   '';
+  doCheck = false;
 
   cargoSha256 = "sha256-bSkTC2jL3KGxwukbHmfSBHJxwJtlMrjrqNpOY4d6x/M=";
 
