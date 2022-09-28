@@ -3,8 +3,8 @@ let
   src = fetchFromGitHub {
     owner = "L2-Technology";
     repo = "sensei";
-    rev = "bb197d0a81533e17f1f3be1f020c8acc218436ae";
-    sha256 = "sha256-Do3Wq3IYj6tSBieo09rS2c7qG+wCFSQ5k2bn362MNyk=";
+    rev = "2c902f987628aa6ea3c1c1cbc57804dc68510b6d";
+    sha256 = "sha256-HlkTTm62SCTg1tasiwxI1qSqwzKVjbQheQ4fZa5XCqI=";
   };
   web-admin = callPackage ./web-admin {
     inherit src;
