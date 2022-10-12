@@ -33,6 +33,7 @@
             pkgs.clippy
           ]
           ++ self'.packages.lightning-knd.buildInputs;
+	RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         nativeBuildInputs = self'.packages.lightning-knd.nativeBuildInputs;
         passthru = {
           inherit formatters;
