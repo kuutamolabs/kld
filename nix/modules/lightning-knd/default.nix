@@ -39,8 +39,7 @@ in
     environment.systemPackages = [
     ];
 
-    environment.variables = {
-    };
+    environment.variables = { };
 
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [
     ];
