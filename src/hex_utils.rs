@@ -44,3 +44,9 @@ pub fn to_compressed_pubkey(hex: &str) -> Option<PublicKey> {
         Err(_) => None,
     }
 }
+
+#[test]
+fn test_to_vec() {
+    assert_eq!(to_vec("xyz"), None);
+    assert_eq!(to_vec("abc"), Some(vec![171]));
+}

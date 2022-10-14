@@ -115,6 +115,7 @@ pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<FilesystemLogger>>;
 
 type OnionMessenger = SimpleArcOnionMessenger<FilesystemLogger>;
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_ldk_events(
     channel_manager: &Arc<ChannelManager>,
     bitcoind_client: &BitcoindClient,
@@ -158,16 +159,12 @@ async fn handle_ldk_events(
             let signed_tx = bitcoind_client
                 .sign_raw_transaction_with_wallet(funded_tx.hex)
                 .await;
-            assert_eq!(signed_tx.complete, true);
+            assert!(signed_tx.complete);
             let final_tx: Transaction =
                 encode::deserialize(&hex_utils::to_vec(&signed_tx.hex).unwrap()).unwrap();
             // Give the funding transaction back to LDK for opening the channel.
             if channel_manager
-                .funding_transaction_generated(
-                    &temporary_channel_id,
-                    counterparty_node_id,
-                    final_tx,
-                )
+                .funding_transaction_generated(temporary_channel_id, counterparty_node_id, final_tx)
                 .is_err()
             {
                 println!(
@@ -278,8 +275,8 @@ async fn handle_ldk_events(
             io::stdout().flush().unwrap();
 
             let mut payments = outbound_payments.lock().unwrap();
-            if payments.contains_key(&payment_hash) {
-                let payment = payments.get_mut(&payment_hash).unwrap();
+            if payments.contains_key(payment_hash) {
+                let payment = payments.get_mut(payment_hash).unwrap();
                 payment.status = HTLCStatus::Failed;
             }
         }
@@ -357,7 +354,7 @@ async fn handle_ldk_events(
         }
         Event::SpendableOutputs { outputs } => {
             let destination_address = bitcoind_client.get_new_address().await;
-            let output_descriptors = &outputs.iter().map(|a| a).collect::<Vec<_>>();
+            let output_descriptors = &outputs.iter().collect::<Vec<_>>();
             let tx_feerate =
                 bitcoind_client.get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
             let spending_tx = keys_manager
@@ -784,7 +781,7 @@ async fn start_ldk() {
                             if *pubkey == node_id {
                                 let _ = cli::do_connect_peer(
                                     *pubkey,
-                                    peer_addr.clone(),
+                                    *peer_addr,
                                     Arc::clone(&connect_pm),
                                 )
                                 .await;
