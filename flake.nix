@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    flake-parts.inputs.nixpkgs.follows = "nixpkgs";
+    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
   };
 
   nixConfig.extra-substituters = [
@@ -19,6 +19,7 @@
       imports = [
         ./nix/modules/flake-module.nix
         ./nix/pkgs/flake-module.nix
+        #./nix/checks/flake-module.nix
         ./nix/shell.nix
       ];
       systems = [ "x86_64-linux" ];
