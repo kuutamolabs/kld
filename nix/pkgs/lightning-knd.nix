@@ -5,6 +5,7 @@
 , pkg-config
 , runCommand
 , enableLint ? false
+, enableTests ? false
 ,
 }:
 rustPlatform.buildRustPackage ({
@@ -20,11 +21,11 @@ rustPlatform.buildRustPackage ({
   buildInputs = [ openssl ];
   nativeBuildInputs = [ pkg-config ] ++ lib.optionals enableLint [ clippy ];
 
-  doCheck = false;
+  doCheck = enableTests;
 
   meta = with lib; {
     description = "HA Bitcoin Lightning Node";
-    homepage = "https://github.com/kuutamoaps/kuutamocore";
+    homepage = "https://github.com/kuutamoaps/lightning-knd";
     license = licenses.asl20;
     maintainers = with maintainers; [ mic92 ];
     platforms = platforms.unix;

@@ -6,11 +6,11 @@
         inherit self;
         inherit (self'.devShells.default) formatters;
       };
-      tests = pkgs.callPackage ./tests.nix {
-        lightning-knd = self'.packages.lightning-knd;
+      checks.test = self'.packages.lightning-knd.override {
+        enableTests = true;
       };
-      lint = self'.packages.lightning-knd.override {
-          enableLint = true;
+      checks.lint = self'.packages.lightning-knd.override {
+        enableLint = true;
       };
     };
 }

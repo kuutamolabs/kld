@@ -17,9 +17,9 @@
   outputs = { self, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit self; } {
       imports = [
-        ./nix/modules/flake-module.nix
         ./nix/pkgs/flake-module.nix
-        #./nix/checks/flake-module.nix
+        ./nix/modules/flake-module.nix
+        ./nix/checks/flake-module.nix
         ./nix/shell.nix
       ];
       systems = [ "x86_64-linux" ];
