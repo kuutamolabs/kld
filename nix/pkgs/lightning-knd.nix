@@ -15,6 +15,7 @@ rustPlatform.buildRustPackage ({
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
     cp -r ${../../src} $out/src
+    cp -r ${../../tests} $out/tests
   '';
   cargoLock.lockFile = ../../Cargo.lock;
 
@@ -39,7 +40,7 @@ rustPlatform.buildRustPackage ({
     cp -r ${../../tests} $out/tests
   '';
   buildPhase = ''
-    cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --all-targets --all-features --no-deps -- -D warnings
     if grep -R 'dbg!' ./src; then
       echo "use of dbg macro found in code!"
       false
