@@ -347,7 +347,7 @@ async fn handle_ldk_events(
             let forwarding_channel_manager = channel_manager.clone();
             let min = time_forwardable.as_millis() as u64;
             tokio::spawn(async move {
-                let millis_to_sleep = thread_rng().gen_range(min, min * 5) as u64;
+                let millis_to_sleep = thread_rng().gen_range(min..min * 5) as u64;
                 tokio::time::sleep(Duration::from_millis(millis_to_sleep)).await;
                 forwarding_channel_manager.process_pending_htlc_forwards();
             });
@@ -470,8 +470,7 @@ async fn start_ldk() {
         key.copy_from_slice(&seed);
         key
     } else {
-        let mut key = [0; 32];
-        thread_rng().fill_bytes(&mut key);
+        let key: [u8; 32] = thread_rng().gen();
         match File::create(keys_seed_path.clone()) {
             Ok(mut f) => {
                 f.write_all(&key)
@@ -618,12 +617,11 @@ async fn start_ldk() {
     let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
     let onion_messenger: Arc<OnionMessenger> =
         Arc::new(OnionMessenger::new(keys_manager.clone(), logger.clone()));
-    let mut ephemeral_bytes = [0; 32];
+    let ephemeral_bytes: [u8; 32] = thread_rng().gen();
     let current_time = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    rand::thread_rng().fill_bytes(&mut ephemeral_bytes);
     let lightning_msg_handler = MessageHandler {
         chan_handler: channel_manager.clone(),
         route_handler: gossip_sync.clone(),
