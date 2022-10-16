@@ -3,9 +3,11 @@ mod cli;
 mod convert;
 mod disk;
 mod hex_utils;
+mod log_fmt;
 
 use crate::bitcoind_client::BitcoindClient;
 use crate::disk::FilesystemLogger;
+use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::blockdata::transaction::Transaction;
 use bitcoin::consensus::encode;
@@ -840,6 +842,11 @@ async fn start_ldk() {
 }
 
 #[tokio::main]
-pub async fn main() {
+pub async fn main() -> Result<()> {
+    if let Err(e) = crate::log_fmt::init("node_one") {
+        bail!("Failed to setup logger: {:?}", e);
+    };
+
     start_ldk().await;
+    Ok(())
 }
