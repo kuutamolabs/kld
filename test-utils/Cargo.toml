@@ -1,0 +1,9 @@
+[package]
+name = "test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lightning = { version = "0.0.111", features = [ "max_level_trace" ] }
+bitcoin = "0.29.0"
+rand = "0.8.5"
