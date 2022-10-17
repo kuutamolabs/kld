@@ -1,11 +1,14 @@
 pub mod bitcoind_client;
-mod cli;
 mod convert;
 mod disk;
 mod hex_utils;
+mod log_fmt;
+mod net_utils;
+mod settings;
 
 use crate::bitcoind_client::BitcoindClient;
 use crate::disk::FilesystemLogger;
+use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::blockdata::transaction::Transaction;
 use bitcoin::consensus::encode;
@@ -13,6 +16,7 @@ use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 use bitcoin::BlockHash;
 use bitcoin_bech32::WitnessProgram;
+use clap::Parser;
 use lightning::chain;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::chainmonitor;
@@ -40,7 +44,10 @@ use lightning_invoice::payment;
 use lightning_invoice::utils::DefaultRouter;
 use lightning_net_tokio::SocketDescriptor;
 use lightning_persister::FilesystemPersister;
+use log::info;
+use net_utils::do_connect_peer;
 use rand::{thread_rng, Rng};
+use settings::Settings;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;
@@ -55,7 +62,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 pub(crate) enum HTLCStatus {
-    Pending,
     Succeeded,
     Failed,
 }
@@ -388,48 +394,38 @@ async fn handle_ldk_events(
     }
 }
 
-async fn start_ldk() {
-    let args = match cli::parse_startup_args() {
-        Ok(user_args) => user_args,
-        Err(()) => return,
-    };
-
+async fn start_ldk(
+    settings: Settings,
+    shutdown_flag: Arc<AtomicBool>,
+) -> Result<(BackgroundProcessor, Arc<PeerManager>)> {
     // Initialize the LDK data directory if necessary.
-    let ldk_data_dir = format!("{}/.ldk", args.ldk_storage_dir_path);
+    let ldk_data_dir = format!("{}/data", settings.knd_storage_dir);
     fs::create_dir_all(ldk_data_dir.clone()).unwrap();
 
     // Initialize our bitcoind client.
-    let bitcoind_client = match BitcoindClient::new(
-        args.bitcoind_rpc_host.clone(),
-        args.bitcoind_rpc_port,
-        args.bitcoind_rpc_username.clone(),
-        args.bitcoind_rpc_password.clone(),
-        tokio::runtime::Handle::current(),
-    )
-    .await
-    {
-        Ok(client) => Arc::new(client),
-        Err(e) => {
-            println!("Failed to connect to bitcoind client: {}", e);
-            return;
-        }
-    };
+    let bitcoind_client =
+        match BitcoindClient::new(&settings, tokio::runtime::Handle::current()).await {
+            Ok(client) => Arc::new(client),
+            Err(e) => {
+                bail!("Failed to connect to bitcoind client: {}", e);
+            }
+        };
 
     // Check that the bitcoind we've connected to is running the network we expect
     let bitcoind_chain = bitcoind_client.get_blockchain_info().await.chain;
     if bitcoind_chain
-        != match args.network {
+        != match settings.bitcoin_network {
             bitcoin::Network::Bitcoin => "main",
             bitcoin::Network::Testnet => "test",
             bitcoin::Network::Regtest => "regtest",
             bitcoin::Network::Signet => "signet",
         }
     {
-        println!(
+        bail!(
             "Chain argument ({}) didn't match bitcoind chain ({})",
-            args.network, bitcoind_chain
+            settings.bitcoin_network,
+            bitcoind_chain
         );
-        return;
     }
 
     // ## Setup
@@ -478,11 +474,11 @@ async fn start_ldk() {
                 f.sync_all().expect("Failed to sync node keys seed to disk");
             }
             Err(e) => {
-                println!(
+                bail!(
                     "ERROR: Unable to create keys seed file {}: {}",
-                    keys_seed_path, e
+                    keys_seed_path,
+                    e
                 );
-                return;
             }
         }
         key
@@ -529,7 +525,7 @@ async fn start_ldk() {
             let getinfo_resp = bitcoind_client.get_blockchain_info().await;
 
             let chain_params = ChainParameters {
-                network: args.network,
+                network: settings.bitcoin_network,
                 best_block: BestBlock::new(
                     getinfo_resp.latest_blockhash,
                     getinfo_resp.latest_height as u32,
@@ -581,7 +577,7 @@ async fn start_ldk() {
         chain_tip = Some(
             init::synchronize_listeners(
                 &mut bitcoind_client.deref(),
-                args.network,
+                settings.bitcoin_network,
                 &mut cache,
                 chain_listeners,
             )
@@ -600,7 +596,7 @@ async fn start_ldk() {
     }
 
     // Step 11: Optional: Initialize the P2PGossipSync
-    let genesis = genesis_block(args.network).header.block_hash();
+    let genesis = genesis_block(settings.bitcoin_network).header.block_hash();
     let network_graph_path = format!("{}/network_graph", ldk_data_dir.clone());
     let network_graph = Arc::new(disk::read_network(
         Path::new(&network_graph_path),
@@ -640,9 +636,8 @@ async fn start_ldk() {
     // Step 13: Initialize networking
 
     let peer_manager_connection_handler = peer_manager.clone();
-    let listening_port = args.ldk_peer_listening_port;
-    let stop_listen_connect = Arc::new(AtomicBool::new(false));
-    let stop_listen = Arc::clone(&stop_listen_connect);
+    let listening_port = settings.knd_peer_port;
+    let stop_listen = shutdown_flag.clone();
     tokio::spawn(async move {
         let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", listening_port))
             .await
@@ -674,7 +669,7 @@ async fn start_ldk() {
     let channel_manager_listener = channel_manager.clone();
     let chain_monitor_listener = chain_monitor.clone();
     let bitcoind_block_source = bitcoind_client.clone();
-    let network = args.network;
+    let network = settings.bitcoin_network;
     tokio::spawn(async move {
         let mut derefed = bitcoind_block_source.deref();
         let chain_poller = poll::ChainPoller::new(&mut derefed, network);
@@ -697,9 +692,9 @@ async fn start_ldk() {
     // TODO: persist payment info to disk
     let inbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
     let outbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
-    let inbound_pmts_for_events = inbound_payments.clone();
-    let outbound_pmts_for_events = outbound_payments.clone();
-    let network = args.network;
+    let inbound_pmts_for_events = inbound_payments;
+    let outbound_pmts_for_events = outbound_payments;
+    let network = settings.bitcoin_network;
     let bitcoind_rpc = bitcoind_client.clone();
     let network_graph_events = network_graph.clone();
     let handle = tokio::runtime::Handle::current();
@@ -751,14 +746,14 @@ async fn start_ldk() {
         GossipSync::p2p(gossip_sync.clone()),
         peer_manager.clone(),
         logger.clone(),
-        Some(scorer.clone()),
+        Some(scorer),
     );
 
     // Regularly reconnect to channel peers.
     let connect_cm = Arc::clone(&channel_manager);
     let connect_pm = Arc::clone(&peer_manager);
     let peer_data_path = format!("{}/channel_peer_data", ldk_data_dir.clone());
-    let stop_connect = Arc::clone(&stop_listen_connect);
+    let stop_connect = shutdown_flag.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
         loop {
@@ -777,12 +772,9 @@ async fn start_ldk() {
                         }
                         for (pubkey, peer_addr) in info.iter() {
                             if *pubkey == node_id {
-                                let _ = cli::do_connect_peer(
-                                    *pubkey,
-                                    *peer_addr,
-                                    Arc::clone(&connect_pm),
-                                )
-                                .await;
+                                let _ =
+                                    do_connect_peer(*pubkey, *peer_addr, Arc::clone(&connect_pm))
+                                        .await;
                             }
                         }
                     }
@@ -799,47 +791,59 @@ async fn start_ldk() {
     // some public channels, and is only useful if we have public listen address(es) to announce.
     // In a production environment, this should occur only after the announcement of new channels
     // to avoid churn in the global network graph.
+    if settings.knd_node_name.len() > 32 {
+        bail!("Node Alias can not be longer than 32 bytes");
+    }
+    let mut alias = [0; 32];
+    alias[..settings.knd_node_name.len()].copy_from_slice(settings.knd_node_name.as_bytes());
     let peer_man = Arc::clone(&peer_manager);
-    let network = args.network;
-    if !args.ldk_announced_listen_addr.is_empty() {
+    if !settings.knd_listen_addr.is_empty() {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(60));
             loop {
                 interval.tick().await;
                 peer_man.broadcast_node_announcement(
                     [0; 3],
-                    args.ldk_announced_node_name,
-                    args.ldk_announced_listen_addr.clone(),
+                    alias,
+                    settings
+                        .knd_listen_addr
+                        .iter()
+                        .map(|s| net_utils::to_address(s))
+                        .collect(),
                 );
             }
         });
     }
 
-    // Start the CLI.
-    cli::poll_for_user_input(
-        Arc::clone(&invoice_payer),
-        Arc::clone(&peer_manager),
-        Arc::clone(&channel_manager),
-        Arc::clone(&keys_manager),
-        Arc::clone(&network_graph),
-        Arc::clone(&onion_messenger),
-        inbound_payments,
-        outbound_payments,
-        ldk_data_dir.clone(),
-        network,
-    )
-    .await;
-
-    // Disconnect our peers and stop accepting new connections. This ensures we don't continue
-    // updating our channel data after we've stopped the background processor.
-    stop_listen_connect.store(true, Ordering::Release);
-    peer_manager.disconnect_all_peers();
-
-    // Stop the background processor.
-    background_processor.stop().unwrap();
+    Ok((background_processor, peer_manager))
 }
 
-#[tokio::main]
-pub async fn main() {
-    start_ldk().await;
+pub fn main() -> Result<()> {
+    println!("Starting Lightning Kuutamo Node Distribution");
+
+    if let Err(e) = crate::log_fmt::init("node_one") {
+        bail!("Failed to setup logger: {:?}", e);
+    };
+
+    let settings = Settings::parse();
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_io()
+        .enable_time()
+        .build()?;
+
+    let shutdown_flag = Arc::new(AtomicBool::new(false));
+
+    let (background_processor, peer_manager) =
+        runtime.block_on(start_ldk(settings, shutdown_flag.clone()))?;
+
+    info!("Shutting down");
+    shutdown_flag.store(true, Ordering::Release);
+    // Disconnect our peers and stop accepting new connections. This ensures we don't continue
+    // updating our channel data after we've stopped the background processor.
+    peer_manager.disconnect_all_peers();
+    background_processor.stop().unwrap();
+    runtime.shutdown_timeout(Duration::from_secs(30));
+    info!("Stopped all threads. Process finished.");
+    Ok(())
 }

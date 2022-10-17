@@ -1,4 +1,5 @@
 use crate::convert::{BlockchainInfo, FeeResponse, FundedTx, NewAddress, RawTx, SignedTx};
+use crate::settings::Settings;
 use base64;
 use bitcoin::blockdata::block::Block;
 use bitcoin::blockdata::transaction::Transaction;
@@ -11,6 +12,8 @@ use lightning_block_sync::rpc::RpcClient;
 use lightning_block_sync::{AsyncBlockSourceResult, BlockHeaderData, BlockSource};
 use serde_json;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -18,10 +21,6 @@ use std::time::Duration;
 
 pub struct BitcoindClient {
     bitcoind_rpc_client: Arc<RpcClient>,
-    host: String,
-    port: u16,
-    rpc_user: String,
-    rpc_password: String,
     fees: Arc<HashMap<Target, AtomicU32>>,
     handle: tokio::runtime::Handle,
 }
@@ -59,17 +58,8 @@ impl BlockSource for &BitcoindClient {
 const MIN_FEERATE: u32 = 253;
 
 impl BitcoindClient {
-    pub async fn new(
-        host: String,
-        port: u16,
-        rpc_user: String,
-        rpc_password: String,
-        handle: tokio::runtime::Handle,
-    ) -> std::io::Result<Self> {
-        let http_endpoint = HttpEndpoint::for_host(host.clone()).with_port(port);
-        let rpc_credentials =
-            base64::encode(format!("{}:{}", rpc_user.clone(), rpc_password.clone()));
-        let bitcoind_rpc_client = RpcClient::new(&rpc_credentials, http_endpoint)?;
+    pub async fn new(settings: &Settings, handle: tokio::runtime::Handle) -> std::io::Result<Self> {
+        let bitcoind_rpc_client = BitcoindClient::get_new_rpc_client(settings)?;
         let _dummy = bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
             .await
@@ -83,10 +73,6 @@ impl BitcoindClient {
         fees.insert(Target::HighPriority, AtomicU32::new(5000));
         let client = Self {
             bitcoind_rpc_client: Arc::new(bitcoind_rpc_client),
-            host,
-            port,
-            rpc_user,
-            rpc_password,
             fees: Arc::new(fees),
             handle: handle.clone(),
         };
@@ -96,6 +82,16 @@ impl BitcoindClient {
             handle,
         );
         Ok(client)
+    }
+
+    fn get_new_rpc_client(settings: &Settings) -> std::io::Result<RpcClient> {
+        let mut file = File::open(settings.bitcoin_cookie_path.clone())?;
+        let mut cookie = String::new();
+        file.read_to_string(&mut cookie)?;
+        let credentials = base64::encode(cookie.as_bytes());
+        let http_endpoint = HttpEndpoint::for_host(settings.bitcoind_rpc_host.clone())
+            .with_port(settings.bitcoind_rpc_port);
+        RpcClient::new(&credentials, http_endpoint)
     }
 
     fn poll_for_fee_estimates(
@@ -166,16 +162,6 @@ impl BitcoindClient {
                 tokio::time::sleep(Duration::from_secs(60)).await;
             }
         });
-    }
-
-    pub fn get_new_rpc_client(&self) -> std::io::Result<RpcClient> {
-        let http_endpoint = HttpEndpoint::for_host(self.host.clone()).with_port(self.port);
-        let rpc_credentials = base64::encode(format!(
-            "{}:{}",
-            self.rpc_user.clone(),
-            self.rpc_password.clone()
-        ));
-        RpcClient::new(&rpc_credentials, http_endpoint)
     }
 
     pub async fn create_raw_transaction(&self, outputs: Vec<HashMap<String, f64>>) -> RawTx {

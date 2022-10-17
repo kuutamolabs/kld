@@ -2,6 +2,7 @@
 , lib
 , clippy
 , openssl
+, bitcoind
 , pkg-config
 , runCommand
 , enableLint ? false
@@ -14,13 +15,13 @@ rustPlatform.buildRustPackage ({
   src = runCommand "src" { } ''
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
-    cp -r ${../../src} $out/src
-    cp -r ${../../tests} $out/tests
+    cp -r ${../../lightning-knd} $out/lightning-knd
+    cp -r ${../../test-utils} $out/test-utils
   '';
   cargoLock.lockFile = ../../Cargo.lock;
 
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config ] ++ lib.optionals enableLint [ clippy ];
+  nativeBuildInputs = [ pkg-config bitcoind ] ++ lib.optionals enableLint [ clippy ];
 
   doCheck = enableTests;
 
@@ -36,8 +37,8 @@ rustPlatform.buildRustPackage ({
   src = runCommand "src" { } ''
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
-    cp -r ${../../src} $out/src
-    cp -r ${../../tests} $out/tests
+    cp -r ${../../lightning-knd} $out/lightning-knd
+    cp -r ${../../test-utils} $out/test-utils
   '';
   buildPhase = ''
     cargo clippy --all-targets --all-features --no-deps -- -D warnings

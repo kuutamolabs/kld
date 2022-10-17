@@ -31,9 +31,13 @@
             pkgs.rust-analyzer
             pkgs.cargo-watch
             pkgs.clippy
+
+            # lightning-knd dependencies
+            (pkgs.bitcoind.override { withWallet = false; withGui = false; })
           ]
           ++ self'.packages.lightning-knd.buildInputs;
         RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+        RUST_BACKTRACE = 1;
         nativeBuildInputs = self'.packages.lightning-knd.nativeBuildInputs;
         passthru = {
           inherit formatters;

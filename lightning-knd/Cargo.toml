@@ -1,0 +1,31 @@
+[package]
+name = "lightning-knd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lightning = { version = "0.0.111", features = ["max_level_trace"] }
+lightning-block-sync = { version = "0.0.111", features = [ "rpc-client" ] }
+lightning-invoice = { version = "0.19" }
+lightning-net-tokio = { version = "0.0.111" }
+lightning-persister = { version = "0.0.111" }
+lightning-background-processor = { version = "0.0.111" }
+lightning-rapid-gossip-sync = { version = "0.0.111" }
+
+base64 = "0.13.0"
+bitcoin = "0.29.0"
+bitcoin-bech32 = "0.12"
+bech32 = "0.8"
+hex = "0.4"
+
+anyhow = "1.0.65"
+futures = "0.3"
+chrono = "0.4"
+rand = "0.8.5"
+serde_json = { version = "1.0" }
+log = { version = "0.4", features = ["std"] }
+clap = { version = "4.0.11", features = ["derive", "env"] }
+tokio = { version = "1", features = [ "io-util", "macros", "rt", "rt-multi-thread", "sync", "net", "time" ] }
+
+[dev-dependencies]
+test-utils = { path = "../test-utils" }
