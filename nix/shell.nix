@@ -5,43 +5,36 @@
     , inputs'
     , pkgs
     , ...
-    }:
-    let
-      formatters = [
-        # our meta-formatter
-        pkgs.treefmt
-        # nix
-        pkgs.nixpkgs-fmt
-        # rust
-        pkgs.rustfmt
-        pkgs.clippy
-      ];
-    in
-    {
+    }: {
+      packages.treefmt = self.inputs.treefmt-nix.lib.mkWrapper pkgs {
+        # Used to find the project root
+        projectRootFile = "flake.lock";
+
+        programs.nixpkgs-fmt.enable = true;
+        programs.rustfmt.enable = true;
+      };
       devShells.default = pkgs.mkShell {
-        buildInputs =
-          formatters
-          ++ [
-            # tasks and automation
-            pkgs.just
-            pkgs.jq
-            pkgs.nix-update
+        buildInputs = [
+          # tasks and automation
+          pkgs.just
+          pkgs.jq
+          pkgs.nix-update
 
-            # rust dev
-            pkgs.rust-analyzer
-            pkgs.cargo-watch
-            pkgs.clippy
+          # check format
+          self'.packages.treefmt
 
-            # lightning-knd dependencies
-            (pkgs.bitcoind.override { withWallet = false; withGui = false; })
-          ]
-          ++ self'.packages.lightning-knd.buildInputs;
+          # rust dev
+          pkgs.rust-analyzer
+          pkgs.cargo-watch
+          pkgs.clippy
+
+          # lightning-knd dependencies
+          (pkgs.bitcoind.override { withWallet = false; withGui = false; })
+        ]
+        ++ self'.packages.lightning-knd.buildInputs;
         RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         RUST_BACKTRACE = 1;
         nativeBuildInputs = self'.packages.lightning-knd.nativeBuildInputs;
-        passthru = {
-          inherit formatters;
-        };
       };
     };
 }
