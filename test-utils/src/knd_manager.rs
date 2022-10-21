@@ -1,5 +1,7 @@
 use crate::bitcoin_manager::BitcoinManager;
 use std::env::set_var;
+use std::fs::File;
+use std::os::unix::prelude::{AsRawFd, FromRawFd};
 use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -7,15 +9,16 @@ use std::time::Duration;
 pub struct KndManager {
     process: Option<Child>,
     bin_path: String,
+    storage_dir: String,
 }
 
 impl KndManager {
     pub fn start(&mut self) {
         if self.process.is_none() {
-            let child = Command::new(&self.bin_path)
-                .stdout(Stdio::null())
-                .spawn()
-                .unwrap();
+            let log_file = File::create(format!("{}/test.log", self.storage_dir)).unwrap();
+            let fd = log_file.as_raw_fd();
+            let out = unsafe { Stdio::from_raw_fd(fd) };
+            let child = Command::new(&self.bin_path).stdout(out).spawn().unwrap();
             self.process = Some(child)
         }
     }
@@ -63,6 +66,7 @@ impl KndManager {
         KndManager {
             process: None,
             bin_path: bin_path.to_string(),
+            storage_dir,
         }
     }
 }

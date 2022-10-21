@@ -2,12 +2,11 @@ pub mod bitcoind_client;
 mod convert;
 mod disk;
 mod hex_utils;
-mod log_fmt;
+mod logger;
 mod net_utils;
 mod settings;
 
 use crate::bitcoind_client::BitcoindClient;
-use crate::disk::FilesystemLogger;
 use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::blockdata::transaction::Transaction;
@@ -45,6 +44,7 @@ use lightning_invoice::utils::DefaultRouter;
 use lightning_net_tokio::SocketDescriptor;
 use lightning_persister::FilesystemPersister;
 use log::info;
+use logger::LightningLogger;
 use net_utils::do_connect_peer;
 use rand::{thread_rng, Rng};
 use settings::Settings;
@@ -91,7 +91,7 @@ type ChainMonitor = chainmonitor::ChainMonitor<
     Arc<dyn Filter + Send + Sync>,
     Arc<BitcoindClient>,
     Arc<BitcoindClient>,
-    Arc<FilesystemLogger>,
+    Arc<LightningLogger>,
     Arc<FilesystemPersister>,
 >;
 
@@ -101,25 +101,25 @@ pub(crate) type PeerManager = SimpleArcPeerManager<
     BitcoindClient,
     BitcoindClient,
     dyn chain::Access + Send + Sync,
-    FilesystemLogger,
+    LightningLogger,
 >;
 
 pub(crate) type ChannelManager =
-    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, FilesystemLogger>;
+    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, LightningLogger>;
 
 pub(crate) type InvoicePayer<E> = payment::InvoicePayer<
     Arc<ChannelManager>,
     Router,
-    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<FilesystemLogger>>>>,
-    Arc<FilesystemLogger>,
+    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<LightningLogger>>>>,
+    Arc<LightningLogger>,
     E,
 >;
 
-type Router = DefaultRouter<Arc<NetworkGraph>, Arc<FilesystemLogger>>;
+type Router = DefaultRouter<Arc<NetworkGraph>, Arc<LightningLogger>>;
 
-pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<FilesystemLogger>>;
+pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<LightningLogger>>;
 
-type OnionMessenger = SimpleArcOnionMessenger<FilesystemLogger>;
+type OnionMessenger = SimpleArcOnionMessenger<LightningLogger>;
 
 #[allow(clippy::too_many_arguments)]
 async fn handle_ldk_events(
@@ -435,7 +435,7 @@ async fn start_ldk(
     let fee_estimator = bitcoind_client.clone();
 
     // Step 2: Initialize the Logger
-    let logger = Arc::new(FilesystemLogger::new(ldk_data_dir.clone()));
+    let logger = Arc::new(LightningLogger::default());
 
     // Step 3: Initialize the BroadcasterInterface
 
@@ -819,11 +819,9 @@ async fn start_ldk(
 }
 
 pub fn main() -> Result<()> {
-    println!("Starting Lightning Kuutamo Node Distribution");
+    crate::logger::init("node_one")?;
 
-    if let Err(e) = crate::log_fmt::init("node_one") {
-        bail!("Failed to setup logger: {:?}", e);
-    };
+    info!("Starting Lightning Kuutamo Node Distribution");
 
     let settings = Settings::parse();
 
