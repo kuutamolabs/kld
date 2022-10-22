@@ -4,9 +4,11 @@ mod disk;
 mod hex_utils;
 mod logger;
 mod net_utils;
+mod prometheus;
 mod settings;
 
 use crate::bitcoind_client::BitcoindClient;
+use crate::prometheus::spawn_prometheus_exporter;
 use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::blockdata::transaction::Transaction;
@@ -43,7 +45,7 @@ use lightning_invoice::payment;
 use lightning_invoice::utils::DefaultRouter;
 use lightning_net_tokio::SocketDescriptor;
 use lightning_persister::FilesystemPersister;
-use log::info;
+use log::{info, warn};
 use logger::LightningLogger;
 use net_utils::do_connect_peer;
 use rand::{thread_rng, Rng};
@@ -60,6 +62,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
+use tokio::signal::unix::SignalKind;
 
 pub(crate) enum HTLCStatus {
     Succeeded,
@@ -395,7 +398,7 @@ async fn handle_ldk_events(
 }
 
 async fn start_ldk(
-    settings: Settings,
+    settings: &Settings,
     shutdown_flag: Arc<AtomicBool>,
 ) -> Result<(BackgroundProcessor, Arc<PeerManager>)> {
     // Initialize the LDK data directory if necessary.
@@ -404,7 +407,7 @@ async fn start_ldk(
 
     // Initialize our bitcoind client.
     let bitcoind_client =
-        match BitcoindClient::new(&settings, tokio::runtime::Handle::current()).await {
+        match BitcoindClient::new(settings, tokio::runtime::Handle::current()).await {
             Ok(client) => Arc::new(client),
             Err(e) => {
                 bail!("Failed to connect to bitcoind client: {}", e);
@@ -797,7 +800,8 @@ async fn start_ldk(
     let mut alias = [0; 32];
     alias[..settings.knd_node_name.len()].copy_from_slice(settings.knd_node_name.as_bytes());
     let peer_man = Arc::clone(&peer_manager);
-    if !settings.knd_listen_addr.is_empty() {
+    if !settings.knd_listen_addresses.is_empty() {
+        let addresses = settings.knd_listen_addresses.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(60));
             loop {
@@ -805,11 +809,7 @@ async fn start_ldk(
                 peer_man.broadcast_node_announcement(
                     [0; 3],
                     alias,
-                    settings
-                        .knd_listen_addr
-                        .iter()
-                        .map(|s| net_utils::to_address(s))
-                        .collect(),
+                    addresses.iter().map(|s| net_utils::to_address(s)).collect(),
                 );
             }
         });
@@ -833,7 +833,24 @@ pub fn main() -> Result<()> {
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
     let (background_processor, peer_manager) =
-        runtime.block_on(start_ldk(settings, shutdown_flag.clone()))?;
+        runtime.block_on(start_ldk(&settings, shutdown_flag.clone()))?;
+
+    runtime.block_on(async {
+        let mut quit_signal = tokio::signal::unix::signal(SignalKind::quit()).unwrap();
+        tokio::select!(
+            _ = quit_signal.recv() => {
+                info!("Received quit signal.");
+                Ok(())
+            },
+            res = spawn_prometheus_exporter(&settings.exporter_address) => {
+                if let Err(e) = res {
+                    warn!("Prometheus exporter failed: {}", e);
+                    return Err(e);
+                }
+                res
+            }
+        )
+    })?;
 
     info!("Shutting down");
     shutdown_flag.store(true, Ordering::Release);

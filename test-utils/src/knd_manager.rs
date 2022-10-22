@@ -1,4 +1,5 @@
 use crate::bitcoin_manager::BitcoinManager;
+use crate::poll;
 use std::env::set_var;
 use std::fs::File;
 use std::os::unix::prelude::{AsRawFd, FromRawFd};
@@ -10,16 +11,23 @@ pub struct KndManager {
     process: Option<Child>,
     bin_path: String,
     storage_dir: String,
+    exporter_address: String,
 }
 
 impl KndManager {
-    pub fn start(&mut self) {
+    pub async fn start(&mut self) {
         if self.process.is_none() {
             let log_file = File::create(format!("{}/test.log", self.storage_dir)).unwrap();
             let fd = log_file.as_raw_fd();
             let out = unsafe { Stdio::from_raw_fd(fd) };
             let child = Command::new(&self.bin_path).stdout(out).spawn().unwrap();
-            self.process = Some(child)
+            self.process = Some(child);
+
+            // Wait for full startup before returning.
+            poll!(
+                5,
+                self.call_exporter("health").await.ok() == Some("OK".to_string())
+            );
         }
     }
 
@@ -29,6 +37,17 @@ impl KndManager {
             process.wait().unwrap();
             self.process = None
         }
+    }
+
+    pub fn pid(&self) -> Option<u32> {
+        self.process.as_ref().map(|p| p.id())
+    }
+
+    pub async fn call_exporter(&self, method: &str) -> Result<String, reqwest::Error> {
+        reqwest::get(format!("http://{}/{}", self.exporter_address, method))
+            .await?
+            .text()
+            .await
     }
 
     pub fn test_knd(
@@ -42,9 +61,10 @@ impl KndManager {
             .position(|f| f.unwrap().file_name().to_str().unwrap() == format!("{}.rs", test_name))
             .unwrap() as u16;
 
-        let port = 20000u16 + (test_number * 1000u16) + node_index * 10;
+        let peer_port = 20000u16 + (test_number * 1000u16) + node_index * 10;
         let current_dir = std::env::current_dir().unwrap().display().to_string();
         let storage_dir = format!("{}/output/{}/knd_{}", current_dir, test_name, node_index);
+        let exporter_address = format!("127.0.0.1:{}", peer_port + 1);
 
         std::fs::remove_dir_all(&storage_dir).unwrap_or_default();
         std::fs::create_dir_all(&storage_dir).unwrap();
@@ -58,7 +78,8 @@ impl KndManager {
         }
 
         set_var("KND_STORAGE_DIR", &storage_dir);
-        set_var("KND_PEER_PORT", &port.to_string());
+        set_var("KND_PEER_PORT", &peer_port.to_string());
+        set_var("KND_EXPORTER_ADDRESS", &exporter_address);
         set_var("BITCOIN_NETWORK", &bitcoin.network);
         set_var("BITCOIN_COOKIE_PATH", &bitcoin.cookie_path());
         set_var("BITCOIN_RPC_HOST", "127.0.0.1");
@@ -67,6 +88,7 @@ impl KndManager {
             process: None,
             bin_path: bin_path.to_string(),
             storage_dir,
+            exporter_address,
         }
     }
 }
