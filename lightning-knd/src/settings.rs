@@ -16,9 +16,12 @@ pub struct Settings {
     #[clap(long, default_value = ".", env = "KND_STORAGE_DIR")]
     pub knd_storage_dir: String,
     #[clap(long, default_value = "9234", env = "KND_PEER_PORT")]
-    pub knd_peer_port: String,
+    pub knd_peer_port: u16,
     #[clap(long, default_value = "testnode", env = "KND_NODE_NAME")]
     pub knd_node_name: String,
-    #[clap(long, default_value = "127.0.0.1:9234", env = "KND_LISTEN_ADDR")]
-    pub knd_listen_addr: Vec<String>,
+    #[clap(long, default_value = "127.0.0.1:9234", env = "KND_LISTEN_ADDRESSES")]
+    pub knd_listen_addresses: Vec<String>,
+
+    #[clap(long, default_value = "127.0.0.1:2233", env = "KND_EXPORTER_ADDRESS")]
+    pub exporter_address: String,
 }
