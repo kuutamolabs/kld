@@ -1,6 +1,7 @@
 pub mod bitcoind_client;
 mod convert;
 mod disk;
+mod event_handler;
 mod hex_utils;
 mod logger;
 mod net_utils;
@@ -8,18 +9,13 @@ mod prometheus;
 mod settings;
 
 use crate::bitcoind_client::BitcoindClient;
+use crate::event_handler::EventHandler;
 use crate::prometheus::spawn_prometheus_exporter;
 use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
-use bitcoin::blockdata::transaction::Transaction;
-use bitcoin::consensus::encode;
-use bitcoin::network::constants::Network;
-use bitcoin::secp256k1::Secp256k1;
 use bitcoin::BlockHash;
-use bitcoin_bech32::WitnessProgram;
 use clap::Parser;
 use lightning::chain;
-use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::chainmonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
 use lightning::chain::{BestBlock, Filter, Watch};
@@ -31,10 +27,9 @@ use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, Simple
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::onion_message::SimpleArcOnionMessenger;
 use lightning::routing::gossip;
-use lightning::routing::gossip::{NodeId, P2PGossipSync};
+use lightning::routing::gossip::P2PGossipSync;
 use lightning::routing::scoring::ProbabilisticScorer;
 use lightning::util::config::UserConfig;
-use lightning::util::events::{Event, PaymentPurpose};
 use lightning::util::ser::ReadableArgs;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::init;
@@ -50,12 +45,10 @@ use logger::LightningLogger;
 use net_utils::do_connect_peer;
 use rand::{thread_rng, Rng};
 use settings::Settings;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::fs::File;
-use std::io;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::Path;
@@ -64,337 +57,49 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tokio::signal::unix::SignalKind;
 
-pub(crate) enum HTLCStatus {
-    Succeeded,
-    Failed,
-}
+pub fn main() -> Result<()> {
+    crate::logger::init("node_one")?;
 
-pub(crate) struct MillisatAmount(Option<u64>);
+    info!("Starting Lightning Kuutamo Node Distribution");
 
-impl fmt::Display for MillisatAmount {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
-            Some(amt) => write!(f, "{}", amt),
-            None => write!(f, "unknown"),
-        }
-    }
-}
+    let settings = Settings::parse();
 
-pub(crate) struct PaymentInfo {
-    preimage: Option<PaymentPreimage>,
-    secret: Option<PaymentSecret>,
-    status: HTLCStatus,
-    amt_msat: MillisatAmount,
-}
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_io()
+        .enable_time()
+        .build()?;
 
-pub(crate) type PaymentInfoStorage = Arc<Mutex<HashMap<PaymentHash, PaymentInfo>>>;
+    let shutdown_flag = Arc::new(AtomicBool::new(false));
 
-type ChainMonitor = chainmonitor::ChainMonitor<
-    InMemorySigner,
-    Arc<dyn Filter + Send + Sync>,
-    Arc<BitcoindClient>,
-    Arc<BitcoindClient>,
-    Arc<LightningLogger>,
-    Arc<FilesystemPersister>,
->;
+    let (background_processor, peer_manager) =
+        runtime.block_on(start_ldk(&settings, shutdown_flag.clone()))?;
 
-pub(crate) type PeerManager = SimpleArcPeerManager<
-    SocketDescriptor,
-    ChainMonitor,
-    BitcoindClient,
-    BitcoindClient,
-    dyn chain::Access + Send + Sync,
-    LightningLogger,
->;
-
-pub(crate) type ChannelManager =
-    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, LightningLogger>;
-
-pub(crate) type InvoicePayer<E> = payment::InvoicePayer<
-    Arc<ChannelManager>,
-    Router,
-    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<LightningLogger>>>>,
-    Arc<LightningLogger>,
-    E,
->;
-
-type Router = DefaultRouter<Arc<NetworkGraph>, Arc<LightningLogger>>;
-
-pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<LightningLogger>>;
-
-type OnionMessenger = SimpleArcOnionMessenger<LightningLogger>;
-
-#[allow(clippy::too_many_arguments)]
-async fn handle_ldk_events(
-    channel_manager: &Arc<ChannelManager>,
-    bitcoind_client: &BitcoindClient,
-    network_graph: &NetworkGraph,
-    keys_manager: &KeysManager,
-    inbound_payments: &PaymentInfoStorage,
-    outbound_payments: &PaymentInfoStorage,
-    network: Network,
-    event: &Event,
-) {
-    match event {
-        Event::FundingGenerationReady {
-            temporary_channel_id,
-            counterparty_node_id,
-            channel_value_satoshis,
-            output_script,
-            ..
-        } => {
-            // Construct the raw transaction with one output, that is paid the amount of the
-            // channel.
-            let addr = WitnessProgram::from_scriptpubkey(
-                &output_script[..],
-                match network {
-                    Network::Bitcoin => bitcoin_bech32::constants::Network::Bitcoin,
-                    Network::Testnet => bitcoin_bech32::constants::Network::Testnet,
-                    Network::Regtest => bitcoin_bech32::constants::Network::Regtest,
-                    Network::Signet => bitcoin_bech32::constants::Network::Signet,
-                },
-            )
-            .expect("Lightning funding tx should always be to a SegWit output")
-            .to_address();
-            let mut outputs = vec![HashMap::with_capacity(1)];
-            outputs[0].insert(addr, *channel_value_satoshis as f64 / 100_000_000.0);
-            let raw_tx = bitcoind_client.create_raw_transaction(outputs).await;
-
-            // Have your wallet put the inputs into the transaction such that the output is
-            // satisfied.
-            let funded_tx = bitcoind_client.fund_raw_transaction(raw_tx).await;
-
-            // Sign the final funding transaction and broadcast it.
-            let signed_tx = bitcoind_client
-                .sign_raw_transaction_with_wallet(funded_tx.hex)
-                .await;
-            assert!(signed_tx.complete);
-            let final_tx: Transaction =
-                encode::deserialize(&hex_utils::to_vec(&signed_tx.hex).unwrap()).unwrap();
-            // Give the funding transaction back to LDK for opening the channel.
-            if channel_manager
-                .funding_transaction_generated(temporary_channel_id, counterparty_node_id, final_tx)
-                .is_err()
-            {
-                println!(
-					"\nERROR: Channel went away before we could fund it. The peer disconnected or refused the channel.");
-                print!("> ");
-                io::stdout().flush().unwrap();
-            }
-        }
-        Event::PaymentReceived {
-            payment_hash,
-            purpose,
-            amount_msat,
-        } => {
-            println!(
-                "\nEVENT: received payment from payment hash {} of {} millisatoshis",
-                hex_utils::hex_str(&payment_hash.0),
-                amount_msat,
-            );
-            print!("> ");
-            io::stdout().flush().unwrap();
-            let payment_preimage = match purpose {
-                PaymentPurpose::InvoicePayment {
-                    payment_preimage, ..
-                } => *payment_preimage,
-                PaymentPurpose::SpontaneousPayment(preimage) => Some(*preimage),
-            };
-            channel_manager.claim_funds(payment_preimage.unwrap());
-        }
-        Event::PaymentClaimed {
-            payment_hash,
-            purpose,
-            amount_msat,
-        } => {
-            println!(
-                "\nEVENT: claimed payment from payment hash {} of {} millisatoshis",
-                hex_utils::hex_str(&payment_hash.0),
-                amount_msat,
-            );
-            print!("> ");
-            io::stdout().flush().unwrap();
-            let (payment_preimage, payment_secret) = match purpose {
-                PaymentPurpose::InvoicePayment {
-                    payment_preimage,
-                    payment_secret,
-                    ..
-                } => (*payment_preimage, Some(*payment_secret)),
-                PaymentPurpose::SpontaneousPayment(preimage) => (Some(*preimage), None),
-            };
-            let mut payments = inbound_payments.lock().unwrap();
-            match payments.entry(*payment_hash) {
-                Entry::Occupied(mut e) => {
-                    let payment = e.get_mut();
-                    payment.status = HTLCStatus::Succeeded;
-                    payment.preimage = payment_preimage;
-                    payment.secret = payment_secret;
+    runtime.block_on(async {
+        let mut quit_signal = tokio::signal::unix::signal(SignalKind::quit()).unwrap();
+        tokio::select!(
+            _ = quit_signal.recv() => {
+                info!("Received quit signal.");
+                Ok(())
+            },
+            res = spawn_prometheus_exporter(&settings.exporter_address) => {
+                if let Err(e) = res {
+                    warn!("Prometheus exporter failed: {}", e);
+                    return Err(e);
                 }
-                Entry::Vacant(e) => {
-                    e.insert(PaymentInfo {
-                        preimage: payment_preimage,
-                        secret: payment_secret,
-                        status: HTLCStatus::Succeeded,
-                        amt_msat: MillisatAmount(Some(*amount_msat)),
-                    });
-                }
+                res
             }
-        }
-        Event::PaymentSent {
-            payment_preimage,
-            payment_hash,
-            fee_paid_msat,
-            ..
-        } => {
-            let mut payments = outbound_payments.lock().unwrap();
-            for (hash, payment) in payments.iter_mut() {
-                if *hash == *payment_hash {
-                    payment.preimage = Some(*payment_preimage);
-                    payment.status = HTLCStatus::Succeeded;
-                    println!(
-                        "\nEVENT: successfully sent payment of {} millisatoshis{} from \
-								 payment hash {:?} with preimage {:?}",
-                        payment.amt_msat,
-                        if let Some(fee) = fee_paid_msat {
-                            format!(" (fee {} msat)", fee)
-                        } else {
-                            "".to_string()
-                        },
-                        hex_utils::hex_str(&payment_hash.0),
-                        hex_utils::hex_str(&payment_preimage.0)
-                    );
-                    print!("> ");
-                    io::stdout().flush().unwrap();
-                }
-            }
-        }
-        Event::OpenChannelRequest { .. } => {
-            // Unreachable, we don't set manually_accept_inbound_channels
-        }
-        Event::PaymentPathSuccessful { .. } => {}
-        Event::PaymentPathFailed { .. } => {}
-        Event::ProbeSuccessful { .. } => {}
-        Event::ProbeFailed { .. } => {}
-        Event::PaymentFailed { payment_hash, .. } => {
-            print!(
-				"\nEVENT: Failed to send payment to payment hash {:?}: exhausted payment retry attempts",
-				hex_utils::hex_str(&payment_hash.0)
-			);
-            print!("> ");
-            io::stdout().flush().unwrap();
+        )
+    })?;
 
-            let mut payments = outbound_payments.lock().unwrap();
-            if payments.contains_key(payment_hash) {
-                let payment = payments.get_mut(payment_hash).unwrap();
-                payment.status = HTLCStatus::Failed;
-            }
-        }
-        Event::PaymentForwarded {
-            prev_channel_id,
-            next_channel_id,
-            fee_earned_msat,
-            claim_from_onchain_tx,
-        } => {
-            let read_only_network_graph = network_graph.read_only();
-            let nodes = read_only_network_graph.nodes();
-            let channels = channel_manager.list_channels();
-
-            let node_str = |channel_id: &Option<[u8; 32]>| match channel_id {
-                None => String::new(),
-                Some(channel_id) => match channels.iter().find(|c| c.channel_id == *channel_id) {
-                    None => String::new(),
-                    Some(channel) => {
-                        match nodes.get(&NodeId::from_pubkey(&channel.counterparty.node_id)) {
-                            None => "private node".to_string(),
-                            Some(node) => match &node.announcement_info {
-                                None => "unnamed node".to_string(),
-                                Some(announcement) => {
-                                    format!("node {}", announcement.alias)
-                                }
-                            },
-                        }
-                    }
-                },
-            };
-            let channel_str = |channel_id: &Option<[u8; 32]>| {
-                channel_id
-                    .map(|channel_id| format!(" with channel {}", hex_utils::hex_str(&channel_id)))
-                    .unwrap_or_default()
-            };
-            let from_prev_str = format!(
-                " from {}{}",
-                node_str(prev_channel_id),
-                channel_str(prev_channel_id)
-            );
-            let to_next_str = format!(
-                " to {}{}",
-                node_str(next_channel_id),
-                channel_str(next_channel_id)
-            );
-
-            let from_onchain_str = if *claim_from_onchain_tx {
-                "from onchain downstream claim"
-            } else {
-                "from HTLC fulfill message"
-            };
-            if let Some(fee_earned) = fee_earned_msat {
-                println!(
-                    "\nEVENT: Forwarded payment{}{}, earning {} msat {}",
-                    from_prev_str, to_next_str, fee_earned, from_onchain_str
-                );
-            } else {
-                println!(
-                    "\nEVENT: Forwarded payment{}{}, claiming onchain {}",
-                    from_prev_str, to_next_str, from_onchain_str
-                );
-            }
-            print!("> ");
-            io::stdout().flush().unwrap();
-        }
-        Event::HTLCHandlingFailed { .. } => {}
-        Event::PendingHTLCsForwardable { time_forwardable } => {
-            let forwarding_channel_manager = channel_manager.clone();
-            let min = time_forwardable.as_millis() as u64;
-            tokio::spawn(async move {
-                let millis_to_sleep = thread_rng().gen_range(min..min * 5) as u64;
-                tokio::time::sleep(Duration::from_millis(millis_to_sleep)).await;
-                forwarding_channel_manager.process_pending_htlc_forwards();
-            });
-        }
-        Event::SpendableOutputs { outputs } => {
-            let destination_address = bitcoind_client.get_new_address().await;
-            let output_descriptors = &outputs.iter().collect::<Vec<_>>();
-            let tx_feerate =
-                bitcoind_client.get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
-            let spending_tx = keys_manager
-                .spend_spendable_outputs(
-                    output_descriptors,
-                    Vec::new(),
-                    destination_address.script_pubkey(),
-                    tx_feerate,
-                    &Secp256k1::new(),
-                )
-                .unwrap();
-            bitcoind_client.broadcast_transaction(&spending_tx);
-        }
-        Event::ChannelClosed {
-            channel_id,
-            reason,
-            user_channel_id: _,
-        } => {
-            println!(
-                "\nEVENT: Channel {} closed due to: {:?}",
-                hex_utils::hex_str(channel_id),
-                reason
-            );
-            print!("> ");
-            io::stdout().flush().unwrap();
-        }
-        Event::DiscardFunding { .. } => {
-            // A "real" node should probably "lock" the UTXOs spent in funding transactions until
-            // the funding transaction either confirms, or this event is generated.
-        }
-    }
+    info!("Shutting down");
+    shutdown_flag.store(true, Ordering::Release);
+    // Disconnect our peers and stop accepting new connections. This ensures we don't continue
+    // updating our channel data after we've stopped the background processor.
+    peer_manager.disconnect_all_peers();
+    background_processor.stop().unwrap();
+    runtime.shutdown_timeout(Duration::from_secs(30));
+    info!("Stopped all threads. Process finished.");
+    Ok(())
 }
 
 async fn start_ldk(
@@ -690,29 +395,18 @@ async fn start_ldk(
     });
 
     // Step 15: Handle LDK Events
-    let channel_manager_event_listener = channel_manager.clone();
-    let keys_manager_listener = keys_manager.clone();
     // TODO: persist payment info to disk
     let inbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
     let outbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
-    let inbound_pmts_for_events = inbound_payments;
-    let outbound_pmts_for_events = outbound_payments;
-    let network = settings.bitcoin_network;
-    let bitcoind_rpc = bitcoind_client.clone();
-    let network_graph_events = network_graph.clone();
-    let handle = tokio::runtime::Handle::current();
-    let event_handler = move |event: &Event| {
-        handle.block_on(handle_ldk_events(
-            &channel_manager_event_listener,
-            &bitcoind_rpc,
-            &network_graph_events,
-            &keys_manager_listener,
-            &inbound_pmts_for_events,
-            &outbound_pmts_for_events,
-            network,
-            event,
-        ));
-    };
+    let event_handler = EventHandler::new(
+        channel_manager.clone(),
+        bitcoind_client,
+        keys_manager.clone(),
+        inbound_payments,
+        outbound_payments,
+        settings.bitcoin_network,
+        network_graph.clone(),
+    );
 
     // Step 16: Initialize routing ProbabilisticScorer
     let scorer_path = format!("{}/scorer", ldk_data_dir.clone());
@@ -818,47 +512,62 @@ async fn start_ldk(
     Ok((background_processor, peer_manager))
 }
 
-pub fn main() -> Result<()> {
-    crate::logger::init("node_one")?;
-
-    info!("Starting Lightning Kuutamo Node Distribution");
-
-    let settings = Settings::parse();
-
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_io()
-        .enable_time()
-        .build()?;
-
-    let shutdown_flag = Arc::new(AtomicBool::new(false));
-
-    let (background_processor, peer_manager) =
-        runtime.block_on(start_ldk(&settings, shutdown_flag.clone()))?;
-
-    runtime.block_on(async {
-        let mut quit_signal = tokio::signal::unix::signal(SignalKind::quit()).unwrap();
-        tokio::select!(
-            _ = quit_signal.recv() => {
-                info!("Received quit signal.");
-                Ok(())
-            },
-            res = spawn_prometheus_exporter(&settings.exporter_address) => {
-                if let Err(e) = res {
-                    warn!("Prometheus exporter failed: {}", e);
-                    return Err(e);
-                }
-                res
-            }
-        )
-    })?;
-
-    info!("Shutting down");
-    shutdown_flag.store(true, Ordering::Release);
-    // Disconnect our peers and stop accepting new connections. This ensures we don't continue
-    // updating our channel data after we've stopped the background processor.
-    peer_manager.disconnect_all_peers();
-    background_processor.stop().unwrap();
-    runtime.shutdown_timeout(Duration::from_secs(30));
-    info!("Stopped all threads. Process finished.");
-    Ok(())
+pub(crate) enum HTLCStatus {
+    Succeeded,
+    Failed,
 }
+
+pub(crate) struct MillisatAmount(Option<u64>);
+
+impl fmt::Display for MillisatAmount {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.0 {
+            Some(amt) => write!(f, "{}", amt),
+            None => write!(f, "unknown"),
+        }
+    }
+}
+
+pub(crate) struct PaymentInfo {
+    preimage: Option<PaymentPreimage>,
+    secret: Option<PaymentSecret>,
+    status: HTLCStatus,
+    amt_msat: MillisatAmount,
+}
+
+pub(crate) type PaymentInfoStorage = Arc<Mutex<HashMap<PaymentHash, PaymentInfo>>>;
+
+type ChainMonitor = chainmonitor::ChainMonitor<
+    InMemorySigner,
+    Arc<dyn Filter + Send + Sync>,
+    Arc<BitcoindClient>,
+    Arc<BitcoindClient>,
+    Arc<LightningLogger>,
+    Arc<FilesystemPersister>,
+>;
+
+pub(crate) type PeerManager = SimpleArcPeerManager<
+    SocketDescriptor,
+    ChainMonitor,
+    BitcoindClient,
+    BitcoindClient,
+    dyn chain::Access + Send + Sync,
+    LightningLogger,
+>;
+
+pub(crate) type ChannelManager =
+    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, LightningLogger>;
+
+pub(crate) type InvoicePayer<E> = payment::InvoicePayer<
+    Arc<ChannelManager>,
+    Router,
+    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<LightningLogger>>>>,
+    Arc<LightningLogger>,
+    E,
+>;
+
+type Router = DefaultRouter<Arc<NetworkGraph>, Arc<LightningLogger>>;
+
+pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<LightningLogger>>;
+
+type OnionMessenger = SimpleArcOnionMessenger<LightningLogger>;
