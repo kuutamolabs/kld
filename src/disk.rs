@@ -1,5 +1,6 @@
+use crate::controller::NetworkGraph;
+use crate::hex_utils;
 use crate::logger::LightningLogger;
-use crate::{hex_utils, NetworkGraph};
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::BlockHash;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
