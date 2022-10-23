@@ -15,7 +15,8 @@ rustPlatform.buildRustPackage ({
   src = runCommand "src" { } ''
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
-    cp -r ${../../lightning-knd} $out/lightning-knd
+    cp -r ${../../src} $out/src
+    cp -r ${../../tests} $out/tests
     cp -r ${../../test-utils} $out/test-utils
   '';
   cargoLock.lockFile = ../../Cargo.lock;
@@ -37,7 +38,8 @@ rustPlatform.buildRustPackage ({
   src = runCommand "src" { } ''
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
-    cp -r ${../../lightning-knd} $out/lightning-knd
+    cp -r ${../../src} $out/src
+    cp -r ${../../tests} $out/tests
     cp -r ${../../test-utils} $out/test-utils
   '';
   buildPhase = ''
