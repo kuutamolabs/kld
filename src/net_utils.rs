@@ -8,7 +8,7 @@ use std::{
 use bitcoin::secp256k1::PublicKey;
 use lightning::ln::msgs::NetAddress;
 
-use crate::PeerManager;
+use crate::controller::PeerManager;
 
 pub fn to_address(address: &str) -> NetAddress {
     let (address, port) = address.split_once(':').unwrap();

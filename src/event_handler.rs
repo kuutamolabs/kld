@@ -16,8 +16,10 @@ use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
-use crate::{bitcoind_client::BitcoindClient, ChannelManager, PaymentInfoStorage};
-use crate::{hex_utils, HTLCStatus, MillisatAmount, NetworkGraph, PaymentInfo};
+use crate::bitcoind_client::BitcoindClient;
+use crate::controller::{ChannelManager, NetworkGraph};
+use crate::hex_utils;
+use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
 
 pub(crate) struct EventHandler {
     channel_manager: Arc<ChannelManager>,
