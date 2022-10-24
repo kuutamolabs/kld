@@ -35,7 +35,9 @@ pub fn main() -> Result<()> {
 
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
-    let controller = runtime.block_on(Controller::start_ldk(&settings, shutdown_flag.clone()))?;
+    let (controller, background_processor) =
+        runtime.block_on(Controller::start_ldk(&settings, shutdown_flag.clone()))?;
+    let controller = Arc::new(controller);
 
     runtime.block_on(async {
         let mut quit_signal = tokio::signal::unix::signal(SignalKind::quit()).unwrap();
@@ -44,7 +46,7 @@ pub fn main() -> Result<()> {
                 info!("Received quit signal.");
                 Ok(())
             },
-            res = spawn_prometheus_exporter(&settings.exporter_address) => {
+            res = spawn_prometheus_exporter(&settings, controller.clone()) => {
                 if let Err(e) = res {
                     warn!("Prometheus exporter failed: {}", e);
                     return Err(e);
@@ -56,8 +58,7 @@ pub fn main() -> Result<()> {
 
     info!("Shutting down");
     shutdown_flag.store(true, Ordering::Release);
-    // Disconnect our peers and stop accepting new connections. This ensures we don't continue
-    // updating our channel data after we've stopped the background processor.
+    background_processor.stop().unwrap();
     controller.stop();
     runtime.shutdown_timeout(Duration::from_secs(30));
     info!("Stopped all threads. Process finished.");

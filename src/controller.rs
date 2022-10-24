@@ -44,20 +44,33 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 pub(crate) struct Controller {
-    background_processor: BackgroundProcessor,
     peer_manager: Arc<PeerManager>,
+    network_graph: Arc<NetworkGraph>,
 }
 
 impl Controller {
-    pub fn stop(self) {
+    pub fn num_nodes(&self) -> usize {
+        self.network_graph.read_only().nodes().len()
+    }
+
+    pub fn num_channels(&self) -> usize {
+        self.network_graph.read_only().channels().len()
+    }
+
+    pub fn num_peers(&self) -> usize {
+        self.peer_manager.get_peer_node_ids().len()
+    }
+
+    pub fn stop(&self) {
+        // Disconnect our peers and stop accepting new connections. This ensures we don't continue
+        // updating our channel data after we've stopped the background processor.
         self.peer_manager.disconnect_all_peers();
-        self.background_processor.stop().unwrap();
     }
 
     pub async fn start_ldk(
         settings: &Settings,
         shutdown_flag: Arc<AtomicBool>,
-    ) -> Result<Controller> {
+    ) -> Result<(Controller, BackgroundProcessor)> {
         // Initialize the LDK data directory if necessary.
         let ldk_data_dir = format!("{}/data", settings.knd_storage_dir);
         fs::create_dir_all(ldk_data_dir.clone()).unwrap();
@@ -466,10 +479,13 @@ impl Controller {
             });
         }
 
-        Ok(Controller {
+        Ok((
+            Controller {
+                peer_manager,
+                network_graph,
+            },
             background_processor,
-            peer_manager,
-        })
+        ))
     }
 }
 

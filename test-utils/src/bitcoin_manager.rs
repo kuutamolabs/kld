@@ -1,8 +1,10 @@
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::thread::sleep;
 use std::time::Duration;
+
+use crate::poll;
 
 const NETWORK: &str = "regtest";
 
@@ -16,7 +18,7 @@ pub struct BitcoinManager {
 }
 
 impl BitcoinManager {
-    pub fn start(&mut self) {
+    pub async fn start(&mut self) {
         if self.process.is_none() {
             self.clean();
             let child = Command::new("bitcoind")
@@ -30,7 +32,9 @@ impl BitcoinManager {
                 .stdout(Stdio::null())
                 .spawn()
                 .unwrap();
-            sleep(Duration::from_secs(1));
+
+            // Cookie file is created once the api is up.
+            poll!(5, Path::new(&self.cookie_path()).exists());
             self.process = Some(child)
         }
     }
