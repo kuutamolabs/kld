@@ -3,7 +3,7 @@ use test_utils::{bitcoin, knd};
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() {
     let mut bitcoin = bitcoin!();
-    bitcoin.start();
+    bitcoin.start().await;
     let mut knd = knd!(&bitcoin);
     knd.start().await;
 
