@@ -14,7 +14,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN_FOR_CI }}
       - name: Wait on tests
-        uses: lewagon/wait-on-check-action@v1.1.2
+        uses: lewagon/wait-on-check-action@v1.2.0
         with:
           ref: ${{ github.sha }}
           repo-token: ${{ secrets.GH_TOKEN_FOR_CI }}
