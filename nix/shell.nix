@@ -30,6 +30,8 @@
 
           # lightning-knd dependencies
           (pkgs.bitcoind.override { withWallet = false; withGui = false; })
+          pkgs.minio
+          pkgs.minio-certgen
         ]
         ++ self'.packages.lightning-knd.buildInputs;
         RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";

@@ -24,10 +24,7 @@ impl KndManager {
             self.process = Some(child);
 
             // Wait for full startup before returning.
-            poll!(
-                5,
-                self.call_exporter("health").await.ok() == Some("OK".to_string())
-            );
+            poll!(5, self.call_exporter("health").await.is_ok());
         }
     }
 
@@ -61,7 +58,7 @@ impl KndManager {
             .position(|f| f.unwrap().file_name().to_str().unwrap() == format!("{}.rs", test_name))
             .unwrap() as u16;
 
-        let peer_port = 20000u16 + (test_number * 1000u16) + node_index * 10;
+        let peer_port = 40000u16 + (test_number * 1000u16) + node_index * 10;
         let current_dir = std::env::current_dir().unwrap().display().to_string();
         let storage_dir = format!("{}/output/{}/knd_{}", current_dir, test_name, node_index);
         let exporter_address = format!("127.0.0.1:{}", peer_port + 1);
