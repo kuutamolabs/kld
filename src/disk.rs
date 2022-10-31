@@ -1,10 +1,10 @@
 use crate::controller::NetworkGraph;
 use crate::hex_utils;
-use crate::logger::LightningLogger;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::BlockHash;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::ser::ReadableArgs;
+use logger::KndLogger;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -35,7 +35,7 @@ pub(crate) fn read_channel_peer_data(
 pub(crate) fn read_network(
     path: &Path,
     genesis_hash: BlockHash,
-    logger: Arc<LightningLogger>,
+    logger: Arc<KndLogger>,
 ) -> NetworkGraph {
     if let Ok(file) = File::open(path) {
         if let Ok(graph) = NetworkGraph::read(&mut BufReader::new(file), logger.clone()) {
@@ -48,8 +48,8 @@ pub(crate) fn read_network(
 pub(crate) fn read_scorer(
     path: &Path,
     graph: Arc<NetworkGraph>,
-    logger: Arc<LightningLogger>,
-) -> ProbabilisticScorer<Arc<NetworkGraph>, Arc<LightningLogger>> {
+    logger: Arc<KndLogger>,
+) -> ProbabilisticScorer<Arc<NetworkGraph>, Arc<KndLogger>> {
     let params = ProbabilisticScoringParameters::default();
     if let Ok(file) = File::open(path) {
         let args = (params.clone(), Arc::clone(&graph), Arc::clone(&logger));

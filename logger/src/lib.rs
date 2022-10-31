@@ -33,10 +33,7 @@ impl Log for KndLogger {
     fn flush(&self) {}
 }
 
-#[derive(Default)]
-pub struct LightningLogger;
-
-impl Logger for LightningLogger {
+impl Logger for KndLogger {
     fn log(&self, record: &lightning::util::logger::Record) {
         logger().log(
             &log::RecordBuilder::new()

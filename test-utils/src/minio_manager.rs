@@ -15,6 +15,7 @@ impl MinioManager {
             let child = Command::new("minio")
                 .arg("server")
                 .arg(format!("--address={}", self.address))
+                .arg(format!("--certs-dir={}/certs", self.storage_dir))
                 .arg(self.storage_dir.clone())
                 .stdout(Stdio::null())
                 .spawn()
@@ -40,20 +41,28 @@ impl MinioManager {
             .is_ok()
     }
 
-    pub fn test_minio(test_name: &str) -> MinioManager {
+    pub fn test_minio(output_dir: &str, test_name: &str) -> MinioManager {
         let test_number = std::fs::read_dir("tests")
             .unwrap()
             .position(|f| f.unwrap().file_name().to_str().unwrap() == format!("{}.rs", test_name))
             .unwrap() as u16;
 
         let port = 50000u16 + (test_number * 1000u16);
-        let current_dir = std::env::current_dir().unwrap().display().to_string();
-        let storage_dir = format!("{}/output/{}/minio", current_dir, test_name);
+        let storage_dir = format!("{}/{}/minio", output_dir, test_name);
         let address = format!("127.0.0.1:{}", port);
-        set_var("KND_MINIO_ADDRESS", &address);
+        set_var("KND_S3_ADDRESS", &address);
 
         std::fs::remove_dir_all(&storage_dir).unwrap_or_default();
-        std::fs::create_dir_all(&storage_dir).unwrap();
+
+        let certs_dir = format!("{}/certs", &storage_dir);
+        std::fs::create_dir_all(&certs_dir).unwrap();
+
+        Command::new("certgen")
+            .current_dir(certs_dir)
+            .arg("-host=127.0.0.1")
+            .stdout(Stdio::null())
+            .output()
+            .unwrap();
 
         MinioManager {
             process: None,
@@ -72,6 +81,9 @@ impl Drop for MinioManager {
 #[macro_export]
 macro_rules! minio {
     () => {
-        test_utils::minio_manager::MinioManager::test_minio(env!("CARGO_CRATE_NAME"))
+        test_utils::minio_manager::MinioManager::test_minio(
+            env!("CARGO_TARGET_TMPDIR"),
+            env!("CARGO_CRATE_NAME"),
+        )
     };
 }

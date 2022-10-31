@@ -6,6 +6,9 @@ edition = "2021"
 [workspace]
 members = [
     ".",
+    "logger",
+    "settings",
+    "storage",
     "test-utils"
 ]
 
@@ -14,6 +17,9 @@ name = "lightning-knd"
 path = "src/main.rs"
 
 [dependencies]
+logger = { path = "logger" }
+settings = { path = "settings" }
+storage = { path = "storage" }
 lightning = { version = "0.0.111", features = ["max_level_trace"] }
 lightning-block-sync = { version = "0.0.111", features = [ "rpc-client" ] }
 lightning-invoice = { version = "0.19" }
@@ -34,7 +40,6 @@ chrono = "0.4"
 rand = "0.8.5"
 serde_json = { version = "1.0" }
 log = { version = "0.4", features = ["std"] }
-clap = { version = "4.0.11", features = ["derive", "env"] }
 tokio = { version = "1", features = [ "full" ] }
 prometheus = "0.13.2"
 lazy_static = "1.4.0"

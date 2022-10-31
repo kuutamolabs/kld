@@ -1,0 +1,8 @@
+[package]
+name = "settings"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0.11", features = ["derive", "env"] }
+bitcoin = "0.29.0"

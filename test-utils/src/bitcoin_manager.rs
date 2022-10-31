@@ -60,16 +60,15 @@ impl BitcoinManager {
         format!("{}/.cookie", self.data_dir())
     }
 
-    pub fn test_bitcoin(test_name: &str, node_index: u16) -> BitcoinManager {
-        let dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-        let test_number = std::fs::read_dir(format!("{}/tests", dir))
+    pub fn test_bitcoin(output_dir: &str, test_name: &str, node_index: u16) -> BitcoinManager {
+        let test_number = std::fs::read_dir("tests")
             .unwrap()
             .position(|f| f.unwrap().file_name().to_str().unwrap() == format!("{}.rs", test_name))
             .unwrap() as u16;
 
         let p2p_port = 20000u16 + (test_number * 1000u16) + node_index * 10;
         let rpc_port = 30000u16 + (test_number * 1000u16) + node_index * 10;
-        let data_dir = format!("{}/output/{}/bitcoind_{}", dir, test_name, node_index);
+        let data_dir = format!("{}/{}/bitcoind_{}", output_dir, test_name, node_index);
 
         BitcoinManager {
             process: None,
@@ -109,9 +108,17 @@ impl Drop for BitcoinManager {
 #[macro_export]
 macro_rules! bitcoin {
     () => {
-        test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(env!("CARGO_CRATE_NAME"), 0)
+        test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(
+            env!("CARGO_TARGET_TMPDIR"),
+            env!("CARGO_CRATE_NAME"),
+            0,
+        )
     };
     ($n:literal) => {
-        test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(env!("CARGO_CRATE_NAME"), $n)
+        test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(
+            env!("CARGO_TARGET_TMPDIR"),
+            env!("CARGO_CRATE_NAME"),
+            $n,
+        )
     };
 }
