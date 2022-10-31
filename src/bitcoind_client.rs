@@ -1,5 +1,4 @@
 use crate::convert::{BlockchainInfo, FeeResponse, FundedTx, NewAddress, RawTx, SignedTx};
-use crate::settings::Settings;
 use base64;
 use bitcoin::blockdata::block::Block;
 use bitcoin::blockdata::transaction::Transaction;
@@ -11,6 +10,7 @@ use lightning_block_sync::http::HttpEndpoint;
 use lightning_block_sync::rpc::RpcClient;
 use lightning_block_sync::{AsyncBlockSourceResult, BlockHeaderData, BlockSource};
 use serde_json;
+use settings::Settings;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;

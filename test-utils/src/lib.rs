@@ -1,5 +1,6 @@
 pub mod bitcoin_manager;
 pub mod knd_manager;
+pub mod minio_manager;
 
 #[macro_export]
 macro_rules! poll {

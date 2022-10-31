@@ -12,7 +12,7 @@ use log::info;
 use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
 
 use crate::controller::Controller;
-use crate::settings::Settings;
+use settings::Settings;
 
 lazy_static! {
     static ref START: Instant = Instant::now();

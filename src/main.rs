@@ -4,16 +4,13 @@ mod convert;
 mod disk;
 mod event_handler;
 mod hex_utils;
-mod logger;
 mod net_utils;
 mod payment_info;
 mod prometheus;
-mod settings;
 
 use crate::controller::Controller;
 use crate::prometheus::spawn_prometheus_exporter;
 use anyhow::Result;
-use clap::Parser;
 use log::{info, warn};
 use settings::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,11 +19,11 @@ use std::time::Duration;
 use tokio::signal::unix::SignalKind;
 
 pub fn main() -> Result<()> {
-    crate::logger::init("node_one")?;
+    logger::init("node_one")?;
 
     info!("Starting Lightning Kuutamo Node Distribution");
 
-    let settings = Settings::parse();
+    let settings = Settings::load();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()

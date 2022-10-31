@@ -1,9 +1,7 @@
 use crate::bitcoind_client::BitcoindClient;
 use crate::event_handler::EventHandler;
-use crate::logger::LightningLogger;
 use crate::net_utils::do_connect_peer;
 use crate::payment_info::PaymentInfoStorage;
-use crate::settings::Settings;
 use crate::{disk, net_utils};
 use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
@@ -32,7 +30,9 @@ use lightning_invoice::payment;
 use lightning_invoice::utils::DefaultRouter;
 use lightning_net_tokio::SocketDescriptor;
 use lightning_persister::FilesystemPersister;
+use logger::KndLogger;
 use rand::{thread_rng, Rng};
+use settings::Settings;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -108,7 +108,7 @@ impl Controller {
         let fee_estimator = bitcoind_client.clone();
 
         // Step 2: Initialize the Logger
-        let logger = Arc::new(LightningLogger::default());
+        let logger = Arc::new(KndLogger::default());
 
         // Step 3: Initialize the BroadcasterInterface
 
@@ -494,7 +494,7 @@ type ChainMonitor = chainmonitor::ChainMonitor<
     Arc<dyn Filter + Send + Sync>,
     Arc<BitcoindClient>,
     Arc<BitcoindClient>,
-    Arc<LightningLogger>,
+    Arc<KndLogger>,
     Arc<FilesystemPersister>,
 >;
 
@@ -504,22 +504,22 @@ pub(crate) type PeerManager = SimpleArcPeerManager<
     BitcoindClient,
     BitcoindClient,
     dyn chain::Access + Send + Sync,
-    LightningLogger,
+    KndLogger,
 >;
 
 pub(crate) type ChannelManager =
-    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, LightningLogger>;
+    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KndLogger>;
 
 pub(crate) type InvoicePayer<E> = payment::InvoicePayer<
     Arc<ChannelManager>,
     Router,
-    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<LightningLogger>>>>,
-    Arc<LightningLogger>,
+    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<KndLogger>>>>,
+    Arc<KndLogger>,
     E,
 >;
 
-type Router = DefaultRouter<Arc<NetworkGraph>, Arc<LightningLogger>>;
+type Router = DefaultRouter<Arc<NetworkGraph>, Arc<KndLogger>>;
 
-pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<LightningLogger>>;
+pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<KndLogger>>;
 
-type OnionMessenger = SimpleArcOnionMessenger<LightningLogger>;
+type OnionMessenger = SimpleArcOnionMessenger<KndLogger>;
