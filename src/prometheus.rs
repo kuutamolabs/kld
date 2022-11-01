@@ -91,8 +91,9 @@ pub(crate) async fn spawn_prometheus_exporter(
 mod test {
     use std::sync::Arc;
 
+    use test_utils::test_settings;
+
     use crate::{controller::LightningMetrics, spawn_prometheus_exporter};
-    use settings::Settings;
 
     struct TestMetrics {
         num_nodes: usize,
@@ -116,7 +117,7 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread")]
     pub async fn test_prometheus() {
-        let address = Settings::load().exporter_address;
+        let address = test_settings().exporter_address;
 
         let metrics = Arc::new(TestMetrics {
             num_nodes: 10,
