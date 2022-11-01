@@ -36,13 +36,13 @@ impl Cryptor {
 
 #[cfg(test)]
 mod test {
-    use settings::Settings;
+    use test_utils::test_settings;
 
     use crate::cryptor::Cryptor;
 
     #[test]
     pub fn test_cryptor() {
-        let settings = Settings::load();
+        let settings = test_settings();
 
         let crypt = Cryptor::new(&settings);
         let message = b"plaintext message plaintext message plaintext message";

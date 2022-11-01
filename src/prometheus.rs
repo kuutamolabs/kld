@@ -11,8 +11,7 @@ use lazy_static::lazy_static;
 use log::info;
 use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
 
-use crate::controller::Controller;
-use settings::Settings;
+use crate::controller::LightningMetrics;
 
 lazy_static! {
     static ref START: Instant = Instant::now();
@@ -36,7 +35,7 @@ lazy_static! {
 }
 
 async fn response_examples(
-    controller: Arc<Controller>,
+    lightning_metrics: Arc<dyn LightningMetrics + Send + Sync>,
     req: Request<Body>,
 ) -> hyper::Result<Response<Body>> {
     match (req.method(), req.uri().path()) {
@@ -44,9 +43,9 @@ async fn response_examples(
         (&Method::GET, "/pid") => Ok(Response::new(Body::from(process::id().to_string()))),
         (&Method::GET, "/metrics") => {
             UPTIME.set(START.elapsed().as_millis() as f64);
-            NODE_COUNT.set(controller.num_nodes() as f64);
-            CHANNEL_COUNT.set(controller.num_channels() as f64);
-            PEER_COUNT.set(controller.num_peers() as f64);
+            NODE_COUNT.set(lightning_metrics.num_nodes() as f64);
+            CHANNEL_COUNT.set(lightning_metrics.num_channels() as f64);
+            PEER_COUNT.set(lightning_metrics.num_peers() as f64);
 
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
@@ -69,17 +68,15 @@ fn not_found() -> Response<Body> {
 
 /// Starts an prometheus exporter backend
 pub(crate) async fn spawn_prometheus_exporter(
-    settings: &Settings,
-    controller: Arc<Controller>,
+    address: String,
+    lightning_metrics: Arc<dyn LightningMetrics + Send + Sync>,
 ) -> Result<()> {
     lazy_static::initialize(&START);
-    let addr = settings
-        .exporter_address
-        .parse()
-        .context("Failed to parse exporter")?;
+    let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
-        let controller_clone = controller.clone();
-        let service = service_fn(move |req| response_examples(controller_clone.clone(), req));
+        let lightning_metrics_clone = lightning_metrics.clone();
+        let service =
+            service_fn(move |req| response_examples(lightning_metrics_clone.clone(), req));
         async move { Ok::<_, hyper::Error>(service) }
     });
 
@@ -88,4 +85,88 @@ pub(crate) async fn spawn_prometheus_exporter(
     info!("Listening on http://{}", addr);
 
     server.await.context("Failed to start server")
+}
+
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use test_utils::test_settings;
+
+    use crate::{controller::LightningMetrics, spawn_prometheus_exporter};
+
+    struct TestMetrics {
+        num_nodes: usize,
+        num_channels: usize,
+        num_peers: usize,
+    }
+
+    impl LightningMetrics for TestMetrics {
+        fn num_nodes(&self) -> usize {
+            self.num_nodes
+        }
+
+        fn num_channels(&self) -> usize {
+            self.num_channels
+        }
+
+        fn num_peers(&self) -> usize {
+            self.num_peers
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    pub async fn test_prometheus() {
+        let address = test_settings().exporter_address;
+
+        let metrics = Arc::new(TestMetrics {
+            num_nodes: 10,
+            num_channels: 20,
+            num_peers: 5,
+        });
+        tokio::spawn(spawn_prometheus_exporter(address.clone(), metrics.clone()));
+
+        let health = call_exporter(&address, "health").await.unwrap();
+        assert_eq!(health, "OK");
+
+        let pid = call_exporter(&address, "pid").await.unwrap();
+        assert_eq!(pid, std::process::id().to_string());
+
+        let result = call_exporter(&address, "metrics").await.unwrap();
+        assert!(get_metric(&result, "lightning_knd_uptime") > 0.0);
+        assert_eq!(
+            get_metric(&result, "lightning_node_count"),
+            metrics.num_nodes as f64
+        );
+        assert_eq!(
+            get_metric(&result, "lightning_channel_count"),
+            metrics.num_channels as f64
+        );
+        assert_eq!(
+            get_metric(&result, "lightning_peer_count"),
+            metrics.num_peers as f64
+        );
+
+        let not_found = call_exporter(&address, "wrong").await.unwrap();
+        assert_eq!(not_found, "Not Found");
+    }
+
+    async fn call_exporter(address: &str, method: &str) -> Result<String, reqwest::Error> {
+        reqwest::get(format!("http://{}/{}", address, method))
+            .await?
+            .text()
+            .await
+    }
+
+    fn get_metric(metrics: &str, name: &str) -> f64 {
+        metrics
+            .lines()
+            .find(|x| x.starts_with(name))
+            .unwrap()
+            .split(' ')
+            .last()
+            .unwrap()
+            .parse::<f64>()
+            .unwrap()
+    }
 }

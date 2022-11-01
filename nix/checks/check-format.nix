@@ -1,7 +1,7 @@
-{ runCommand, git, treefmt, self }:
+{ runCommand, git, formatters, self }:
 runCommand "check-format"
 {
-  nativeBuildInputs = [ treefmt ];
+  nativeBuildInputs = formatters;
 } ''
   # keep timestamps so that treefmt is able to detect mtime changes
   cp --no-preserve=mode --preserve=timestamps -r ${self} source

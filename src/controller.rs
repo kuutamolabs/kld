@@ -48,19 +48,29 @@ pub(crate) struct Controller {
     network_graph: Arc<NetworkGraph>,
 }
 
-impl Controller {
-    pub fn num_nodes(&self) -> usize {
+pub(crate) trait LightningMetrics {
+    fn num_nodes(&self) -> usize;
+
+    fn num_channels(&self) -> usize;
+
+    fn num_peers(&self) -> usize;
+}
+
+impl LightningMetrics for Controller {
+    fn num_nodes(&self) -> usize {
         self.network_graph.read_only().nodes().len()
     }
 
-    pub fn num_channels(&self) -> usize {
+    fn num_channels(&self) -> usize {
         self.network_graph.read_only().channels().len()
     }
 
-    pub fn num_peers(&self) -> usize {
+    fn num_peers(&self) -> usize {
         self.peer_manager.get_peer_node_ids().len()
     }
+}
 
+impl Controller {
     pub fn stop(&self) {
         // Disconnect our peers and stop accepting new connections. This ensures we don't continue
         // updating our channel data after we've stopped the background processor.

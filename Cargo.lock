@@ -884,6 +884,7 @@ dependencies = [
  "logger",
  "prometheus",
  "rand",
+ "reqwest",
  "serde_json",
  "settings",
  "storage",
@@ -1685,9 +1686,11 @@ name = "test-utils"
 version = "0.1.0"
 dependencies = [
  "bitcoin",
+ "clap",
  "lightning",
  "rand",
  "reqwest",
+ "settings",
  "tokio",
 ]
 
