@@ -6,13 +6,6 @@
     , pkgs
     , ...
     }: {
-      packages.treefmt = self.inputs.treefmt-nix.lib.mkWrapper pkgs {
-        # Used to find the project root
-        projectRootFile = "flake.lock";
-
-        programs.nixpkgs-fmt.enable = true;
-        programs.rustfmt.enable = true;
-      };
       devShells.default = pkgs.mkShell {
         buildInputs = [
           # tasks and automation
@@ -21,12 +14,14 @@
           pkgs.nix-update
 
           # check format
-          self'.packages.treefmt
+          pkgs.treefmt
+          pkgs.nixpkgs-fmt
 
           # rust dev
           pkgs.rust-analyzer
           pkgs.cargo-watch
           pkgs.clippy
+          pkgs.rustfmt
 
           # lightning-knd dependencies
           (pkgs.bitcoind.override { withWallet = false; withGui = false; })
