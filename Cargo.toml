@@ -47,3 +47,4 @@ hyper = { version = "0.14.20", features = [ "full" ] }
 
 [dev-dependencies]
 test-utils = { path = "./test-utils" }
+reqwest = { version = "0.11", default-features = false }

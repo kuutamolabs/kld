@@ -43,12 +43,12 @@ pub fn main() -> Result<()> {
                 info!("Received quit signal.");
                 Ok(())
             },
-            res = spawn_prometheus_exporter(&settings, controller.clone()) => {
-                if let Err(e) = res {
+            result = spawn_prometheus_exporter(settings.exporter_address.clone(), controller.clone()) => {
+                if let Err(e) = result {
                     warn!("Prometheus exporter failed: {}", e);
                     return Err(e);
                 }
-                res
+                result
             }
         )
     })?;

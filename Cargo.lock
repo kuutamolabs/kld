@@ -884,6 +884,7 @@ dependencies = [
  "logger",
  "prometheus",
  "rand",
+ "reqwest",
  "serde_json",
  "settings",
  "storage",
