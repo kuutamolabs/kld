@@ -22,7 +22,7 @@ settings = { path = "settings" }
 storage = { path = "storage" }
 lightning = { version = "0.0.111", features = ["max_level_trace"] }
 lightning-block-sync = { version = "0.0.111", features = [ "rpc-client" ] }
-lightning-invoice = { version = "0.19" }
+lightning-invoice = { version = "0.20" }
 lightning-net-tokio = { version = "0.0.111" }
 lightning-persister = { version = "0.0.111" }
 lightning-background-processor = { version = "0.0.111" }
