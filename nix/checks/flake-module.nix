@@ -4,7 +4,7 @@
     {
       checks.format = pkgs.callPackage ./check-format.nix {
         inherit self;
-        inherit (self'.packages) treefmt;
+        inherit (self'.devShells.default) formatters;
       };
       checks.test = self'.packages.lightning-knd.override {
         enableTests = true;
