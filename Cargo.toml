@@ -26,7 +26,7 @@ lightning-invoice = { version = "0.19" }
 lightning-net-tokio = { version = "0.0.111" }
 lightning-persister = { version = "0.0.111" }
 lightning-background-processor = { version = "0.0.111" }
-lightning-rapid-gossip-sync = { version = "0.0.111" }
+lightning-rapid-gossip-sync = { version = "0.0.112" }
 
 base64 = "0.13.1"
 bitcoin = "0.29.0"
