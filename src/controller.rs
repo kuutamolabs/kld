@@ -6,9 +6,9 @@ use crate::{disk, net_utils};
 use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::BlockHash;
-use lightning::chain;
 use lightning::chain::chainmonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
+use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{BestBlock, Filter, Watch};
 use lightning::ln::channelmanager;
 use lightning::ln::channelmanager::{
@@ -273,9 +273,10 @@ impl Controller {
         for item in chain_listener_channel_monitors.drain(..) {
             let channel_monitor = item.1 .0;
             let funding_outpoint = item.2;
-            chain_monitor
-                .watch_channel(funding_outpoint, channel_monitor)
-                .unwrap();
+            assert_eq!(
+                chain_monitor.watch_channel(funding_outpoint, channel_monitor),
+                ChannelMonitorUpdateStatus::Completed
+            );
         }
 
         // Step 11: Optional: Initialize the P2PGossipSync
@@ -294,8 +295,11 @@ impl Controller {
 
         // Step 12: Initialize the PeerManager
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
-        let onion_messenger: Arc<OnionMessenger> =
-            Arc::new(OnionMessenger::new(keys_manager.clone(), logger.clone()));
+        let onion_messenger: Arc<OnionMessenger> = Arc::new(OnionMessenger::new(
+            keys_manager.clone(),
+            logger.clone(),
+            IgnoringMessageHandler {},
+        ));
         let ephemeral_bytes: [u8; 32] = thread_rng().gen();
         let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -309,7 +313,7 @@ impl Controller {
         let peer_manager: Arc<PeerManager> = Arc::new(PeerManager::new(
             lightning_msg_handler,
             keys_manager.get_node_secret(Recipient::Node).unwrap(),
-            current_time,
+            current_time.try_into().unwrap(),
             &ephemeral_bytes,
             logger.clone(),
             IgnoringMessageHandler {},
@@ -398,11 +402,11 @@ impl Controller {
             network_graph.clone(),
             logger.clone(),
             keys_manager.get_secure_random_bytes(),
+            scorer.clone(),
         );
         let invoice_payer = Arc::new(InvoicePayer::new(
             channel_manager.clone(),
             router,
-            scorer.clone(),
             logger.clone(),
             event_handler,
             payment::Retry::Timeout(Duration::from_secs(10)),
@@ -520,15 +524,14 @@ pub(crate) type PeerManager = SimpleArcPeerManager<
 pub(crate) type ChannelManager =
     SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KndLogger>;
 
-pub(crate) type InvoicePayer<E> = payment::InvoicePayer<
-    Arc<ChannelManager>,
-    Router,
-    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<KndLogger>>>>,
-    Arc<KndLogger>,
-    E,
->;
+pub(crate) type InvoicePayer<E> =
+    payment::InvoicePayer<Arc<ChannelManager>, Router, Arc<KndLogger>, E>;
 
-type Router = DefaultRouter<Arc<NetworkGraph>, Arc<KndLogger>>;
+type Router = DefaultRouter<
+    Arc<NetworkGraph>,
+    Arc<KndLogger>,
+    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<KndLogger>>>>,
+>;
 
 pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<KndLogger>>;
 
