@@ -19,11 +19,10 @@ use std::time::Duration;
 use tokio::signal::unix::SignalKind;
 
 pub fn main() -> Result<()> {
-    logger::init("node_one")?;
+    let settings = Settings::load();
+    logger::KndLogger::init("node_one", &settings.log_level)?;
 
     info!("Starting Lightning Kuutamo Node Distribution");
-
-    let settings = Settings::load();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()

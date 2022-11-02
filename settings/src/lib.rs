@@ -13,6 +13,8 @@ pub struct Settings {
     #[clap(long, default_value = "testnet", env = "KND_BITCOIN_COOKIE_PATH")]
     pub bitcoin_cookie_path: String,
 
+    #[clap(long, default_value = "info", env = "KND_LOG_LEVEL")]
+    pub log_level: String,
     #[clap(long, default_value = "test", env = "KND_ENV")]
     pub env: String,
     #[clap(long, default_value = ".", env = "KND_STORAGE_DIR")]

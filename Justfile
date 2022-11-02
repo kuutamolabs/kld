@@ -6,7 +6,7 @@ fix:
   cargo clippy --all-targets --all-features --fix --allow-dirty --allow-staged  -- -D warnings
 
 test:
-  cargo test --all-targets --all-features
+  cargo test --all --all-features
 # Continously run cargo check as code changes
 watch:
   cargo watch
