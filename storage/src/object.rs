@@ -16,7 +16,7 @@ use lightning::{
         channelmonitor::{ChannelMonitor, ChannelMonitorUpdate},
         keysinterface::{KeysInterface, Sign},
         transaction::OutPoint,
-        ChannelMonitorUpdateErr, Watch,
+        ChannelMonitorUpdateStatus, Watch,
     },
     ln::channelmanager::{ChannelManager, ChannelManagerReadArgs},
     routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore},
@@ -183,7 +183,7 @@ impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for Object
         funding_txo: OutPoint,
         monitor: &ChannelMonitor<ChannelSigner>,
         _update_id: MonitorUpdateId,
-    ) -> Result<(), ChannelMonitorUpdateErr> {
+    ) -> ChannelMonitorUpdateStatus {
         let path = format!(
             "monitors/{}_{:0>5}/monitor",
             funding_txo.txid.to_hex(),
@@ -197,10 +197,9 @@ impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for Object
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 minio.put(S3Bucket::Keys, &path, &ciphertext).await;
-                Ok::<(), ()>(())
+                ChannelMonitorUpdateStatus::Completed
             })
         })
-        .map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)
     }
 
     // Updates are applied to the monitor when fetched from database.
@@ -211,7 +210,7 @@ impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for Object
         _update: &Option<ChannelMonitorUpdate>,
         monitor: &ChannelMonitor<ChannelSigner>,
         _update_id: MonitorUpdateId,
-    ) -> Result<(), ChannelMonitorUpdateErr> {
+    ) -> ChannelMonitorUpdateStatus {
         let key = format!("{}_{:0>5}", funding_txo.txid.to_hex(), funding_txo.index);
         // If its the last update then store the last monitor and delete the updates.
         //if update.is_none() || update.as_ref().map_or(false, |x| x.update_id == CLOSED_CHANNEL_UPDATE_ID) {
@@ -231,10 +230,10 @@ impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for Object
                 //			for update in minio.list(S3Bucket::Keys, &format!("updates/{}", key), None).await {
                 //				minio.delete(S3Bucket::Keys, &update).await;
                 //			}
-                Ok::<(), ()>(())
+                ChannelMonitorUpdateStatus::Completed
             })
         })
-        .map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)
+
         //} else {
         //	let update = update.as_ref().unwrap();
         //	let path = format!("updates/{}/{}", key, update.update_id);
