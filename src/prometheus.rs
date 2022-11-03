@@ -7,32 +7,41 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
-use lazy_static::lazy_static;
 use log::info;
+use once_cell::sync::{Lazy, OnceCell};
 use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
 
 use crate::controller::LightningMetrics;
 
-lazy_static! {
-    static ref START: Instant = Instant::now();
-    static ref UPTIME: Gauge = register_gauge!(
+static START: OnceCell<Instant> = OnceCell::new();
+
+static UPTIME: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
         "lightning_knd_uptime",
         "Time in milliseconds how long daemon is running"
     )
-    .unwrap();
-    static ref NODE_COUNT: Gauge = register_gauge!(
+    .unwrap()
+});
+
+static NODE_COUNT: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
         "lightning_node_count",
         "The number of nodes in the lightning graph"
     )
-    .unwrap();
-    static ref CHANNEL_COUNT: Gauge = register_gauge!(
+    .unwrap()
+});
+
+static CHANNEL_COUNT: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
         "lightning_channel_count",
         "The number of channels in the lightning graph"
     )
-    .unwrap();
-    static ref PEER_COUNT: Gauge =
-        register_gauge!("lightning_peer_count", "The number of peers this node has").unwrap();
-}
+    .unwrap()
+});
+
+static PEER_COUNT: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!("lightning_peer_count", "The number of peers this node has").unwrap()
+});
 
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningMetrics + Send + Sync>,
@@ -42,7 +51,7 @@ async fn response_examples(
         (&Method::GET, "/health") => Ok(Response::new(Body::from("OK"))),
         (&Method::GET, "/pid") => Ok(Response::new(Body::from(process::id().to_string()))),
         (&Method::GET, "/metrics") => {
-            UPTIME.set(START.elapsed().as_millis() as f64);
+            UPTIME.set(START.get().unwrap().elapsed().as_millis() as f64);
             NODE_COUNT.set(lightning_metrics.num_nodes() as f64);
             CHANNEL_COUNT.set(lightning_metrics.num_channels() as f64);
             PEER_COUNT.set(lightning_metrics.num_peers() as f64);
@@ -71,7 +80,7 @@ pub(crate) async fn spawn_prometheus_exporter(
     address: String,
     lightning_metrics: Arc<dyn LightningMetrics + Send + Sync>,
 ) -> Result<()> {
-    lazy_static::initialize(&START);
+    START.set(Instant::now()).unwrap();
     let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
         let lightning_metrics_clone = lightning_metrics.clone();

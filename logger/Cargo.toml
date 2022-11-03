@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 lightning = { version = "0.0.112", features = ["max_level_trace"] }
 log = { version = "0.4", features = ["std"] }
-once_cell = { version = "1.16.0" }
+once_cell = "1.16.0"
