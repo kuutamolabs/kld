@@ -1,33 +1,48 @@
 use lightning::util::logger::{Level, Logger};
-use log::{logger, LevelFilter, Log, Metadata, MetadataBuilder, Record, SetLoggerError};
-use std::process;
+use log::{logger, Log, Metadata, MetadataBuilder, Record, SetLoggerError};
+use once_cell::sync::OnceCell;
+use std::{process, sync::Arc};
 
-#[derive(Default)]
 /// A logger instance for logfmt format (https://www.brandur.org/logfmt)
+#[derive(Debug)]
 pub struct KndLogger {
     node_id: String,
 }
 
-pub fn init(node_id: &str) -> Result<(), SetLoggerError> {
-    let logger = KndLogger {
-        node_id: node_id.to_string(),
-    };
-    log::set_boxed_logger(Box::new(logger)).map(|()| log::set_max_level(LevelFilter::Info))
+// LDK requires the Arc so may as well be global.
+static KND_LOGGER: OnceCell<Arc<KndLogger>> = OnceCell::new();
+
+impl KndLogger {
+    pub fn init(node_id: &str, level: &str) -> Result<(), SetLoggerError> {
+        let logger = KndLogger {
+            node_id: node_id.to_string(),
+        };
+        KND_LOGGER.set(Arc::new(logger)).unwrap();
+
+        log::set_logger(KND_LOGGER.get().unwrap())
+            .map(|()| log::set_max_level(level.parse().unwrap()))
+    }
+
+    pub fn global() -> Arc<KndLogger> {
+        KND_LOGGER.get().expect("logger is not initialized").clone()
+    }
 }
 
 impl Log for KndLogger {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
-        true
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= log::max_level()
     }
 
     fn log(&self, record: &Record) {
-        let level = record.level().to_string().to_lowercase();
-        print!("level={}", level);
-        print!(" pid={}", process::id());
-        print!(" message=\"{}\"", record.args());
-        print!(" target=\"{}\"", record.target());
-        print!(" node_id={}", self.node_id);
-        println!();
+        if self.enabled(record.metadata()) {
+            let level = record.level().to_string().to_lowercase();
+            print!("level={}", level);
+            print!(" pid={}", process::id());
+            print!(" message=\"{}\"", record.args());
+            print!(" target=\"{}\"", record.target());
+            print!(" node_id={}", self.node_id);
+            println!();
+        }
     }
 
     fn flush(&self) {}
@@ -57,4 +72,20 @@ impl Logger for KndLogger {
                 .build(),
         );
     }
+}
+
+#[test]
+pub fn test_log() {
+    let node_id = "one";
+    KndLogger::init(node_id, "info").unwrap();
+    assert_eq!(node_id, KndLogger::global().node_id);
+
+    let metadata = MetadataBuilder::new().level(log::Level::Debug).build();
+    assert!(!KndLogger::global().enabled(&metadata));
+
+    let metadata = MetadataBuilder::new().level(log::Level::Info).build();
+    assert!(KndLogger::global().enabled(&metadata));
+
+    let metadata = MetadataBuilder::new().level(log::Level::Warn).build();
+    assert!(KndLogger::global().enabled(&metadata));
 }

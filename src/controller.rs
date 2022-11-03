@@ -117,9 +117,6 @@ impl Controller {
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
 
-        // Step 2: Initialize the Logger
-        let logger = Arc::new(KndLogger::default());
-
         // Step 3: Initialize the BroadcasterInterface
 
         // BitcoindClient implements the BroadcasterInterface trait, so it'll act as our transaction
@@ -133,7 +130,7 @@ impl Controller {
         let chain_monitor: Arc<ChainMonitor> = Arc::new(chainmonitor::ChainMonitor::new(
             None,
             broadcaster.clone(),
-            logger.clone(),
+            KndLogger::global(),
             fee_estimator.clone(),
             persister.clone(),
         ));
@@ -197,7 +194,7 @@ impl Controller {
                     fee_estimator.clone(),
                     chain_monitor.clone(),
                     broadcaster.clone(),
-                    logger.clone(),
+                    KndLogger::global(),
                     user_config,
                     channel_monitor_mut_references,
                 );
@@ -218,7 +215,7 @@ impl Controller {
                     fee_estimator.clone(),
                     chain_monitor.clone(),
                     broadcaster.clone(),
-                    logger.clone(),
+                    KndLogger::global(),
                     keys_manager.clone(),
                     user_config,
                     chain_params,
@@ -245,7 +242,7 @@ impl Controller {
                         channel_monitor,
                         broadcaster.clone(),
                         fee_estimator.clone(),
-                        logger.clone(),
+                        KndLogger::global(),
                     ),
                     outpoint,
                 ));
@@ -285,19 +282,19 @@ impl Controller {
         let network_graph = Arc::new(disk::read_network(
             Path::new(&network_graph_path),
             genesis,
-            logger.clone(),
+            KndLogger::global(),
         ));
         let gossip_sync = Arc::new(P2PGossipSync::new(
             network_graph.clone(),
             None::<Arc<dyn chain::Access + Send + Sync>>,
-            logger.clone(),
+            KndLogger::global(),
         ));
 
         // Step 12: Initialize the PeerManager
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
         let onion_messenger: Arc<OnionMessenger> = Arc::new(OnionMessenger::new(
             keys_manager.clone(),
-            logger.clone(),
+            KndLogger::global(),
             IgnoringMessageHandler {},
         ));
         let ephemeral_bytes: [u8; 32] = thread_rng().gen();
@@ -315,7 +312,7 @@ impl Controller {
             keys_manager.get_node_secret(Recipient::Node).unwrap(),
             current_time.try_into().unwrap(),
             &ephemeral_bytes,
-            logger.clone(),
+            KndLogger::global(),
             IgnoringMessageHandler {},
         ));
 
@@ -394,20 +391,20 @@ impl Controller {
         let scorer = Arc::new(Mutex::new(disk::read_scorer(
             Path::new(&scorer_path),
             Arc::clone(&network_graph),
-            Arc::clone(&logger),
+            KndLogger::global(),
         )));
 
         // Step 17: Create InvoicePayer
         let router = DefaultRouter::new(
             network_graph.clone(),
-            logger.clone(),
+            KndLogger::global(),
             keys_manager.get_secure_random_bytes(),
             scorer.clone(),
         );
         let invoice_payer = Arc::new(InvoicePayer::new(
             channel_manager.clone(),
             router,
-            logger.clone(),
+            KndLogger::global(),
             event_handler,
             payment::Retry::Timeout(Duration::from_secs(10)),
         ));
@@ -423,7 +420,7 @@ impl Controller {
             channel_manager.clone(),
             GossipSync::p2p(gossip_sync.clone()),
             peer_manager.clone(),
-            logger.clone(),
+            KndLogger::global(),
             Some(scorer),
         );
 
