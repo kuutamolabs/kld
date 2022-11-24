@@ -16,14 +16,14 @@ use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
-use crate::bitcoind_client::BitcoindClient;
 use crate::controller::{ChannelManager, NetworkGraph};
 use crate::hex_utils;
 use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
+use bitcoind::Client;
 
 pub(crate) struct EventHandler {
     channel_manager: Arc<ChannelManager>,
-    bitcoind_client: Arc<BitcoindClient>,
+    bitcoind_client: Arc<Client>,
     keys_manager: Arc<KeysManager>,
     inbound_payments: PaymentInfoStorage,
     outbound_payments: PaymentInfoStorage,
@@ -34,7 +34,7 @@ pub(crate) struct EventHandler {
 impl EventHandler {
     pub fn new(
         channel_manager: Arc<ChannelManager>,
-        bitcoind_client: Arc<BitcoindClient>,
+        bitcoind_client: Arc<Client>,
         keys_manager: Arc<KeysManager>,
         inbound_payments: PaymentInfoStorage,
         outbound_payments: PaymentInfoStorage,
@@ -174,23 +174,21 @@ impl EventHandler {
                 ..
             } => {
                 let mut payments = self.outbound_payments.lock().unwrap();
-                for (hash, payment) in payments.iter_mut() {
-                    if *hash == *payment_hash {
-                        payment.preimage = Some(*payment_preimage);
-                        payment.status = HTLCStatus::Succeeded;
-                        info!(
-                            "EVENT: successfully sent payment of {} millisatoshis{} from \
+                if let Some(payment) = payments.get_mut(payment_hash) {
+                    payment.preimage = Some(*payment_preimage);
+                    payment.status = HTLCStatus::Succeeded;
+                    info!(
+                        "EVENT: successfully sent payment of {} millisatoshis{} from \
 								 payment hash {:?} with preimage {:?}",
-                            payment.amt_msat,
-                            if let Some(fee) = fee_paid_msat {
-                                format!(" (fee {} msat)", fee)
-                            } else {
-                                "".to_string()
-                            },
-                            hex_utils::hex_str(&payment_hash.0),
-                            hex_utils::hex_str(&payment_preimage.0)
-                        );
-                    }
+                        payment.amt_msat,
+                        if let Some(fee) = fee_paid_msat {
+                            format!(" (fee {} msat)", fee)
+                        } else {
+                            "".to_string()
+                        },
+                        hex_utils::hex_str(&payment_hash.0),
+                        hex_utils::hex_str(&payment_preimage.0)
+                    );
                 }
             }
             Event::OpenChannelRequest { .. } => {
