@@ -3,9 +3,8 @@
 , clippy
 , openssl
 , bitcoind
+, cockroachdb
 , pkg-config
-, minio
-, minio-certgen
 , runCommand
 , enableLint ? false
 , enableTests ? false
@@ -18,16 +17,17 @@ rustPlatform.buildRustPackage ({
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
     cp -r ${../../src} $out/src
+    cp -r ${../../bitcoind} $out/bitcoind
+    cp -r ${../../database} $out/database
     cp -r ${../../logger} $out/logger
     cp -r ${../../settings} $out/settings
-    cp -r ${../../storage} $out/storage
     cp -r ${../../tests} $out/tests
     cp -r ${../../test-utils} $out/test-utils
   '';
   cargoLock.lockFile = ../../Cargo.lock;
 
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config bitcoind minio minio-certgen ] ++ lib.optionals enableLint [ clippy ];
+  nativeBuildInputs = [ pkg-config bitcoind cockroachdb ] ++ lib.optionals enableLint [ clippy ];
 
   doCheck = enableTests;
 
@@ -44,9 +44,10 @@ rustPlatform.buildRustPackage ({
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
     cp -r ${../../src} $out/src
+    cp -r ${../../bitcoind} $out/bitcoind
+    cp -r ${../../database} $out/database
     cp -r ${../../logger} $out/logger
     cp -r ${../../settings} $out/settings
-    cp -r ${../../storage} $out/storage
     cp -r ${../../tests} $out/tests
     cp -r ${../../test-utils} $out/test-utils
   '';

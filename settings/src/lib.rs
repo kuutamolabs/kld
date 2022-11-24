@@ -13,12 +13,14 @@ pub struct Settings {
     #[clap(long, default_value = "testnet", env = "KND_BITCOIN_COOKIE_PATH")]
     pub bitcoin_cookie_path: String,
 
+    /// This is used for S3 bucket names so must conform to the naming convention.
+    #[clap(long, default_value = "one", env = "KND_NODE_ID")]
+    pub node_id: String,
     #[clap(long, default_value = "info", env = "KND_LOG_LEVEL")]
     pub log_level: String,
+    /// This is used for S3 bucket names so must conform to the naming convention.
     #[clap(long, default_value = "test", env = "KND_ENV")]
     pub env: String,
-    #[clap(long, default_value = ".", env = "KND_STORAGE_DIR")]
-    pub knd_storage_dir: String,
     #[clap(long, default_value = "9234", env = "KND_PEER_PORT")]
     pub knd_peer_port: u16,
     #[clap(long, default_value = "testnode", env = "KND_NODE_NAME")]
@@ -29,20 +31,22 @@ pub struct Settings {
     #[clap(long, default_value = "127.0.0.1:2233", env = "KND_EXPORTER_ADDRESS")]
     pub exporter_address: String,
 
-    #[clap(long, default_value = "local", env = "KND_S3_REGION")]
-    pub s3_region: String,
-    #[clap(long, default_value = "127.0.0.1:9000", env = "KND_S3_ADDRESS")]
-    pub s3_address: String,
-    #[clap(long, default_value = "minioadmin", env = "KND_S3_ACCESS_KEY")]
-    pub s3_access_key: String,
-    #[clap(long, default_value = "minioadmin", env = "KND_S3_SECRET_KEY")]
-    pub s3_secret_key: String,
+    #[clap(long, default_value = "127.0.0.1", env = "KND_DATABASE_HOST")]
+    pub database_host: String,
+    #[clap(long, default_value = "10000", env = "KND_DATABASE_PORT")]
+    pub database_port: String,
+    #[clap(long, default_value = "root", env = "KND_DATABASE_USER")]
+    pub database_user: String,
+    #[clap(long, default_value = "defaultdb", env = "KND_DATABASE_NAME")]
+    pub database_name: String,
+    #[clap(long, default_value = "", env = "KND_DATABASE_PASSWORD")]
+    pub database_password: String,
     #[clap(
         long,
         default_value = "00000000000000000000000000000000",
-        env = "KND_S3_ENCRYPTION_KEY"
+        env = "KND_DATABASE_ENCRYPTION_KEY"
     )]
-    pub s3_encryption_key: String,
+    pub database_encryption_key: String,
 }
 
 impl Settings {

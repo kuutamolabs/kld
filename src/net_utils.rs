@@ -30,8 +30,7 @@ pub(crate) async fn do_connect_peer(
     peer_addr: SocketAddr,
     peer_manager: Arc<PeerManager>,
 ) -> Result<(), ()> {
-    match lightning_net_tokio::connect_outbound(Arc::clone(&peer_manager), pubkey, peer_addr).await
-    {
+    match lightning_net_tokio::connect_outbound(peer_manager.clone(), pubkey, peer_addr).await {
         Some(connection_closed_future) => {
             let mut connection_closed_future = Box::pin(connection_closed_future);
             loop {

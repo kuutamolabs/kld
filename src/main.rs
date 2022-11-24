@@ -1,7 +1,4 @@
-pub mod bitcoind_client;
 mod controller;
-mod convert;
-mod disk;
 mod event_handler;
 mod hex_utils;
 mod net_utils;
@@ -11,6 +8,8 @@ mod prometheus;
 use crate::controller::Controller;
 use crate::prometheus::spawn_prometheus_exporter;
 use anyhow::Result;
+use database::ldk_database::LdkDatabase;
+use database::migrate_database;
 use log::{info, warn};
 use settings::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,7 +19,7 @@ use tokio::signal::unix::SignalKind;
 
 pub fn main() -> Result<()> {
     let settings = Settings::load();
-    logger::KndLogger::init("node_one", &settings.log_level)?;
+    logger::KndLogger::init(&settings.node_id, &settings.log_level)?;
 
     info!("Starting Lightning Kuutamo Node Distribution");
 
@@ -31,8 +30,15 @@ pub fn main() -> Result<()> {
 
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
-    let (controller, background_processor) =
-        runtime.block_on(Controller::start_ldk(&settings, shutdown_flag.clone()))?;
+    runtime.block_on(migrate_database(&settings))?;
+
+    let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
+
+    let (controller, background_processor) = runtime.block_on(Controller::start_ldk(
+        &settings,
+        database,
+        shutdown_flag.clone(),
+    ))?;
     let controller = Arc::new(controller);
 
     runtime.block_on(async {

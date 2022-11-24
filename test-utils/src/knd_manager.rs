@@ -1,5 +1,6 @@
 use crate::bitcoin_manager::BitcoinManager;
-use crate::poll;
+use crate::cockroach_manager::CockroachManager;
+use crate::{poll, unique_number};
 use std::env::set_var;
 use std::fs::File;
 use std::os::unix::prelude::{AsRawFd, FromRawFd};
@@ -20,7 +21,12 @@ impl KndManager {
             let log_file = File::create(format!("{}/test.log", self.storage_dir)).unwrap();
             let fd = log_file.as_raw_fd();
             let out = unsafe { Stdio::from_raw_fd(fd) };
-            let child = Command::new(&self.bin_path).stdout(out).spawn().unwrap();
+            let err = unsafe { Stdio::from_raw_fd(fd) };
+            let child = Command::new(&self.bin_path)
+                .stdout(out)
+                .stderr(err)
+                .spawn()
+                .unwrap();
             self.process = Some(child);
 
             // Wait for full startup before returning.
@@ -50,16 +56,14 @@ impl KndManager {
     pub fn test_knd(
         output_dir: &str,
         bin_path: &str,
-        test_name: &str,
         node_index: u16,
         bitcoin: &BitcoinManager,
+        cockroach: &CockroachManager,
     ) -> KndManager {
-        let test_number = std::fs::read_dir("tests")
-            .unwrap()
-            .position(|f| f.unwrap().file_name().to_str().unwrap() == format!("{}.rs", test_name))
-            .unwrap() as u16;
+        let test_name = std::thread::current().name().unwrap().to_string();
+        let n = unique_number();
 
-        let peer_port = 40000u16 + (test_number * 1000u16) + node_index * 10;
+        let peer_port = 40000u16 + (n * 1000u16) + node_index * 10;
         let storage_dir = format!("{}/{}/knd_{}", output_dir, test_name, node_index);
         let exporter_address = format!("127.0.0.1:{}", peer_port + 1);
 
@@ -81,6 +85,8 @@ impl KndManager {
         set_var("KND_BITCOIN_COOKIE_PATH", &bitcoin.cookie_path());
         set_var("KND_BITCOIN_RPC_HOST", "127.0.0.1");
         set_var("KND_BITCOIN_RPC_PORT", &bitcoin.rpc_port.to_string());
+        set_var("KND_DATABASE_PORT", &cockroach.port.to_string());
+
         KndManager {
             process: None,
             bin_path: bin_path.to_string(),
@@ -98,22 +104,22 @@ impl Drop for KndManager {
 
 #[macro_export]
 macro_rules! knd {
-    ($bitcoin:expr) => {
+    ($bitcoin:expr, $cockroach:expr) => {
         test_utils::knd_manager::KndManager::test_knd(
             env!("CARGO_TARGET_TMPDIR"),
             env!("CARGO_BIN_EXE_lightning-knd"),
-            env!("CARGO_CRATE_NAME"),
             0,
             $bitcoin,
+            $cockroach,
         )
     };
-    ($n:literal, $bitcoin:expr) => {
+    ($n:literal, $bitcoin:expr, $cockroach:expr) => {
         test_utils::knd_manager::KndManager::test_knd(
             env!("CARGO_TARGET_TMPDIR"),
             env!("CARGO_BIN_EXE_lightning-knd"),
-            env!("CARGO_CRATE_NAME"),
             $n,
             $bitcoin,
+            $cockroach,
         )
     };
 }

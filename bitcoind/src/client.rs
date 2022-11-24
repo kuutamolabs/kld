@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub struct BitcoindClient {
+pub struct Client {
     bitcoind_rpc_client: Arc<RpcClient>,
     fees: Arc<HashMap<Target, AtomicU32>>,
     handle: tokio::runtime::Handle,
@@ -31,7 +31,7 @@ pub enum Target {
     HighPriority,
 }
 
-impl BlockSource for &BitcoindClient {
+impl BlockSource for &Client {
     fn get_header<'a>(
         &'a self,
         header_hash: &'a BlockHash,
@@ -59,9 +59,9 @@ impl BlockSource for &BitcoindClient {
 /// The minimum feerate we are allowed to send, as specify by LDK.
 const MIN_FEERATE: u32 = 253;
 
-impl BitcoindClient {
+impl Client {
     pub async fn new(settings: &Settings, handle: tokio::runtime::Handle) -> std::io::Result<Self> {
-        let bitcoind_rpc_client = BitcoindClient::get_new_rpc_client(settings)?;
+        let bitcoind_rpc_client = Client::get_new_rpc_client(settings)?;
         let _dummy = bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
             .await
@@ -78,7 +78,7 @@ impl BitcoindClient {
             fees: Arc::new(fees),
             handle: handle.clone(),
         };
-        BitcoindClient::poll_for_fee_estimates(
+        Client::poll_for_fee_estimates(
             client.fees.clone(),
             client.bitcoind_rpc_client.clone(),
             handle,
@@ -231,7 +231,7 @@ impl BitcoindClient {
     }
 }
 
-impl FeeEstimator for BitcoindClient {
+impl FeeEstimator for Client {
     fn get_est_sat_per_1000_weight(&self, confirmation_target: ConfirmationTarget) -> u32 {
         match confirmation_target {
             ConfirmationTarget::Background => self
@@ -253,7 +253,7 @@ impl FeeEstimator for BitcoindClient {
     }
 }
 
-impl BroadcasterInterface for BitcoindClient {
+impl BroadcasterInterface for Client {
     fn broadcast_transaction(&self, tx: &Transaction) {
         let bitcoind_rpc_client = self.bitcoind_rpc_client.clone();
         let tx_serialized = serde_json::json!(encode::serialize_hex(tx));
