@@ -30,7 +30,7 @@ lightning-persister = { version = "0.0.112" }
 lightning-background-processor = { version = "0.0.112" }
 lightning-rapid-gossip-sync = { version = "0.0.112" }
 
-bitcoin = "0.29.0"
+bitcoin = "0.29.2"
 bitcoin-bech32 = "0.12"
 bech32 = "0.9"
 hex = "0.4"
