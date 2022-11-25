@@ -43,7 +43,7 @@ log = { version = "0.4", features = ["std"] }
 tokio = { version = "1", features = [ "full" ] }
 prometheus = "0.13.2"
 once_cell = "1.16.0"
-hyper = { version = "0.14.20", features = [ "full" ] }
+hyper = { version = "0.14.23", features = [ "full" ] }
 
 [dev-dependencies]
 test-utils = { path = "./test-utils" }
