@@ -1,6 +1,7 @@
 mod cipher;
 pub mod ldk_database;
 pub mod peer;
+pub mod wallet_database;
 
 use anyhow::Result;
 use log::error;

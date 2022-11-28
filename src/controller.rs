@@ -2,10 +2,12 @@ use crate::event_handler::EventHandler;
 use crate::net_utils;
 use crate::net_utils::do_connect_peer;
 use crate::payment_info::PaymentInfoStorage;
+use crate::wallet::Wallet;
 use anyhow::{bail, Result};
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
+use database::wallet_database::WalletDatabase;
 use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{chainmonitor, Watch};
@@ -40,6 +42,7 @@ use std::time::{Duration, SystemTime};
 pub(crate) struct Controller {
     peer_manager: Arc<PeerManager>,
     network_graph: Arc<NetworkGraph>,
+    wallet: Arc<Wallet>,
 }
 
 pub(crate) trait LightningMetrics {
@@ -48,6 +51,8 @@ pub(crate) trait LightningMetrics {
     fn num_channels(&self) -> usize;
 
     fn num_peers(&self) -> usize;
+
+    fn wallet_balance(&self) -> u64;
 }
 
 impl LightningMetrics for Controller {
@@ -61,6 +66,16 @@ impl LightningMetrics for Controller {
 
     fn num_peers(&self) -> usize {
         self.peer_manager.get_peer_node_ids().len()
+    }
+
+    fn wallet_balance(&self) -> u64 {
+        match self.wallet.balance() {
+            Ok(balance) => balance,
+            Err(e) => {
+                error!("Unable to get wallet balance for metrics: {}", e);
+                0
+            }
+        }
     }
 }
 
@@ -142,6 +157,15 @@ impl Controller {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
         let keys_manager = Arc::new(KeysManager::new(&seed, cur.as_secs(), cur.subsec_nanos()));
+
+        // Initialize bitcoin wallet.
+        let wallet_database = WalletDatabase::new(settings).await?;
+        let wallet = Arc::new(Wallet::new(
+            &seed,
+            settings,
+            bitcoind_client.clone(),
+            wallet_database,
+        )?);
 
         // Initialize the ChannelManager
         let mut channelmonitors = database
@@ -357,6 +381,7 @@ impl Controller {
             outbound_payments,
             settings.bitcoin_network,
             network_graph.clone(),
+            wallet.clone(),
         );
 
         // Initialize routing ProbabilisticScorer
@@ -472,6 +497,7 @@ impl Controller {
             Controller {
                 peer_manager,
                 network_graph,
+                wallet,
             },
             background_processor,
         ))

@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use bitcoin::blockdata::transaction::Transaction;
-use bitcoin::consensus::encode;
 use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 use bitcoin_bech32::WitnessProgram;
@@ -19,6 +17,7 @@ use tokio::runtime::Handle;
 use crate::controller::{ChannelManager, NetworkGraph};
 use crate::hex_utils;
 use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
+use crate::wallet::Wallet;
 use bitcoind::Client;
 
 pub(crate) struct EventHandler {
@@ -29,9 +28,12 @@ pub(crate) struct EventHandler {
     outbound_payments: PaymentInfoStorage,
     network: Network,
     network_graph: Arc<NetworkGraph>,
+    wallet: Arc<Wallet>,
 }
 
 impl EventHandler {
+    // TODO remove when payments storage is in database
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_manager: Arc<ChannelManager>,
         bitcoind_client: Arc<Client>,
@@ -40,6 +42,7 @@ impl EventHandler {
         outbound_payments: PaymentInfoStorage,
         network: Network,
         network_graph: Arc<NetworkGraph>,
+        wallet: Arc<Wallet>,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -49,6 +52,7 @@ impl EventHandler {
             outbound_payments,
             network,
             network_graph,
+            wallet,
         }
     }
 }
@@ -86,27 +90,19 @@ impl EventHandler {
                 .to_address();
                 let mut outputs = vec![HashMap::with_capacity(1)];
                 outputs[0].insert(addr, *channel_value_satoshis as f64 / 100_000_000.0);
-                let raw_tx = self.bitcoind_client.create_raw_transaction(outputs).await;
 
-                // Have your wallet put the inputs into the transaction such that the output is
-                // satisfied.
-                let funded_tx = self.bitcoind_client.fund_raw_transaction(raw_tx).await;
+                let funding_tx = self
+                    .wallet
+                    .fund_tx(output_script, channel_value_satoshis)
+                    .unwrap();
 
-                // Sign the final funding transaction and broadcast it.
-                let signed_tx = self
-                    .bitcoind_client
-                    .sign_raw_transaction_with_wallet(funded_tx.hex)
-                    .await;
-                assert!(signed_tx.complete);
-                let final_tx: Transaction =
-                    encode::deserialize(&hex_utils::to_vec(&signed_tx.hex).unwrap()).unwrap();
                 // Give the funding transaction back to LDK for opening the channel.
                 if self
                     .channel_manager
                     .funding_transaction_generated(
                         temporary_channel_id,
                         counterparty_node_id,
-                        final_tx,
+                        funding_tx,
                     )
                     .is_err()
                 {
@@ -284,7 +280,7 @@ impl EventHandler {
                 });
             }
             Event::SpendableOutputs { outputs } => {
-                let destination_address = self.bitcoind_client.get_new_address().await;
+                let destination_address = self.wallet.get_new_address().unwrap();
                 let output_descriptors = &outputs.iter().collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client

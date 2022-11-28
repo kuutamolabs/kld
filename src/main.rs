@@ -4,6 +4,7 @@ mod hex_utils;
 mod net_utils;
 mod payment_info;
 mod prometheus;
+mod wallet;
 
 use crate::controller::Controller;
 use crate::prometheus::spawn_prometheus_exporter;

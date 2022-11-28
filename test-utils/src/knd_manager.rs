@@ -1,6 +1,6 @@
 use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::CockroachManager;
-use crate::{poll, unique_number};
+use crate::poll;
 use std::env::set_var;
 use std::fs::File;
 use std::os::unix::prelude::{AsRawFd, FromRawFd};
@@ -60,11 +60,8 @@ impl KndManager {
         bitcoin: &BitcoinManager,
         cockroach: &CockroachManager,
     ) -> KndManager {
-        let test_name = std::thread::current().name().unwrap().to_string();
-        let n = unique_number();
-
-        let peer_port = 40000u16 + (n * 1000u16) + node_index * 10;
-        let storage_dir = format!("{}/{}/knd_{}", output_dir, test_name, node_index);
+        let peer_port = 40000u16 + (node_index * 1000u16);
+        let storage_dir = format!("{}/knd_{}", output_dir, node_index);
         let exporter_address = format!("127.0.0.1:{}", peer_port + 1);
 
         std::fs::remove_dir_all(&storage_dir).unwrap_or_default();

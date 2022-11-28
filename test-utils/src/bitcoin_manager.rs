@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
-use crate::{poll, unique_number};
+use crate::poll;
 
 const NETWORK: &str = "regtest";
 
@@ -61,12 +61,9 @@ impl BitcoinManager {
     }
 
     pub fn test_bitcoin(output_dir: &str, node_index: u16) -> BitcoinManager {
-        let test_name = std::thread::current().name().unwrap().to_string();
-        let n = unique_number();
-
-        let p2p_port = 20000u16 + (n * 1000u16) + node_index * 10;
-        let rpc_port = 30000u16 + (n * 1000u16) + node_index * 10;
-        let data_dir = format!("{}/{}/bitcoind_{}", output_dir, test_name, node_index);
+        let p2p_port = 20000u16 + (node_index * 1000u16);
+        let rpc_port = 30000u16 + (node_index * 1000u16);
+        let data_dir = format!("{}/bitcoind_{}", output_dir, node_index);
 
         BitcoinManager {
             process: None,

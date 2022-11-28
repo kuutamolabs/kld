@@ -4,7 +4,7 @@ pub mod knd_manager;
 
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 use clap::{builder::OsStr, Parser};
-use cockroach_manager::CockroachManager;
+pub use cockroach_manager::CockroachManager;
 use settings::Settings;
 
 pub struct TestSettingsBuilder {
@@ -56,13 +56,6 @@ macro_rules! poll {
             panic!("Timed out polling for result");
         }
     };
-}
-
-// Use #[unstable(feature = "thread_id_value", issue = "67939")] when its stable.
-pub fn unique_number() -> u16 {
-    let mut thread_id = format!("{:?}", std::thread::current().id());
-    thread_id.retain(|c| ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].contains(&c));
-    thread_id.parse::<u64>().unwrap() as u16
 }
 
 pub fn random_public_key() -> PublicKey {

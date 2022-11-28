@@ -1,4 +1,4 @@
-use crate::{poll, unique_number};
+use crate::poll;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
@@ -44,11 +44,8 @@ impl CockroachManager {
     }
 
     pub fn test_cockroach(output_dir: &str, node_index: u16) -> CockroachManager {
-        let name = std::thread::current().name().unwrap().to_string();
-        let n = unique_number();
-
-        let port = 50000u16 + (n * 1000u16) + (node_index * 10);
-        let storage_dir = format!("{}/{}_cockroach_{}", output_dir, name, node_index);
+        let port = 50000u16 + (node_index * 1000u16);
+        let storage_dir = format!("{}/cockroach_{}", output_dir, node_index);
         let http_address = format!("127.0.0.1:{}", port + 1);
 
         std::fs::remove_dir_all(&storage_dir).unwrap_or_default();
@@ -77,7 +74,7 @@ macro_rules! cockroach {
             0,
         )
     };
-    ($n:literal) => {
+    ($n:expr) => {
         test_utils::cockroach_manager::CockroachManager::test_cockroach(
             env!("CARGO_TARGET_TMPDIR"),
             $n,

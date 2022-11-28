@@ -43,6 +43,9 @@ static PEER_COUNT: Lazy<Gauge> = Lazy::new(|| {
     register_gauge!("lightning_peer_count", "The number of peers this node has").unwrap()
 });
 
+static WALLET_BALANCE: Lazy<Gauge> =
+    Lazy::new(|| register_gauge!("wallet_balance", "The bitcoin wallet balance").unwrap());
+
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningMetrics + Send + Sync>,
     req: Request<Body>,
@@ -55,7 +58,7 @@ async fn response_examples(
             NODE_COUNT.set(lightning_metrics.num_nodes() as f64);
             CHANNEL_COUNT.set(lightning_metrics.num_channels() as f64);
             PEER_COUNT.set(lightning_metrics.num_peers() as f64);
-
+            WALLET_BALANCE.set(lightning_metrics.wallet_balance() as f64);
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
             let encoder = TextEncoder::new();
@@ -100,6 +103,7 @@ pub(crate) async fn spawn_prometheus_exporter(
 mod test {
     use std::sync::Arc;
 
+    use anyhow::Result;
     use test_utils::test_settings;
 
     use crate::{controller::LightningMetrics, spawn_prometheus_exporter};
@@ -108,6 +112,7 @@ mod test {
         num_nodes: usize,
         num_channels: usize,
         num_peers: usize,
+        wallet_balance: u64,
     }
 
     impl LightningMetrics for TestMetrics {
@@ -122,6 +127,10 @@ mod test {
         fn num_peers(&self) -> usize {
             self.num_peers
         }
+
+        fn wallet_balance(&self) -> u64 {
+            self.wallet_balance
+        }
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -132,6 +141,7 @@ mod test {
             num_nodes: 10,
             num_channels: 20,
             num_peers: 5,
+            wallet_balance: 500000,
         });
         tokio::spawn(spawn_prometheus_exporter(address.clone(), metrics.clone()));
 
@@ -154,6 +164,10 @@ mod test {
         assert_eq!(
             get_metric(&result, "lightning_peer_count"),
             metrics.num_peers as f64
+        );
+        assert_eq!(
+            get_metric(&result, "wallet_balance"),
+            metrics.wallet_balance as f64
         );
 
         let not_found = call_exporter(&address, "wrong").await.unwrap();
