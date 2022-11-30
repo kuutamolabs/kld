@@ -8,6 +8,7 @@ use bdk::{
 };
 use bitcoin::consensus::encode::{deserialize, serialize};
 use bitcoin::{OutPoint, Script, Transaction, TxOut, Txid};
+use log::info;
 use settings::Settings;
 use tokio::runtime::Handle;
 
@@ -46,6 +47,10 @@ pub struct WalletDatabase {
 
 impl WalletDatabase {
     pub async fn new(settings: &Settings) -> Result<WalletDatabase> {
+        info!(
+            "Connecting wallet to Cockroach database at {}:{}",
+            settings.database_host, settings.database_port
+        );
         let client = connection(settings).await?;
         Ok(WalletDatabase {
             client: Arc::new(client),

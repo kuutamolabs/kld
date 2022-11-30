@@ -20,7 +20,7 @@ use tokio::signal::unix::SignalKind;
 
 pub fn main() -> Result<()> {
     let settings = Settings::load();
-    logger::KndLogger::init(&settings.node_id, &settings.log_level)?;
+    logger::KndLogger::init(&settings.node_id, settings.log_level.parse().unwrap());
 
     info!("Starting Lightning Kuutamo Node Distribution");
 

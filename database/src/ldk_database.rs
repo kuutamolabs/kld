@@ -55,7 +55,7 @@ pub struct LdkDatabase {
 impl LdkDatabase {
     pub async fn new(settings: &Settings) -> Result<LdkDatabase> {
         info!(
-            "Connecting to Cockroach database at {}:{}",
+            "Connecting LDK to Cockroach database at {}:{}",
             settings.database_host, settings.database_port
         );
         let client = connection(&settings).await?;

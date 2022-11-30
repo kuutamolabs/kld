@@ -1,83 +1,48 @@
-use crate::poll;
-use std::process::{Child, Command, Stdio};
-use std::time::Duration;
+use crate::manager::Manager;
 
 pub struct CockroachManager {
-    process: Option<Child>,
-    storage_dir: String,
+    manager: Manager,
     pub port: u16,
     http_address: String,
 }
 
 impl CockroachManager {
     pub async fn start(&mut self) {
-        if self.process.is_none() {
-            let child = Command::new("cockroach")
-                .arg("start-single-node")
-                .arg(format!("--insecure"))
-                .arg(format!("--listen-addr=127.0.0.1:{}", self.port))
-                .arg(format!("--http-addr={}", self.http_address))
-                .arg(format!("--store={}", self.storage_dir))
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .unwrap();
-
-            self.process = Some(child);
-
-            poll!(5, self.has_started().await);
-        }
+        let args = &[
+            "start-single-node",
+            "--insecure",
+            &format!("--listen-addr=127.0.0.1:{}", self.port),
+            &format!("--http-addr={}", self.http_address),
+            &format!("--store={}", self.manager.storage_dir),
+        ];
+        self.manager.start("cockroach", args).await
     }
 
-    pub fn kill(&mut self) {
-        if let Some(mut process) = self.process.take() {
-            process.kill().unwrap_or_default();
-            process.wait().unwrap();
-            self.process = None
-        }
-    }
-
-    pub async fn has_started(&self) -> bool {
-        reqwest::get(format!("http://{}", self.http_address.clone()))
-            .await
-            .is_ok()
-    }
-
-    pub fn test_cockroach(output_dir: &str, node_index: u16) -> CockroachManager {
-        let port = 50000u16 + (node_index * 1000u16);
-        let storage_dir = format!("{}/cockroach_{}", output_dir, node_index);
+    pub fn test_cockroach(output_dir: &str) -> CockroachManager {
+        let port = 50000u16;
         let http_address = format!("127.0.0.1:{}", port + 1);
 
-        std::fs::remove_dir_all(&storage_dir).unwrap_or_default();
-        std::fs::create_dir_all(&storage_dir).unwrap();
-
+        let manager = Manager::new(
+            output_dir,
+            "cockroach",
+            0,
+            format!("http://{}", http_address.clone()),
+        );
         CockroachManager {
-            process: None,
-            storage_dir,
+            manager,
             port,
             http_address,
         }
     }
-}
 
-impl Drop for CockroachManager {
-    fn drop(&mut self) {
-        self.kill()
+    pub fn kill(&mut self) {
+        self.manager.kill()
     }
 }
 
 #[macro_export]
 macro_rules! cockroach {
     () => {
-        test_utils::cockroach_manager::CockroachManager::test_cockroach(
-            env!("CARGO_TARGET_TMPDIR"),
-            0,
-        )
-    };
-    ($n:expr) => {
-        test_utils::cockroach_manager::CockroachManager::test_cockroach(
-            env!("CARGO_TARGET_TMPDIR"),
-            $n,
-        )
+        test_utils::cockroach_manager::CockroachManager::test_cockroach(env!("CARGO_TARGET_TMPDIR"))
     };
 }

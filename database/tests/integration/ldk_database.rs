@@ -7,6 +7,7 @@ use bitcoin::hashes::Hash;
 use bitcoin::{BlockHash, TxMerkleNode};
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
+use database::migrate_database;
 use database::peer::Peer;
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
@@ -19,20 +20,28 @@ use lightning::util::persist::Persister;
 use lightning::util::test_utils as ln_utils;
 use lightning::{check_added_monitors, check_closed_broadcast, check_closed_event};
 use logger::KndLogger;
-use test_utils::cockroach_manager::CockroachManager;
 use test_utils::random_public_key;
 
-use crate::cockroach_manager;
+use crate::{global_cockroach, teardown};
 
-async fn setup() -> (CockroachManager, LdkDatabase) {
-    let (cockroach, settings) = cockroach_manager().await;
+async fn setup() -> LdkDatabase {
+    let (settings, _cockroach) = global_cockroach().await;
     let database = LdkDatabase::new(&settings).await.unwrap();
-    (cockroach, database)
+    database
+}
+
+async fn setup_new(database_name: String) -> LdkDatabase {
+    let (settings, _cockroach) = global_cockroach().await;
+    let mut new_settings = settings.clone();
+    new_settings.database_name = database_name;
+    migrate_database(&new_settings).await.unwrap();
+    let database = LdkDatabase::new(&new_settings).await.unwrap();
+    database
 }
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_key() {
-    let (_cockroach, database) = setup().await;
+    let database = setup().await;
 
     assert!(database.is_first_start().await.unwrap());
 
@@ -45,11 +54,12 @@ pub async fn test_key() {
     assert_eq!(private, persisted.1);
 
     assert!(!database.is_first_start().await.unwrap());
+    teardown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() {
-    let (_cockroach, database) = setup().await;
+    let database = setup().await;
 
     let peer = Peer {
         public_key: random_public_key(),
@@ -63,14 +73,15 @@ pub async fn test_peers() {
     database.delete_peer(&peer).await;
     let peers = database.fetch_peers().await.unwrap();
     assert!(!peers.contains(&peer));
+    teardown().await;
 }
 
 // (Test copied from LDK FilesystemPersister).
 // Test relaying a few payments and check that the persisted data is updated the appropriate number of times.
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_channel_monitors() {
-    let (_cockroach_0, database_0) = setup().await;
-    let (_cockroach_0, database_1) = setup().await;
+    let database_0 = setup_new("test1".to_string()).await;
+    let database_1 = setup_new("test2".to_string()).await;
 
     // Create the nodes, giving them data databases.
     let chanmon_cfgs = create_chanmon_cfgs(2);
@@ -184,11 +195,13 @@ pub async fn test_channel_monitors() {
 
     // Make sure everything is persisted as expected after close.
     check_persisted_data!(11);
+    teardown().await;
+    teardown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_network_graph() {
-    let (_cockroach, database) = setup().await;
+    let database = setup().await;
 
     let network_graph = Arc::new(NetworkGraph::new(
         BlockHash::all_zeros(),
@@ -232,6 +245,7 @@ pub async fn test_network_graph() {
         .await
         .unwrap()
         .is_some());
+    teardown().await;
 }
 
 type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, Arc<KndLogger>>>;

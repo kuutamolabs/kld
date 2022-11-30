@@ -1,6 +1,7 @@
 pub mod bitcoin_manager;
 pub mod cockroach_manager;
 pub mod knd_manager;
+mod manager;
 
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 use clap::{builder::OsStr, Parser};
@@ -25,6 +26,7 @@ impl TestSettingsBuilder {
 
     pub fn for_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
         self.settings.database_port = database.port.to_string();
+        self.settings.database_name = "test".to_string();
         self
     }
 
@@ -39,6 +41,13 @@ pub fn test_settings() -> Settings {
 
 pub fn test_settings_for_database(database: &CockroachManager) -> Settings {
     TestSettingsBuilder::new().for_database(database).build()
+}
+
+pub fn random_public_key() -> PublicKey {
+    let rand: [u8; 32] = rand::random();
+    let secp_ctx = bitcoin::secp256k1::Secp256k1::new();
+    let secret_key = &SecretKey::from_slice(&rand).unwrap();
+    PublicKey::from_secret_key(&secp_ctx, secret_key)
 }
 
 #[macro_export]
@@ -56,11 +65,4 @@ macro_rules! poll {
             panic!("Timed out polling for result");
         }
     };
-}
-
-pub fn random_public_key() -> PublicKey {
-    let rand: [u8; 32] = rand::random();
-    let secp_ctx = bitcoin::secp256k1::Secp256k1::new();
-    let secret_key = &SecretKey::from_slice(&rand).unwrap();
-    PublicKey::from_secret_key(&secp_ctx, secret_key)
 }

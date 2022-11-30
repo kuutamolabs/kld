@@ -4,7 +4,7 @@ pub mod peer;
 pub mod wallet_database;
 
 use anyhow::Result;
-use log::error;
+use log::{error, info};
 use settings::Settings;
 pub use tokio_postgres::{Client, NoTls, Transaction};
 
@@ -38,6 +38,7 @@ async fn connection(settings: &Settings) -> Result<Client> {
         settings.database_user,
         settings.database_name
     );
+    info!("Creating database connection with params: {}", params);
     if !settings.database_password.is_empty() {
         params = format!("{} password={}", params, settings.database_password);
     }
@@ -56,7 +57,19 @@ mod embedded {
 }
 
 pub async fn migrate_database(settings: &Settings) -> Result<()> {
+    {
+        let mut temp_settings = settings.clone();
+        temp_settings.database_name = "defaultdb".to_string();
+        let client = connection(&temp_settings).await?;
+        client
+            .execute(
+                &format!("CREATE DATABASE IF NOT EXISTS {}", &settings.database_name),
+                &[],
+            )
+            .await?;
+    }
     let mut client = connection(&settings).await?;
+    info!("Running database migrations");
     embedded::migrations::runner()
         .run_async(&mut client)
         .await?;
