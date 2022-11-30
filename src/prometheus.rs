@@ -94,7 +94,7 @@ pub(crate) async fn spawn_prometheus_exporter(
 
     let server = Server::bind(&addr).serve(make_service);
 
-    info!("Listening on http://{}", addr);
+    info!("Prometheus exporter listening on http://{}", addr);
 
     server.await.context("Failed to start server")
 }

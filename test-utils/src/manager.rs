@@ -50,7 +50,7 @@ impl Manager {
                 if self.has_started().await {
                     break true;
                 };
-                if i.elapsed() >= Duration::from_secs(5) {
+                if i.elapsed() >= Duration::from_secs(10) {
                     break false;
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -59,6 +59,7 @@ impl Manager {
                 let mut file = File::open(&path).unwrap();
                 let mut buf = String::new();
                 file.read_to_string(&mut buf).unwrap();
+                println!("Timed out waiting to start: {}", self.instance_name);
                 println!("Begin log file: {}", path);
                 println!("{}", buf);
                 println!("End of log file.");
