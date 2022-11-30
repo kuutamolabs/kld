@@ -1,9 +1,8 @@
-use crate::convert::{BlockchainInfo, FeeResponse, FundedTx, NewAddress, RawTx, SignedTx};
+use crate::convert::{BlockchainInfo, FeeResponse, RawTx};
 use base64;
 use bitcoin::blockdata::transaction::Transaction;
 use bitcoin::consensus::encode;
 use bitcoin::hash_types::{BlockHash, Txid};
-use bitcoin::util::address::Address;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::http::HttpEndpoint;
 use lightning_block_sync::rpc::RpcClient;
@@ -13,7 +12,6 @@ use settings::Settings;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -166,61 +164,12 @@ impl Client {
         });
     }
 
-    pub async fn create_raw_transaction(&self, outputs: Vec<HashMap<String, f64>>) -> RawTx {
-        let outputs_json = serde_json::json!(outputs);
-        self.bitcoind_rpc_client
-            .call_method::<RawTx>(
-                "createrawtransaction",
-                &[serde_json::json!([]), outputs_json],
-            )
-            .await
-            .unwrap()
-    }
-
-    pub async fn fund_raw_transaction(&self, raw_tx: RawTx) -> FundedTx {
-        let raw_tx_json = serde_json::json!(raw_tx.0);
-        let options = serde_json::json!({
-            // LDK gives us feerates in satoshis per KW but Bitcoin Core here expects fees
-            // denominated in satoshis per vB. First we need to multiply by 4 to convert weight
-            // units to virtual bytes, then divide by 1000 to convert KvB to vB.
-            "fee_rate": self.get_est_sat_per_1000_weight(ConfirmationTarget::Normal) as f64 / 250.0,
-            // While users could "cancel" a channel open by RBF-bumping and paying back to
-            // themselves, we don't allow it here as its easy to have users accidentally RBF bump
-            // and pay to the channel funding address, which results in loss of funds. Real
-            // LDK-based applications should enable RBF bumping and RBF bump either to a local
-            // change address or to a new channel output negotiated with the same node.
-            "replaceable": false,
-        });
-        self.bitcoind_rpc_client
-            .call_method("fundrawtransaction", &[raw_tx_json, options])
-            .await
-            .unwrap()
-    }
-
     pub async fn send_raw_transaction(&self, raw_tx: RawTx) {
         let raw_tx_json = serde_json::json!(raw_tx.0);
         self.bitcoind_rpc_client
             .call_method::<Txid>("sendrawtransaction", &[raw_tx_json])
             .await
             .unwrap();
-    }
-
-    pub async fn sign_raw_transaction_with_wallet(&self, tx_hex: String) -> SignedTx {
-        let tx_hex_json = serde_json::json!(tx_hex);
-        self.bitcoind_rpc_client
-            .call_method("signrawtransactionwithwallet", &[tx_hex_json])
-            .await
-            .unwrap()
-    }
-
-    pub async fn get_new_address(&self) -> Address {
-        let addr_args = vec![serde_json::json!("LDK output address")];
-        let addr = self
-            .bitcoind_rpc_client
-            .call_method::<NewAddress>("getnewaddress", &addr_args)
-            .await
-            .unwrap();
-        Address::from_str(addr.0.as_str()).unwrap()
     }
 
     pub async fn get_blockchain_info(&self) -> BlockchainInfo {

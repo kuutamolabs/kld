@@ -1,5 +1,5 @@
 use lightning::util::logger::{Level, Logger};
-use log::{logger, Log, Metadata, MetadataBuilder, Record, SetLoggerError};
+use log::{logger, LevelFilter, Log, Metadata, MetadataBuilder, Record};
 use once_cell::sync::OnceCell;
 use std::{process, sync::Arc};
 
@@ -13,14 +13,14 @@ pub struct KndLogger {
 static KND_LOGGER: OnceCell<Arc<KndLogger>> = OnceCell::new();
 
 impl KndLogger {
-    pub fn init(node_id: &str, level: &str) -> Result<(), SetLoggerError> {
-        let logger = KndLogger {
-            node_id: node_id.to_string(),
-        };
-        KND_LOGGER.set(Arc::new(logger)).unwrap();
-
-        log::set_logger(KND_LOGGER.get().unwrap())
-            .map(|()| log::set_max_level(level.parse().unwrap()))
+    pub fn init(node_id: &str, level_filter: LevelFilter) {
+        let logger = KND_LOGGER.get_or_init(|| {
+            Arc::new(KndLogger {
+                node_id: node_id.to_string(),
+            })
+        });
+        // This function gets called multiple times by the tests so ignore the error.
+        let _ = log::set_logger(logger).map(|()| log::set_max_level(level_filter));
     }
 
     pub fn global() -> Arc<KndLogger> {
@@ -77,7 +77,7 @@ impl Logger for KndLogger {
 #[test]
 pub fn test_log() {
     let node_id = "one";
-    KndLogger::init(node_id, "info").unwrap();
+    KndLogger::init(node_id, LevelFilter::Info);
     assert_eq!(node_id, KndLogger::global().node_id);
 
     let metadata = MetadataBuilder::new().level(log::Level::Debug).build();

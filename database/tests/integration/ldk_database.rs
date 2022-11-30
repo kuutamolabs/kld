@@ -20,21 +20,28 @@ use lightning::util::persist::Persister;
 use lightning::util::test_utils as ln_utils;
 use lightning::{check_added_monitors, check_closed_broadcast, check_closed_event};
 use logger::KndLogger;
-use test_utils::cockroach_manager::CockroachManager;
-use test_utils::{cockroach, random_public_key, test_settings_for_database};
+use test_utils::random_public_key;
 
-async fn setup_database(cockroach: &mut CockroachManager) -> LdkDatabase {
-    cockroach.start().await;
-    let settings = &test_settings_for_database(&cockroach);
-    migrate_database(&settings).await.unwrap();
-    LdkDatabase::new(&settings).await.unwrap()
+use crate::{global_cockroach, teardown};
+
+async fn setup() -> LdkDatabase {
+    let (settings, _cockroach) = global_cockroach().await;
+    let database = LdkDatabase::new(&settings).await.unwrap();
+    database
+}
+
+async fn setup_new(database_name: String) -> LdkDatabase {
+    let (settings, _cockroach) = global_cockroach().await;
+    let mut new_settings = settings.clone();
+    new_settings.database_name = database_name;
+    migrate_database(&new_settings).await.unwrap();
+    let database = LdkDatabase::new(&new_settings).await.unwrap();
+    database
 }
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_key() {
-    KndLogger::init("test", "info").unwrap(); // can only be set once per test suite.
-    let mut cockroach = cockroach!();
-    let database = setup_database(&mut cockroach).await;
+    let database = setup().await;
 
     assert!(database.is_first_start().await.unwrap());
 
@@ -47,12 +54,12 @@ pub async fn test_key() {
     assert_eq!(private, persisted.1);
 
     assert!(!database.is_first_start().await.unwrap());
+    teardown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() {
-    let mut cockroach = cockroach!();
-    let database = setup_database(&mut cockroach).await;
+    let database = setup().await;
 
     let peer = Peer {
         public_key: random_public_key(),
@@ -66,18 +73,17 @@ pub async fn test_peers() {
     database.delete_peer(&peer).await;
     let peers = database.fetch_peers().await.unwrap();
     assert!(!peers.contains(&peer));
+    teardown().await;
 }
 
 // (Test copied from LDK FilesystemPersister).
 // Test relaying a few payments and check that the persisted data is updated the appropriate number of times.
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_channel_monitors() {
-    let mut cockroach_0 = cockroach!(0);
-    let mut cockroach_1 = cockroach!(1);
-    let persister_0 = setup_database(&mut cockroach_0).await;
-    let persister_1 = setup_database(&mut cockroach_1).await;
+    let database_0 = setup_new("test1".to_string()).await;
+    let database_1 = setup_new("test2".to_string()).await;
 
-    // Create the nodes, giving them data persisters.
+    // Create the nodes, giving them data databases.
     let chanmon_cfgs = create_chanmon_cfgs(2);
     let mut node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
     let chain_mon_0 = ln_utils::TestChainMonitor::new(
@@ -85,7 +91,7 @@ pub async fn test_channel_monitors() {
         &chanmon_cfgs[0].tx_broadcaster,
         &chanmon_cfgs[0].logger,
         &chanmon_cfgs[0].fee_estimator,
-        &persister_0,
+        &database_0,
         &node_cfgs[0].keys_manager,
     );
     let chain_mon_1 = ln_utils::TestChainMonitor::new(
@@ -93,7 +99,7 @@ pub async fn test_channel_monitors() {
         &chanmon_cfgs[1].tx_broadcaster,
         &chanmon_cfgs[1].logger,
         &chanmon_cfgs[1].fee_estimator,
-        &persister_1,
+        &database_1,
         &node_cfgs[1].keys_manager,
     );
     node_cfgs[0].chain_monitor = chain_mon_0;
@@ -103,12 +109,12 @@ pub async fn test_channel_monitors() {
 
     // Check that the persisted channel data is empty before any channels are
     // open.
-    let mut persisted_chan_data_0 = persister_0
+    let mut persisted_chan_data_0 = database_0
         .fetch_channel_monitors(nodes[0].keys_manager)
         .await
         .unwrap();
     assert_eq!(persisted_chan_data_0.len(), 0);
-    let mut persisted_chan_data_1 = persister_1
+    let mut persisted_chan_data_1 = database_1
         .fetch_channel_monitors(nodes[0].keys_manager)
         .await
         .unwrap();
@@ -117,7 +123,7 @@ pub async fn test_channel_monitors() {
     // Helper to make sure the channel is on the expected update ID.
     macro_rules! check_persisted_data {
         ($expected_update_id: expr) => {
-            persisted_chan_data_0 = persister_0
+            persisted_chan_data_0 = database_0
                 .fetch_channel_monitors(nodes[0].keys_manager)
                 .await
                 .unwrap();
@@ -125,7 +131,7 @@ pub async fn test_channel_monitors() {
             for (_, mon) in persisted_chan_data_0.iter() {
                 assert_eq!(mon.get_latest_update_id(), $expected_update_id);
             }
-            persisted_chan_data_1 = persister_1
+            persisted_chan_data_1 = database_1
                 .fetch_channel_monitors(nodes[0].keys_manager)
                 .await
                 .unwrap();
@@ -189,12 +195,13 @@ pub async fn test_channel_monitors() {
 
     // Make sure everything is persisted as expected after close.
     check_persisted_data!(11);
+    teardown().await;
+    teardown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_network_graph() {
-    let mut cockroach = cockroach!();
-    let database = setup_database(&mut cockroach).await;
+    let database = setup().await;
 
     let network_graph = Arc::new(NetworkGraph::new(
         BlockHash::all_zeros(),
@@ -238,6 +245,7 @@ pub async fn test_network_graph() {
         .await
         .unwrap()
         .is_some());
+    teardown().await;
 }
 
 type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, Arc<KndLogger>>>;

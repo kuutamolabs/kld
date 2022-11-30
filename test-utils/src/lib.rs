@@ -1,10 +1,11 @@
 pub mod bitcoin_manager;
 pub mod cockroach_manager;
 pub mod knd_manager;
+mod manager;
 
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 use clap::{builder::OsStr, Parser};
-use cockroach_manager::CockroachManager;
+pub use cockroach_manager::CockroachManager;
 use settings::Settings;
 
 pub struct TestSettingsBuilder {
@@ -25,6 +26,7 @@ impl TestSettingsBuilder {
 
     pub fn for_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
         self.settings.database_port = database.port.to_string();
+        self.settings.database_name = "test".to_string();
         self
     }
 
@@ -39,6 +41,13 @@ pub fn test_settings() -> Settings {
 
 pub fn test_settings_for_database(database: &CockroachManager) -> Settings {
     TestSettingsBuilder::new().for_database(database).build()
+}
+
+pub fn random_public_key() -> PublicKey {
+    let rand: [u8; 32] = rand::random();
+    let secp_ctx = bitcoin::secp256k1::Secp256k1::new();
+    let secret_key = &SecretKey::from_slice(&rand).unwrap();
+    PublicKey::from_secret_key(&secp_ctx, secret_key)
 }
 
 #[macro_export]
@@ -56,18 +65,4 @@ macro_rules! poll {
             panic!("Timed out polling for result");
         }
     };
-}
-
-// Use #[unstable(feature = "thread_id_value", issue = "67939")] when its stable.
-pub fn unique_number() -> u16 {
-    let mut thread_id = format!("{:?}", std::thread::current().id());
-    thread_id.retain(|c| ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].contains(&c));
-    thread_id.parse::<u64>().unwrap() as u16
-}
-
-pub fn random_public_key() -> PublicKey {
-    let rand: [u8; 32] = rand::random();
-    let secp_ctx = bitcoin::secp256k1::Secp256k1::new();
-    let secret_key = &SecretKey::from_slice(&rand).unwrap();
-    PublicKey::from_secret_key(&secp_ctx, secret_key)
 }

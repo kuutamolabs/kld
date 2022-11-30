@@ -4,6 +4,7 @@ mod hex_utils;
 mod net_utils;
 mod payment_info;
 mod prometheus;
+mod wallet;
 
 use crate::controller::Controller;
 use crate::prometheus::spawn_prometheus_exporter;
@@ -19,7 +20,7 @@ use tokio::signal::unix::SignalKind;
 
 pub fn main() -> Result<()> {
     let settings = Settings::load();
-    logger::KndLogger::init(&settings.node_id, &settings.log_level)?;
+    logger::KndLogger::init(&settings.node_id, settings.log_level.parse().unwrap());
 
     info!("Starting Lightning Kuutamo Node Distribution");
 

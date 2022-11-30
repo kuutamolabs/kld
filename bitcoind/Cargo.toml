@@ -11,3 +11,6 @@ lightning-block-sync = { version = "0.0.112", features = [ "rpc-client" ] }
 tokio = { version = "1", features = [ "full" ] }
 serde_json = { version = "1.0" }
 base64 = "0.13.1"
+
+[lib]
+doctest = false
