@@ -3,7 +3,7 @@
 , clippy
 , openssl
 , bitcoind
-, cockroachdb
+#, cockroachdb
 , pkg-config
 , runCommand
 , enableLint ? false
@@ -27,7 +27,7 @@ rustPlatform.buildRustPackage ({
   cargoLock.lockFile = ../../Cargo.lock;
 
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config bitcoind cockroachdb ] ++ lib.optionals enableLint [ clippy ];
+  nativeBuildInputs = [ pkg-config bitcoind ] ++ lib.optionals enableLint [ clippy ];
 
   doCheck = enableTests;
 

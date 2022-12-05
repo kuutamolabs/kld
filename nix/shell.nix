@@ -31,7 +31,8 @@
 
             # lightning-knd dependencies
             (pkgs.bitcoind.override { withWallet = false; withGui = false; })
-            pkgs.cockroachdb
+            #pkgs.cockroachdb
+            self'.packages.cockroach
           ]
           ++ self'.packages.lightning-knd.buildInputs;
         RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
