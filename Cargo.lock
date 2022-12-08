@@ -575,6 +575,7 @@ dependencies = [
  "bitcoind",
  "bitvec",
  "crypto-common",
+ "futures",
  "lightning",
  "log",
  "logger",
