@@ -1,10 +1,13 @@
 use crate::event_handler::EventHandler;
-use crate::net_utils;
 use crate::net_utils::do_connect_peer;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
+use crate::{net_utils, VERSION};
 use anyhow::{bail, Result};
+use api::LightningInterface;
 use bitcoin::blockdata::constants::genesis_block;
+use bitcoin::secp256k1::PublicKey;
+use bitcoin::Network;
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::wallet_database::WalletDatabase;
@@ -38,24 +41,21 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
+use tokio::runtime::Handle;
 
 pub(crate) struct Controller {
+    bitcoind_client: Arc<Client>,
+    channel_manager: Arc<ChannelManager>,
     peer_manager: Arc<PeerManager>,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
 }
 
-pub(crate) trait LightningMetrics {
-    fn num_nodes(&self) -> usize;
+impl LightningInterface for Controller {
+    fn identity_pubkey(&self) -> PublicKey {
+        self.channel_manager.get_our_node_id()
+    }
 
-    fn num_channels(&self) -> usize;
-
-    fn num_peers(&self) -> usize;
-
-    fn wallet_balance(&self) -> u64;
-}
-
-impl LightningMetrics for Controller {
     fn num_nodes(&self) -> usize {
         self.network_graph.read_only().nodes().len()
     }
@@ -76,6 +76,37 @@ impl LightningMetrics for Controller {
                 0
             }
         }
+    }
+
+    fn version(&self) -> String {
+        VERSION.to_string()
+    }
+
+    fn alias(&self) -> String {
+        "".to_string()
+    }
+
+    fn block_height(&self) -> usize {
+        let info = tokio::task::block_in_place(move || {
+            Handle::current().block_on(self.bitcoind_client.get_blockchain_info())
+        });
+        info.latest_height
+    }
+
+    fn network(&self) -> bitcoin::Network {
+        Network::Bitcoin
+    }
+
+    fn num_active_channels(&self) -> usize {
+        0
+    }
+
+    fn num_inactive_channels(&self) -> usize {
+        0
+    }
+
+    fn num_pending_channels(&self) -> usize {
+        0
     }
 }
 
@@ -375,7 +406,7 @@ impl Controller {
         let outbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
         let event_handler = EventHandler::new(
             channel_manager.clone(),
-            bitcoind_client,
+            bitcoind_client.clone(),
             keys_manager.clone(),
             inbound_payments,
             outbound_payments,
@@ -495,6 +526,8 @@ impl Controller {
 
         Ok((
             Controller {
+                bitcoind_client,
+                channel_manager,
                 peer_manager,
                 network_graph,
                 wallet,

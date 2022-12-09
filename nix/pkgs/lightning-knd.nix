@@ -17,6 +17,7 @@ rustPlatform.buildRustPackage ({
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
     cp -r ${../../src} $out/src
+    cp -r ${../../api} $out/api
     cp -r ${../../bitcoind} $out/bitcoind
     cp -r ${../../database} $out/database
     cp -r ${../../logger} $out/logger
@@ -44,6 +45,7 @@ rustPlatform.buildRustPackage ({
     install -D ${../../Cargo.toml} $out/Cargo.toml
     install -D ${../../Cargo.lock} $out/Cargo.lock
     cp -r ${../../src} $out/src
+    cp -r ${../../api} $out/api
     cp -r ${../../bitcoind} $out/bitcoind
     cp -r ${../../database} $out/database
     cp -r ${../../logger} $out/logger
