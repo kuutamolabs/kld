@@ -15,9 +15,9 @@ pub trait LightningInterface {
 
     fn num_pending_channels(&self) -> usize;
 
-    fn num_nodes(&self) -> usize;
+    fn graph_num_nodes(&self) -> usize;
 
-    fn num_channels(&self) -> usize;
+    fn graph_num_channels(&self) -> usize;
 
     fn num_peers(&self) -> usize;
 

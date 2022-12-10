@@ -54,8 +54,8 @@ async fn response_examples(
         (&Method::GET, "/pid") => Ok(Response::new(Body::from(process::id().to_string()))),
         (&Method::GET, "/metrics") => {
             UPTIME.set(START.get().unwrap().elapsed().as_millis() as f64);
-            NODE_COUNT.set(lightning_metrics.num_nodes() as f64);
-            CHANNEL_COUNT.set(lightning_metrics.num_channels() as f64);
+            NODE_COUNT.set(lightning_metrics.graph_num_nodes() as f64);
+            CHANNEL_COUNT.set(lightning_metrics.graph_num_channels() as f64);
             PEER_COUNT.set(lightning_metrics.num_peers() as f64);
             WALLET_BALANCE.set(lightning_metrics.wallet_balance() as f64);
             let metric_families = prometheus::gather();
@@ -124,11 +124,11 @@ mod test {
             random_public_key()
         }
 
-        fn num_nodes(&self) -> usize {
+        fn graph_num_nodes(&self) -> usize {
             self.num_nodes
         }
 
-        fn num_channels(&self) -> usize {
+        fn graph_num_channels(&self) -> usize {
             self.num_channels
         }
 

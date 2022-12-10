@@ -40,7 +40,7 @@ pub fn main() -> Result<()> {
     let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
 
     let (controller, background_processor) = runtime.block_on(Controller::start_ldk(
-        &settings,
+        settings.clone(),
         database,
         shutdown_flag.clone(),
     ))?;

@@ -7,7 +7,6 @@ use anyhow::{bail, Result};
 use api::LightningInterface;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::Network;
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::wallet_database::WalletDatabase;
@@ -44,6 +43,7 @@ use std::time::{Duration, SystemTime};
 use tokio::runtime::Handle;
 
 pub(crate) struct Controller {
+    settings: Arc<Settings>,
     bitcoind_client: Arc<Client>,
     channel_manager: Arc<ChannelManager>,
     peer_manager: Arc<PeerManager>,
@@ -56,11 +56,11 @@ impl LightningInterface for Controller {
         self.channel_manager.get_our_node_id()
     }
 
-    fn num_nodes(&self) -> usize {
+    fn graph_num_nodes(&self) -> usize {
         self.network_graph.read_only().nodes().len()
     }
 
-    fn num_channels(&self) -> usize {
+    fn graph_num_channels(&self) -> usize {
         self.network_graph.read_only().channels().len()
     }
 
@@ -83,7 +83,7 @@ impl LightningInterface for Controller {
     }
 
     fn alias(&self) -> String {
-        "".to_string()
+        self.settings.knd_node_name.clone()
     }
 
     fn block_height(&self) -> usize {
@@ -94,7 +94,7 @@ impl LightningInterface for Controller {
     }
 
     fn network(&self) -> bitcoin::Network {
-        Network::Bitcoin
+        self.settings.bitcoin_network
     }
 
     fn num_active_channels(&self) -> usize {
@@ -118,12 +118,13 @@ impl Controller {
     }
 
     pub async fn start_ldk(
-        settings: &Settings,
+        settings: Arc<Settings>,
         database: Arc<LdkDatabase>,
         shutdown_flag: Arc<AtomicBool>,
     ) -> Result<(Controller, BackgroundProcessor)> {
         // Initialize our bitcoind client.
-        let bitcoind_client = match Client::new(settings, tokio::runtime::Handle::current()).await {
+        let bitcoind_client = match Client::new(&settings, tokio::runtime::Handle::current()).await
+        {
             Ok(client) => {
                 info!(
                     "Connected to bitcoind at {}:{}",
@@ -190,10 +191,10 @@ impl Controller {
         let keys_manager = Arc::new(KeysManager::new(&seed, cur.as_secs(), cur.subsec_nanos()));
 
         // Initialize bitcoin wallet.
-        let wallet_database = WalletDatabase::new(settings).await?;
+        let wallet_database = WalletDatabase::new(&settings).await?;
         let wallet = Arc::new(Wallet::new(
             &seed,
-            settings,
+            &settings,
             bitcoind_client.clone(),
             wallet_database,
         )?);
@@ -526,6 +527,7 @@ impl Controller {
 
         Ok((
             Controller {
+                settings,
                 bitcoind_client,
                 channel_manager,
                 peer_manager,
