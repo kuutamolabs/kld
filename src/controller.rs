@@ -1,10 +1,12 @@
 use crate::event_handler::EventHandler;
-use crate::net_utils;
 use crate::net_utils::do_connect_peer;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
+use crate::{net_utils, VERSION};
 use anyhow::{bail, Result};
+use api::LightningInterface;
 use bitcoin::blockdata::constants::genesis_block;
+use bitcoin::secp256k1::PublicKey;
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::wallet_database::WalletDatabase;
@@ -38,29 +40,27 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
+use tokio::runtime::Handle;
 
 pub(crate) struct Controller {
+    settings: Arc<Settings>,
+    bitcoind_client: Arc<Client>,
+    channel_manager: Arc<ChannelManager>,
     peer_manager: Arc<PeerManager>,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
 }
 
-pub(crate) trait LightningMetrics {
-    fn num_nodes(&self) -> usize;
+impl LightningInterface for Controller {
+    fn identity_pubkey(&self) -> PublicKey {
+        self.channel_manager.get_our_node_id()
+    }
 
-    fn num_channels(&self) -> usize;
-
-    fn num_peers(&self) -> usize;
-
-    fn wallet_balance(&self) -> u64;
-}
-
-impl LightningMetrics for Controller {
-    fn num_nodes(&self) -> usize {
+    fn graph_num_nodes(&self) -> usize {
         self.network_graph.read_only().nodes().len()
     }
 
-    fn num_channels(&self) -> usize {
+    fn graph_num_channels(&self) -> usize {
         self.network_graph.read_only().channels().len()
     }
 
@@ -77,6 +77,37 @@ impl LightningMetrics for Controller {
             }
         }
     }
+
+    fn version(&self) -> String {
+        VERSION.to_string()
+    }
+
+    fn alias(&self) -> String {
+        self.settings.knd_node_name.clone()
+    }
+
+    fn block_height(&self) -> usize {
+        let info = tokio::task::block_in_place(move || {
+            Handle::current().block_on(self.bitcoind_client.get_blockchain_info())
+        });
+        info.latest_height
+    }
+
+    fn network(&self) -> bitcoin::Network {
+        self.settings.bitcoin_network
+    }
+
+    fn num_active_channels(&self) -> usize {
+        0
+    }
+
+    fn num_inactive_channels(&self) -> usize {
+        0
+    }
+
+    fn num_pending_channels(&self) -> usize {
+        0
+    }
 }
 
 impl Controller {
@@ -87,12 +118,13 @@ impl Controller {
     }
 
     pub async fn start_ldk(
-        settings: &Settings,
+        settings: Arc<Settings>,
         database: Arc<LdkDatabase>,
         shutdown_flag: Arc<AtomicBool>,
     ) -> Result<(Controller, BackgroundProcessor)> {
         // Initialize our bitcoind client.
-        let bitcoind_client = match Client::new(settings, tokio::runtime::Handle::current()).await {
+        let bitcoind_client = match Client::new(&settings, tokio::runtime::Handle::current()).await
+        {
             Ok(client) => {
                 info!(
                     "Connected to bitcoind at {}:{}",
@@ -159,10 +191,10 @@ impl Controller {
         let keys_manager = Arc::new(KeysManager::new(&seed, cur.as_secs(), cur.subsec_nanos()));
 
         // Initialize bitcoin wallet.
-        let wallet_database = WalletDatabase::new(settings).await?;
+        let wallet_database = WalletDatabase::new(&settings).await?;
         let wallet = Arc::new(Wallet::new(
             &seed,
-            settings,
+            &settings,
             bitcoind_client.clone(),
             wallet_database,
         )?);
@@ -375,7 +407,7 @@ impl Controller {
         let outbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
         let event_handler = EventHandler::new(
             channel_manager.clone(),
-            bitcoind_client,
+            bitcoind_client.clone(),
             keys_manager.clone(),
             inbound_payments,
             outbound_payments,
@@ -495,6 +527,9 @@ impl Controller {
 
         Ok((
             Controller {
+                settings,
+                bitcoind_client,
+                channel_manager,
                 peer_manager,
                 network_graph,
                 wallet,

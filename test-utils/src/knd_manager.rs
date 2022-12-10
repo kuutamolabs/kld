@@ -7,6 +7,7 @@ pub struct KndManager {
     manager: Manager,
     bin_path: String,
     exporter_address: String,
+    rest_api_address: String,
 }
 
 impl KndManager {
@@ -25,6 +26,13 @@ impl KndManager {
             .await
     }
 
+    pub async fn call_rest_api(&self, method: &str) -> Result<String, reqwest::Error> {
+        reqwest::get(format!("http://{}/{}", self.rest_api_address, method))
+            .await?
+            .text()
+            .await
+    }
+
     pub fn test_knd(
         output_dir: &str,
         bin_path: &str,
@@ -34,6 +42,7 @@ impl KndManager {
     ) -> KndManager {
         let peer_port = 40000u16 + (node_index * 1000u16);
         let exporter_address = format!("127.0.0.1:{}", peer_port + 1);
+        let rest_api_address = format!("127.0.0.1:{}", peer_port + 2);
         let manager = Manager::new(
             output_dir,
             "knd",
@@ -44,6 +53,7 @@ impl KndManager {
         set_var("KND_STORAGE_DIR", &manager.storage_dir);
         set_var("KND_PEER_PORT", &peer_port.to_string());
         set_var("KND_EXPORTER_ADDRESS", &exporter_address);
+        set_var("KND_REST_API_ADDRESS", &rest_api_address);
         set_var("KND_BITCOIN_NETWORK", &bitcoin.network);
         set_var("KND_BITCOIN_COOKIE_PATH", &bitcoin.cookie_path());
         set_var("KND_BITCOIN_RPC_HOST", "127.0.0.1");
@@ -54,6 +64,7 @@ impl KndManager {
             manager,
             bin_path: bin_path.to_string(),
             exporter_address,
+            rest_api_address,
         }
     }
 }

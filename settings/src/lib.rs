@@ -13,12 +13,10 @@ pub struct Settings {
     #[clap(long, default_value = "testnet", env = "KND_BITCOIN_COOKIE_PATH")]
     pub bitcoin_cookie_path: String,
 
-    /// This is used for S3 bucket names so must conform to the naming convention.
     #[clap(long, default_value = "one", env = "KND_NODE_ID")]
     pub node_id: String,
     #[clap(long, default_value = "info", env = "KND_LOG_LEVEL")]
     pub log_level: String,
-    /// This is used for S3 bucket names so must conform to the naming convention.
     #[clap(long, default_value = "test", env = "KND_ENV")]
     pub env: String,
     #[clap(long, default_value = "9234", env = "KND_PEER_PORT")]
@@ -30,6 +28,8 @@ pub struct Settings {
 
     #[clap(long, default_value = "127.0.0.1:2233", env = "KND_EXPORTER_ADDRESS")]
     pub exporter_address: String,
+    #[clap(long, default_value = "127.0.0.1:2244", env = "KND_REST_API_ADDRESS")]
+    pub rest_api_address: String,
 
     #[clap(long, default_value = "127.0.0.1", env = "KND_DATABASE_HOST")]
     pub database_host: String,
