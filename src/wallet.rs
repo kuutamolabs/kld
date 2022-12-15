@@ -83,8 +83,9 @@ impl Wallet {
                 .sync(&blockchain, SyncOptions::default())
             {
                 error!("Walled sync failed: {}", e);
+            } else {
+                info!("Wallet sync complete.");
             }
-            info!("Wallet sync complete.");
         });
 
         Ok(Wallet {
