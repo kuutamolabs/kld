@@ -1,15 +1,17 @@
 mod controller;
 mod event_handler;
 mod hex_utils;
+mod key_generator;
 mod net_utils;
 mod payment_info;
 mod prometheus;
 mod wallet;
 
 use crate::controller::Controller;
+use crate::key_generator::KeyGenerator;
 use crate::prometheus::start_prometheus_exporter;
 use anyhow::Result;
-use api::start_rest_api;
+use api::{start_rest_api, MacaroonAuth};
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
 use futures::FutureExt;
@@ -37,14 +39,22 @@ pub fn main() -> Result<()> {
 
     runtime.block_on(migrate_database(&settings))?;
 
+    let key_generator = Arc::new(KeyGenerator::init(&settings.data_dir));
+
     let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
 
     let (controller, background_processor) = runtime.block_on(Controller::start_ldk(
         settings.clone(),
         database,
+        key_generator.clone(),
         shutdown_flag.clone(),
     ))?;
     let controller = Arc::new(controller);
+
+    let macaroon_auth = Arc::new(MacaroonAuth::init(
+        &key_generator.macaroon_seed(),
+        &settings.data_dir,
+    )?);
 
     runtime.block_on(async {
         let quit_signal = quit_signal().shared();
@@ -61,7 +71,7 @@ pub fn main() -> Result<()> {
                 }
                 result
             },
-            result = start_rest_api(&settings.rest_api_address, controller.clone(), quit_signal_api) => {
+            result = start_rest_api(settings.rest_api_address.clone(), controller.clone(), macaroon_auth, quit_signal_api) => {
                 if let Err(e) = result {
                     warn!("REST API failed: {}", e);
                     return Err(e);

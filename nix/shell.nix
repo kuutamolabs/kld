@@ -28,7 +28,6 @@
             # rust dev
             pkgs.rust-analyzer
             pkgs.cargo-watch
-
             # lightning-knd dependencies
             (pkgs.bitcoind.override { withWallet = false; withGui = false; })
             pkgs.cockroachdb

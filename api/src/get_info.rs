@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, Extension, Json};
+use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use bitcoin::{secp256k1::PublicKey, Network};
 use serde::{Deserialize, Serialize};
 
-use crate::LightningInterface;
+use crate::{
+    macaroon_auth::{KndMacaroon, MacaroonAuth},
+    LightningInterface,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct GetInfo {
@@ -28,8 +31,13 @@ pub struct Chain {
 }
 
 pub(crate) async fn get_info(
+    macaroon: KndMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-) -> (StatusCode, Json<GetInfo>) {
+) -> Result<impl IntoResponse, StatusCode> {
+    if macaroon_auth.verify_macaroon(&macaroon.0).is_err() {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
     let info = GetInfo {
         identity_pubkey: lightning_interface.identity_pubkey(),
         alias: lightning_interface.alias(),
@@ -46,6 +54,5 @@ pub(crate) async fn get_info(
         }],
         version: lightning_interface.version(),
     };
-
-    (StatusCode::FOUND, Json(info))
+    Ok(Json(info))
 }

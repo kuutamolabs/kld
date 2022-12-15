@@ -100,11 +100,10 @@ pub(crate) async fn start_prometheus_exporter(
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
     use anyhow::Result;
     use api::LightningInterface;
     use bitcoin::{secp256k1::PublicKey, Network};
+    use std::sync::Arc;
     use test_utils::{random_public_key, test_settings};
 
     use crate::start_prometheus_exporter;

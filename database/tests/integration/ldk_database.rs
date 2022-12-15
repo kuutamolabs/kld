@@ -33,26 +33,6 @@ async fn new_database(settings: &Settings, name: &str) -> LdkDatabase {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_key() {
-    with_cockroach(|settings| async move {
-        let database = LdkDatabase::new(settings).await.unwrap();
-
-        assert!(database.is_first_start().await.unwrap());
-
-        let public = random_public_key();
-        let private = [1; 32];
-        database.persist_keys(&public, &private).await.unwrap();
-
-        let persisted = database.fetch_keys().await.unwrap();
-        assert_eq!(public, persisted.0);
-        assert_eq!(private, persisted.1);
-
-        assert!(!database.is_first_start().await.unwrap());
-    })
-    .await;
-}
-
-#[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() {
     with_cockroach(|settings| async move {
         let database = LdkDatabase::new(settings).await.unwrap();

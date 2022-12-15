@@ -2,6 +2,7 @@ use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::CockroachManager;
 use crate::manager::Manager;
 use std::env::set_var;
+use std::fs;
 
 pub struct KndManager {
     manager: Manager,
@@ -27,7 +28,15 @@ impl KndManager {
     }
 
     pub async fn call_rest_api(&self, method: &str) -> Result<String, reqwest::Error> {
-        reqwest::get(format!("http://{}/{}", self.rest_api_address, method))
+        let macaroon = fs::read(format!(
+            "{}/macaroons/admin_macaroon",
+            self.manager.storage_dir
+        ))
+        .unwrap();
+        reqwest::Client::new()
+            .get(format!("http://{}/{}", self.rest_api_address, method))
+            .header("macaroon", macaroon)
+            .send()
             .await?
             .text()
             .await
@@ -50,7 +59,7 @@ impl KndManager {
             format!("http://{}/health", exporter_address),
         );
 
-        set_var("KND_STORAGE_DIR", &manager.storage_dir);
+        set_var("KND_DATA_DIR", &manager.storage_dir);
         set_var("KND_PEER_PORT", &peer_port.to_string());
         set_var("KND_EXPORTER_ADDRESS", &exporter_address);
         set_var("KND_REST_API_ADDRESS", &rest_api_address);

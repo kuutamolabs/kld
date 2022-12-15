@@ -1,10 +1,4 @@
-CREATE TABLE keys (
-    public_key      BYTES NOT NULL,
-    seed            BYTES NOT NULL,
-    PRIMARY KEY (public_key)
-);
-
-CREATE TABLE channel_managers (
+CREATE TABLE channel_manager (
     timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp(),
     manager         BYTES NOT NULL
 );

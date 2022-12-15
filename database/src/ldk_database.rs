@@ -31,10 +31,11 @@ use tokio::sync::RwLock;
 
 use crate::peer::Peer;
 
+// This gets called from a background thread in LDK so need a handle to the runtime.
 macro_rules! block_in_place {
     ($statement: literal, $params: expr, $self: expr) => {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(async move {
+            $self.runtime.block_on(async move {
                 $self
                     .client
                     .read()
@@ -50,6 +51,7 @@ macro_rules! block_in_place {
 pub struct LdkDatabase {
     pub(crate) client: Arc<RwLock<Client>>,
     cipher: Cipher,
+    runtime: Handle,
 }
 
 impl LdkDatabase {
@@ -63,7 +65,11 @@ impl LdkDatabase {
 
         let cipher = Cipher::new(&settings);
 
-        Ok(LdkDatabase { client, cipher })
+        Ok(LdkDatabase {
+            client,
+            cipher,
+            runtime: Handle::current(),
+        })
     }
 
     pub async fn is_first_start(&self) -> Result<bool> {
@@ -71,39 +77,9 @@ impl LdkDatabase {
             .client
             .read()
             .await
-            .query_opt("SELECT true FROM keys", &[])
+            .query_opt("SELECT true FROM channel_manager", &[])
             .await?
             .is_none())
-    }
-
-    pub async fn persist_keys(&self, public: &PublicKey, seed: &[u8; 32]) -> Result<()> {
-        debug!("Persist keys: {}", public);
-        let ciphertext = self.cipher.encrypt(seed);
-        self.client
-            .read()
-            .await
-            .execute(
-                "INSERT INTO keys (public_key, seed) VALUES ($1, $2)",
-                &[&public.serialize().to_vec(), &ciphertext],
-            )
-            .await?;
-        Ok(())
-    }
-
-    pub async fn fetch_keys(&self) -> Result<(PublicKey, [u8; 32])> {
-        debug!("Fetch keys");
-        let row = self
-            .client
-            .read()
-            .await
-            .query_one("SELECT public_key, seed FROM keys", &[])
-            .await?;
-        let bytes: Vec<u8> = row.get(0);
-        let public = PublicKey::from_slice(&bytes)?;
-        let ciphertext: Vec<u8> = row.get(1);
-        let bytes = self.cipher.decrypt(&ciphertext);
-        let seed = bytes.try_into().expect("Seed is the wrong length");
-        Ok((public, seed))
     }
 
     pub async fn persist_peer(&self, peer: &Peer) -> Result<()> {

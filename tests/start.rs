@@ -20,6 +20,5 @@ pub async fn test_start() {
 
     let result = knd.call_rest_api("v1/getinfo").await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
-    assert_eq!(0, info.num_peers);
     assert_eq!(0, info.block_height);
 }

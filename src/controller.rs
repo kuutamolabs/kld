@@ -1,4 +1,5 @@
 use crate::event_handler::EventHandler;
+use crate::key_generator::KeyGenerator;
 use crate::net_utils::do_connect_peer;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
@@ -120,6 +121,7 @@ impl Controller {
     pub async fn start_ldk(
         settings: Arc<Settings>,
         database: Arc<LdkDatabase>,
+        key_generator: Arc<KeyGenerator>,
         shutdown_flag: Arc<AtomicBool>,
     ) -> Result<(Controller, BackgroundProcessor)> {
         // Initialize our bitcoind client.
@@ -176,24 +178,20 @@ impl Controller {
         // Initialize the KeysManager
         // The key seed that we use to derive the node privkey (that corresponds to the node pubkey) and
         // other secret key material.
-        let seed = if !is_first_start {
-            info!("Fetching keys from database");
-            let (_, private) = database.fetch_keys().await?;
-            private
-        } else {
-            info!("Initializing node. Generating keys.");
-            let seed: [u8; 32] = thread_rng().gen();
-            seed
-        };
         let cur = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
-        let keys_manager = Arc::new(KeysManager::new(&seed, cur.as_secs(), cur.subsec_nanos()));
+        let keys_manager = Arc::new(KeysManager::new(
+            &key_generator.lightning_seed(),
+            cur.as_secs(),
+            cur.subsec_nanos(),
+        ));
 
         // Initialize bitcoin wallet.
         let wallet_database = WalletDatabase::new(&settings).await?;
+
         let wallet = Arc::new(Wallet::new(
-            &seed,
+            &key_generator.wallet_seed(),
             &settings,
             bitcoind_client.clone(),
             wallet_database,
@@ -245,12 +243,6 @@ impl Controller {
                 database.fetch_channel_manager(read_args).await?
             }
         };
-
-        if is_first_start {
-            database
-                .persist_keys(&channel_manager.get_our_node_id(), &seed)
-                .await?;
-        }
 
         // Sync ChannelMonitors and ChannelManager to chain tip
         let mut chain_listener_channel_monitors = Vec::new();
