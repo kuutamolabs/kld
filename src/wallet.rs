@@ -128,7 +128,10 @@ impl Wallet {
     }
 
     pub fn balance(&self) -> Result<u64> {
-        Ok(self.wallet.try_lock().unwrap().get_balance()?.confirmed)
+        match self.wallet.try_lock() {
+            Ok(wallet) => Ok(wallet.get_balance()?.confirmed),
+            Err(_) => Ok(0)
+        }
     }
 
     pub fn get_new_address(&self) -> Result<AddressInfo> {
