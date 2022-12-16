@@ -349,7 +349,7 @@ impl WalletDatabase {
     }
 
     fn select_transaction_details_with_raw(&self) -> Result<Vec<TransactionDetails>, Error> {
-        let rows = query_blocking!("SELECT td.txid, wtd.timestamp, wtd.received, wtd.sent, wtd.fee, wtd.height, td.raw_tx FROM wallet_transaction_details wtd, wallet_transactions wt WHERE wtd.txid = wt.txid", &[], self)?;
+        let rows = query_blocking!("SELECT wtd.txid, wtd.timestamp, wtd.received, wtd.sent, wtd.fee, wtd.height, wt.raw_tx FROM wallet_transaction_details wtd, wallet_transactions wt WHERE wtd.txid = wt.txid", &[], self)?;
         let mut transaction_details: Vec<TransactionDetails> = vec![];
         for row in rows {
             let txid: Vec<u8> = row.get(0);
