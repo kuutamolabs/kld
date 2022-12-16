@@ -1,4 +1,3 @@
-use crate::cipher::Cipher;
 use crate::{connection, to_i64, Client};
 use anyhow::{bail, Result};
 use bitcoin::hashes::Hash;
@@ -50,7 +49,6 @@ macro_rules! block_in_place {
 
 pub struct LdkDatabase {
     pub(crate) client: Arc<RwLock<Client>>,
-    cipher: Cipher,
     runtime: Handle,
 }
 
@@ -63,11 +61,8 @@ impl LdkDatabase {
         let client = connection(&settings).await?;
         let client = Arc::new(RwLock::new(client));
 
-        let cipher = Cipher::new(&settings);
-
         Ok(LdkDatabase {
             client,
-            cipher,
             runtime: Handle::current(),
         })
     }
@@ -165,9 +160,8 @@ impl LdkDatabase {
             let txid = Txid::from_slice(txid_bytes).unwrap();
             let index = u16::from_le_bytes(index_bytes.try_into().unwrap());
 
-            let ciphertext: Vec<u8> = row.get("monitor");
-            let bytes = self.cipher.decrypt(&ciphertext);
-            let mut buffer = Cursor::new(&bytes);
+            let monitor: Vec<u8> = row.get("monitor");
+            let mut buffer = Cursor::new(&monitor);
             match <(BlockHash, ChannelMonitor<Signer>)>::read(&mut buffer, &*keys_manager) {
                 Ok((blockhash, channel_monitor)) => {
                     if channel_monitor.get_funding_txo().0.txid != txid
@@ -239,10 +233,9 @@ impl LdkDatabase {
                 &[],
             )
             .await?;
-        let ciphertext: Vec<u8> = row.get("manager");
-        let bytes = self.cipher.decrypt(&ciphertext);
+        let manager: Vec<u8> = row.get("manager");
         Ok(<(BlockHash, ChannelManager<Signer, M, T, K, F, L>)>::read(
-            &mut Cursor::new(bytes),
+            &mut Cursor::new(manager),
             read_args,
         )
         .unwrap())
@@ -303,11 +296,10 @@ where
     ) -> Result<(), std::io::Error> {
         let mut buf = vec![];
         channel_manager.write(&mut buf).unwrap();
-        let ciphertext = self.cipher.encrypt(&buf);
         block_in_place!(
             "UPSERT INTO channel_manager (manager, timestamp) \
             VALUES ($1, CURRENT_TIMESTAMP)",
-            &[&ciphertext],
+            &[&buf],
             self
         );
         Ok(())
@@ -360,14 +352,13 @@ impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for LdkDat
 
         let mut monitor_buf = vec![];
         monitor.write(&mut monitor_buf).unwrap();
-        let ciphertext = self.cipher.encrypt(&monitor_buf);
 
         block_in_place!(
             "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
             VALUES ($1, $2, $3)",
             &[
                 &out_point_buf,
-                &ciphertext,
+                &monitor_buf,
                 &to_i64!(monitor.get_latest_update_id())
             ],
             self
