@@ -1,4 +1,3 @@
-mod cipher;
 pub mod ldk_database;
 pub mod peer;
 pub mod wallet_database;
