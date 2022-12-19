@@ -1,3 +1,4 @@
+use crate::api::LightningInterface;
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
 use crate::net_utils::do_connect_peer;
@@ -5,7 +6,6 @@ use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
 use crate::{net_utils, VERSION};
 use anyhow::{bail, Result};
-use api::LightningInterface;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
 use bitcoind::Client;
@@ -43,7 +43,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tokio::runtime::Handle;
 
-pub(crate) struct Controller {
+pub struct Controller {
     settings: Arc<Settings>,
     bitcoind_client: Arc<Client>,
     channel_manager: Arc<ChannelManager>,

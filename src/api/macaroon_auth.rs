@@ -42,11 +42,11 @@ impl MacaroonAuth {
     }
 
     fn admin_macaroon(key: &MacaroonKey) -> Result<Macaroon> {
-        Ok(Macaroon::create(None, &key, "admin".into())?)
+        Ok(Macaroon::create(None, key, "admin".into())?)
     }
 
     fn readonly_macaroon(key: &MacaroonKey) -> Result<Macaroon> {
-        Ok(Macaroon::create(None, &key, "readonly".into())?)
+        Ok(Macaroon::create(None, key, "readonly".into())?)
     }
 }
 
@@ -62,7 +62,7 @@ where
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         if let Some(value) = parts.headers.get("macaroon") {
             Macaroon::deserialize(value)
-                .map(|m| KndMacaroon(m))
+                .map(KndMacaroon)
                 .map_err(|_| (StatusCode::UNAUTHORIZED, "Unable to deserialize macaroon"))
         } else {
             Err((StatusCode::UNAUTHORIZED, "Missing macaroon header"))

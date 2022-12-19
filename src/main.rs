@@ -1,28 +1,17 @@
-mod controller;
-mod event_handler;
-mod hex_utils;
-mod key_generator;
-mod net_utils;
-mod payment_info;
-mod prometheus;
-mod wallet;
-
-use crate::controller::Controller;
-use crate::key_generator::KeyGenerator;
-use crate::prometheus::start_prometheus_exporter;
 use anyhow::Result;
-use api::{start_rest_api, MacaroonAuth};
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
 use futures::FutureExt;
+use lightning_knd::api::{start_rest_api, MacaroonAuth};
+use lightning_knd::controller::Controller;
+use lightning_knd::key_generator::KeyGenerator;
+use lightning_knd::prometheus::start_prometheus_exporter;
 use log::{info, warn};
 use settings::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal::unix::SignalKind;
-
-pub const VERSION: &str = concat!("LYND v", env!("CARGO_PKG_VERSION"));
 
 pub fn main() -> Result<()> {
     let settings = Arc::new(Settings::load());
@@ -58,20 +47,19 @@ pub fn main() -> Result<()> {
 
     runtime.block_on(async {
         let quit_signal = quit_signal().shared();
-        let quit_signal_api = quit_signal.clone();
         tokio::select!(
-            _ = quit_signal => {
+            _ = quit_signal.clone() => {
                 info!("Received quit signal.");
                 Ok(())
             },
-            result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone()) => {
+            result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
                 if let Err(e) = result {
                     warn!("Prometheus exporter failed: {}", e);
                     return Err(e);
                 }
                 result
             },
-            result = start_rest_api(settings.rest_api_address.clone(), controller.clone(), macaroon_auth, quit_signal_api) => {
+            result = start_rest_api(settings.rest_api_address.clone(), controller.clone(), macaroon_auth, quit_signal) => {
                 if let Err(e) = result {
                     warn!("REST API failed: {}", e);
                     return Err(e);
