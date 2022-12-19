@@ -214,8 +214,8 @@ impl LdkDatabase {
         L: Deref,
     >(
         &self,
-        read_args: ChannelManagerReadArgs<'_, Signer, M, T, K, F, L>,
-    ) -> Result<(BlockHash, ChannelManager<Signer, M, T, K, F, L>)>
+        read_args: ChannelManagerReadArgs<'_, M, T, K, F, L>,
+    ) -> Result<(BlockHash, ChannelManager<M, T, K, F, L>)>
     where
         <M as Deref>::Target: Watch<Signer>,
         <T as Deref>::Target: BroadcasterInterface,
@@ -234,11 +234,13 @@ impl LdkDatabase {
             )
             .await?;
         let manager: Vec<u8> = row.get("manager");
-        Ok(<(BlockHash, ChannelManager<Signer, M, T, K, F, L>)>::read(
-            &mut Cursor::new(manager),
-            read_args,
+        Ok(
+            <(BlockHash, ChannelManager<M, T, K, F, L>)>::read(
+                &mut Cursor::new(manager),
+                read_args,
+            )
+            .unwrap(),
         )
-        .unwrap())
     }
 
     pub async fn fetch_graph(&self) -> Result<Option<NetworkGraph<Arc<KndLogger>>>> {
@@ -281,18 +283,18 @@ impl LdkDatabase {
 }
 
 impl<'a, Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref, S>
-    Persister<'a, Signer, M, T, K, F, L, S> for LdkDatabase
+    Persister<'a, M, T, K, F, L, S> for LdkDatabase
 where
     M::Target: 'static + chain::Watch<Signer>,
     T::Target: 'static + BroadcasterInterface,
     K::Target: 'static + KeysInterface<Signer = Signer>,
     F::Target: 'static + FeeEstimator,
     L::Target: 'static + Logger,
-    S: WriteableScore<'a>,
+    S: 'static + WriteableScore<'a>,
 {
     fn persist_manager(
         &self,
-        channel_manager: &ChannelManager<Signer, M, T, K, F, L>,
+        channel_manager: &ChannelManager<M, T, K, F, L>,
     ) -> Result<(), std::io::Error> {
         let mut buf = vec![];
         channel_manager.write(&mut buf).unwrap();

@@ -192,7 +192,6 @@ pub async fn test_network_graph() {
         // how to make this less verbose?
         <LdkDatabase as Persister<
             '_,
-            InMemorySigner,
             Arc<KndTestChainMonitor>,
             Arc<Client>,
             Arc<KeysManager>,
@@ -210,7 +209,6 @@ pub async fn test_network_graph() {
         ));
         <LdkDatabase as Persister<
             '_,
-            InMemorySigner,
             Arc<KndTestChainMonitor>,
             Arc<Client>,
             Arc<KeysManager>,
