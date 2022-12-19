@@ -58,7 +58,7 @@ macro_rules! poll {
             if $func {
                 break;
             };
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             ellapsed += 1;
         }
         if ellapsed == $secs {

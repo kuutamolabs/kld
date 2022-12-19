@@ -95,16 +95,9 @@ dependencies = [
 name = "api"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "axum",
  "bitcoin",
- "futures",
- "macaroon",
- "reqwest",
  "serde",
  "serde_json",
- "test-utils",
- "tokio",
 ]
 
 [[package]]
@@ -1295,6 +1288,7 @@ dependencies = [
  "lightning-rapid-gossip-sync",
  "log",
  "logger",
+ "macaroon",
  "once_cell",
  "prometheus",
  "rand",
