@@ -27,7 +27,7 @@ database = { path = "database" }
 lightning = { version = "0.0.112", features = ["max_level_trace"] }
 lightning-block-sync = { version = "0.0.112", features = [ "rpc-client" ] }
 lightning-invoice = { version = "0.20" }
-lightning-net-tokio = { version = "0.0.112" }
+lightning-net-tokio = { version = "0.0.113" }
 lightning-persister = { version = "0.0.112" }
 lightning-background-processor = { version = "0.0.112" }
 lightning-rapid-gossip-sync = { version = "0.0.112" }
