@@ -58,7 +58,7 @@ impl EventHandler {
 }
 
 impl lightning::util::events::EventHandler for EventHandler {
-    fn handle_event(&self, event: &lightning::util::events::Event) {
+    fn handle_event(&self, event: lightning::util::events::Event) {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(self.handle_event_async(event))
         })
@@ -66,7 +66,7 @@ impl lightning::util::events::EventHandler for EventHandler {
 }
 
 impl EventHandler {
-    async fn handle_event_async(&self, event: &lightning::util::events::Event) {
+    pub async fn handle_event_async(&self, event: lightning::util::events::Event) {
         match event {
             Event::FundingGenerationReady {
                 temporary_channel_id,
@@ -89,19 +89,19 @@ impl EventHandler {
                 .expect("Lightning funding tx should always be to a SegWit output")
                 .to_address();
                 let mut outputs = vec![HashMap::with_capacity(1)];
-                outputs[0].insert(addr, *channel_value_satoshis as f64 / 100_000_000.0);
+                outputs[0].insert(addr, channel_value_satoshis as f64 / 100_000_000.0);
 
                 let funding_tx = self
                     .wallet
-                    .fund_tx(output_script, channel_value_satoshis)
+                    .fund_tx(&output_script, &channel_value_satoshis)
                     .unwrap();
 
                 // Give the funding transaction back to LDK for opening the channel.
                 if self
                     .channel_manager
                     .funding_transaction_generated(
-                        temporary_channel_id,
-                        counterparty_node_id,
+                        &temporary_channel_id,
+                        &counterparty_node_id,
                         funding_tx,
                     )
                     .is_err()
@@ -109,10 +109,13 @@ impl EventHandler {
                     error!("Channel went away before we could fund it. The peer disconnected or refused the channel.");
                 }
             }
-            Event::PaymentReceived {
+            Event::PaymentClaimable {
                 payment_hash,
                 purpose,
                 amount_msat,
+                receiver_node_id: _,
+                via_channel_id: _,
+                via_user_channel_id: _,
             } => {
                 info!(
                     "EVENT: received payment from payment hash {} of {} millisatoshis",
@@ -122,8 +125,8 @@ impl EventHandler {
                 let payment_preimage = match purpose {
                     PaymentPurpose::InvoicePayment {
                         payment_preimage, ..
-                    } => *payment_preimage,
-                    PaymentPurpose::SpontaneousPayment(preimage) => Some(*preimage),
+                    } => payment_preimage,
+                    PaymentPurpose::SpontaneousPayment(preimage) => Some(preimage),
                 };
                 self.channel_manager.claim_funds(payment_preimage.unwrap());
             }
@@ -131,6 +134,7 @@ impl EventHandler {
                 payment_hash,
                 purpose,
                 amount_msat,
+                receiver_node_id: _,
             } => {
                 info!(
                     "EVENT: claimed payment from payment hash {} of {} millisatoshis",
@@ -142,11 +146,11 @@ impl EventHandler {
                         payment_preimage,
                         payment_secret,
                         ..
-                    } => (*payment_preimage, Some(*payment_secret)),
-                    PaymentPurpose::SpontaneousPayment(preimage) => (Some(*preimage), None),
+                    } => (payment_preimage, Some(payment_secret)),
+                    PaymentPurpose::SpontaneousPayment(preimage) => (Some(preimage), None),
                 };
                 let mut payments = self.inbound_payments.lock().unwrap();
-                match payments.entry(*payment_hash) {
+                match payments.entry(payment_hash) {
                     Entry::Occupied(mut e) => {
                         let payment = e.get_mut();
                         payment.status = HTLCStatus::Succeeded;
@@ -158,7 +162,7 @@ impl EventHandler {
                             preimage: payment_preimage,
                             secret: payment_secret,
                             status: HTLCStatus::Succeeded,
-                            amt_msat: MillisatAmount(Some(*amount_msat)),
+                            amt_msat: MillisatAmount(Some(amount_msat)),
                         });
                     }
                 }
@@ -170,8 +174,8 @@ impl EventHandler {
                 ..
             } => {
                 let mut payments = self.outbound_payments.lock().unwrap();
-                if let Some(payment) = payments.get_mut(payment_hash) {
-                    payment.preimage = Some(*payment_preimage);
+                if let Some(payment) = payments.get_mut(&payment_hash) {
+                    payment.preimage = Some(payment_preimage);
                     payment.status = HTLCStatus::Succeeded;
                     info!(
                         "EVENT: successfully sent payment of {} millisatoshis{} from \
@@ -201,8 +205,8 @@ impl EventHandler {
 			);
 
                 let mut payments = self.outbound_payments.lock().unwrap();
-                if payments.contains_key(payment_hash) {
-                    let payment = payments.get_mut(payment_hash).unwrap();
+                if payments.contains_key(&payment_hash) {
+                    let payment = payments.get_mut(&payment_hash).unwrap();
                     payment.status = HTLCStatus::Failed;
                 }
             }
@@ -243,16 +247,16 @@ impl EventHandler {
                 };
                 let from_prev_str = format!(
                     " from {}{}",
-                    node_str(prev_channel_id),
-                    channel_str(prev_channel_id)
+                    node_str(&prev_channel_id),
+                    channel_str(&prev_channel_id)
                 );
                 let to_next_str = format!(
                     " to {}{}",
-                    node_str(next_channel_id),
-                    channel_str(next_channel_id)
+                    node_str(&next_channel_id),
+                    channel_str(&next_channel_id)
                 );
 
-                let from_onchain_str = if *claim_from_onchain_tx {
+                let from_onchain_str = if claim_from_onchain_tx {
                     "from onchain downstream claim"
                 } else {
                     "from HTLC fulfill message"
@@ -297,6 +301,12 @@ impl EventHandler {
                     .unwrap();
                 self.bitcoind_client.broadcast_transaction(&spending_tx);
             }
+            Event::ChannelReady {
+                channel_id: _,
+                user_channel_id: _,
+                counterparty_node_id: _,
+                channel_type: _,
+            } => {}
             Event::ChannelClosed {
                 channel_id,
                 reason,
@@ -304,7 +314,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Channel {} closed due to: {:?}",
-                    hex_utils::hex_str(channel_id),
+                    hex_utils::hex_str(&channel_id),
                     reason
                 );
             }
@@ -312,6 +322,13 @@ impl EventHandler {
                 // A "real" node should probably "lock" the UTXOs spent in funding transactions until
                 // the funding transaction either confirms, or this event is generated.
             }
+            Event::HTLCIntercepted {
+                intercept_id: _,
+                requested_next_hop_scid: _,
+                payment_hash: _,
+                inbound_amount_msat: _,
+                expected_outbound_amount_msat: _,
+            } => {}
         }
     }
 }
