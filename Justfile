@@ -7,6 +7,11 @@ fix:
 
 test:
   cargo test --all --all-features
+
+# Start up the servers for manual testing
+manual:
+  cargo test test_manual -- --ignored
+
 # Continously run cargo check as code changes
 watch:
   cargo watch

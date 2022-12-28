@@ -95,7 +95,6 @@ dependencies = [
 name = "api"
 version = "0.1.0"
 dependencies = [
- "bitcoin",
  "serde",
  "serde_json",
 ]
@@ -1304,6 +1303,7 @@ dependencies = [
  "settings",
  "test-utils",
  "tokio",
+ "tower-http",
 ]
 
 [[package]]
