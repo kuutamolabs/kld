@@ -17,7 +17,7 @@ pub(crate) async fn get_info(
         return Err(StatusCode::UNAUTHORIZED);
     }
     let info = GetInfo {
-        identity_pubkey: lightning_interface.identity_pubkey(),
+        identity_pubkey: lightning_interface.identity_pubkey().to_string(),
         alias: lightning_interface.alias(),
         num_pending_channels: lightning_interface.num_pending_channels(),
         num_active_channels: lightning_interface.num_active_channels(),
@@ -28,7 +28,7 @@ pub(crate) async fn get_info(
         testnet: lightning_interface.network() != Network::Bitcoin,
         chains: vec![Chain {
             chain: "bitcoin".to_string(),
-            network: lightning_interface.network(),
+            network: lightning_interface.network().to_string(),
         }],
         version: lightning_interface.version(),
     };

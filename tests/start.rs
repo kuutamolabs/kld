@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use api::GetInfo;
 use test_utils::{bitcoin, cockroach, knd};
+use tokio::time::{sleep_until, Instant};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_start() {
@@ -21,4 +24,17 @@ pub async fn test_start() {
     let result = knd.call_rest_api("v1/getinfo").await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
     assert_eq!(0, info.block_height);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "Only run this for manual testing"]
+pub async fn test_manual() {
+    let mut cockroach = cockroach!();
+    cockroach.start().await;
+    let mut bitcoin = bitcoin!();
+    bitcoin.start().await;
+    let mut knd = knd!(&bitcoin, &cockroach);
+    knd.start().await;
+
+    sleep_until(Instant::now() + Duration::from_secs(10000)).await;
 }

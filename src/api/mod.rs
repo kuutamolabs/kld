@@ -4,6 +4,7 @@ mod methods;
 
 pub use lightning_interface::LightningInterface;
 pub use macaroon_auth::{KndMacaroon, MacaroonAuth};
+use tower_http::cors::CorsLayer;
 
 use std::sync::Arc;
 
@@ -19,9 +20,11 @@ pub async fn start_rest_api(
     macaroon_auth: Arc<MacaroonAuth>,
     quit_signal: Shared<impl Future<Output = ()>>,
 ) -> Result<()> {
+    let cors = CorsLayer::permissive();
     let app = Router::new()
         .route("/", get(root))
         .route("/v1/getinfo", get(get_info))
+        .layer(cors)
         .layer(Extension(lightning_api))
         .layer(Extension(macaroon_auth));
     let addr = listen_address.parse()?;

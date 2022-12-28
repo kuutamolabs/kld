@@ -1,9 +1,8 @@
-use bitcoin::{secp256k1::PublicKey, Network};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct GetInfo {
-    pub identity_pubkey: PublicKey,
+    pub identity_pubkey: String,
     pub alias: String,
     pub num_pending_channels: usize,
     pub num_active_channels: usize,
@@ -19,5 +18,5 @@ pub struct GetInfo {
 #[derive(Serialize, Deserialize)]
 pub struct Chain {
     pub chain: String,
-    pub network: Network,
+    pub network: String,
 }
