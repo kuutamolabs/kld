@@ -62,11 +62,10 @@ impl KndManager {
             format!("http://{}/health", exporter_address),
         );
 
+        let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
+
         set_var("KND_DATA_DIR", &manager.storage_dir);
-        set_var(
-            "KND_CERTS_DIR",
-            format!("{}/certs", env!("CARGO_MANIFEST_DIR")),
-        );
+        set_var("KND_CERTS_DIR", &certs_dir);
         set_var("KND_EXPORTER_ADDRESS", &exporter_address);
         set_var("KND_REST_API_ADDRESS", &rest_api_address);
         set_var("KND_BITCOIN_NETWORK", &bitcoin.network);
