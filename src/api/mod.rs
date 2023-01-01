@@ -59,8 +59,8 @@ async fn root() -> &'static str {
 
 async fn config(certs_dir: &str) -> RustlsConfig {
     RustlsConfig::from_pem_file(
-        format!("{}/test.crt", certs_dir),
-        format!("{}/test.key", certs_dir),
+        format!("{}/knd.crt", certs_dir),
+        format!("{}/knd.key", certs_dir),
     )
     .await
     .unwrap()
