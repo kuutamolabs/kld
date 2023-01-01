@@ -3,9 +3,12 @@ pub mod cockroach_manager;
 pub mod knd_manager;
 mod manager;
 
+use std::{fs::File, io::Read};
+
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 use clap::{builder::OsStr, Parser};
 pub use cockroach_manager::CockroachManager;
+use reqwest::{Certificate, Client};
 use settings::Settings;
 
 pub struct TestSettingsBuilder {
@@ -14,9 +17,9 @@ pub struct TestSettingsBuilder {
 
 impl TestSettingsBuilder {
     pub fn new() -> TestSettingsBuilder {
-        TestSettingsBuilder {
-            settings: Settings::parse_from::<Vec<OsStr>, OsStr>(vec![]),
-        }
+        let mut settings = Settings::parse_from::<Vec<OsStr>, OsStr>(vec![]);
+        settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
+        TestSettingsBuilder { settings }
     }
 
     pub fn with_node_id(mut self, node_id: &str) -> TestSettingsBuilder {
@@ -27,6 +30,11 @@ impl TestSettingsBuilder {
     pub fn for_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
         self.settings.database_port = database.port.to_string();
         self.settings.database_name = "test".to_string();
+        self
+    }
+
+    pub fn with_data_dir(mut self, data_dir: &str) -> TestSettingsBuilder {
+        self.settings.data_dir = data_dir.to_string();
         self
     }
 
@@ -48,6 +56,25 @@ pub fn random_public_key() -> PublicKey {
     let secp_ctx = bitcoin::secp256k1::Secp256k1::new();
     let secret_key = &SecretKey::from_slice(&rand).unwrap();
     PublicKey::from_secret_key(&secp_ctx, secret_key)
+}
+
+pub fn https_client() -> Client {
+    // Rustls does not support IP addresses (hostnames only) to we need to use native tls (openssl). Also turn off SNI as this requires host names as well.
+    reqwest::ClientBuilder::new()
+        .tls_sni(false)
+        .add_root_certificate(test_cert())
+        .use_native_tls()
+        .build()
+        .unwrap()
+}
+
+fn test_cert() -> Certificate {
+    let mut buf = Vec::new();
+    File::open(format!("{}/certs/test.crt", env!("CARGO_MANIFEST_DIR")))
+        .unwrap()
+        .read_to_end(&mut buf)
+        .unwrap();
+    Certificate::from_pem(&buf).unwrap()
 }
 
 #[macro_export]

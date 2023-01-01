@@ -15,6 +15,8 @@ pub struct Settings {
 
     #[clap(long, default_value = "/var/lib/knd", env = "KND_DATA_DIR")]
     pub data_dir: String,
+    #[clap(long, default_value = "/var/lib/knd/certs", env = "KND_CERTS_DIR")]
+    pub certs_dir: String,
     #[clap(long, default_value = "one", env = "KND_NODE_ID")]
     pub node_id: String,
     #[clap(long, default_value = "info", env = "KND_LOG_LEVEL")]
