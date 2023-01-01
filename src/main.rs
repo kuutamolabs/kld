@@ -59,7 +59,7 @@ pub fn main() -> Result<()> {
                 }
                 result
             },
-            result = start_rest_api(settings.rest_api_address.clone(), controller.clone(), macaroon_auth, quit_signal) => {
+            result = start_rest_api(settings.rest_api_address.clone(), settings.certs_dir.clone(), controller.clone(), macaroon_auth, quit_signal) => {
                 if let Err(e) = result {
                     warn!("REST API failed: {}", e);
                     return Err(e);

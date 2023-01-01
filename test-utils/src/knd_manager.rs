@@ -1,5 +1,6 @@
 use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::CockroachManager;
+use crate::https_client;
 use crate::manager::Manager;
 use std::env::set_var;
 use std::fs;
@@ -9,6 +10,7 @@ pub struct KndManager {
     bin_path: String,
     exporter_address: String,
     rest_api_address: String,
+    rest_client: reqwest::Client,
 }
 
 impl KndManager {
@@ -33,8 +35,9 @@ impl KndManager {
             self.manager.storage_dir
         ))
         .unwrap();
-        reqwest::Client::new()
-            .get(format!("http://{}/{}", self.rest_api_address, method))
+
+        self.rest_client
+            .get(format!("https://{}/{}", self.rest_api_address, method))
             .header("macaroon", macaroon)
             .send()
             .await?
@@ -60,7 +63,10 @@ impl KndManager {
         );
 
         set_var("KND_DATA_DIR", &manager.storage_dir);
-        set_var("KND_PEER_PORT", &peer_port.to_string());
+        set_var(
+            "KND_CERTS_DIR",
+            format!("{}/certs", env!("CARGO_MANIFEST_DIR")),
+        );
         set_var("KND_EXPORTER_ADDRESS", &exporter_address);
         set_var("KND_REST_API_ADDRESS", &rest_api_address);
         set_var("KND_BITCOIN_NETWORK", &bitcoin.network);
@@ -69,11 +75,14 @@ impl KndManager {
         set_var("KND_BITCOIN_RPC_PORT", &bitcoin.rpc_port.to_string());
         set_var("KND_DATABASE_PORT", &cockroach.port.to_string());
 
+        let client = https_client();
+
         KndManager {
             manager,
             bin_path: bin_path.to_string(),
             exporter_address,
             rest_api_address,
+            rest_client: client,
         }
     }
 }

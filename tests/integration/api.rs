@@ -4,7 +4,7 @@ use futures::FutureExt;
 use lightning_knd::api::start_rest_api;
 use lightning_knd::api::MacaroonAuth;
 use reqwest::StatusCode;
-use test_utils::test_settings;
+use test_utils::{https_client, TestSettingsBuilder};
 
 use api::GetInfo;
 
@@ -13,20 +13,25 @@ use crate::MockLightning;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_api() {
-    let mut settings = test_settings();
-    settings.data_dir = format!("{}/test_api", env!("CARGO_TARGET_TMPDIR"));
+    let settings = TestSettingsBuilder::new()
+        .with_data_dir(&format!("{}/test_api", env!("CARGO_TARGET_TMPDIR")))
+        .build();
 
     let mock_lightning = Arc::new(MockLightning::default());
     let macaroon_auth = Arc::new(MacaroonAuth::init(&[0u8; 32], &settings.data_dir).unwrap());
 
     tokio::spawn(start_rest_api(
         settings.rest_api_address.clone(),
+        settings.certs_dir.clone(),
         mock_lightning.clone(),
         macaroon_auth,
         quit_signal().shared(),
     ));
-    let result = reqwest::Client::new()
-        .get(format!("http://{}/", settings.rest_api_address))
+
+    let client = https_client();
+
+    let result = client
+        .get(format!("https://{}/", settings.rest_api_address))
         .send()
         .await
         .unwrap()
@@ -35,8 +40,8 @@ async fn test_api() {
         .unwrap();
     assert_eq!("OK", result);
 
-    let status = reqwest::Client::new()
-        .get(format!("http://{}/v1/getinfo", settings.rest_api_address))
+    let status = client
+        .get(format!("https://{}/v1/getinfo", settings.rest_api_address))
         .send()
         .await
         .unwrap()
@@ -45,8 +50,8 @@ async fn test_api() {
 
     let macaroon = fs::read(format!("{}/macaroons/admin_macaroon", settings.data_dir)).unwrap();
 
-    let result = reqwest::Client::new()
-        .get(format!("http://{}/v1/getinfo", settings.rest_api_address))
+    let result = client
+        .get(format!("https://{}/v1/getinfo", settings.rest_api_address))
         .header("macaroon", macaroon)
         .send()
         .await
