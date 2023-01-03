@@ -8,7 +8,7 @@ use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     blockchain::{rpc::Auth, ConfigurableBlockchain, RpcBlockchain, RpcConfig},
     wallet::AddressInfo,
-    FeeRate, SignOptions, SyncOptions,
+    Balance, FeeRate, SignOptions, SyncOptions,
 };
 use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
@@ -20,10 +20,21 @@ use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use log::{error, info};
 use settings::Settings;
 
+use crate::api::WalletInterface;
+
 pub struct Wallet {
     // bdk::Wallet uses a RefCell to hold the database which is not thread safe so we use a mutex here.
     wallet: Arc<Mutex<bdk::Wallet<WalletDatabase>>>,
     bitcoind_client: Arc<Client>,
+}
+
+impl WalletInterface for Wallet {
+    fn balance(&self) -> Result<Balance> {
+        match self.wallet.try_lock() {
+            Ok(wallet) => Ok(wallet.get_balance()?),
+            Err(_) => Ok(Balance::default()),
+        }
+    }
 }
 
 impl Wallet {
@@ -125,13 +136,6 @@ impl Wallet {
 
         let funding_tx = psbt.extract_tx();
         Ok(funding_tx)
-    }
-
-    pub fn balance(&self) -> Result<u64> {
-        match self.wallet.try_lock() {
-            Ok(wallet) => Ok(wallet.get_balance()?.confirmed),
-            Err(_) => Ok(0),
-        }
     }
 
     pub fn get_new_address(&self) -> Result<AddressInfo> {

@@ -1,11 +1,14 @@
 use anyhow::Result;
+use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
+use database::wallet_database::WalletDatabase;
 use futures::FutureExt;
 use lightning_knd::api::{start_rest_api, MacaroonAuth};
 use lightning_knd::controller::Controller;
 use lightning_knd::key_generator::KeyGenerator;
 use lightning_knd::prometheus::start_prometheus_exporter;
+use lightning_knd::wallet::Wallet;
 use log::{info, warn};
 use settings::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,6 +27,8 @@ pub fn main() -> Result<()> {
         .enable_time()
         .build()?;
 
+    let _g = runtime.enter();
+
     let shutdown_flag = Arc::new(AtomicBool::new(false));
 
     runtime.block_on(migrate_database(&settings))?;
@@ -31,10 +36,21 @@ pub fn main() -> Result<()> {
     let key_generator = Arc::new(KeyGenerator::init(&settings.data_dir));
 
     let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
+    let wallet_database = runtime.block_on(WalletDatabase::new(&settings))?;
+
+    let bitcoind_client = Arc::new(runtime.block_on(Client::new(&settings))?);
+    let wallet = Arc::new(Wallet::new(
+        &key_generator.wallet_seed(),
+        &settings,
+        bitcoind_client.clone(),
+        wallet_database,
+    )?);
 
     let (controller, background_processor) = runtime.block_on(Controller::start_ldk(
         settings.clone(),
         database,
+        bitcoind_client,
+        wallet.clone(),
         key_generator.clone(),
         shutdown_flag.clone(),
     ))?;
@@ -59,7 +75,7 @@ pub fn main() -> Result<()> {
                 }
                 result
             },
-            result = start_rest_api(settings.rest_api_address.clone(), settings.certs_dir.clone(), controller.clone(), macaroon_auth, quit_signal) => {
+            result = start_rest_api(settings.rest_api_address.clone(), settings.certs_dir.clone(), controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
                 if let Err(e) = result {
                     warn!("REST API failed: {}", e);
                     return Err(e);
