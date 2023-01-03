@@ -14,13 +14,13 @@ use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{chainmonitor, Watch};
 use lightning::chain::{BestBlock, Filter};
-use lightning::ln::channelmanager;
+use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{
     ChainParameters, ChannelManagerReadArgs, SimpleArcChannelManager,
 };
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, SimpleArcPeerManager};
 use lightning::onion_message::SimpleArcOnionMessenger;
-use lightning::routing::gossip::{self, P2PGossipSync};
+use lightning::routing::gossip::{self, NodeId, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
@@ -107,6 +107,17 @@ impl LightningInterface for Controller {
 
     fn num_pending_channels(&self) -> usize {
         0
+    }
+
+    fn list_channels(&self) -> Vec<ChannelDetails> {
+        self.channel_manager.list_channels()
+    }
+
+    fn get_node(&self, public_key: PublicKey) -> Option<gossip::NodeInfo> {
+        self.network_graph
+            .read_only()
+            .node(&NodeId::from_pubkey(&public_key))
+            .cloned()
     }
 }
 

@@ -1,3 +1,4 @@
+mod channels;
 mod lightning_interface;
 mod macaroon_auth;
 mod methods;
@@ -17,7 +18,7 @@ use tower_http::cors::CorsLayer;
 pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
-use crate::api::wallet::get_balance;
+use crate::api::{channels::list_channels, wallet::get_balance};
 
 pub async fn start_rest_api(
     listen_address: String,
@@ -36,6 +37,7 @@ pub async fn start_rest_api(
         .route("/", get(root))
         .route("/v1/getinfo", get(get_info))
         .route("/v1/getbalance", get(get_balance))
+        .route("/v1/channel/listChannels", get(list_channels))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
@@ -82,4 +84,11 @@ async fn config(certs_dir: &str) -> RustlsConfig {
     )
     .await
     .unwrap()
+}
+
+#[macro_export]
+macro_rules! to_string_empty {
+    ($v: expr) => {
+        $v.map_or("".to_string(), |x| x.to_string())
+    };
 }

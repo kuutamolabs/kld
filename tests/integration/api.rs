@@ -11,11 +11,12 @@ use reqwest::StatusCode;
 use settings::Settings;
 use test_utils::{https_client, TestSettingsBuilder};
 
-use api::{Balance, GetInfo};
+use api::{Balance, Channel, GetInfo};
 use tokio::runtime::Runtime;
 
-use crate::MockLightning;
-use crate::{quit_signal, MockWallet};
+use crate::mock_lightning::MockLightning;
+use crate::mock_wallet::MockWallet;
+use crate::quit_signal;
 
 macro_rules! unauthorized {
     ($name: ident, $path: literal) => {
@@ -28,7 +29,8 @@ macro_rules! unauthorized {
 
 unauthorized!(test_root_unauthorized, "/");
 unauthorized!(test_getinfo_unauthorized, "/v1/getinfo");
-unauthorized!(test_getbalance, "/v1/getbalance");
+unauthorized!(test_getbalance_unauthorized, "/v1/getbalance");
+unauthorized!(test_listchannels_unauthorized, "/v1/channel/listChannels");
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_not_found() {
@@ -62,6 +64,33 @@ async fn test_getbalance_readonly() {
     assert_eq!(9, balance.total_balance);
     assert_eq!(4, balance.conf_balance);
     assert_eq!(5, balance.unconf_balance);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_listchannels_readonly() {
+    let result = readonly_request("/v1/channel/listChannels").await.unwrap();
+    let channels: Vec<Channel> = serde_json::from_str(&result).unwrap();
+    let channel = channels.get(0).unwrap();
+    assert_eq!(
+        "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
+        channel.id
+    );
+    assert_eq!("true", channel.connected);
+    assert_eq!("usable", channel.state);
+    assert_eq!("34234124", channel.short_channel_id);
+    assert_eq!(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        channel.funding_txid
+    );
+    assert_eq!("false", channel.private);
+    assert_eq!("", channel.msatoshi_to_us);
+    assert_eq!("1000000", channel.msatoshi_total);
+    assert_eq!("", channel.msatoshi_to_them);
+    assert_eq!("5000", channel.their_channel_reserve_satoshis);
+    assert_eq!("10000", channel.our_channel_reserve_satoshis);
+    assert_eq!("100000", channel.spendable_msatoshi);
+    assert_eq!(1, channel.direction);
+    assert_eq!("test_node                       ", channel.alias);
 }
 
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
