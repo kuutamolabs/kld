@@ -1,4 +1,4 @@
-use crate::api::LightningInterface;
+use crate::api::{LightningInterface, WalletInterface};
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
 use crate::net_utils::do_connect_peer;
@@ -10,7 +10,6 @@ use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
-use database::wallet_database::WalletDatabase;
 use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{chainmonitor, Watch};
@@ -32,7 +31,7 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
-use log::{error, info};
+use log::error;
 use logger::KndLogger;
 use rand::{thread_rng, Rng};
 use settings::Settings;
@@ -71,7 +70,7 @@ impl LightningInterface for Controller {
 
     fn wallet_balance(&self) -> u64 {
         match self.wallet.balance() {
-            Ok(balance) => balance,
+            Ok(balance) => balance.confirmed,
             Err(e) => {
                 error!("Unable to get wallet balance for metrics: {}", e);
                 0
@@ -121,34 +120,14 @@ impl Controller {
     pub async fn start_ldk(
         settings: Arc<Settings>,
         database: Arc<LdkDatabase>,
+        bitcoind_client: Arc<Client>,
+        wallet: Arc<Wallet>,
         key_generator: Arc<KeyGenerator>,
         shutdown_flag: Arc<AtomicBool>,
     ) -> Result<(Controller, BackgroundProcessor)> {
-        // Initialize our bitcoind client.
-        let bitcoind_client = match Client::new(&settings, tokio::runtime::Handle::current()).await
-        {
-            Ok(client) => {
-                info!(
-                    "Connected to bitcoind at {}:{}",
-                    settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
-                );
-                Arc::new(client)
-            }
-            Err(e) => {
-                bail!("Failed to connect to bitcoind client: {}", e);
-            }
-        };
-
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await.chain;
-        if bitcoind_chain
-            != match settings.bitcoin_network {
-                bitcoin::Network::Bitcoin => "main",
-                bitcoin::Network::Testnet => "test",
-                bitcoin::Network::Regtest => "regtest",
-                bitcoin::Network::Signet => "signet",
-            }
-        {
+        if bitcoind_chain != settings.bitcoin_network.to_string() {
             bail!(
                 "Chain argument ({}) didn't match bitcoind chain ({})",
                 settings.bitcoin_network,
@@ -186,16 +165,6 @@ impl Controller {
             cur.as_secs(),
             cur.subsec_nanos(),
         ));
-
-        // Initialize bitcoin wallet.
-        let wallet_database = WalletDatabase::new(&settings).await?;
-
-        let wallet = Arc::new(Wallet::new(
-            &key_generator.wallet_seed(),
-            &settings,
-            bitcoind_client.clone(),
-            wallet_database,
-        )?);
 
         // Initialize the ChannelManager
         let mut channelmonitors = database

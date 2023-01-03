@@ -1,5 +1,7 @@
+use anyhow::Result;
+use bdk::Balance;
 use bitcoin::{secp256k1::PublicKey, Network};
-use lightning_knd::api::LightningInterface;
+use lightning_knd::api::{LightningInterface, WalletInterface};
 use test_utils::random_public_key;
 use tokio::signal::unix::SignalKind;
 
@@ -68,6 +70,29 @@ impl LightningInterface for MockLightning {
 
     fn version(&self) -> String {
         "v0.1".to_string()
+    }
+}
+
+pub struct MockWallet {
+    balance: Balance,
+}
+
+impl WalletInterface for MockWallet {
+    fn balance(&self) -> Result<bdk::Balance> {
+        Ok(self.balance.clone())
+    }
+}
+
+impl Default for MockWallet {
+    fn default() -> Self {
+        Self {
+            balance: Balance {
+                immature: 1,
+                trusted_pending: 2,
+                untrusted_pending: 3,
+                confirmed: 4,
+            },
+        }
     }
 }
 
