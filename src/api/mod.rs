@@ -1,3 +1,4 @@
+mod channels;
 mod lightning_interface;
 mod macaroon_auth;
 mod methods;
@@ -5,6 +6,7 @@ mod wallet;
 mod wallet_interface;
 
 use anyhow::Result;
+use api::routes;
 use axum::{extract::Extension, response::IntoResponse, routing::get, Router};
 use axum_server::{tls_rustls::RustlsConfig, Handle};
 use futures::{future::Shared, Future};
@@ -17,7 +19,7 @@ use tower_http::cors::CorsLayer;
 pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
-use crate::api::wallet::get_balance;
+use crate::api::{channels::list_channels, wallet::get_balance};
 
 pub async fn start_rest_api(
     listen_address: String,
@@ -33,9 +35,10 @@ pub async fn start_rest_api(
     let handle = Handle::new();
 
     let app = Router::new()
-        .route("/", get(root))
-        .route("/v1/getinfo", get(get_info))
-        .route("/v1/getbalance", get(get_balance))
+        .route(routes::INDEX, get(root))
+        .route(routes::GET_INFO, get(get_info))
+        .route(routes::GET_BALANCE, get(get_balance))
+        .route(routes::LIST_CHANNELS, get(list_channels))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
@@ -57,7 +60,6 @@ pub async fn start_rest_api(
             handle.graceful_shutdown(Some(Duration::from_secs(30)));
         }
     );
-    info!("STOPPED");
     Ok(())
 }
 
@@ -82,4 +84,11 @@ async fn config(certs_dir: &str) -> RustlsConfig {
     )
     .await
     .unwrap()
+}
+
+#[macro_export]
+macro_rules! to_string_empty {
+    ($v: expr) => {
+        $v.map_or("".to_string(), |x| x.to_string())
+    };
 }

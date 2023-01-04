@@ -3,7 +3,7 @@ use futures::FutureExt;
 use std::sync::Arc;
 use test_utils::test_settings;
 
-use crate::{quit_signal, MockLightning};
+use crate::{mock_lightning::MockLightning, quit_signal};
 use lightning_knd::prometheus::start_prometheus_exporter;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -16,6 +16,7 @@ pub async fn test_prometheus() {
         num_channels: 20,
         num_peers: 5,
         wallet_balance: 500000,
+        channels: vec![],
     });
     tokio::spawn(start_prometheus_exporter(
         address.clone(),

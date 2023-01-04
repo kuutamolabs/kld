@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use api::GetInfo;
+use api::{routes, GetInfo};
 use test_utils::{bitcoin, cockroach, knd};
 use tokio::time::{sleep_until, Instant};
 
@@ -21,7 +21,7 @@ pub async fn test_start() {
 
     assert_eq!("OK", knd.call_rest_api("").await.unwrap());
 
-    let result = knd.call_rest_api("v1/getinfo").await.unwrap();
+    let result = knd.call_rest_api(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
     assert_eq!(0, info.block_height);
 }

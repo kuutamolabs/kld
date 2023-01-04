@@ -1,4 +1,5 @@
 use bitcoin::{secp256k1::PublicKey, Network};
+use lightning::{ln::channelmanager::ChannelDetails, routing::gossip};
 
 pub trait LightningInterface {
     fn alias(&self) -> String;
@@ -24,4 +25,8 @@ pub trait LightningInterface {
     fn wallet_balance(&self) -> u64;
 
     fn version(&self) -> String;
+
+    fn list_channels(&self) -> Vec<ChannelDetails>;
+
+    fn get_node(&self, node_id: PublicKey) -> Option<gossip::NodeInfo>;
 }

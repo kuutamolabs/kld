@@ -37,7 +37,7 @@ impl KndManager {
         .unwrap();
 
         self.rest_client
-            .get(format!("https://{}/{}", self.rest_api_address, method))
+            .get(format!("https://{}{}", self.rest_api_address, method))
             .header("macaroon", macaroon)
             .send()
             .await?
