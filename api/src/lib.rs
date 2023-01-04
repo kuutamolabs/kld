@@ -1,5 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+pub mod routes {
+    pub const INDEX: &str = "/";
+    pub const GET_INFO: &str = "/v1/getinfo";
+    pub const GET_BALANCE: &str = "/v1/getbalance";
+    pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct GetInfo {
     #[serde(rename = "id")]

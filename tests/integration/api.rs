@@ -11,7 +11,7 @@ use reqwest::StatusCode;
 use settings::Settings;
 use test_utils::{https_client, TestSettingsBuilder};
 
-use api::{Balance, Channel, GetInfo};
+use api::{routes, Balance, Channel, GetInfo};
 use tokio::runtime::Runtime;
 
 use crate::mock_lightning::MockLightning;
@@ -19,7 +19,7 @@ use crate::mock_wallet::MockWallet;
 use crate::quit_signal;
 
 macro_rules! unauthorized {
-    ($name: ident, $path: literal) => {
+    ($name: ident, $path: expr) => {
         #[tokio::test(flavor = "multi_thread")]
         async fn $name() {
             assert_eq!(StatusCode::UNAUTHORIZED, unauthorized_request($path).await);
@@ -27,10 +27,10 @@ macro_rules! unauthorized {
     };
 }
 
-unauthorized!(test_root_unauthorized, "/");
-unauthorized!(test_getinfo_unauthorized, "/v1/getinfo");
-unauthorized!(test_getbalance_unauthorized, "/v1/getbalance");
-unauthorized!(test_listchannels_unauthorized, "/v1/channel/listChannels");
+unauthorized!(test_root_unauthorized, routes::INDEX);
+unauthorized!(test_getinfo_unauthorized, routes::GET_INFO);
+unauthorized!(test_getbalance_unauthorized, routes::GET_BALANCE);
+unauthorized!(test_listchannels_unauthorized, routes::LIST_CHANNELS);
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_not_found() {
@@ -42,24 +42,24 @@ async fn test_not_found() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_root_readonly() {
-    assert_eq!("OK", readonly_request("/").await.unwrap());
+    assert_eq!("OK", readonly_request(routes::INDEX).await.unwrap());
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_root_admin() {
-    assert_eq!("OK", admin_request("/").await.unwrap());
+    assert_eq!("OK", admin_request(routes::INDEX).await.unwrap());
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_getinfo_readonly() {
-    let result = readonly_request("/v1/getinfo").await.unwrap();
+    let result = readonly_request(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
     assert_eq!(LIGHTNING.num_peers, info.num_peers);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_getbalance_readonly() {
-    let result = readonly_request("/v1/getbalance").await.unwrap();
+    let result = readonly_request(routes::GET_BALANCE).await.unwrap();
     let balance: Balance = serde_json::from_str(&result).unwrap();
     assert_eq!(9, balance.total_balance);
     assert_eq!(4, balance.conf_balance);
@@ -68,7 +68,7 @@ async fn test_getbalance_readonly() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_listchannels_readonly() {
-    let result = readonly_request("/v1/channel/listChannels").await.unwrap();
+    let result = readonly_request(routes::LIST_CHANNELS).await.unwrap();
     let channels: Vec<Channel> = serde_json::from_str(&result).unwrap();
     let channel = channels.get(0).unwrap();
     assert_eq!(

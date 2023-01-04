@@ -6,6 +6,7 @@ mod wallet;
 mod wallet_interface;
 
 use anyhow::Result;
+use api::routes;
 use axum::{extract::Extension, response::IntoResponse, routing::get, Router};
 use axum_server::{tls_rustls::RustlsConfig, Handle};
 use futures::{future::Shared, Future};
@@ -34,10 +35,10 @@ pub async fn start_rest_api(
     let handle = Handle::new();
 
     let app = Router::new()
-        .route("/", get(root))
-        .route("/v1/getinfo", get(get_info))
-        .route("/v1/getbalance", get(get_balance))
-        .route("/v1/channel/listChannels", get(list_channels))
+        .route(routes::INDEX, get(root))
+        .route(routes::GET_INFO, get(get_info))
+        .route(routes::GET_BALANCE, get(get_balance))
+        .route(routes::LIST_CHANNELS, get(list_channels))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
@@ -59,7 +60,6 @@ pub async fn start_rest_api(
             handle.graceful_shutdown(Some(Duration::from_secs(30)));
         }
     );
-    info!("STOPPED");
     Ok(())
 }
 
