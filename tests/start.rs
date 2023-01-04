@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use api::{GetInfo, routes};
+use api::{routes, GetInfo};
 use test_utils::{bitcoin, cockroach, knd};
 use tokio::time::{sleep_until, Instant};
 
