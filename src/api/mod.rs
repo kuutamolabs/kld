@@ -5,21 +5,29 @@ mod methods;
 mod wallet;
 mod wallet_interface;
 
-use anyhow::Result;
-use api::routes;
-use axum::{extract::Extension, response::IntoResponse, routing::get, Router};
-use axum_server::{tls_rustls::RustlsConfig, Handle};
-use futures::{future::Shared, Future};
-use hyper::StatusCode;
-pub use lightning_interface::LightningInterface;
-use log::{error, info};
+pub use lightning_interface::{LightningInterface, OpenChannelResult};
 pub use macaroon_auth::{KndMacaroon, MacaroonAuth};
-use std::{sync::Arc, time::Duration};
-use tower_http::cors::CorsLayer;
 pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
-use crate::api::{channels::list_channels, wallet::get_balance};
+use crate::api::{
+    channels::{list_channels, open_channel},
+    wallet::get_balance,
+};
+use anyhow::Result;
+use api::routes;
+use axum::{
+    extract::Extension,
+    response::IntoResponse,
+    routing::{get, post},
+    Router,
+};
+use axum_server::{tls_rustls::RustlsConfig, Handle};
+use futures::{future::Shared, Future};
+use hyper::StatusCode;
+use log::{error, info};
+use std::{sync::Arc, time::Duration};
+use tower_http::cors::CorsLayer;
 
 pub async fn start_rest_api(
     listen_address: String,
@@ -35,10 +43,11 @@ pub async fn start_rest_api(
     let handle = Handle::new();
 
     let app = Router::new()
-        .route(routes::INDEX, get(root))
+        .route(routes::ROOT, get(root))
         .route(routes::GET_INFO, get(get_info))
         .route(routes::GET_BALANCE, get(get_balance))
         .route(routes::LIST_CHANNELS, get(list_channels))
+        .route(routes::OPEN_CHANNEL, post(open_channel))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
@@ -67,7 +76,7 @@ async fn root(
     macaroon: KndMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    if macaroon_auth.verify_macaroon(&macaroon.0).is_err() {
+    if macaroon_auth.verify_readonly_macaroon(&macaroon.0).is_err() {
         return Err(StatusCode::UNAUTHORIZED);
     }
     Ok("OK")
@@ -90,5 +99,25 @@ async fn config(certs_dir: &str) -> RustlsConfig {
 macro_rules! to_string_empty {
     ($v: expr) => {
         $v.map_or("".to_string(), |x| x.to_string())
+    };
+}
+
+#[macro_export]
+macro_rules! handle_err {
+    ($parse:expr) => {
+        $parse.map_err(|e| {
+            warn!("{}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
+    };
+}
+
+#[macro_export]
+macro_rules! handle_auth_err {
+    ($parse:expr) => {
+        $parse.map_err(|e| {
+            info!("{}", e);
+            StatusCode::UNAUTHORIZED
+        })
     };
 }

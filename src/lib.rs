@@ -2,7 +2,6 @@
 pub mod api;
 pub mod controller;
 mod event_handler;
-mod hex_utils;
 pub mod key_generator;
 mod net_utils;
 mod payment_info;

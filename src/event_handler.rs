@@ -6,6 +6,7 @@ use std::time::Duration;
 use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 use bitcoin_bech32::WitnessProgram;
+use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::keysinterface::KeysManager;
 use lightning::routing::gossip::NodeId;
@@ -14,8 +15,7 @@ use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
-use crate::controller::{ChannelManager, NetworkGraph};
-use crate::hex_utils;
+use crate::controller::{AsyncAPIRequests, ChannelManager, NetworkGraph};
 use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
 use crate::wallet::Wallet;
 use bitcoind::Client;
@@ -29,6 +29,7 @@ pub(crate) struct EventHandler {
     network: Network,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
+    async_api_requests: Arc<AsyncAPIRequests>,
 }
 
 impl EventHandler {
@@ -43,6 +44,7 @@ impl EventHandler {
         network: Network,
         network_graph: Arc<NetworkGraph>,
         wallet: Arc<Wallet>,
+        async_api_requests: Arc<AsyncAPIRequests>,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -53,6 +55,7 @@ impl EventHandler {
             network,
             network_graph,
             wallet,
+            async_api_requests,
         }
     }
 }
@@ -73,7 +76,7 @@ impl EventHandler {
                 counterparty_node_id,
                 channel_value_satoshis,
                 output_script,
-                ..
+                user_channel_id,
             } => {
                 // Construct the raw transaction with one output, that is paid the amount of the
                 // channel.
@@ -102,12 +105,36 @@ impl EventHandler {
                     .funding_transaction_generated(
                         &temporary_channel_id,
                         &counterparty_node_id,
-                        funding_tx,
+                        funding_tx.clone(),
                     )
                     .is_err()
                 {
                     error!("Channel went away before we could fund it. The peer disconnected or refused the channel.");
                 }
+                self.async_api_requests
+                    .channel_opens
+                    .send(user_channel_id, funding_tx)
+                    .await;
+            }
+            Event::ChannelReady {
+                channel_id: _,
+                user_channel_id: _,
+                counterparty_node_id: _,
+                channel_type: _,
+            } => {}
+            Event::ChannelClosed {
+                channel_id,
+                reason,
+                user_channel_id: _,
+            } => {
+                info!("EVENT: Channel {:?} closed due to: {}", channel_id, reason);
+            }
+            Event::DiscardFunding { .. } => {
+                // A "real" node should probably "lock" the UTXOs spent in funding transactions until
+                // the funding transaction either confirms, or this event is generated.
+            }
+            Event::OpenChannelRequest { .. } => {
+                // Unreachable, we don't set manually_accept_inbound_channels
             }
             Event::PaymentClaimable {
                 payment_hash,
@@ -119,7 +146,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: received payment from payment hash {} of {} millisatoshis",
-                    hex_utils::hex_str(&payment_hash.0),
+                    payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
                 let payment_preimage = match purpose {
@@ -138,7 +165,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: claimed payment from payment hash {} of {} millisatoshis",
-                    hex_utils::hex_str(&payment_hash.0),
+                    payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
                 let (payment_preimage, payment_secret) = match purpose {
@@ -186,13 +213,10 @@ impl EventHandler {
                         } else {
                             "".to_string()
                         },
-                        hex_utils::hex_str(&payment_hash.0),
-                        hex_utils::hex_str(&payment_preimage.0)
+                        payment_hash.0.encode_hex::<String>(),
+                        payment_preimage.0.encode_hex::<String>()
                     );
                 }
-            }
-            Event::OpenChannelRequest { .. } => {
-                // Unreachable, we don't set manually_accept_inbound_channels
             }
             Event::PaymentPathSuccessful { .. } => {}
             Event::PaymentPathFailed { .. } => {}
@@ -201,7 +225,7 @@ impl EventHandler {
             Event::PaymentFailed { payment_hash, .. } => {
                 info!(
 				"EVENT: Failed to send payment to payment hash {:?}: exhausted payment retry attempts",
-				hex_utils::hex_str(&payment_hash.0)
+				payment_hash.0.encode_hex::<String>()
 			);
 
                 let mut payments = self.outbound_payments.lock().unwrap();
@@ -240,9 +264,7 @@ impl EventHandler {
                 };
                 let channel_str = |channel_id: &Option<[u8; 32]>| {
                     channel_id
-                        .map(|channel_id| {
-                            format!(" with channel {}", hex_utils::hex_str(&channel_id))
-                        })
+                        .map(|channel_id| format!(" with channel {:?}", channel_id))
                         .unwrap_or_default()
                 };
                 let from_prev_str = format!(
@@ -300,27 +322,6 @@ impl EventHandler {
                     )
                     .unwrap();
                 self.bitcoind_client.broadcast_transaction(&spending_tx);
-            }
-            Event::ChannelReady {
-                channel_id: _,
-                user_channel_id: _,
-                counterparty_node_id: _,
-                channel_type: _,
-            } => {}
-            Event::ChannelClosed {
-                channel_id,
-                reason,
-                user_channel_id: _,
-            } => {
-                info!(
-                    "EVENT: Channel {} closed due to: {:?}",
-                    hex_utils::hex_str(&channel_id),
-                    reason
-                );
-            }
-            Event::DiscardFunding { .. } => {
-                // A "real" node should probably "lock" the UTXOs spent in funding transactions until
-                // the funding transaction either confirms, or this event is generated.
             }
             Event::HTLCIntercepted {
                 intercept_id: _,

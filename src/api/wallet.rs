@@ -1,7 +1,9 @@
-use std::sync::Arc;
-
 use api::Balance;
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
+use log::info;
+use std::sync::Arc;
+
+use crate::handle_auth_err;
 
 use super::KndMacaroon;
 use super::MacaroonAuth;
@@ -12,9 +14,8 @@ pub(crate) async fn get_balance(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    if macaroon_auth.verify_macaroon(&macaroon.0).is_err() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    handle_auth_err!(macaroon_auth.verify_readonly_macaroon(&macaroon.0))?;
+
     if let Ok(balance) = wallet.balance() {
         let unconf_balance = balance.untrusted_pending + balance.trusted_pending;
         let total_balance = unconf_balance + balance.confirmed;

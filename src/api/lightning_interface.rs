@@ -1,6 +1,9 @@
-use bitcoin::{secp256k1::PublicKey, Network};
-use lightning::{ln::channelmanager::ChannelDetails, routing::gossip};
+use anyhow::Result;
+use async_trait::async_trait;
+use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
+use lightning::{ln::channelmanager::ChannelDetails, routing::gossip, util::config::UserConfig};
 
+#[async_trait]
 pub trait LightningInterface {
     fn alias(&self) -> String;
 
@@ -29,4 +32,18 @@ pub trait LightningInterface {
     fn list_channels(&self) -> Vec<ChannelDetails>;
 
     fn get_node(&self, node_id: PublicKey) -> Option<gossip::NodeInfo>;
+
+    async fn open_channel(
+        &self,
+        their_network_key: PublicKey,
+        channel_value_satoshis: u64,
+        push_msat: u64,
+        override_config: Option<UserConfig>,
+    ) -> Result<OpenChannelResult>;
+}
+
+pub struct OpenChannelResult {
+    pub transaction: Transaction,
+    pub txid: Txid,
+    pub channel_id: [u8; 32],
 }

@@ -1,4 +1,4 @@
-use crate::api::{LightningInterface, WalletInterface};
+use crate::api::{LightningInterface, OpenChannelResult, WalletInterface};
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
 use crate::net_utils::do_connect_peer;
@@ -6,8 +6,10 @@ use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
 use crate::{net_utils, VERSION};
 use anyhow::{bail, Result};
+use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
+use bitcoin::Transaction;
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
@@ -24,6 +26,7 @@ use lightning::routing::gossip::{self, NodeId, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
+use lightning::util::errors::APIError;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::init;
 use lightning_block_sync::poll;
@@ -31,26 +34,21 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
-use log::error;
+use log::{error, warn};
 use logger::KndLogger;
-use rand::{thread_rng, Rng};
+use rand::{random, thread_rng, Rng};
 use settings::Settings;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tokio::runtime::Handle;
+use tokio::sync::oneshot::{self, Receiver, Sender};
+use tokio::sync::RwLock;
 
-pub struct Controller {
-    settings: Arc<Settings>,
-    bitcoind_client: Arc<Client>,
-    channel_manager: Arc<ChannelManager>,
-    peer_manager: Arc<PeerManager>,
-    network_graph: Arc<NetworkGraph>,
-    wallet: Arc<Wallet>,
-}
-
+#[async_trait]
 impl LightningInterface for Controller {
     fn identity_pubkey(&self) -> PublicKey {
         self.channel_manager.get_our_node_id()
@@ -113,12 +111,114 @@ impl LightningInterface for Controller {
         self.channel_manager.list_channels()
     }
 
+    async fn open_channel(
+        &self,
+        their_network_key: PublicKey,
+        channel_value_satoshis: u64,
+        push_msat: u64,
+        override_config: Option<UserConfig>,
+    ) -> Result<OpenChannelResult> {
+        let user_channel_id: u128 = random();
+        let channel_id = self
+            .channel_manager
+            .create_channel(
+                their_network_key,
+                channel_value_satoshis,
+                push_msat,
+                user_channel_id,
+                override_config,
+            )
+            .map_err(api_error)?;
+        let receiver = self
+            .async_api_requests
+            .channel_opens
+            .insert(user_channel_id)
+            .await;
+        let transaction = receiver.await?;
+        let txid = transaction.txid();
+        Ok(OpenChannelResult {
+            transaction,
+            txid,
+            channel_id,
+        })
+    }
+
     fn get_node(&self, public_key: PublicKey) -> Option<gossip::NodeInfo> {
         self.network_graph
             .read_only()
             .node(&NodeId::from_pubkey(&public_key))
             .cloned()
     }
+}
+
+pub struct AsyncAPIRequests {
+    pub channel_opens: AsyncSenders<u128, Transaction>,
+}
+
+impl AsyncAPIRequests {
+    fn new() -> AsyncAPIRequests {
+        AsyncAPIRequests {
+            channel_opens: AsyncSenders::new(),
+        }
+    }
+}
+
+pub struct AsyncSenders<K, V> {
+    senders: RwLock<HashMap<K, Sender<V>>>,
+}
+
+impl<K: Eq + Hash, V> AsyncSenders<K, V> {
+    fn new() -> AsyncSenders<K, V> {
+        AsyncSenders {
+            senders: RwLock::new(HashMap::new()),
+        }
+    }
+
+    async fn insert(&self, k: K) -> Receiver<V> {
+        let (tx, rx) = oneshot::channel::<V>();
+        self.senders.write().await.insert(k, tx);
+        rx
+    }
+
+    pub async fn send(&self, k: K, v: V) {
+        if let Some(tx) = self.senders.write().await.remove(&k) {
+            if tx.send(v).is_err() {
+                warn!("Receiver dropped");
+            }
+        }
+    }
+}
+
+fn api_error(error: APIError) -> anyhow::Error {
+    anyhow::Error::msg(match error {
+        APIError::APIMisuseError { ref err } => format!("Misuse error: {}", err),
+        APIError::FeeRateTooHigh {
+            ref err,
+            ref feerate,
+        } => format!("{} feerate: {}", err, feerate),
+        APIError::InvalidRoute { ref err } => format!("Invalid route provided: {}", err),
+        APIError::ChannelUnavailable { ref err } => format!("Channel unavailable: {}", err),
+        APIError::MonitorUpdateInProgress => {
+            "Client indicated a channel monitor update is in progress but not yet complete"
+                .to_string()
+        }
+        APIError::IncompatibleShutdownScript { ref script } => {
+            format!(
+                "Provided a scriptpubkey format not accepted by peer: {}",
+                script
+            )
+        }
+    })
+}
+
+pub struct Controller {
+    settings: Arc<Settings>,
+    bitcoind_client: Arc<Client>,
+    channel_manager: Arc<ChannelManager>,
+    peer_manager: Arc<PeerManager>,
+    network_graph: Arc<NetworkGraph>,
+    wallet: Arc<Wallet>,
+    async_api_requests: Arc<AsyncAPIRequests>,
 }
 
 impl Controller {
@@ -373,6 +473,7 @@ impl Controller {
             }
         });
 
+        let async_api_requests = Arc::new(AsyncAPIRequests::new());
         // Handle LDK Events
         // TODO: persist payment info to disk
         let inbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
@@ -386,6 +487,7 @@ impl Controller {
             settings.bitcoin_network,
             network_graph.clone(),
             wallet.clone(),
+            async_api_requests.clone(),
         );
 
         // Initialize routing ProbabilisticScorer
@@ -505,6 +607,7 @@ impl Controller {
                 peer_manager,
                 network_graph,
                 wallet,
+                async_api_requests,
             },
             background_processor,
         ))
