@@ -1,4 +1,7 @@
-use bitcoin::{hashes::Hash, secp256k1::PublicKey, Network, Txid};
+use anyhow::Result;
+use async_trait::async_trait;
+use bitcoin::{consensus::deserialize, hashes::Hash, secp256k1::PublicKey, Network, Txid};
+use hex::FromHex;
 use lightning::{
     chain::transaction::OutPoint,
     ln::{
@@ -6,8 +9,9 @@ use lightning::{
         features::{InitFeatures, NodeFeatures},
     },
     routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeInfo},
+    util::config::UserConfig,
 };
-use lightning_knd::api::LightningInterface;
+use lightning_knd::api::{LightningInterface, OpenChannelResult};
 use test_utils::random_public_key;
 
 pub struct MockLightning {
@@ -70,6 +74,7 @@ impl Default for MockLightning {
     }
 }
 
+#[async_trait]
 impl LightningInterface for MockLightning {
     fn alias(&self) -> String {
         "test".to_string()
@@ -134,4 +139,28 @@ impl LightningInterface for MockLightning {
             }),
         })
     }
+
+    async fn open_channel(
+        &self,
+        _their_network_key: PublicKey,
+        _channel_value_satoshis: u64,
+        _push_msat: u64,
+        _override_config: Option<UserConfig>,
+    ) -> Result<OpenChannelResult> {
+        let transaction =
+            deserialize::<bitcoin::Transaction>(&Vec::<u8>::from_hex(TEST_TX).unwrap()).unwrap();
+        let txid = transaction.txid();
+        Ok(OpenChannelResult {
+            transaction,
+            txid,
+            channel_id: [1u8; 32],
+        })
+    }
 }
+
+const TEST_TX: &str = "0200000003c26f3eb7932f7acddc5ddd26602b77e7516079b03090a16e2c2f54\
+                                    85d1fd600f0100000000ffffffffc26f3eb7932f7acddc5ddd26602b77e75160\
+                                    79b03090a16e2c2f5485d1fd600f0000000000ffffffff571fb3e02278217852\
+                                    dd5d299947e2b7354a639adc32ec1fa7b82cfb5dec530e0500000000ffffffff\
+                                    03e80300000000000002aaeee80300000000000001aa200300000000000001ff\
+                                    00000000";

@@ -9,7 +9,7 @@ use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
-use macaroon::{Macaroon, MacaroonKey, Verifier};
+use macaroon::{ByteString, Macaroon, MacaroonKey, Verifier};
 
 pub struct MacaroonAuth {
     key: MacaroonKey,
@@ -35,19 +35,41 @@ impl MacaroonAuth {
         Ok(MacaroonAuth { key })
     }
 
-    pub fn verify_macaroon(&self, macaroon: &Macaroon) -> Result<()> {
+    pub fn verify_admin_macaroon(&self, macaroon: &Macaroon) -> Result<()> {
         let mut verifier = Verifier::default();
-        verifier.satisfy_exact("isadmin".into());
+        verifier.satisfy_general(|caveat| verify_role(caveat, "admin"));
+        Ok(verifier.verify(macaroon, &self.key, vec![])?)
+    }
+
+    pub fn verify_readonly_macaroon(&self, macaroon: &Macaroon) -> Result<()> {
+        let mut verifier = Verifier::default();
+        verifier.satisfy_general(|caveat| verify_role(caveat, "readonly"));
         Ok(verifier.verify(macaroon, &self.key, vec![])?)
     }
 
     fn admin_macaroon(key: &MacaroonKey) -> Result<Macaroon> {
-        Ok(Macaroon::create(None, key, "admin".into())?)
+        let mut macaroon = Macaroon::create(None, key, "admin".into())?;
+        macaroon.add_first_party_caveat("roles = admin|readonly".into());
+        Ok(macaroon)
     }
 
     fn readonly_macaroon(key: &MacaroonKey) -> Result<Macaroon> {
-        Ok(Macaroon::create(None, key, "readonly".into())?)
+        let mut macaroon = Macaroon::create(None, key, "readonly".into())?;
+        macaroon.add_first_party_caveat("roles = readonly".into());
+        Ok(macaroon)
     }
+}
+
+fn verify_role(caveat: &ByteString, expected_role: &str) -> bool {
+    if !caveat.0.starts_with(b"roles = ") {
+        return false;
+    }
+    let strcaveat = match std::str::from_utf8(&caveat.0) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    strcaveat[8..].split('|').any(|r| r == expected_role)
 }
 
 pub struct KndMacaroon(pub Macaroon);
@@ -71,11 +93,21 @@ where
 }
 
 #[test]
-fn macaroon_test() {
+fn test_readonly_macaroon() {
     let macaroon_auth = MacaroonAuth::init(&[3u8; 32], "").unwrap();
-    let admin_macaroon = MacaroonAuth::admin_macaroon(&macaroon_auth.key).unwrap();
     let readonly_macaroon = MacaroonAuth::readonly_macaroon(&macaroon_auth.key).unwrap();
 
-    assert!(macaroon_auth.verify_macaroon(&admin_macaroon).is_ok());
-    assert!(macaroon_auth.verify_macaroon(&readonly_macaroon).is_ok());
+    macaroon_auth
+        .verify_readonly_macaroon(&readonly_macaroon)
+        .unwrap();
+}
+
+#[test]
+fn test_admin_macaroon() {
+    let macaroon_auth = MacaroonAuth::init(&[3u8; 32], "").unwrap();
+    let admin_macaroon = MacaroonAuth::admin_macaroon(&macaroon_auth.key).unwrap();
+
+    macaroon_auth
+        .verify_admin_macaroon(&admin_macaroon)
+        .unwrap();
 }

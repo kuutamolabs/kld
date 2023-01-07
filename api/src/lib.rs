@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 pub mod routes {
-    pub const INDEX: &str = "/";
+    pub const ROOT: &str = "/";
     pub const GET_INFO: &str = "/v1/getinfo";
     pub const GET_BALANCE: &str = "/v1/getbalance";
     pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
+    pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
 }
 
 #[derive(Serialize, Deserialize)]
@@ -74,4 +75,41 @@ pub struct Channel {
     pub direction: u8,
     /// Alias of the node
     pub alias: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FundChannel {
+    /// Pub key of the peer
+    pub id: String,
+    /// Amount in satoshis
+    pub satoshis: String,
+    /// urgent/normal/slow/<sats>perkw/<sats>perkb
+    #[serde(rename = "feeRate")]
+    pub fee_rate: String,
+    /// Flag to announce the channel (true, false)
+    /// Default: 'true'
+    pub announce: String,
+    /// Minimum number of confirmations that used outputs should have
+    #[serde(rename = "minConf")]
+    pub min_conf: u8,
+    /// Specifies the utxos to be used to fund the channel, as an array of "txid:vout"
+    pub utxos: Vec<String>,
+    /// Amount of millisatoshis to push to the channel peer at open
+    pub push_msat: String,
+    /// Bitcoin address to which the channel funds should be sent to on close
+    pub close_to: String,
+    /// Amount of liquidity you'd like to lease from the peer
+    pub request_amt: String,
+    /// Compact represenation of the peer's expected channel lease terms
+    pub compact_lease: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FundChannelResponse {
+    /// Transaction
+    pub tx: String,
+    /// Transaction ID
+    pub txid: String,
+    /// channel_id of the newly created channel (hex)
+    pub channel_id: String,
 }
