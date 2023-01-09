@@ -39,7 +39,7 @@ bitcoin = "0.29.2"
 bitcoin-bech32 = "0.12"
 bech32 = "0.9"
 hex = "0.4"
-bdk = { version = "0.25.0", features = [ "rpc" ] }
+bdk = { version = "0.26.0", features = [ "rpc" ] }
 anyhow = { version = "1.0.68", features = [ "backtrace" ] }
 futures = "0.3"
 chrono = "0.4"
