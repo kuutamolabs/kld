@@ -1,5 +1,6 @@
 use crate::convert::{BlockchainInfo, FeeResponse, RawTx};
-use base64;
+use base64::engine::general_purpose;
+use base64::Engine;
 use bitcoin::blockdata::transaction::Transaction;
 use bitcoin::consensus::encode;
 use bitcoin::hash_types::{BlockHash, Txid};
@@ -87,7 +88,7 @@ impl Client {
         let mut file = File::open(settings.bitcoin_cookie_path.clone())?;
         let mut cookie = String::new();
         file.read_to_string(&mut cookie)?;
-        let credentials = base64::encode(cookie.as_bytes());
+        let credentials = general_purpose::STANDARD.encode(cookie.as_bytes());
         let http_endpoint = HttpEndpoint::for_host(settings.bitcoind_rpc_host.clone())
             .with_port(settings.bitcoind_rpc_port);
         RpcClient::new(&credentials, http_endpoint)

@@ -50,7 +50,7 @@ impl Manager {
                 if self.has_started().await {
                     break true;
                 };
-                if i.elapsed() >= Duration::from_secs(30) {
+                if i.elapsed() >= Duration::from_secs(60) {
                     break false;
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -63,6 +63,7 @@ impl Manager {
                 println!("Begin log file: {}", path);
                 println!("{}", buf);
                 println!("End of log file.");
+                panic!("Failed to start {}", self.instance_name);
             } else {
                 println!("Successfully started: {}", self.instance_name);
             }
