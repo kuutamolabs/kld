@@ -144,7 +144,7 @@ impl LightningInterface for MockLightning {
         &self,
         _their_network_key: PublicKey,
         _channel_value_satoshis: u64,
-        _push_msat: u64,
+        _push_msat: Option<u64>,
         _override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
         let transaction =

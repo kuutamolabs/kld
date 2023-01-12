@@ -174,13 +174,13 @@ fn fund_channel_request() -> FundChannel {
     FundChannel {
         id: random_public_key().serialize().encode_hex(),
         satoshis: "21000000".to_string(),
-        fee_rate: "4".to_string(),
-        announce: "true".to_string(),
-        push_msat: "10000".to_string(),
-        close_to: "".to_string(),
-        request_amt: "".to_string(),
-        compact_lease: "".to_string(),
-        min_conf: 5,
+        fee_rate: Some("4".to_string()),
+        announce: Some("true".to_string()),
+        push_msat: Some("10000".to_string()),
+        close_to: None,
+        request_amt: None,
+        compact_lease: None,
+        min_conf: Some(5),
         utxos: vec![],
     }
 }
