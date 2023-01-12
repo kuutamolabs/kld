@@ -1,11 +1,58 @@
-use std::process::Command;
+use std::process::{Command, Output};
 
-use api::GetInfo;
+use api::{Balance, Channel, FundChannelResponse, GetInfo};
+use bitcoin::hashes::hex::ToHex;
+use serde::de;
+use test_utils::random_public_key;
 
 use super::api::API_SETTINGS;
 
 #[test]
 fn test_cli_get_info() {
+    let output = run_cli("get-info", &[]);
+    let _: GetInfo = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_get_balance() {
+    let output = run_cli("get-balance", &[]);
+    let _: Balance = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_list_channels() {
+    let output = run_cli("list-channels", &[]);
+    let _: Vec<Channel> = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_open_channel() {
+    let output = run_cli(
+        "open-channel",
+        &[
+            "--public-key",
+            &random_public_key().to_hex(),
+            "--satoshis",
+            "1000",
+        ],
+    );
+    let _: FundChannelResponse = deserialize(&output.stdout);
+}
+
+fn deserialize<'a, T>(bytes: &'a [u8]) -> T
+where
+    T: de::Deserialize<'a>,
+{
+    match serde_json::from_slice::<T>(bytes) {
+        Ok(t) => t,
+        Err(e) => {
+            println!("{}", String::from_utf8(bytes.to_owned()).unwrap());
+            panic!("{}", e);
+        }
+    }
+}
+
+fn run_cli(command: &str, extra_args: &[&str]) -> Output {
     let settings = &API_SETTINGS;
 
     let output = Command::new(env!("CARGO_BIN_EXE_lightning-knd-cli"))
@@ -16,11 +63,14 @@ fn test_cli_get_info() {
             &format!("{}/knd.crt", settings.certs_dir),
             "--macaroon-path",
             &format!("{}/macaroons/admin_macaroon", settings.data_dir),
-            "get-info",
+            command,
         ])
+        .args(extra_args)
         .output()
         .unwrap();
 
-    let _: GetInfo = serde_json::from_slice(&output.stdout).unwrap();
-    assert!(output.status.success());
+    if !output.status.success() {
+        panic!("{}", String::from_utf8(output.stderr).unwrap());
+    }
+    output
 }

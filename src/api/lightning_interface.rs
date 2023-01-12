@@ -37,7 +37,7 @@ pub trait LightningInterface {
         &self,
         their_network_key: PublicKey,
         channel_value_satoshis: u64,
-        push_msat: u64,
+        push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
 }

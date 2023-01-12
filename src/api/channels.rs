@@ -71,10 +71,16 @@ pub(crate) async fn open_channel(
 ) -> Result<impl IntoResponse, StatusCode> {
     handle_auth_err!(macaroon_auth.verify_admin_macaroon(&macaroon.0))?;
 
-    let pub_key_bytes = handle_err!(hex::decode(fund_channel.id))?;
-    let public_key = handle_err!(PublicKey::from_slice(&pub_key_bytes))?;
-    let value = handle_err!(fund_channel.satoshis.parse())?;
-    let push_msat = handle_err!(fund_channel.push_msat.parse())?;
+    let pub_key_bytes = hex::decode(fund_channel.id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let public_key = PublicKey::from_slice(&pub_key_bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let value = fund_channel
+        .satoshis
+        .parse()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let push_msat = fund_channel
+        .push_msat
+        .map(|x| x.parse::<u64>().map_err(|_| StatusCode::BAD_REQUEST))
+        .transpose()?;
 
     let result = handle_err!(
         lightning_interface

@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
-use api::routes;
+use api::{routes, FundChannel};
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder},
     header::{HeaderValue, CONTENT_TYPE},
@@ -33,6 +33,51 @@ impl Api {
 
     pub fn get_info(&self) -> Result<String> {
         let response = self.request(Method::GET, routes::GET_INFO).send()?;
+        if !response.status().is_success() {
+            return Err(anyhow!("{}", response.status()));
+        }
+        Ok(response.text()?)
+    }
+
+    pub fn get_balance(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::GET_BALANCE).send()?;
+        if !response.status().is_success() {
+            return Err(anyhow!("{}", response.status()));
+        }
+        Ok(response.text()?)
+    }
+
+    pub fn list_channels(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::LIST_CHANNELS).send()?;
+        if !response.status().is_success() {
+            return Err(anyhow!("{}", response.status()));
+        }
+        Ok(response.text()?)
+    }
+
+    pub fn open_channel(
+        &self,
+        id: String,
+        satoshis: String,
+        push_msat: Option<String>,
+    ) -> Result<String> {
+        let open_channel = FundChannel {
+            id,
+            satoshis,
+            fee_rate: None,
+            announce: None,
+            min_conf: None,
+            utxos: vec![],
+            push_msat,
+            close_to: None,
+            request_amt: None,
+            compact_lease: None,
+        };
+        let body = serde_json::to_string(&open_channel)?;
+        let response = self
+            .request(Method::POST, routes::OPEN_CHANNEL)
+            .body(body)
+            .send()?;
         if !response.status().is_success() {
             return Err(anyhow!("{}", response.status()));
         }

@@ -16,15 +16,31 @@ struct Args {
     /// Path to the macaroon for authenticating with the API.
     #[arg(short, long)]
     macaroon_path: String,
-    /// Command to run
+    /// Command to run.
     #[clap(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Get information about this lightning node.
+    /// Fetch information about this lightning node.
     GetInfo,
+    /// Fetch confirmed and unconfirmed on-chain balance.
+    GetBalance,
+    /// Fetch a list of this nodes open channels.
+    ListChannels,
+    /// Open a channel with another node.
+    OpenChannel {
+        /// The public key of the node to open a channel with.
+        #[arg(long)]
+        public_key: String,
+        /// Amount of satoshis to commit to the channel.
+        #[arg(long)]
+        satoshis: String,
+        /// The number of satoshis to push to the other node side of the channel.
+        #[arg(long)]
+        push_msat: Option<String>,
+    },
 }
 
 fn main() {
@@ -43,6 +59,22 @@ fn run_command(args: Args) -> Result<()> {
         Command::GetInfo => {
             let info = api.get_info()?;
             println!("{}", info);
+        }
+        Command::GetBalance => {
+            let balance = api.get_balance()?;
+            println!("{}", balance);
+        }
+        Command::ListChannels => {
+            let channels = api.list_channels()?;
+            println!("{}", channels);
+        }
+        Command::OpenChannel {
+            public_key,
+            satoshis,
+            push_msat,
+        } => {
+            let result = api.open_channel(public_key, satoshis, push_msat)?;
+            println!("{}", result);
         }
     }
     Ok(())

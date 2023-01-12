@@ -115,7 +115,7 @@ impl LightningInterface for Controller {
         &self,
         their_network_key: PublicKey,
         channel_value_satoshis: u64,
-        push_msat: u64,
+        push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
         let user_channel_id: u128 = random();
@@ -124,7 +124,7 @@ impl LightningInterface for Controller {
             .create_channel(
                 their_network_key,
                 channel_value_satoshis,
-                push_msat,
+                push_msat.unwrap_or_default(),
                 user_channel_id,
                 override_config,
             )
