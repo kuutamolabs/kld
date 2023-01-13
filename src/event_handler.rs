@@ -15,6 +15,7 @@ use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
+use crate::api::WalletInterface;
 use crate::controller::{AsyncAPIRequests, ChannelManager, NetworkGraph};
 use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
 use crate::wallet::Wallet;
@@ -306,7 +307,7 @@ impl EventHandler {
                 });
             }
             Event::SpendableOutputs { outputs } => {
-                let destination_address = self.wallet.get_new_address().unwrap();
+                let destination_address = self.wallet.new_address().unwrap();
                 let output_descriptors = &outputs.iter().collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client

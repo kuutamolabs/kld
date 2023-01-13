@@ -3,7 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
+use async_trait::async_trait;
 use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     blockchain::{rpc::Auth, ConfigurableBlockchain, RpcBlockchain, RpcConfig},
@@ -12,7 +13,7 @@ use bdk::{
 };
 use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
-    Network, Script, Transaction,
+    Address, Network, OutPoint, Script, Transaction,
 };
 use bitcoind::Client;
 use database::wallet_database::WalletDatabase;
@@ -28,12 +29,60 @@ pub struct Wallet {
     bitcoind_client: Arc<Client>,
 }
 
+#[async_trait]
 impl WalletInterface for Wallet {
     fn balance(&self) -> Result<Balance> {
         match self.wallet.try_lock() {
             Ok(wallet) => Ok(wallet.get_balance()?),
             Err(_) => Ok(Balance::default()),
         }
+    }
+
+    async fn transfer(
+        &self,
+        address: Address,
+        amount: u64,
+        fee_rate: Option<FeeRate>,
+        min_conf: Option<u8>,
+        utxos: Vec<OutPoint>,
+    ) -> Result<Transaction> {
+        let height = self
+            .bitcoind_client
+            .get_blockchain_info()
+            .await
+            .latest_height as u32;
+
+        match self.wallet.try_lock() {
+            Ok(wallet) => {
+                let mut tx_builder = wallet.build_tx();
+                if amount == u64::MAX {
+                    tx_builder.drain_wallet().drain_to(address.script_pubkey());
+                } else {
+                    tx_builder
+                        .add_recipient(address.script_pubkey(), amount)
+                        .drain_wallet()
+                        .add_utxos(&utxos)?;
+                }
+                tx_builder.current_height(
+                    min_conf.map_or_else(|| height, |min_conf| height - min_conf as u32),
+                );
+                if let Some(fee_rate) = fee_rate {
+                    tx_builder.fee_rate(fee_rate);
+                }
+                let tx = tx_builder.finish()?.0.extract_tx();
+                Ok(tx)
+            }
+            Err(_) => bail!("Wallet is still syncing with chain"),
+        }
+    }
+
+    fn new_address(&self) -> Result<AddressInfo> {
+        let address = self
+            .wallet
+            .try_lock()
+            .unwrap()
+            .get_address(bdk::wallet::AddressIndex::LastUnused)?;
+        Ok(address)
     }
 }
 
@@ -136,14 +185,5 @@ impl Wallet {
 
         let funding_tx = psbt.extract_tx();
         Ok(funding_tx)
-    }
-
-    pub fn get_new_address(&self) -> Result<AddressInfo> {
-        let address = self
-            .wallet
-            .try_lock()
-            .unwrap()
-            .get_address(bdk::wallet::AddressIndex::LastUnused)?;
-        Ok(address)
     }
 }

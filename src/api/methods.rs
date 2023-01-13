@@ -4,7 +4,7 @@ use bitcoin::Network;
 use log::info;
 use std::sync::Arc;
 
-use crate::handle_auth_err;
+use crate::handle_unauthorized;
 
 use super::KndMacaroon;
 use super::LightningInterface;
@@ -15,7 +15,7 @@ pub(crate) async fn get_info(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    handle_auth_err!(macaroon_auth.verify_readonly_macaroon(&macaroon.0))?;
+    handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
 
     let info = GetInfo {
         identity_pubkey: lightning_interface.identity_pubkey().to_string(),

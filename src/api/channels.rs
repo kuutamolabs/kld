@@ -8,8 +8,9 @@ use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
 use log::{info, warn};
 
-use crate::handle_auth_err;
+use crate::handle_bad_request;
 use crate::handle_err;
+use crate::handle_unauthorized;
 use crate::to_string_empty;
 
 use super::KndMacaroon;
@@ -21,7 +22,7 @@ pub(crate) async fn list_channels(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    handle_auth_err!(macaroon_auth.verify_readonly_macaroon(&macaroon.0))?;
+    handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
 
     let channels: Vec<Channel> = lightning_interface
         .list_channels()
@@ -69,25 +70,20 @@ pub(crate) async fn open_channel(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(fund_channel): Json<FundChannel>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    handle_auth_err!(macaroon_auth.verify_admin_macaroon(&macaroon.0))?;
+    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
 
-    let pub_key_bytes = hex::decode(fund_channel.id).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let public_key = PublicKey::from_slice(&pub_key_bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let value = fund_channel
-        .satoshis
-        .parse()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-    let push_msat = fund_channel
-        .push_msat
-        .map(|x| x.parse::<u64>().map_err(|_| StatusCode::BAD_REQUEST))
-        .transpose()?;
+    let pub_key_bytes = handle_bad_request!(hex::decode(fund_channel.id));
+    let public_key = handle_bad_request!(PublicKey::from_slice(&pub_key_bytes));
+    let value = handle_bad_request!(fund_channel.satoshis.parse());
+    let push_msat =
+        handle_bad_request!(fund_channel.push_msat.map(|x| x.parse::<u64>()).transpose());
 
     let result = handle_err!(
         lightning_interface
             .open_channel(public_key, value, push_msat, None)
             .await
-    )?;
-    let transaction = handle_err!(serde_json::to_string(&result.transaction))?;
+    );
+    let transaction = handle_err!(serde_json::to_string(&result.transaction));
     let response = FundChannelResponse {
         tx: transaction,
         txid: result.txid.to_string(),

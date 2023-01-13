@@ -1,9 +1,14 @@
 use std::process::{Command, Output};
 
-use api::{Balance, Channel, FundChannelResponse, GetInfo};
+use api::{
+    Channel, FundChannelResponse, GetInfo, NewAddressResponse, WalletBalance,
+    WalletTransferResponse,
+};
 use bitcoin::hashes::hex::ToHex;
 use serde::de;
 use test_utils::random_public_key;
+
+use crate::mocks::TEST_ADDRESS;
 
 use super::api::API_SETTINGS;
 
@@ -16,7 +21,22 @@ fn test_cli_get_info() {
 #[test]
 fn test_cli_get_balance() {
     let output = run_cli("get-balance", &[]);
-    let _: Balance = deserialize(&output.stdout);
+    let _: WalletBalance = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_new_address() {
+    let output = run_cli("new-address", &[]);
+    let _: NewAddressResponse = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_withdraw() {
+    let output = run_cli(
+        "withdraw",
+        &["--address", TEST_ADDRESS, "--satoshis", "1000"],
+    );
+    let _: WalletTransferResponse = deserialize(&output.stdout);
 }
 
 #[test]
