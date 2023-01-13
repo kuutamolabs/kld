@@ -1,6 +1,6 @@
-mod api;
+mod client;
 
-use crate::api::Api;
+use crate::client::Api;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
@@ -27,6 +27,17 @@ enum Command {
     GetInfo,
     /// Fetch confirmed and unconfirmed on-chain balance.
     GetBalance,
+    /// Generates new on-chain address for receiving funds.
+    NewAddress,
+    /// Send on-chain funds out of the wallet.
+    Withdraw {
+        /// The address to withdraw to.
+        #[arg(long)]
+        address: String,
+        /// The amount to withdraw (in Satoshis). The string "all" will empty the wallet.
+        #[arg(long)]
+        satoshis: String,
+    },
     /// Fetch a list of this nodes open channels.
     ListChannels,
     /// Open a channel with another node.
@@ -55,27 +66,18 @@ fn main() {
 fn run_command(args: Args) -> Result<()> {
     let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
-    match args.command {
-        Command::GetInfo => {
-            let info = api.get_info()?;
-            println!("{}", info);
-        }
-        Command::GetBalance => {
-            let balance = api.get_balance()?;
-            println!("{}", balance);
-        }
-        Command::ListChannels => {
-            let channels = api.list_channels()?;
-            println!("{}", channels);
-        }
+    let result = match args.command {
+        Command::GetInfo => api.get_info()?,
+        Command::GetBalance => api.get_balance()?,
+        Command::NewAddress => api.new_address()?,
+        Command::Withdraw { address, satoshis } => api.withdraw(address, satoshis)?,
+        Command::ListChannels => api.list_channels()?,
         Command::OpenChannel {
             public_key,
             satoshis,
             push_msat,
-        } => {
-            let result = api.open_channel(public_key, satoshis, push_msat)?;
-            println!("{}", result);
-        }
-    }
+        } => api.open_channel(public_key, satoshis, push_msat)?,
+    };
+    println!("{}", result);
     Ok(())
 }

@@ -1,11 +1,16 @@
 use serde::{Deserialize, Serialize};
 
 pub mod routes {
+    // General
     pub const ROOT: &str = "/";
     pub const GET_INFO: &str = "/v1/getinfo";
-    pub const GET_BALANCE: &str = "/v1/getbalance";
+    // Channels
     pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
     pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
+    // On chain wallet
+    pub const GET_BALANCE: &str = "/v1/getbalance";
+    pub const NEW_ADDR: &str = "/v1/newaddr";
+    pub const WITHDRAW: &str = "/v1/withdraw";
 }
 
 #[derive(Serialize, Deserialize)]
@@ -32,13 +37,37 @@ pub struct Chain {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Balance {
+pub struct WalletBalance {
     #[serde(rename = "totalBalance")]
     pub total_balance: u64,
     #[serde(rename = "confBlance")]
     pub conf_balance: u64,
     #[serde(rename = "unconfBalance")]
     pub unconf_balance: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WalletTransfer {
+    /// Any Bitcoin accepted type, including bech32
+    pub address: String,
+    /// Amount to be withdrawn. The string "all" can be used to specify withdrawal of all available funds
+    pub satoshis: String,
+    /// urgent, normal or slow
+    #[serde(rename = "feeRate")]
+    pub fee_rate: Option<String>,
+    /// minimum number of confirmations that used outputs should have
+    #[serde(rename = "minConf")]
+    pub min_conf: Option<String>,
+    /// Specifies the utxos to be used to fund the channel, as an array of "txid:vout"
+    pub utxos: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WalletTransferResponse {
+    /// Transaction
+    pub tx: String,
+    /// Transaction ID
+    pub txid: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -112,4 +141,16 @@ pub struct FundChannelResponse {
     pub txid: String,
     /// channel_id of the newly created channel (hex)
     pub channel_id: String,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct NewAddress {
+    /// Address type (bech32 only)
+    pub address_type: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NewAddressResponse {
+    /// Address
+    pub address: String,
 }

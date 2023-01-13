@@ -1,12 +1,13 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
-use api::{routes, FundChannel};
+use api::{routes, FundChannel, NewAddress, WalletTransfer};
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder},
     header::{HeaderValue, CONTENT_TYPE},
     Certificate, Method,
 };
+use serde::Serialize;
 
 pub struct Api {
     host: String,
@@ -32,27 +33,30 @@ impl Api {
     }
 
     pub fn get_info(&self) -> Result<String> {
-        let response = self.request(Method::GET, routes::GET_INFO).send()?;
-        if !response.status().is_success() {
-            return Err(anyhow!("{}", response.status()));
-        }
-        Ok(response.text()?)
+        send(self.request(Method::GET, routes::GET_INFO))
     }
 
     pub fn get_balance(&self) -> Result<String> {
-        let response = self.request(Method::GET, routes::GET_BALANCE).send()?;
-        if !response.status().is_success() {
-            return Err(anyhow!("{}", response.status()));
-        }
-        Ok(response.text()?)
+        send(self.request(Method::GET, routes::GET_BALANCE))
+    }
+
+    pub fn new_address(&self) -> Result<String> {
+        send(self.request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default()))
+    }
+
+    pub fn withdraw(&self, address: String, satoshis: String) -> Result<String> {
+        let wallet_transfer = WalletTransfer {
+            address,
+            satoshis,
+            fee_rate: None,
+            min_conf: None,
+            utxos: vec![],
+        };
+        send(self.request_with_body(Method::POST, routes::WITHDRAW, wallet_transfer))
     }
 
     pub fn list_channels(&self) -> Result<String> {
-        let response = self.request(Method::GET, routes::LIST_CHANNELS).send()?;
-        if !response.status().is_success() {
-            return Err(anyhow!("{}", response.status()));
-        }
-        Ok(response.text()?)
+        send(self.request(Method::GET, routes::LIST_CHANNELS))
     }
 
     pub fn open_channel(
@@ -73,23 +77,37 @@ impl Api {
             request_amt: None,
             compact_lease: None,
         };
-        let body = serde_json::to_string(&open_channel)?;
-        let response = self
-            .request(Method::POST, routes::OPEN_CHANNEL)
-            .body(body)
-            .send()?;
-        if !response.status().is_success() {
-            return Err(anyhow!("{}", response.status()));
-        }
-        Ok(response.text()?)
+        send(self.request_with_body(Method::POST, routes::OPEN_CHANNEL, open_channel))
     }
 
-    fn request(&self, method: Method, route: &str) -> RequestBuilder {
+    fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
         self.client
             .request(method, format!("https://{}{}", self.host, route))
             .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
             .header("macaroon", self.macaroon.clone())
     }
+
+    fn request(&self, method: Method, route: &str) -> RequestBuilder {
+        self.request_builder(method, route)
+    }
+
+    fn request_with_body<T: Serialize>(
+        &self,
+        method: Method,
+        route: &str,
+        body: T,
+    ) -> RequestBuilder {
+        let body = serde_json::to_string(&body).unwrap();
+        self.request_builder(method, route).body(body)
+    }
+}
+
+fn send(builder: RequestBuilder) -> Result<String> {
+    let response = builder.send()?;
+    if !response.status().is_success() {
+        return Err(anyhow!("{}", response.status()));
+    }
+    Ok(response.text()?)
 }
 
 fn read_file(path: &str) -> Result<Vec<u8>> {

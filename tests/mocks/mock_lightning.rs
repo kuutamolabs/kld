@@ -14,6 +14,8 @@ use lightning::{
 use lightning_knd::api::{LightningInterface, OpenChannelResult};
 use test_utils::random_public_key;
 
+use super::TEST_TX;
+
 pub struct MockLightning {
     pub num_peers: usize,
     pub num_nodes: usize,
@@ -157,10 +159,3 @@ impl LightningInterface for MockLightning {
         })
     }
 }
-
-const TEST_TX: &str = "0200000003c26f3eb7932f7acddc5ddd26602b77e7516079b03090a16e2c2f54\
-                                    85d1fd600f0100000000ffffffffc26f3eb7932f7acddc5ddd26602b77e75160\
-                                    79b03090a16e2c2f5485d1fd600f0000000000ffffffff571fb3e02278217852\
-                                    dd5d299947e2b7354a639adc32ec1fa7b82cfb5dec530e0500000000ffffffff\
-                                    03e80300000000000002aaeee80300000000000001aa200300000000000001ff\
-                                    00000000";

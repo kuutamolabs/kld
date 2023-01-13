@@ -12,7 +12,7 @@ pub use wallet_interface::WalletInterface;
 use self::methods::get_info;
 use crate::api::{
     channels::{list_channels, open_channel},
-    wallet::get_balance,
+    wallet::{get_balance, new_address, transfer},
 };
 use anyhow::Result;
 use api::routes;
@@ -48,6 +48,8 @@ pub async fn start_rest_api(
         .route(routes::GET_BALANCE, get(get_balance))
         .route(routes::LIST_CHANNELS, get(list_channels))
         .route(routes::OPEN_CHANNEL, post(open_channel))
+        .route(routes::NEW_ADDR, get(new_address))
+        .route(routes::WITHDRAW, post(transfer))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
@@ -108,16 +110,26 @@ macro_rules! handle_err {
         $parse.map_err(|e| {
             warn!("{}", e);
             StatusCode::INTERNAL_SERVER_ERROR
-        })
+        })?
     };
 }
 
 #[macro_export]
-macro_rules! handle_auth_err {
+macro_rules! handle_unauthorized {
     ($parse:expr) => {
         $parse.map_err(|e| {
             info!("{}", e);
             StatusCode::UNAUTHORIZED
-        })
+        })?
+    };
+}
+
+#[macro_export]
+macro_rules! handle_bad_request {
+    ($parse:expr) => {
+        $parse.map_err(|e| {
+            info!("{}", e);
+            StatusCode::BAD_REQUEST
+        })?
     };
 }

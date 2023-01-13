@@ -12,57 +12,70 @@ use logger::KndLogger;
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use settings::Settings;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
-use api::{routes, Balance, Channel, FundChannel, FundChannelResponse, GetInfo};
+use api::{
+    routes, Channel, FundChannel, FundChannelResponse, GetInfo, NewAddress, NewAddressResponse,
+    WalletBalance, WalletTransfer, WalletTransferResponse,
+};
 use tokio::runtime::Runtime;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
+use crate::mocks::TEST_ADDRESS;
 use crate::quit_signal;
 
-macro_rules! generate {
-    ($name: ident, $func: expr, $method: expr, $path: expr) => {
+macro_rules! unauthorized {
+    ($name: ident, $func: expr) => {
         #[tokio::test(flavor = "multi_thread")]
         async fn $name() {
-            assert_eq!(
-                StatusCode::UNAUTHORIZED,
-                send($func($method, $path)).await.unwrap_err()
-            );
+            assert_eq!(StatusCode::UNAUTHORIZED, send($func).await.unwrap_err());
         }
     };
 }
 
-generate!(
+unauthorized!(
     test_root_unauthorized,
-    unauthorized_request,
-    Method::GET,
-    routes::ROOT
+    unauthorized_request(Method::GET, routes::ROOT)
 );
-generate!(
+unauthorized!(
     test_getinfo_unauthorized,
-    unauthorized_request,
-    Method::GET,
-    routes::GET_INFO
+    unauthorized_request(Method::GET, routes::GET_INFO)
 );
-generate!(
+unauthorized!(
     test_getbalance_unauthorized,
-    unauthorized_request,
-    Method::GET,
-    routes::GET_BALANCE
+    unauthorized_request(Method::GET, routes::GET_BALANCE)
 );
-generate!(
+unauthorized!(
     test_listchannels_unauthorized,
-    unauthorized_request,
-    Method::GET,
-    routes::LIST_CHANNELS
+    unauthorized_request(Method::GET, routes::LIST_CHANNELS)
 );
-generate!(
+unauthorized!(
     test_openchannel_unauthorized,
-    unauthorized_request,
-    Method::POST,
-    routes::OPEN_CHANNEL
+    unauthorized_request(Method::POST, routes::OPEN_CHANNEL)
+);
+unauthorized!(
+    test_openchannel_readonly,
+    readonly_request_with_body(Method::POST, routes::OPEN_CHANNEL, fund_channel_request)
+);
+unauthorized!(
+    test_withdraw_unauthorized,
+    unauthorized_request(Method::POST, routes::WITHDRAW)
+);
+unauthorized!(
+    test_withdraw_readonly,
+    readonly_request_with_body(Method::POST, routes::WITHDRAW, withdraw_request)
+);
+unauthorized!(
+    test_new_address_unauthorized,
+    readonly_request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default)
+);
+unauthorized!(
+    test_new_address_readonly,
+    readonly_request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default)
 );
 
 #[tokio::test(flavor = "multi_thread")]
@@ -95,19 +108,17 @@ async fn test_root_admin() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_getinfo_readonly() {
-    let result = send(readonly_request(Method::GET, routes::GET_INFO))
+    let info: GetInfo = send(readonly_request(Method::GET, routes::GET_INFO))
         .await
-        .unwrap();
-    let info: GetInfo = serde_json::from_str(&result).unwrap();
+        .deserialize();
     assert_eq!(LIGHTNING.num_peers, info.num_peers);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_getbalance_readonly() {
-    let result = send(readonly_request(Method::GET, routes::GET_BALANCE))
+    let balance: WalletBalance = send(readonly_request(Method::GET, routes::GET_BALANCE))
         .await
-        .unwrap();
-    let balance: Balance = serde_json::from_str(&result).unwrap();
+        .deserialize();
     assert_eq!(9, balance.total_balance);
     assert_eq!(4, balance.conf_balance);
     assert_eq!(5, balance.unconf_balance);
@@ -115,10 +126,9 @@ async fn test_getbalance_readonly() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_listchannels_readonly() {
-    let result = send(readonly_request(Method::GET, routes::LIST_CHANNELS))
+    let channels: Vec<Channel> = send(readonly_request(Method::GET, routes::LIST_CHANNELS))
         .await
-        .unwrap();
-    let channels: Vec<Channel> = serde_json::from_str(&result).unwrap();
+        .deserialize();
     let channel = channels.get(0).unwrap();
     assert_eq!(
         "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
@@ -143,23 +153,14 @@ async fn test_listchannels_readonly() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_openchannel_readonly() {
-    let request = fund_channel_request();
-    let body = serde_json::to_string(&request).unwrap();
-    let result = send(readonly_request(Method::POST, routes::OPEN_CHANNEL).body(body))
-        .await
-        .unwrap_err();
-    assert_eq!(StatusCode::UNAUTHORIZED, result)
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn test_openchannel_admin() {
-    let request = fund_channel_request();
-    let body = serde_json::to_string(&request).unwrap();
-    let result = send(admin_request(Method::POST, routes::OPEN_CHANNEL).body(body))
-        .await
-        .unwrap();
-    let response: FundChannelResponse = serde_json::from_str(&result).unwrap();
+    let response: FundChannelResponse = send(admin_request_with_body(
+        Method::POST,
+        routes::OPEN_CHANNEL,
+        fund_channel_request,
+    ))
+    .await
+    .deserialize();
     assert_eq!(
         "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
         response.txid
@@ -168,6 +169,44 @@ async fn test_openchannel_admin() {
         "0101010101010101010101010101010101010101010101010101010101010101",
         response.channel_id
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_withdraw_admin() {
+    let response: WalletTransferResponse = send(admin_request_with_body(
+        Method::POST,
+        routes::WITHDRAW,
+        withdraw_request,
+    ))
+    .await
+    .deserialize();
+    assert_eq!("{\"version\":2,\"lock_time\":0,\"input\":[{\"previous_output\":\"0f60fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2:1\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]},{\"previous_output\":\"0f60fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2:0\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]},{\"previous_output\":\"0e53ec5dfb2cb8a71fec32dc9a634a35b7e24799295ddd5278217822e0b31f57:5\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]}],\"output\":[{\"value\":1000,\"script_pubkey\":\"aaee\"},{\"value\":1000,\"script_pubkey\":\"aa\"},{\"value\":800,\"script_pubkey\":\"ff\"}]}", response.tx);
+    assert_eq!(
+        "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
+        response.txid
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_new_address_admin() {
+    let response: NewAddressResponse = send(admin_request_with_body(
+        Method::GET,
+        routes::NEW_ADDR,
+        NewAddress::default,
+    ))
+    .await
+    .deserialize();
+    assert_eq!(TEST_ADDRESS.to_string(), response.address)
+}
+
+fn withdraw_request() -> WalletTransfer {
+    WalletTransfer {
+        address: TEST_ADDRESS.to_string(),
+        satoshis: "all".to_string(),
+        fee_rate: None,
+        min_conf: Some("3".to_string()),
+        utxos: vec![],
+    }
 }
 
 fn fund_channel_request() -> FundChannel {
@@ -241,14 +280,48 @@ fn admin_request(method: Method, route: &str) -> RequestBuilder {
     unauthorized_request(method, route).header("macaroon", ADMIN_MACAROON.to_owned())
 }
 
+fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
+    method: Method,
+    route: &str,
+    f: F,
+) -> RequestBuilder {
+    let body = serde_json::to_string(&f()).unwrap();
+    admin_request(method, route).body(body)
+}
+
 fn readonly_request(method: Method, route: &str) -> RequestBuilder {
     unauthorized_request(method, route).header("macaroon", READONLY_MACAROON.to_owned())
 }
 
-async fn send(builder: RequestBuilder) -> Result<String, StatusCode> {
+fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(
+    method: Method,
+    route: &str,
+    f: F,
+) -> RequestBuilder {
+    let body = serde_json::to_string(&f()).unwrap();
+    readonly_request(method, route).body(body)
+}
+
+struct ApiResult(Result<String, StatusCode>);
+
+impl ApiResult {
+    fn deserialize<T: DeserializeOwned>(self) -> T {
+        serde_json::from_str::<T>(&self.0.unwrap()).unwrap()
+    }
+
+    fn unwrap(self) -> String {
+        self.0.unwrap()
+    }
+
+    fn unwrap_err(self) -> StatusCode {
+        self.0.unwrap_err()
+    }
+}
+
+async fn send(builder: RequestBuilder) -> ApiResult {
     let response = builder.send().await.unwrap();
     if !response.status().is_success() {
-        return Err(response.status());
+        return ApiResult(Err(response.status()));
     }
-    Ok(response.text().await.unwrap())
+    ApiResult(Ok(response.text().await.unwrap()))
 }
