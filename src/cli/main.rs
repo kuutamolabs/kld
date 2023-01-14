@@ -38,6 +38,8 @@ enum Command {
         #[arg(long)]
         satoshis: String,
     },
+    /// Fetch a list of this nodes peers.
+    ListPeers,
     /// Fetch a list of this nodes open channels.
     ListChannels,
     /// Open a channel with another node.
@@ -72,6 +74,7 @@ fn run_command(args: Args) -> Result<()> {
         Command::NewAddress => api.new_address()?,
         Command::Withdraw { address, satoshis } => api.withdraw(address, satoshis)?,
         Command::ListChannels => api.list_channels()?,
+        Command::ListPeers => api.list_peers()?,
         Command::OpenChannel {
             public_key,
             satoshis,

@@ -93,6 +93,28 @@ impl LdkDatabase {
         Ok(())
     }
 
+    pub async fn fetch_peer(&self, public_key: &PublicKey) -> Result<Option<Peer>> {
+        debug!("Fetching peer from database");
+        let peer = self
+            .client
+            .read()
+            .await
+            .query_opt(
+                "SELECT * FROM peers WHERE public_key = $1",
+                &[&public_key.encode()],
+            )
+            .await?
+            .map(|row| {
+                let public_key: Vec<u8> = row.get(&"public_key");
+                let address: Vec<u8> = row.get(&"address");
+                Peer {
+                    public_key: PublicKey::from_slice(&public_key).unwrap(),
+                    socket_addr: String::from_utf8(address).unwrap().parse().unwrap(),
+                }
+            });
+        Ok(peer)
+    }
+
     pub async fn fetch_peers(&self) -> Result<Vec<Peer>> {
         debug!("Fetching peers from database");
         let mut peers = Vec::new();

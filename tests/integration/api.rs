@@ -19,7 +19,7 @@ use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
     routes, Channel, FundChannel, FundChannelResponse, GetInfo, NewAddress, NewAddressResponse,
-    WalletBalance, WalletTransfer, WalletTransferResponse,
+    Peer, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 
@@ -76,6 +76,10 @@ unauthorized!(
 unauthorized!(
     test_new_address_readonly,
     readonly_request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default)
+);
+unauthorized!(
+    test_list_peers_unauthorized,
+    unauthorized_request(Method::GET, routes::LIST_PEERS)
 );
 
 #[tokio::test(flavor = "multi_thread")]
@@ -197,6 +201,21 @@ async fn test_new_address_admin() {
     .await
     .deserialize();
     assert_eq!(TEST_ADDRESS.to_string(), response.address)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_peers_readonly() {
+    let response: Vec<Peer> = send(readonly_request(Method::GET, routes::LIST_PEERS))
+        .await
+        .deserialize();
+    let peer = response.get(0).unwrap();
+    assert_eq!(
+        "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
+        peer.id
+    );
+    assert_eq!("127.0.0.1:8080", peer.netaddr);
+    assert_eq!("connected", peer.connected);
+    assert_eq!("test", peer.alias);
 }
 
 fn withdraw_request() -> WalletTransfer {

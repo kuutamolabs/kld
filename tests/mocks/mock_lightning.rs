@@ -1,3 +1,5 @@
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{consensus::deserialize, hashes::Hash, secp256k1::PublicKey, Network, Txid};
@@ -11,7 +13,7 @@ use lightning::{
     routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeInfo},
     util::config::UserConfig,
 };
-use lightning_knd::api::{LightningInterface, OpenChannelResult};
+use lightning_knd::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 use test_utils::random_public_key;
 
 use super::TEST_TX;
@@ -157,5 +159,18 @@ impl LightningInterface for MockLightning {
             txid,
             channel_id: [1u8; 32],
         })
+    }
+
+    async fn list_peers(&self) -> Result<Vec<Peer>> {
+        Ok(vec![Peer {
+            public_key: PublicKey::from_slice(&[
+                2, 2, 117, 91, 71, 83, 52, 189, 154, 86, 163, 23, 253, 35, 223, 226, 100, 177, 147,
+                188, 189, 115, 34, 250, 163, 233, 116, 3, 23, 4, 6, 130, 102,
+            ])
+            .unwrap(),
+            socked_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+            status: PeerStatus::Connected,
+            alias: "test".to_string(),
+        }])
     }
 }

@@ -2,16 +2,18 @@ mod channels;
 mod lightning_interface;
 mod macaroon_auth;
 mod methods;
+mod peers;
 mod wallet;
 mod wallet_interface;
 
-pub use lightning_interface::{LightningInterface, OpenChannelResult};
+pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 pub use macaroon_auth::{KndMacaroon, MacaroonAuth};
 pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
 use crate::api::{
     channels::{list_channels, open_channel},
+    peers::list_peers,
     wallet::{get_balance, new_address, transfer},
 };
 use anyhow::Result;
@@ -50,6 +52,7 @@ pub async fn start_rest_api(
         .route(routes::OPEN_CHANNEL, post(open_channel))
         .route(routes::NEW_ADDR, get(new_address))
         .route(routes::WITHDRAW, post(transfer))
+        .route(routes::LIST_PEERS, get(list_peers))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
