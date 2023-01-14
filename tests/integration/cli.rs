@@ -1,7 +1,7 @@
 use std::process::{Command, Output};
 
 use api::{
-    Channel, FundChannelResponse, GetInfo, NewAddressResponse, WalletBalance,
+    Channel, FundChannelResponse, GetInfo, NewAddressResponse, Peer, WalletBalance,
     WalletTransferResponse,
 };
 use bitcoin::hashes::hex::ToHex;
@@ -43,6 +43,12 @@ fn test_cli_withdraw() {
 fn test_cli_list_channels() {
     let output = run_cli("list-channels", &[]);
     let _: Vec<Channel> = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_list_peers() {
+    let output = run_cli("list-peers", &[]);
+    let _: Vec<Peer> = deserialize(&output.stdout);
 }
 
 #[test]

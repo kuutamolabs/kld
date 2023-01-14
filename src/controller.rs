@@ -1,4 +1,4 @@
-use crate::api::{LightningInterface, OpenChannelResult, WalletInterface};
+use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, WalletInterface};
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
 use crate::net_utils::do_connect_peer;
@@ -149,6 +149,37 @@ impl LightningInterface for Controller {
             .node(&NodeId::from_pubkey(&public_key))
             .cloned()
     }
+
+    async fn list_peers(&self) -> Result<Vec<Peer>> {
+        let connected_peers = self.peer_manager.get_peer_node_ids();
+        let all_peers = self.database.fetch_peers().await?;
+
+        let mut response = vec![];
+        for peer in all_peers {
+            if let Some(p) = self
+                .network_graph
+                .read_only()
+                .node(&NodeId::from_pubkey(&peer.public_key))
+            {
+                let status = if connected_peers.contains(&peer.public_key) {
+                    PeerStatus::Connected
+                } else {
+                    PeerStatus::Disconnected
+                };
+                response.push(Peer {
+                    public_key: peer.public_key,
+                    socked_addr: peer.socket_addr,
+                    status,
+                    alias: p
+                        .announcement_info
+                        .clone()
+                        .map(|a| a.alias.to_string())
+                        .unwrap_or_default(),
+                });
+            }
+        }
+        Ok(response)
+    }
 }
 
 pub struct AsyncAPIRequests {
@@ -213,6 +244,7 @@ fn api_error(error: APIError) -> anyhow::Error {
 
 pub struct Controller {
     settings: Arc<Settings>,
+    database: Arc<LdkDatabase>,
     bitcoind_client: Arc<Client>,
     channel_manager: Arc<ChannelManager>,
     peer_manager: Arc<PeerManager>,
@@ -537,38 +569,34 @@ impl Controller {
         // Regularly reconnect to channel peers.
         let connect_cm = channel_manager.clone();
         let connect_pm = peer_manager.clone();
+        let connect_database = database.clone();
         let stop_connect = shutdown_flag.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
                 interval.tick().await;
 
-                match database.fetch_peers().await {
-                    Ok(peers) => {
-                        let node_ids = connect_pm.get_peer_node_ids();
-                        for node_id in connect_cm
-                            .list_channels()
-                            .iter()
-                            .map(|chan| chan.counterparty.node_id)
-                            .filter(|id| !node_ids.contains(id))
-                        {
-                            if stop_connect.load(Ordering::Acquire) {
-                                return;
-                            }
-                            for peer in peers.iter() {
-                                if peer.public_key == node_id {
-                                    let _ = do_connect_peer(
-                                        peer.public_key,
-                                        peer.socket_addr,
-                                        connect_pm.clone(),
-                                    )
-                                    .await;
-                                }
-                            }
-                        }
+                let connected_node_ids = connect_pm.get_peer_node_ids();
+                for unconnected_node_id in connect_cm
+                    .list_channels()
+                    .iter()
+                    .map(|chan| chan.counterparty.node_id)
+                    .filter(|id| !connected_node_ids.contains(id))
+                {
+                    if stop_connect.load(Ordering::Acquire) {
+                        return;
                     }
-                    Err(e) => {
-                        error!("Failed to fetch peers: {}", e);
+                    match connect_database.fetch_peer(&unconnected_node_id).await {
+                        Ok(Some(peer)) => {
+                            let _ = do_connect_peer(
+                                peer.public_key,
+                                peer.socket_addr,
+                                connect_pm.clone(),
+                            )
+                            .await;
+                        }
+                        Err(e) => error!("{}", e),
+                        _ => (),
                     }
                 }
             }
@@ -602,6 +630,7 @@ impl Controller {
         Ok((
             Controller {
                 settings,
+                database,
                 bitcoind_client,
                 channel_manager,
                 peer_manager,

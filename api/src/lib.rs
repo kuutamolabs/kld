@@ -1,15 +1,32 @@
 use serde::{Deserialize, Serialize};
 
 pub mod routes {
-    // General
+    /// --- General ---
+    /// NO-OP
     pub const ROOT: &str = "/";
+    /// Get node information.
     pub const GET_INFO: &str = "/v1/getinfo";
-    // Channels
+
+    /// --- Peers ---
+    /// Connect with a network peer.
+    pub const CONNECT: &str = "/v1/peer/connect";
+    /// Returns the list of peers connected with the node.
+    pub const LIST_PEERS: &str = "/v1/peer/listPeers";
+    /// Disconnect from a connected network peer.
+    pub const DISCONNECT: &str = "/v1/peer/disconnect";
+
+    /// --- Channels ---
+    /// Get the list of channels open on the node.
     pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
+    /// Open channel with a connected peer node.
     pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
-    // On chain wallet
+
+    /// --- On chain wallet ---
+    /// Returns total, confirmed and unconfirmed on-chain balances.
     pub const GET_BALANCE: &str = "/v1/getbalance";
+    /// Generate address for recieving on-chain funds.
     pub const NEW_ADDR: &str = "/v1/newaddr";
+    /// Withdraw on-chain funds to an address.
     pub const WITHDRAW: &str = "/v1/withdraw";
 }
 
@@ -153,4 +170,12 @@ pub struct NewAddress {
 pub struct NewAddressResponse {
     /// Address
     pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Peer {
+    pub id: String,
+    pub connected: String,
+    pub netaddr: String,
+    pub alias: String,
 }

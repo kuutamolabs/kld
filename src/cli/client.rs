@@ -59,6 +59,10 @@ impl Api {
         send(self.request(Method::GET, routes::LIST_CHANNELS))
     }
 
+    pub fn list_peers(&self) -> Result<String> {
+        send(self.request(Method::GET, routes::LIST_PEERS))
+    }
+
     pub fn open_channel(
         &self,
         id: String,

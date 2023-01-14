@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
@@ -33,6 +35,8 @@ pub trait LightningInterface {
 
     fn get_node(&self, node_id: PublicKey) -> Option<gossip::NodeInfo>;
 
+    async fn list_peers(&self) -> Result<Vec<Peer>>;
+
     async fn open_channel(
         &self,
         their_network_key: PublicKey,
@@ -40,6 +44,28 @@ pub trait LightningInterface {
         push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
+}
+
+pub struct Peer {
+    pub public_key: PublicKey,
+    pub socked_addr: SocketAddr,
+    pub status: PeerStatus,
+    pub alias: String,
+}
+
+pub enum PeerStatus {
+    Connected,
+    Disconnected,
+}
+
+impl ToString for PeerStatus {
+    fn to_string(&self) -> String {
+        match self {
+            PeerStatus::Connected => "connected",
+            PeerStatus::Disconnected => "disconnected",
+        }
+        .to_owned()
+    }
 }
 
 pub struct OpenChannelResult {

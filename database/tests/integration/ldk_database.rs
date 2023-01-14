@@ -44,7 +44,13 @@ pub async fn test_peers() {
                 1020,
             )),
         };
+        let saved_peer = database.fetch_peer(&peer.public_key).await.unwrap();
+        assert_eq!(None, saved_peer);
+
         database.persist_peer(&peer).await.unwrap();
+
+        let saved_peer = database.fetch_peer(&peer.public_key).await.unwrap();
+        assert_eq!(peer, saved_peer.unwrap());
 
         let peers = database.fetch_peers().await.unwrap();
         assert!(peers.contains(&peer));
