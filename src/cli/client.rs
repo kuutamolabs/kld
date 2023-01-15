@@ -63,6 +63,14 @@ impl Api {
         send(self.request(Method::GET, routes::LIST_PEERS))
     }
 
+    pub fn connect_peer(&self, id: String) -> Result<String> {
+        send(self.request_with_body(Method::POST, routes::CONNECT_PEER, id))
+    }
+
+    pub fn disconnect_peer(&self, id: String) -> Result<String> {
+        send(self.request_with_body(Method::DELETE, routes::DISCONNECT_PEER, id))
+    }
+
     pub fn open_channel(
         &self,
         id: String,

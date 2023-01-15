@@ -52,13 +52,9 @@ pub(crate) async fn list_channels(
             our_channel_reserve_satoshis: to_string_empty!(c.unspendable_punishment_reserve),
             spendable_msatoshi: c.outbound_capacity_msat.to_string(),
             direction: if c.is_outbound { 1 } else { 0 },
-            alias: lightning_interface.get_node(c.counterparty.node_id).map_or(
-                "".to_string(),
-                |n| {
-                    n.announcement_info
-                        .map_or("".to_string(), |a| a.alias.to_string())
-                },
-            ),
+            alias: lightning_interface
+                .alias_of(c.counterparty.node_id)
+                .unwrap_or_default(),
         })
         .collect();
     Ok(Json(channels))

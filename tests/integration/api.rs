@@ -25,7 +25,7 @@ use tokio::runtime::Runtime;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
-use crate::mocks::TEST_ADDRESS;
+use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY};
 use crate::quit_signal;
 
 macro_rules! unauthorized {
@@ -80,6 +80,22 @@ unauthorized!(
 unauthorized!(
     test_list_peers_unauthorized,
     unauthorized_request(Method::GET, routes::LIST_PEERS)
+);
+unauthorized!(
+    test_connect_peer_unauthorized,
+    unauthorized_request(Method::POST, routes::CONNECT_PEER)
+);
+unauthorized!(
+    test_connect_peer_readonly,
+    readonly_request_with_body(Method::POST, routes::CONNECT_PEER, || TEST_ADDRESS)
+);
+unauthorized!(
+    test_disconnect_peer_unauthorized,
+    unauthorized_request(Method::DELETE, routes::DISCONNECT_PEER)
+);
+unauthorized!(
+    test_disconnect_peer_readonly,
+    readonly_request_with_body(Method::DELETE, routes::DISCONNECT_PEER, || TEST_ADDRESS)
 );
 
 #[tokio::test(flavor = "multi_thread")]
@@ -153,7 +169,7 @@ async fn test_listchannels_readonly() {
     assert_eq!("10000", channel.our_channel_reserve_satoshis);
     assert_eq!("100000", channel.spendable_msatoshi);
     assert_eq!(1, channel.direction);
-    assert_eq!("test_node                       ", channel.alias);
+    assert_eq!("test_node", channel.alias);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -216,6 +232,18 @@ async fn test_list_peers_readonly() {
     assert_eq!("127.0.0.1:8080", peer.netaddr);
     assert_eq!("connected", peer.connected);
     assert_eq!("test", peer.alias);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_connect_peer_admin() {
+    let response: String = send(admin_request_with_body(
+        Method::POST,
+        routes::CONNECT_PEER,
+        || TEST_PUBLIC_KEY,
+    ))
+    .await
+    .deserialize();
+    assert_eq!(TEST_PUBLIC_KEY, response);
 }
 
 fn withdraw_request() -> WalletTransfer {

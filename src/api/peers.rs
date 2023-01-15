@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
 use crate::{handle_err, handle_unauthorized};
 use api::Peer;
 use axum::{response::IntoResponse, Extension, Json};
-use bitcoin::hashes::hex::ToHex;
+use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use hyper::StatusCode;
 use log::{info, warn};
 
@@ -27,4 +27,42 @@ pub(crate) async fn list_peers(
         .collect();
 
     Ok(Json(peers))
+}
+
+pub(crate) async fn connect_peer(
+    macaroon: KndMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Json(id): Json<String>,
+) -> Result<impl IntoResponse, StatusCode> {
+    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+
+    let (public_key, socket_addr) = match id.split_once('@') {
+        Some((public_key, socket_addr)) => (
+            handle_err!(PublicKey::from_str(public_key)),
+            Some(handle_err!(SocketAddr::from_str(socket_addr))),
+        ),
+        None => (handle_err!(PublicKey::from_str(&id)), None),
+    };
+    handle_err!(
+        lightning_interface
+            .connect_peer(public_key, socket_addr)
+            .await
+    );
+
+    Ok(Json(public_key.serialize().to_hex()))
+}
+
+pub(crate) async fn disconnect_peer(
+    macaroon: KndMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Json(id): Json<String>,
+) -> Result<impl IntoResponse, StatusCode> {
+    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+
+    let public_key = handle_err!(PublicKey::from_str(&id));
+    lightning_interface.disconnect_peer(public_key);
+
+    Ok(Json(()))
 }
