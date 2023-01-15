@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
-use lightning::{ln::channelmanager::ChannelDetails, routing::gossip, util::config::UserConfig};
+use lightning::{ln::channelmanager::ChannelDetails, util::config::UserConfig};
 
 #[async_trait]
 pub trait LightningInterface {
@@ -33,9 +33,17 @@ pub trait LightningInterface {
 
     fn list_channels(&self) -> Vec<ChannelDetails>;
 
-    fn get_node(&self, node_id: PublicKey) -> Option<gossip::NodeInfo>;
+    fn alias_of(&self, node_id: PublicKey) -> Option<String>;
 
     async fn list_peers(&self) -> Result<Vec<Peer>>;
+
+    async fn connect_peer(
+        &self,
+        public_key: PublicKey,
+        socket_addr: Option<SocketAddr>,
+    ) -> Result<()>;
+
+    fn disconnect_peer(&self, public_key: PublicKey);
 
     async fn open_channel(
         &self,

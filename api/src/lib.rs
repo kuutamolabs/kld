@@ -9,11 +9,11 @@ pub mod routes {
 
     /// --- Peers ---
     /// Connect with a network peer.
-    pub const CONNECT: &str = "/v1/peer/connect";
+    pub const CONNECT_PEER: &str = "/v1/peer/connect";
     /// Returns the list of peers connected with the node.
     pub const LIST_PEERS: &str = "/v1/peer/listPeers";
     /// Disconnect from a connected network peer.
-    pub const DISCONNECT: &str = "/v1/peer/disconnect";
+    pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect";
 
     /// --- Channels ---
     /// Get the list of channels open on the node.

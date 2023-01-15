@@ -40,6 +40,18 @@ enum Command {
     },
     /// Fetch a list of this nodes peers.
     ListPeers,
+    /// Connect with a network peer.
+    ConnectPeer {
+        /// The public key of the node to connect to.
+        #[arg(long)]
+        public_key: String,
+    },
+    /// Disconnect from a network peer.
+    DisconnectPeer {
+        /// The public key of the node to disconnect from.
+        #[arg(long)]
+        public_key: String,
+    },
     /// Fetch a list of this nodes open channels.
     ListChannels,
     /// Open a channel with another node.
@@ -75,6 +87,8 @@ fn run_command(args: Args) -> Result<()> {
         Command::Withdraw { address, satoshis } => api.withdraw(address, satoshis)?,
         Command::ListChannels => api.list_channels()?,
         Command::ListPeers => api.list_peers()?,
+        Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
+        Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
         Command::OpenChannel {
             public_key,
             satoshis,

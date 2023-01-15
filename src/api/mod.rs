@@ -13,7 +13,7 @@ pub use wallet_interface::WalletInterface;
 use self::methods::get_info;
 use crate::api::{
     channels::{list_channels, open_channel},
-    peers::list_peers,
+    peers::{connect_peer, disconnect_peer, list_peers},
     wallet::{get_balance, new_address, transfer},
 };
 use anyhow::Result;
@@ -21,7 +21,7 @@ use api::routes;
 use axum::{
     extract::Extension,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use axum_server::{tls_rustls::RustlsConfig, Handle};
@@ -53,6 +53,8 @@ pub async fn start_rest_api(
         .route(routes::NEW_ADDR, get(new_address))
         .route(routes::WITHDRAW, post(transfer))
         .route(routes::LIST_PEERS, get(list_peers))
+        .route(routes::CONNECT_PEER, post(connect_peer))
+        .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))

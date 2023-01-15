@@ -4,11 +4,10 @@ use api::{
     Channel, FundChannelResponse, GetInfo, NewAddressResponse, Peer, WalletBalance,
     WalletTransferResponse,
 };
-use bitcoin::hashes::hex::ToHex;
+use bitcoin::secp256k1::PublicKey;
 use serde::de;
-use test_utils::random_public_key;
 
-use crate::mocks::TEST_ADDRESS;
+use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY};
 
 use super::api::API_SETTINGS;
 
@@ -52,15 +51,22 @@ fn test_cli_list_peers() {
 }
 
 #[test]
+fn test_cli_connect_peer() {
+    let output = run_cli("connect-peer", &["--public-key", TEST_PUBLIC_KEY]);
+    let _: PublicKey = deserialize(&output.stdout);
+}
+
+#[test]
+fn test_cli_disconnect_peer() {
+    let output = run_cli("disconnect-peer", &["--public-key", TEST_PUBLIC_KEY]);
+    let _: () = deserialize(&output.stdout);
+}
+
+#[test]
 fn test_cli_open_channel() {
     let output = run_cli(
         "open-channel",
-        &[
-            "--public-key",
-            &random_public_key().to_hex(),
-            "--satoshis",
-            "1000",
-        ],
+        &["--public-key", TEST_PUBLIC_KEY, "--satoshis", "1000"],
     );
     let _: FundChannelResponse = deserialize(&output.stdout);
 }

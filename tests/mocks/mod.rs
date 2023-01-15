@@ -9,3 +9,6 @@ pub const TEST_TX: &str = "0200000003c26f3eb7932f7acddc5ddd26602b77e7516079b0309
                                     00000000";
 
 pub const TEST_ADDRESS: &str = "2N4eQYCbKUHCCTUjBJeHcJp9ok6J2GZsTDt";
+
+pub const TEST_PUBLIC_KEY: &str =
+    "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266";

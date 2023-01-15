@@ -1,11 +1,10 @@
 use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, WalletInterface};
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
-use crate::net_utils::do_connect_peer;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
 use crate::{net_utils, VERSION};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
@@ -40,6 +39,7 @@ use rand::{random, thread_rng, Rng};
 use settings::Settings;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::net::SocketAddr;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -143,11 +143,11 @@ impl LightningInterface for Controller {
         })
     }
 
-    fn get_node(&self, public_key: PublicKey) -> Option<gossip::NodeInfo> {
+    fn alias_of(&self, public_key: PublicKey) -> Option<String> {
         self.network_graph
             .read_only()
             .node(&NodeId::from_pubkey(&public_key))
-            .cloned()
+            .and_then(|n| n.announcement_info.as_ref().map(|a| a.alias.to_string()))
     }
 
     async fn list_peers(&self) -> Result<Vec<Peer>> {
@@ -156,29 +156,37 @@ impl LightningInterface for Controller {
 
         let mut response = vec![];
         for peer in all_peers {
-            if let Some(p) = self
-                .network_graph
-                .read_only()
-                .node(&NodeId::from_pubkey(&peer.public_key))
-            {
-                let status = if connected_peers.contains(&peer.public_key) {
-                    PeerStatus::Connected
-                } else {
-                    PeerStatus::Disconnected
-                };
-                response.push(Peer {
-                    public_key: peer.public_key,
-                    socked_addr: peer.socket_addr,
-                    status,
-                    alias: p
-                        .announcement_info
-                        .clone()
-                        .map(|a| a.alias.to_string())
-                        .unwrap_or_default(),
-                });
-            }
+            let status = if connected_peers.contains(&peer.public_key) {
+                PeerStatus::Connected
+            } else {
+                PeerStatus::Disconnected
+            };
+            response.push(Peer {
+                public_key: peer.public_key,
+                socked_addr: peer.socket_addr,
+                status,
+                alias: self.alias_of(peer.public_key).unwrap_or_default(),
+            });
         }
         Ok(response)
+    }
+
+    async fn connect_peer(
+        &self,
+        public_key: PublicKey,
+        socket_addr: Option<SocketAddr>,
+    ) -> Result<()> {
+        socket_addr.ok_or_else(|| anyhow!("Need a socket address for peer"))?;
+        Ok(connect_peer(
+            public_key,
+            socket_addr.expect("Need a socket address"),
+            self.peer_manager.clone(),
+        )
+        .await?)
+    }
+
+    fn disconnect_peer(&self, public_key: PublicKey) {
+        self.peer_manager.disconnect_by_node_id(public_key, false);
     }
 }
 
@@ -588,12 +596,9 @@ impl Controller {
                     }
                     match connect_database.fetch_peer(&unconnected_node_id).await {
                         Ok(Some(peer)) => {
-                            let _ = do_connect_peer(
-                                peer.public_key,
-                                peer.socket_addr,
-                                connect_pm.clone(),
-                            )
-                            .await;
+                            let _ =
+                                connect_peer(peer.public_key, peer.socket_addr, connect_pm.clone())
+                                    .await;
                         }
                         Err(e) => error!("{}", e),
                         _ => (),
@@ -640,6 +645,36 @@ impl Controller {
             },
             background_processor,
         ))
+    }
+}
+
+async fn connect_peer(
+    public_key: PublicKey,
+    peer_addr: SocketAddr,
+    peer_manager: Arc<PeerManager>,
+) -> Result<()> {
+    match lightning_net_tokio::connect_outbound(peer_manager.clone(), public_key, peer_addr).await {
+        Some(connection_closed_future) => {
+            let mut connection_closed_future = Box::pin(connection_closed_future);
+            loop {
+                match futures::poll!(&mut connection_closed_future) {
+                    std::task::Poll::Ready(_) => {
+                        bail!("Could not connect to peer");
+                    }
+                    std::task::Poll::Pending => {}
+                }
+                // Avoid blocking the tokio context by sleeping a bit
+                match peer_manager
+                    .get_peer_node_ids()
+                    .iter()
+                    .find(|id| **id == public_key)
+                {
+                    Some(_) => return Ok(()),
+                    None => tokio::time::sleep(Duration::from_millis(10)).await,
+                }
+            }
+        }
+        None => bail!("Could not connect to peer"),
     }
 }
 
