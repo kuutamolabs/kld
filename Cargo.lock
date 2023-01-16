@@ -1305,6 +1305,7 @@ dependencies = [
  "async-trait",
  "axum",
  "axum-server",
+ "base64 0.21.0",
  "bdk",
  "bech32 0.9.1",
  "bitcoin",

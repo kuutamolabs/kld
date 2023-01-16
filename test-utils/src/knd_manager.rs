@@ -31,7 +31,7 @@ impl KndManager {
 
     pub async fn call_rest_api(&self, method: &str) -> Result<String, reqwest::Error> {
         let macaroon = fs::read(format!(
-            "{}/macaroons/admin_macaroon",
+            "{}/macaroons/admin.macaroon",
             self.manager.storage_dir
         ))
         .unwrap();

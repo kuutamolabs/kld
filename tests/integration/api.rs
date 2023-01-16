@@ -300,7 +300,7 @@ pub static API_SETTINGS: Lazy<Settings> = Lazy::new(|| {
 
 static ADMIN_MACAROON: Lazy<Vec<u8>> = Lazy::new(|| {
     fs::read(format!(
-        "{}/macaroons/admin_macaroon",
+        "{}/macaroons/admin.macaroon",
         API_SETTINGS.data_dir
     ))
     .unwrap()
@@ -308,7 +308,7 @@ static ADMIN_MACAROON: Lazy<Vec<u8>> = Lazy::new(|| {
 
 static READONLY_MACAROON: Lazy<Vec<u8>> = Lazy::new(|| {
     fs::read(format!(
-        "{}/macaroons/readonly_macaroon",
+        "{}/macaroons/readonly.macaroon",
         API_SETTINGS.data_dir
     ))
     .unwrap()
