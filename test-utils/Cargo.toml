@@ -10,7 +10,7 @@ bitcoin = "0.29.2"
 rand = "0.8.5"
 reqwest = { version = "0.11", default-features = false, features = [ "blocking" ] }
 tokio = { version = "1", features = [ "full" ] }
-clap = { version = "4.0.32", features = ["derive", "env"] }
+clap = { version = "4.1.1", features = ["derive", "env"] }
 
 [lib]
 doctest = false
