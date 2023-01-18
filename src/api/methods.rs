@@ -1,3 +1,4 @@
+use api::Address;
 use api::{Chain, GetInfo};
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use bitcoin::Network;
@@ -18,7 +19,7 @@ pub(crate) async fn get_info(
     handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
 
     let info = GetInfo {
-        identity_pubkey: lightning_interface.identity_pubkey().to_string(),
+        id: lightning_interface.identity_pubkey().to_string(),
         alias: lightning_interface.alias(),
         num_pending_channels: lightning_interface.num_pending_channels(),
         num_active_channels: lightning_interface.num_active_channels(),
@@ -32,6 +33,19 @@ pub(crate) async fn get_info(
             network: lightning_interface.network().to_string(),
         }],
         version: lightning_interface.version(),
+        color: "".to_string(),
+        api_version: "0.9.0".to_string(),
+        network: lightning_interface.network().to_string(),
+        address: lightning_interface
+            .addresses()
+            .iter()
+            .filter_map(|a| a.split_once(':'))
+            .map(|a| Address {
+                address_type: "IPv4".to_string(),
+                address: a.0.to_string(),
+                port: a.1.to_string(),
+            })
+            .collect(),
     };
     Ok(Json(info))
 }

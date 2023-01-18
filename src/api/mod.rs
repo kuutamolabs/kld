@@ -5,6 +5,7 @@ mod methods;
 mod peers;
 mod wallet;
 mod wallet_interface;
+mod ws;
 
 pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 pub use macaroon_auth::{KndMacaroon, MacaroonAuth};
@@ -15,6 +16,7 @@ use crate::api::{
     channels::{list_channels, open_channel},
     peers::{connect_peer, disconnect_peer, list_peers},
     wallet::{get_balance, new_address, transfer},
+    ws::ws_handler,
 };
 use anyhow::Result;
 use api::routes;
@@ -28,7 +30,7 @@ use axum_server::{tls_rustls::RustlsConfig, Handle};
 use futures::{future::Shared, Future};
 use hyper::StatusCode;
 use log::{error, info};
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
 
 pub async fn start_rest_api(
@@ -55,6 +57,7 @@ pub async fn start_rest_api(
         .route(routes::LIST_PEERS, get(list_peers))
         .route(routes::CONNECT_PEER, post(connect_peer))
         .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
+        .route(routes::WEBSOCKET, get(ws_handler))
         .fallback(handler_404)
         .layer(cors)
         .layer(Extension(lightning_api))
@@ -65,7 +68,7 @@ pub async fn start_rest_api(
 
     tokio::select!(
         result = axum_server::bind_rustls(addr, rustls_config)
-            .serve(app.into_make_service()) => {
+            .serve(app.into_make_service_with_connect_info::<SocketAddr>()) => {
                 if let Err(e) = result {
                     error!("API server shutdown unexpectedly: {}", e);
                 } else {
@@ -90,6 +93,7 @@ async fn root(
 }
 
 async fn handler_404() -> impl IntoResponse {
+    println!("NOT FOUND!!!!");
     (StatusCode::NOT_FOUND, "No such method.")
 }
 

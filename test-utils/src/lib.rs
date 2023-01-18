@@ -59,7 +59,7 @@ pub fn random_public_key() -> PublicKey {
 }
 
 pub fn https_client() -> Client {
-    // Rustls does not support IP addresses (hostnames only) to we need to use native tls (openssl). Also turn off SNI as this requires host names as well.
+    // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl). Also turn off SNI as this requires host names as well.
     reqwest::ClientBuilder::new()
         .tls_sni(false)
         .add_root_certificate(test_cert())

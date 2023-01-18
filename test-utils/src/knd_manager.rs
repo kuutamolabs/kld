@@ -73,6 +73,7 @@ impl KndManager {
         set_var("KND_BITCOIN_RPC_HOST", "127.0.0.1");
         set_var("KND_BITCOIN_RPC_PORT", &bitcoin.rpc_port.to_string());
         set_var("KND_DATABASE_PORT", &cockroach.port.to_string());
+        set_var("KND_LOG_LEVEL", "debug".to_string());
 
         let client = https_client();
 

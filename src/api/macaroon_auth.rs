@@ -1,4 +1,5 @@
 use base64::{engine::general_purpose, Engine};
+use hyper::header;
 #[cfg(not(test))]
 use std::fs;
 #[cfg(test)]
@@ -30,10 +31,7 @@ impl MacaroonAuth {
 
         fs::create_dir_all(format!("{}/macaroons", data_dir))?;
         // access.macaroon is compatible with CLN
-        fs::write(
-            format!("{}/macaroons/access.macaroon", data_dir),
-            &buf,
-        )?;
+        fs::write(format!("{}/macaroons/access.macaroon", data_dir), &buf)?;
         // admin.macaroon is compatible with LND
         fs::write(
             format!("{}/macaroons/admin.macaroon", data_dir),
@@ -95,24 +93,36 @@ where
 
     // May as well try to decode both base64 and hex macaroons.
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let value = parts
-            .headers
-            .get("macaroon")
-            .or_else(|| parts.headers.get("Grpc-Metadata-macaroon"))
-            .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Missing macaroon header"))?;
+        let deserialize_err = (StatusCode::UNAUTHORIZED, "Unable to deserialize macaroon");
 
-            let macaroon = Macaroon::deserialize(&value)
-                .map(KndMacaroon);
+        let value = if let Some(value) = parts.headers.get(header::SEC_WEBSOCKET_PROTOCOL) {
+            value
+                .to_str()
+                .map_err(|_| deserialize_err)?
+                .split_once(',')
+                .map(|s| s.0)
+                .unwrap_or_default()
+        } else {
+            parts
+                .headers
+                .get("macaroon")
+                .or_else(|| parts.headers.get("Grpc-Metadata-macaroon"))
+                .ok_or((StatusCode::UNAUTHORIZED, "Missing macaroon header"))?
+                .to_str()
+                .map_err(|_| deserialize_err)?
+        };
 
-            if macaroon.is_err() {
-                if let Ok(bytes) = hex::decode(value) {
-                    if let Ok(macaroon) = Macaroon::deserialize_binary(&bytes)
-                        .map(KndMacaroon) {
-                            return Ok(macaroon);
-                        }
+        let macaroon = Macaroon::deserialize(&value).map(KndMacaroon);
+
+        if macaroon.is_err() {
+            if let Ok(bytes) = hex::decode(value) {
+                if let Ok(macaroon) = Macaroon::deserialize_binary(&bytes).map(KndMacaroon) {
+                    return Ok(macaroon);
                 }
             }
-            macaroon.map_err(|_| (StatusCode::UNAUTHORIZED, "Unable to deserialize macaroon"))
+        }
+
+        macaroon.map_err(|_| deserialize_err)
     }
 }
 
