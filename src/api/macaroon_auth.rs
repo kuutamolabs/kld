@@ -1,3 +1,5 @@
+use base64::{engine::general_purpose, Engine};
+use hyper::header;
 #[cfg(not(test))]
 use std::fs;
 #[cfg(test)]
@@ -22,13 +24,21 @@ impl MacaroonAuth {
 
         let admin_macaroon = Self::admin_macaroon(&key)?;
         let readonly_macaroon = Self::readonly_macaroon(&key)?;
+
+        let mut buf = vec![];
+        let base64 = admin_macaroon.serialize(macaroon::Format::V2)?;
+        general_purpose::URL_SAFE.decode_vec(base64, &mut buf)?;
+
         fs::create_dir_all(format!("{}/macaroons", data_dir))?;
+        // access.macaroon is compatible with CLN
+        fs::write(format!("{}/macaroons/access.macaroon", data_dir), &buf)?;
+        // admin.macaroon is compatible with LND
         fs::write(
-            format!("{}/macaroons/admin_macaroon", data_dir),
+            format!("{}/macaroons/admin.macaroon", data_dir),
             admin_macaroon.serialize(macaroon::Format::V2)?,
         )?;
         fs::write(
-            format!("{}/macaroons/readonly_macaroon", data_dir),
+            format!("{}/macaroons/readonly.macaroon", data_dir),
             readonly_macaroon.serialize(macaroon::Format::V2)?,
         )?;
 
@@ -81,14 +91,38 @@ where
 {
     type Rejection = (StatusCode, &'static str);
 
+    // May as well try to decode both base64 and hex macaroons.
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        if let Some(value) = parts.headers.get("macaroon") {
-            Macaroon::deserialize(value)
-                .map(KndMacaroon)
-                .map_err(|_| (StatusCode::UNAUTHORIZED, "Unable to deserialize macaroon"))
+        let deserialize_err = (StatusCode::UNAUTHORIZED, "Unable to deserialize macaroon");
+
+        let value = if let Some(value) = parts.headers.get(header::SEC_WEBSOCKET_PROTOCOL) {
+            value
+                .to_str()
+                .map_err(|_| deserialize_err)?
+                .split_once(',')
+                .map(|s| s.0)
+                .unwrap_or_default()
         } else {
-            Err((StatusCode::UNAUTHORIZED, "Missing macaroon header"))
+            parts
+                .headers
+                .get("macaroon")
+                .or_else(|| parts.headers.get("Grpc-Metadata-macaroon"))
+                .ok_or((StatusCode::UNAUTHORIZED, "Missing macaroon header"))?
+                .to_str()
+                .map_err(|_| deserialize_err)?
+        };
+
+        let macaroon = Macaroon::deserialize(&value).map(KndMacaroon);
+
+        if macaroon.is_err() {
+            if let Ok(bytes) = hex::decode(value) {
+                if let Ok(macaroon) = Macaroon::deserialize_binary(&bytes).map(KndMacaroon) {
+                    return Ok(macaroon);
+                }
+            }
         }
+
+        macaroon.map_err(|_| deserialize_err)
     }
 }
 

@@ -6,6 +6,8 @@ pub mod routes {
     pub const ROOT: &str = "/";
     /// Get node information.
     pub const GET_INFO: &str = "/v1/getinfo";
+    /// Websocket
+    pub const WEBSOCKET: &str = "/v1/ws";
 
     /// --- Peers ---
     /// Connect with a network peer.
@@ -32,19 +34,30 @@ pub mod routes {
 
 #[derive(Serialize, Deserialize)]
 pub struct GetInfo {
-    #[serde(rename = "id")]
-    pub identity_pubkey: String,
+    pub id: String,
     pub alias: String,
+    pub color: String,
+    pub num_peers: usize,
     pub num_pending_channels: usize,
     pub num_active_channels: usize,
     pub num_inactive_channels: usize,
-    pub num_peers: usize,
     #[serde(rename = "blockheight")]
     pub block_height: usize,
     pub synced_to_chain: bool,
     pub testnet: bool,
     pub chains: Vec<Chain>,
     pub version: String,
+    pub api_version: String,
+    pub network: String,
+    pub address: Vec<Address>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Address {
+    #[serde(rename = "type")]
+    pub address_type: String,
+    pub address: String,
+    pub port: String,
 }
 
 #[derive(Serialize, Deserialize)]

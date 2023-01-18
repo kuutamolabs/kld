@@ -188,6 +188,10 @@ impl LightningInterface for Controller {
     fn disconnect_peer(&self, public_key: PublicKey) {
         self.peer_manager.disconnect_by_node_id(public_key, false);
     }
+
+    fn addresses(&self) -> Vec<String> {
+        self.settings.knd_listen_addresses.clone()
+    }
 }
 
 pub struct AsyncAPIRequests {
