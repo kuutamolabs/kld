@@ -94,7 +94,7 @@ fn run_cli(command: &str, extra_args: &[&str]) -> Output {
             "--cert-path",
             &format!("{}/knd.crt", settings.certs_dir),
             "--macaroon-path",
-            &format!("{}/macaroons/admin_macaroon", settings.data_dir),
+            &format!("{}/macaroons/admin.macaroon", settings.data_dir),
             command,
         ])
         .args(extra_args)
