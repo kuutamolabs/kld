@@ -7,8 +7,6 @@
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 
     treefmt-nix.url = "github:numtide/treefmt-nix";
-    treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
-
   };
 
   nixConfig.extra-substituters = [
@@ -24,6 +22,7 @@
         ./nix/pkgs/flake-module.nix
         ./nix/modules/flake-module.nix
         ./nix/checks/flake-module.nix
+        ./nix/treefmt/flake-module.nix
         ./nix/shell.nix
       ];
       systems = [ "x86_64-linux" ];
