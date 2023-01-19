@@ -2,7 +2,7 @@ pub mod ldk_database;
 pub mod peer;
 pub mod wallet_database;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use log::{error, info};
 use settings::Settings;
 pub use tokio_postgres::{Client, NoTls, Transaction};
@@ -30,18 +30,20 @@ macro_rules! from_maybe_i64 {
 }
 
 async fn connection(settings: &Settings) -> Result<Client> {
-    let mut params = format!(
+    let log_safe_params = format!(
         "host={} port={} user={} dbname={}",
         settings.database_host,
         settings.database_port,
         settings.database_user,
         settings.database_name
     );
-    info!("Creating database connection with params: {}", params);
+    let mut params = log_safe_params.clone();
     if !settings.database_password.is_empty() {
         params = format!("{} password={}", params, settings.database_password);
     }
-    let (client, connection) = tokio_postgres::connect(&params, NoTls).await?;
+    let (client, connection) = tokio_postgres::connect(&params, NoTls)
+        .await
+        .with_context(|| format!("could not connect to database ({})", log_safe_params))?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             error!("Database connection error: {}", e);
