@@ -5,6 +5,7 @@
 }:
 let
   lightning-knd = pkgs.callPackage ../../pkgs/lightning-knd.nix { };
+  lightning-knd-cli = pkgs.callPackage ../../pkgs/lightning-knd-cli.nix { };
   cfg = config.kuutamo.lightning-knd;
 in
 {
@@ -37,11 +38,17 @@ in
 
   config = {
     environment.systemPackages = [
+      lightning-knd-cli
     ];
-
-    environment.variables = { };
 
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [
+
     ];
+
+    systemd.services.lightning-knd = {
+      serviceConfig = {
+        ExecStart = "${lib.getExe lightning-knd}";
+      };
+    };
   };
 }

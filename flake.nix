@@ -21,6 +21,7 @@
       imports = [
         ./nix/pkgs/flake-module.nix
         ./nix/modules/flake-module.nix
+        ./nix/modules/tests/flake-module.nix
         ./nix/checks/flake-module.nix
         ./nix/treefmt/flake-module.nix
         ./nix/shell.nix
