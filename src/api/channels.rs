@@ -51,7 +51,7 @@ pub(crate) async fn list_channels(
                 .to_string(),
             our_channel_reserve_satoshis: to_string_empty!(c.unspendable_punishment_reserve),
             spendable_msatoshi: c.outbound_capacity_msat.to_string(),
-            direction: if c.is_outbound { 1 } else { 0 },
+            direction: u8::from(c.is_outbound),
             alias: lightning_interface
                 .alias_of(c.counterparty.node_id)
                 .unwrap_or_default(),

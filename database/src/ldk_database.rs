@@ -58,7 +58,7 @@ impl LdkDatabase {
             "Connecting LDK to Cockroach database {} at {}:{}",
             settings.database_name, settings.database_host, settings.database_port
         );
-        let client = connection(&settings).await?;
+        let client = connection(settings).await?;
         let client = Arc::new(RwLock::new(client));
 
         Ok(LdkDatabase {
@@ -105,8 +105,8 @@ impl LdkDatabase {
             )
             .await?
             .map(|row| {
-                let public_key: Vec<u8> = row.get(&"public_key");
-                let address: Vec<u8> = row.get(&"address");
+                let public_key: Vec<u8> = row.get("public_key");
+                let address: Vec<u8> = row.get("address");
                 Peer {
                     public_key: PublicKey::from_slice(&public_key).unwrap(),
                     socket_addr: String::from_utf8(address).unwrap().parse().unwrap(),
@@ -125,8 +125,8 @@ impl LdkDatabase {
             .query("SELECT * FROM peers", &[])
             .await?
         {
-            let public_key: Vec<u8> = row.get(&"public_key");
-            let address: Vec<u8> = row.get(&"address");
+            let public_key: Vec<u8> = row.get("public_key");
+            let address: Vec<u8> = row.get("address");
             peers.push(Peer {
                 public_key: PublicKey::from_slice(&public_key).unwrap(),
                 socket_addr: String::from_utf8(address)?.parse().unwrap(),
