@@ -18,8 +18,8 @@
     "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
   ];
 
-  outputs = { self, flake-parts, nixpkgs, ... }:
-    flake-parts.lib.mkFlake { inherit self; } {
+  outputs = inputs @ { flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         ./nix/pkgs/flake-module.nix
         ./nix/modules/flake-module.nix
@@ -29,7 +29,7 @@
       systems = [ "x86_64-linux" ];
 
       perSystem = { inputs', system, ... }: {
-        _module.args.pkgs = import nixpkgs {
+        _module.args.pkgs = import inputs.nixpkgs {
           inherit system;
           config.allowUnfreePredicate = (pkg: builtins.elem
             (builtins.parseDrvName pkg.pname).name [
