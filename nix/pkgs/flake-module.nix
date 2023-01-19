@@ -1,5 +1,5 @@
 {
-  perSystem = { config, self', inputs', pkgs, ... }: {
+  perSystem = { self', pkgs, ... }: {
     packages = {
       lightning-knd = pkgs.callPackage ./lightning-knd.nix { };
       bitcoind = pkgs.bitcoind.override { withWallet = false; withGui = false; };

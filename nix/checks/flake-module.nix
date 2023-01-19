@@ -1,6 +1,6 @@
-{ self, ... }:
+_:
 {
-  perSystem = { self', pkgs, ... }:
+  perSystem = { self', ... }:
     {
       checks.test = self'.packages.lightning-knd.override {
         enableTests = true;

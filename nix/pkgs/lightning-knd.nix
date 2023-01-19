@@ -1,5 +1,4 @@
-{ self
-, rustPlatform
+{ rustPlatform
 , lib
 , clippy
 , openssl
