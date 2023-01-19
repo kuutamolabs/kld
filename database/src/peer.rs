@@ -13,12 +13,12 @@ impl TryFrom<(String, Vec<u8>)> for Peer {
     type Error = anyhow::Error;
 
     fn try_from((s1, s2): (String, Vec<u8>)) -> Result<Self, Self::Error> {
-        let public_key =
-            to_compressed_pubkey(&s1).ok_or(anyhow!("Failed to parse public_key {}", s1))?;
+        let public_key = to_compressed_pubkey(&s1)
+            .ok_or_else(|| anyhow!("Failed to parse public_key {}", s1))?;
         let socket_addr = String::from_utf8(s2)?
             .to_socket_addrs()?
             .last()
-            .ok_or(anyhow!("No address found"))?;
+            .ok_or_else(|| anyhow!("No address found"))?;
         Ok(Peer {
             public_key,
             socket_addr,

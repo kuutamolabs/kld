@@ -9,7 +9,6 @@ use lightning_block_sync::http::HttpEndpoint;
 use lightning_block_sync::rpc::RpcClient;
 use lightning_block_sync::{AsyncBlockSourceResult, BlockData, BlockHeaderData, BlockSource};
 use log::info;
-use serde_json;
 use settings::Settings;
 use std::collections::HashMap;
 use std::fs::File;

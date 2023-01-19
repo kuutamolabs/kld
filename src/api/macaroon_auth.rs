@@ -112,7 +112,7 @@ where
                 .map_err(|_| deserialize_err)?
         };
 
-        let macaroon = Macaroon::deserialize(&value).map(KndMacaroon);
+        let macaroon = Macaroon::deserialize(value).map(KndMacaroon);
 
         if macaroon.is_err() {
             if let Ok(bytes) = hex::decode(value) {

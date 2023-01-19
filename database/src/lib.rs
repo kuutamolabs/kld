@@ -67,7 +67,7 @@ pub async fn migrate_database(settings: &Settings) -> Result<()> {
             )
             .await?;
     }
-    let mut client = connection(&settings).await?;
+    let mut client = connection(settings).await?;
     info!("Running database migrations");
     embedded::migrations::runner()
         .run_async(&mut client)

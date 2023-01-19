@@ -102,14 +102,14 @@ impl Wallet {
         };
 
         let base_path = DerivationPath::from_str(native_segwit_base_path)?;
-        let derivation_path = base_path.extend(&[ChildNumber::from_hardened_idx(coin_type)?]);
+        let derivation_path = base_path.extend([ChildNumber::from_hardened_idx(coin_type)?]);
         let receive_descriptor_template = bdk::descriptor!(wpkh((
             xprivkey,
-            derivation_path.extend(&[ChildNumber::Normal { index: 0 }])
+            derivation_path.extend([ChildNumber::Normal { index: 0 }])
         )))?;
         let change_descriptor_template = bdk::descriptor!(wpkh((
             xprivkey,
-            derivation_path.extend(&[ChildNumber::Normal { index: 1 }])
+            derivation_path.extend([ChildNumber::Normal { index: 1 }])
         )))?;
 
         let bdk_wallet = Arc::new(Mutex::new(bdk::Wallet::new(
@@ -170,7 +170,7 @@ impl Wallet {
         let sat_per_vb = match fee_sats_per_1000_wu {
             253 => 1.0,
             _ => fee_sats_per_1000_wu as f32 / 250.0,
-        } as f32;
+        };
 
         let fee_rate = FeeRate::from_sat_per_vb(sat_per_vb);
 
