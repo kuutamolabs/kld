@@ -2,6 +2,7 @@ use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::CockroachManager;
 use crate::https_client;
 use crate::manager::Manager;
+use crate::ports::get_available_port;
 use std::env::set_var;
 use std::fs;
 
@@ -52,9 +53,14 @@ impl KndManager {
         bitcoin: &BitcoinManager,
         cockroach: &CockroachManager,
     ) -> KndManager {
-        let peer_port = 40000u16 + (node_index * 1000u16);
-        let exporter_address = format!("127.0.0.1:{}", peer_port + 1);
-        let rest_api_address = format!("127.0.0.1:{}", peer_port + 2);
+        let exporter_address = format!(
+            "127.0.0.1:{}",
+            get_available_port().expect("Cannot find free port")
+        );
+        let rest_api_address = format!(
+            "127.0.0.1:{}",
+            get_available_port().expect("Cannot find free port")
+        );
         let manager = Manager::new(
             output_dir,
             "knd",
