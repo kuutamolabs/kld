@@ -1,11 +1,8 @@
 { config
 , lib
-, pkgs
 , ...
 }:
 let
-  lightning-knd = pkgs.callPackage ../../pkgs/lightning-knd.nix { };
-  lightning-knd-cli = pkgs.callPackage ../../pkgs/lightning-knd-cli.nix { };
   cfg = config.kuutamo.lightning-knd;
 in
 {
@@ -17,6 +14,13 @@ in
         Node ID used in logs
       '';
     };
+    package = lib.mkOption {
+      type = lib.types.package;
+      description = lib.mdDoc ''
+        Lightning-knd package to use
+      '';
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -37,17 +41,18 @@ in
   ];
 
   config = {
-    environment.systemPackages = [
-      lightning-knd-cli
-    ];
+    # for cli
+    environment.systemPackages = [ cfg.package ];
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [
+    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ ];
 
-    ];
-
+    # fix me, we need to wait for the database to start first
     systemd.services.lightning-knd = {
       serviceConfig = {
-        ExecStart = "${lib.getExe lightning-knd}";
+        DynamicUser = true;
+        User = "lightning-knd";
+        Group = "lightning-knd";
+        ExecStart = "${lib.getExe cfg.package}";
       };
     };
   };
