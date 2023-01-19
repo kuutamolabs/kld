@@ -1,4 +1,4 @@
-use crate::manager::Manager;
+use crate::{manager::Manager, ports::get_available_port};
 
 pub struct CockroachManager {
     manager: Manager,
@@ -19,8 +19,9 @@ impl CockroachManager {
     }
 
     pub fn test_cockroach(output_dir: &str) -> CockroachManager {
-        let port = 50000u16;
-        let http_address = format!("127.0.0.1:{}", port + 1);
+        let port = get_available_port().expect("Cannot find free port for cockroach");
+        let http_port = get_available_port().expect("Cannot find free http port for cockroach");
+        let http_address = format!("127.0.0.1:{}", http_port);
 
         let manager = Manager::new(
             output_dir,

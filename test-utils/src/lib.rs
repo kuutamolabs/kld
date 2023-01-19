@@ -2,6 +2,7 @@ pub mod bitcoin_manager;
 pub mod cockroach_manager;
 pub mod knd_manager;
 mod manager;
+pub mod ports;
 
 use std::{fs::File, io::Read};
 
