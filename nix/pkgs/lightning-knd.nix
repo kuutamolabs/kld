@@ -55,7 +55,7 @@ rustPlatform.buildRustPackage ({
     cp -r ${../../test-utils} $out/test-utils
   '';
   buildPhase = ''
-    cargo clippy --all-targets --all-features --no-deps -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --no-deps -- -D warnings
     if grep -R 'dbg!' ./src; then
       echo "use of dbg macro found in code!"
       false

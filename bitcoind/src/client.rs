@@ -1,4 +1,5 @@
 use crate::convert::{BlockchainInfo, FeeResponse, RawTx};
+use anyhow::Result;
 use base64::engine::general_purpose;
 use base64::Engine;
 use bitcoin::blockdata::transaction::Transaction;
@@ -63,7 +64,7 @@ impl Client {
         bitcoind_rpc_host: String,
         bitcoind_rpc_port: u16,
         bitcoin_cookie_path: String,
-    ) -> std::io::Result<Self> {
+    ) -> Result<Self> {
         let bitcoind_rpc_client = Client::get_new_rpc_client(
             bitcoind_rpc_host.clone(),
             bitcoind_rpc_port,
@@ -71,11 +72,7 @@ impl Client {
         )?;
         bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
-            .await
-            .map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::PermissionDenied,
-				"Failed to make initial call to bitcoind - please check your RPC user/password and access settings")
-            })?;
+            .await?;
         let mut fees: HashMap<Target, AtomicU32> = HashMap::new();
         fees.insert(Target::Background, AtomicU32::new(MIN_FEERATE));
         fees.insert(Target::Normal, AtomicU32::new(2000));

@@ -1,3 +1,5 @@
+use std::fs::File;
+
 use async_trait::async_trait;
 
 use crate::{
@@ -27,6 +29,8 @@ impl BitcoinManager {
             &format!("-rpcauth={}", &self.rpc_auth),
         ];
         self.manager.start("bitcoind", args).await;
+        // Getting occasional bad file descriptor in tests. Maybe this helps.
+        File::open(self.cookie_path()).unwrap().sync_all().unwrap();
     }
 
     pub fn cookie_path(&self) -> String {
@@ -36,7 +40,7 @@ impl BitcoinManager {
     pub fn test_bitcoin(output_dir: &str, node_index: u16) -> BitcoinManager {
         let p2p_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
-        // user:password
+        // user:password just used by TEOS at the moment.
         let rpc_auth = "user:bcae5b9986aa90ef40565c2b5d5e685c$8d81897118da8bc7489619853f68e1fc161b3e4cb904071ea123965136468b81".to_string();
 
         let manager = Manager::new(
