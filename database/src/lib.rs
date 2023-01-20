@@ -58,18 +58,9 @@ mod embedded {
 }
 
 pub async fn migrate_database(settings: &Settings) -> Result<()> {
-    {
-        let mut temp_settings = settings.clone();
-        temp_settings.database_name = "defaultdb".to_string();
-        let client = connection(&temp_settings).await?;
-        client
-            .execute(
-                &format!("CREATE DATABASE IF NOT EXISTS {}", &settings.database_name),
-                &[],
-            )
-            .await?;
-    }
-    let mut client = connection(settings).await?;
+    let mut client = connection(settings)
+        .await
+        .with_context(|| format!("cannot connect to database '{}'", settings.database_name))?;
     info!("Running database migrations");
     embedded::migrations::runner()
         .run_async(&mut client)
