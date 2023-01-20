@@ -1,7 +1,9 @@
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
 use api::{routes, GetInfo};
-use test_utils::{bitcoin, cockroach, knd};
+use bitcoin::Address;
+use bitcoind::Client;
+use test_utils::{bitcoin, cockroach, knd, teos};
 use tokio::time::{sleep_until, Instant};
 
 // This test is run separately (in its own process) from the other threads.
@@ -12,6 +14,25 @@ pub async fn test_start() {
     cockroach.start().await;
     let mut bitcoin = bitcoin!();
     bitcoin.start().await;
+
+    let n_blocks = 6;
+    let bitcoin_client = Client::new(
+        "127.0.0.1".to_string(),
+        bitcoin.rpc_port,
+        bitcoin.cookie_path(),
+    )
+    .await
+    .unwrap();
+    bitcoin_client
+        .generate_to_address(
+            n_blocks as u32,
+            &Address::from_str("2N4eQYCbKUHCCTUjBJeHcJp9ok6J2GZsTDt").unwrap(),
+        )
+        .await;
+
+    let mut teos = teos!(&bitcoin);
+    teos.start().await;
+
     let mut knd = knd!(&bitcoin, &cockroach);
     knd.start().await;
 
@@ -25,7 +46,7 @@ pub async fn test_start() {
 
     let result = knd.call_rest_api(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
-    assert_eq!(0, info.block_height);
+    assert_eq!(n_blocks, info.block_height);
 }
 
 #[tokio::test(flavor = "multi_thread")]

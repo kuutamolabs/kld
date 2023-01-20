@@ -406,7 +406,6 @@ dependencies = [
  "lightning-block-sync",
  "log",
  "serde_json",
- "settings",
  "tokio",
 ]
 
@@ -2544,6 +2543,7 @@ dependencies = [
 name = "test-utils"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bitcoin",
  "clap",
  "lightning",

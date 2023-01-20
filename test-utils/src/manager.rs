@@ -6,15 +6,22 @@ use std::{
     time::{Duration, Instant},
 };
 
+use async_trait::async_trait;
+
 pub struct Manager {
     pub process: Option<Child>,
     pub storage_dir: String,
-    api: String,
     instance_name: String,
+    starts: Box<dyn Starts + Send + Sync>,
 }
 
 impl Manager {
-    pub fn new(output_dir: &str, name: &str, node_index: u16, api: String) -> Self {
+    pub fn new(
+        starts: Box<dyn Starts + Send + Sync>,
+        output_dir: &str,
+        name: &str,
+        node_index: u16,
+    ) -> Self {
         let instance_name = format!("{}_{}", name, node_index);
         let storage_dir = format!("{}/{}", output_dir, instance_name);
         fs::remove_dir_all(&storage_dir).unwrap_or_default();
@@ -23,8 +30,8 @@ impl Manager {
         Manager {
             process: None,
             storage_dir,
-            api,
             instance_name,
+            starts,
         }
     }
 
@@ -47,7 +54,7 @@ impl Manager {
 
             let i = Instant::now();
             let started = loop {
-                if self.has_started().await {
+                if self.starts.has_started().await {
                     break true;
                 };
                 if i.elapsed() >= Duration::from_secs(60) {
@@ -70,10 +77,6 @@ impl Manager {
         }
     }
 
-    async fn has_started(&self) -> bool {
-        reqwest::get(self.api.clone()).await.is_ok()
-    }
-
     pub fn kill(&mut self) {
         if let Some(mut process) = self.process.take() {
             println!("Killing: {}", self.instance_name);
@@ -82,6 +85,11 @@ impl Manager {
             self.process = None
         }
     }
+}
+
+#[async_trait]
+pub trait Starts {
+    async fn has_started(&self) -> bool;
 }
 
 impl Drop for Manager {

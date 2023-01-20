@@ -11,6 +11,7 @@ const NETWORK: &str = "regtest";
 pub struct BitcoinManager {
     process: Option<Child>,
     data_dir: String,
+    rpc_auth: String,
     pub p2p_port: u16,
     pub rpc_port: u16,
     pub network: String,
@@ -28,6 +29,7 @@ impl BitcoinManager {
                 .arg(format!("-datadir={}", &self.data_dir))
                 .arg(format!("-port={}", &self.p2p_port.to_string()))
                 .arg(format!("-rpcport={}", &self.rpc_port.to_string()))
+                .arg(format!("-rpcauth={}", &self.rpc_auth))
                 .stdout(Stdio::null())
                 .spawn()
                 .unwrap();
@@ -63,12 +65,15 @@ impl BitcoinManager {
         let p2p_port = 20000u16 + (node_index * 1000u16);
         let rpc_port = 30000u16 + (node_index * 1000u16);
         let data_dir = format!("{}/bitcoind_{}", output_dir, node_index);
+        // user:password
+        let rpc_auth = "user:bcae5b9986aa90ef40565c2b5d5e685c$8d81897118da8bc7489619853f68e1fc161b3e4cb904071ea123965136468b81".to_string();
 
         BitcoinManager {
             process: None,
             data_dir,
             p2p_port,
             rpc_port,
+            rpc_auth,
             network: NETWORK.to_string(),
         }
     }
@@ -80,8 +85,8 @@ impl BitcoinManager {
             pid = pid.trim().to_string();
             Command::new("kill").arg("-9").arg(pid).output().unwrap();
         }
-        std::fs::remove_dir_all(&self.data_dir()).unwrap_or_default();
-        std::fs::create_dir_all(&self.data_dir()).unwrap();
+        std::fs::remove_dir_all(self.data_dir()).unwrap_or_default();
+        std::fs::create_dir_all(self.data_dir()).unwrap();
     }
 
     fn data_dir(&self) -> String {

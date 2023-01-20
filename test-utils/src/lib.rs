@@ -3,6 +3,7 @@ pub mod cockroach_manager;
 pub mod knd_manager;
 mod manager;
 pub mod ports;
+pub mod teos_manager;
 
 use std::{fs::File, io::Read};
 
@@ -44,12 +45,20 @@ impl TestSettingsBuilder {
     }
 }
 
+impl Default for TestSettingsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn test_settings() -> Settings {
-    TestSettingsBuilder::new().build()
+    TestSettingsBuilder::default().build()
 }
 
 pub fn test_settings_for_database(database: &CockroachManager) -> Settings {
-    TestSettingsBuilder::new().for_database(database).build()
+    TestSettingsBuilder::default()
+        .for_database(database)
+        .build()
 }
 
 pub fn random_public_key() -> PublicKey {
