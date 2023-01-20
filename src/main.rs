@@ -38,7 +38,11 @@ pub fn main() -> Result<()> {
     let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
     let wallet_database = runtime.block_on(WalletDatabase::new(&settings))?;
 
-    let bitcoind_client = Arc::new(runtime.block_on(Client::new(&settings))?);
+    let bitcoind_client = Arc::new(runtime.block_on(Client::new(
+        settings.bitcoind_rpc_host.clone(),
+        settings.bitcoind_rpc_port,
+        settings.bitcoin_cookie_path.clone(),
+    ))?);
     let wallet = Arc::new(Wallet::new(
         &key_generator.wallet_seed(),
         &settings,

@@ -79,7 +79,7 @@ pub async fn test_channel_monitors() {
             &chanmon_cfgs[0].logger,
             &chanmon_cfgs[0].fee_estimator,
             &database_0,
-            &node_cfgs[0].keys_manager,
+            node_cfgs[0].keys_manager,
         );
         let chain_mon_1 = ln_utils::TestChainMonitor::new(
             Some(&chanmon_cfgs[1].chain_source),
@@ -87,7 +87,7 @@ pub async fn test_channel_monitors() {
             &chanmon_cfgs[1].logger,
             &chanmon_cfgs[1].fee_estimator,
             &database_1,
-            &node_cfgs[1].keys_manager,
+            node_cfgs[1].keys_manager,
         );
         node_cfgs[0].chain_monitor = chain_mon_0;
         node_cfgs[1].chain_monitor = chain_mon_1;

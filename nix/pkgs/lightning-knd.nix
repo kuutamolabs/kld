@@ -4,6 +4,7 @@
 , openssl
 , bitcoind
 , cockroachdb
+, teos
 , pkg-config
 , runCommand
 , enableLint ? false
@@ -28,7 +29,7 @@ rustPlatform.buildRustPackage ({
   cargoLock.lockFile = ../../Cargo.lock;
 
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config bitcoind cockroachdb ] ++ lib.optionals enableLint [ clippy ];
+  nativeBuildInputs = [ pkg-config bitcoind cockroachdb teos ] ++ lib.optionals enableLint [ clippy ];
 
   doCheck = enableTests;
 
@@ -54,7 +55,7 @@ rustPlatform.buildRustPackage ({
     cp -r ${../../test-utils} $out/test-utils
   '';
   buildPhase = ''
-    cargo clippy --all-targets --all-features --no-deps -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --no-deps -- -D warnings
     if grep -R 'dbg!' ./src; then
       echo "use of dbg macro found in code!"
       false

@@ -1,15 +1,17 @@
 use crate::convert::{BlockchainInfo, FeeResponse, RawTx};
+use anyhow::Result;
 use base64::engine::general_purpose;
 use base64::Engine;
 use bitcoin::blockdata::transaction::Transaction;
 use bitcoin::consensus::encode;
 use bitcoin::hash_types::{BlockHash, Txid};
+use bitcoin::Address;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning_block_sync::http::HttpEndpoint;
+use lightning_block_sync::http::{HttpEndpoint, JsonResponse};
 use lightning_block_sync::rpc::RpcClient;
 use lightning_block_sync::{AsyncBlockSourceResult, BlockData, BlockHeaderData, BlockSource};
 use log::info;
-use settings::Settings;
+use serde_json::{self, json};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -58,15 +60,19 @@ impl BlockSource for &Client {
 const MIN_FEERATE: u32 = 253;
 
 impl Client {
-    pub async fn new(settings: &Settings) -> std::io::Result<Self> {
-        let bitcoind_rpc_client = Client::get_new_rpc_client(settings)?;
+    pub async fn new(
+        bitcoind_rpc_host: String,
+        bitcoind_rpc_port: u16,
+        bitcoin_cookie_path: String,
+    ) -> Result<Self> {
+        let bitcoind_rpc_client = Client::get_new_rpc_client(
+            bitcoind_rpc_host.clone(),
+            bitcoind_rpc_port,
+            bitcoin_cookie_path,
+        )?;
         bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
-            .await
-            .map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::PermissionDenied,
-				"Failed to make initial call to bitcoind - please check your RPC user/password and access settings")
-            })?;
+            .await?;
         let mut fees: HashMap<Target, AtomicU32> = HashMap::new();
         fees.insert(Target::Background, AtomicU32::new(MIN_FEERATE));
         fees.insert(Target::Normal, AtomicU32::new(2000));
@@ -78,18 +84,21 @@ impl Client {
         Client::poll_for_fee_estimates(client.fees.clone(), client.bitcoind_rpc_client.clone());
         info!(
             "Connected to bitcoind at {}:{}",
-            settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
+            bitcoind_rpc_host, bitcoind_rpc_port
         );
         Ok(client)
     }
 
-    fn get_new_rpc_client(settings: &Settings) -> std::io::Result<RpcClient> {
-        let mut file = File::open(settings.bitcoin_cookie_path.clone())?;
+    fn get_new_rpc_client(
+        bitcoind_rpc_host: String,
+        bitcoind_rpc_port: u16,
+        bitcoin_cookie_path: String,
+    ) -> std::io::Result<RpcClient> {
+        let mut file = File::open(bitcoin_cookie_path)?;
         let mut cookie = String::new();
         file.read_to_string(&mut cookie)?;
         let credentials = general_purpose::STANDARD.encode(cookie.as_bytes());
-        let http_endpoint = HttpEndpoint::for_host(settings.bitcoind_rpc_host.clone())
-            .with_port(settings.bitcoind_rpc_port);
+        let http_endpoint = HttpEndpoint::for_host(bitcoind_rpc_host).with_port(bitcoind_rpc_port);
         RpcClient::new(&credentials, http_endpoint)
     }
 
@@ -97,8 +106,8 @@ impl Client {
         tokio::spawn(async move {
             loop {
                 let background_estimate = {
-                    let background_conf_target = serde_json::json!(144);
-                    let background_estimate_mode = serde_json::json!("ECONOMICAL");
+                    let background_conf_target = json!(144);
+                    let background_estimate_mode = json!("ECONOMICAL");
                     let resp = rpc_client
                         .call_method::<FeeResponse>(
                             "estimatesmartfee",
@@ -113,8 +122,8 @@ impl Client {
                 };
 
                 let normal_estimate = {
-                    let normal_conf_target = serde_json::json!(18);
-                    let normal_estimate_mode = serde_json::json!("ECONOMICAL");
+                    let normal_conf_target = json!(18);
+                    let normal_estimate_mode = json!("ECONOMICAL");
                     let resp = rpc_client
                         .call_method::<FeeResponse>(
                             "estimatesmartfee",
@@ -129,8 +138,8 @@ impl Client {
                 };
 
                 let high_prio_estimate = {
-                    let high_prio_conf_target = serde_json::json!(6);
-                    let high_prio_estimate_mode = serde_json::json!("CONSERVATIVE");
+                    let high_prio_conf_target = json!(6);
+                    let high_prio_estimate_mode = json!("CONSERVATIVE");
                     let resp = rpc_client
                         .call_method::<FeeResponse>(
                             "estimatesmartfee",
@@ -160,9 +169,8 @@ impl Client {
     }
 
     pub async fn send_raw_transaction(&self, raw_tx: RawTx) {
-        let raw_tx_json = serde_json::json!(raw_tx.0);
         self.bitcoind_rpc_client
-            .call_method::<Txid>("sendrawtransaction", &[raw_tx_json])
+            .call_method::<Txid>("sendrawtransaction", &[json!(raw_tx.0)])
             .await
             .unwrap();
     }
@@ -170,6 +178,13 @@ impl Client {
     pub async fn get_blockchain_info(&self) -> BlockchainInfo {
         self.bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
+            .await
+            .unwrap()
+    }
+
+    pub async fn generate_to_address(&self, n_blocks: u32, address: &Address) -> Addresses {
+        self.bitcoind_rpc_client
+            .call_method::<Addresses>("generatetoaddress", &[json!(n_blocks), json!(address)])
             .await
             .unwrap()
     }
@@ -200,7 +215,7 @@ impl FeeEstimator for Client {
 impl BroadcasterInterface for Client {
     fn broadcast_transaction(&self, tx: &Transaction) {
         let bitcoind_rpc_client = self.bitcoind_rpc_client.clone();
-        let tx_serialized = serde_json::json!(encode::serialize_hex(tx));
+        let tx_serialized = json!(encode::serialize_hex(tx));
         tokio::spawn(async move {
             // This may error due to RL calling `broadcast_transaction` with the same transaction
             // multiple times, but the error is safe to ignore.
@@ -223,5 +238,21 @@ impl BroadcasterInterface for Client {
                 }
             }
         });
+    }
+}
+
+pub struct Addresses(pub Vec<String>);
+
+impl TryInto<Addresses> for JsonResponse {
+    type Error = std::io::Error;
+    fn try_into(self) -> std::io::Result<Addresses> {
+        Ok(Addresses(
+            self.0
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|a| a.as_str().unwrap().to_string())
+                .collect(),
+        ))
     }
 }

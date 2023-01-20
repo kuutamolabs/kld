@@ -1,7 +1,9 @@
+use async_trait::async_trait;
+
 use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::CockroachManager;
 use crate::https_client;
-use crate::manager::Manager;
+use crate::manager::{Manager, Starts};
 use crate::ports::get_available_port;
 use std::env::set_var;
 use std::fs;
@@ -62,24 +64,24 @@ impl KndManager {
             get_available_port().expect("Cannot find free port")
         );
         let manager = Manager::new(
+            Box::new(KndApi(exporter_address.clone())),
             output_dir,
             "knd",
             node_index,
-            format!("http://{}/health", exporter_address),
         );
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
         set_var("KND_DATA_DIR", &manager.storage_dir);
-        set_var("KND_CERTS_DIR", &certs_dir);
+        set_var("KND_CERTS_DIR", certs_dir);
         set_var("KND_EXPORTER_ADDRESS", &exporter_address);
         set_var("KND_REST_API_ADDRESS", &rest_api_address);
         set_var("KND_BITCOIN_NETWORK", &bitcoin.network);
-        set_var("KND_BITCOIN_COOKIE_PATH", &bitcoin.cookie_path());
+        set_var("KND_BITCOIN_COOKIE_PATH", bitcoin.cookie_path());
         set_var("KND_BITCOIN_RPC_HOST", "127.0.0.1");
-        set_var("KND_BITCOIN_RPC_PORT", &bitcoin.rpc_port.to_string());
-        set_var("KND_DATABASE_PORT", &cockroach.port.to_string());
-        set_var("KND_LOG_LEVEL", "debug".to_string());
+        set_var("KND_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
+        set_var("KND_DATABASE_PORT", cockroach.port.to_string());
+        set_var("KND_LOG_LEVEL", "debug");
 
         let client = https_client();
 
@@ -90,6 +92,17 @@ impl KndManager {
             rest_api_address,
             rest_client: client,
         }
+    }
+}
+
+pub struct KndApi(String);
+
+#[async_trait]
+impl Starts for KndApi {
+    async fn has_started(&self) -> bool {
+        reqwest::get(format!("http://{}/health", self.0))
+            .await
+            .is_ok()
     }
 }
 

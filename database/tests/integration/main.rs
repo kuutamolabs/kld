@@ -19,7 +19,7 @@ pub mod wallet_database;
 
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
-pub async fn with_cockroach<F, Fut>(test: F) -> ()
+pub async fn with_cockroach<F, Fut>(test: F)
 where
     F: FnOnce(&'static Settings) -> Fut,
     Fut: Future<Output = ()>,

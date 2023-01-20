@@ -1,4 +1,8 @@
-use crate::{manager::Manager, ports::get_available_port};
+use crate::{
+    manager::{Manager, Starts},
+    ports::get_available_port,
+};
+use async_trait::async_trait;
 
 pub struct CockroachManager {
     manager: Manager,
@@ -24,10 +28,10 @@ impl CockroachManager {
         let http_address = format!("127.0.0.1:{}", http_port);
 
         let manager = Manager::new(
+            Box::new(CockroachApi(http_address.clone())),
             output_dir,
             "cockroach",
             0,
-            format!("http://{}", http_address.clone()),
         );
         CockroachManager {
             manager,
@@ -38,6 +42,15 @@ impl CockroachManager {
 
     pub fn kill(&mut self) {
         self.manager.kill()
+    }
+}
+
+pub struct CockroachApi(String);
+
+#[async_trait]
+impl Starts for CockroachApi {
+    async fn has_started(&self) -> bool {
+        reqwest::get(format!("http://{}", self.0)).await.is_ok()
     }
 }
 

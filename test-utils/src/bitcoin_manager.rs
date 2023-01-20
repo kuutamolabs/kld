@@ -1,16 +1,17 @@
 use std::fs::File;
-use std::io::Read;
-use std::path::Path;
-use std::process::{Child, Command, Stdio};
 
-use crate::poll;
+use async_trait::async_trait;
+
+use crate::{
+    manager::{Manager, Starts},
+    ports::get_available_port,
+};
 
 const NETWORK: &str = "regtest";
 
-#[allow(dead_code)]
 pub struct BitcoinManager {
-    process: Option<Child>,
-    data_dir: String,
+    manager: Manager,
+    rpc_auth: String,
     pub p2p_port: u16,
     pub rpc_port: u16,
     pub network: String,
@@ -18,41 +19,18 @@ pub struct BitcoinManager {
 
 impl BitcoinManager {
     pub async fn start(&mut self) {
-        if self.process.is_none() {
-            self.clean();
-            let child = Command::new("bitcoind")
-                .arg("-daemon")
-                .arg("-server")
-                .arg("-noconnect")
-                .arg(format!("-chain={}", NETWORK))
-                .arg(format!("-datadir={}", &self.data_dir))
-                .arg(format!("-port={}", &self.p2p_port.to_string()))
-                .arg(format!("-rpcport={}", &self.rpc_port.to_string()))
-                .stdout(Stdio::null())
-                .spawn()
-                .unwrap();
-
-            // Cookie file is created once the api is up.
-            poll!(5, Path::new(&self.cookie_path()).exists());
-            self.process = Some(child)
-        }
-    }
-
-    pub fn kill(&mut self) {
-        if let Some(mut process) = self.process.take() {
-            process.kill().unwrap_or_default();
-            process.wait().unwrap();
-            self.process = None
-        }
-        if let Ok(mut pid_file) = File::open(format!("{}/bitcoind.pid", self.data_dir())) {
-            let mut pid = String::new();
-            pid_file.read_to_string(&mut pid).unwrap();
-            pid = pid.trim().to_string();
-            Command::new("kill")
-                .arg(&pid)
-                .output()
-                .expect("failed to terminate bitcoind");
-        }
+        let args = &[
+            "-server",
+            "-noconnect",
+            &format!("-chain={}", NETWORK),
+            &format!("-datadir={}", &self.manager.storage_dir),
+            &format!("-port={}", &self.p2p_port.to_string()),
+            &format!("-rpcport={}", &self.rpc_port.to_string()),
+            &format!("-rpcauth={}", &self.rpc_auth),
+        ];
+        self.manager.start("bitcoind", args).await;
+        // Getting occasional bad file descriptor in tests. Maybe this helps.
+        File::open(self.cookie_path()).unwrap().sync_all().unwrap();
     }
 
     pub fn cookie_path(&self) -> String {
@@ -60,42 +38,42 @@ impl BitcoinManager {
     }
 
     pub fn test_bitcoin(output_dir: &str, node_index: u16) -> BitcoinManager {
-        let p2p_port = 20000u16 + (node_index * 1000u16);
-        let rpc_port = 30000u16 + (node_index * 1000u16);
-        let data_dir = format!("{}/bitcoind_{}", output_dir, node_index);
+        let p2p_port = get_available_port().unwrap();
+        let rpc_port = get_available_port().unwrap();
+        // user:password just used by TEOS at the moment.
+        let rpc_auth = "user:bcae5b9986aa90ef40565c2b5d5e685c$8d81897118da8bc7489619853f68e1fc161b3e4cb904071ea123965136468b81".to_string();
+
+        let manager = Manager::new(
+            Box::new(BitcoinApi(format!("http://127.0.0.1:{}", rpc_port))),
+            output_dir,
+            "bitcoind",
+            node_index,
+        );
 
         BitcoinManager {
-            process: None,
-            data_dir,
+            manager,
             p2p_port,
             rpc_port,
+            rpc_auth,
             network: NETWORK.to_string(),
         }
     }
 
-    fn clean(&self) {
-        if let Ok(mut file) = File::open(format!("{}/bitcoind.pid", &self.data_dir())) {
-            let mut pid = String::new();
-            file.read_to_string(&mut pid).unwrap();
-            pid = pid.trim().to_string();
-            Command::new("kill").arg("-9").arg(pid).output().unwrap();
-        }
-        std::fs::remove_dir_all(&self.data_dir()).unwrap_or_default();
-        std::fs::create_dir_all(&self.data_dir()).unwrap();
-    }
-
     fn data_dir(&self) -> String {
         if NETWORK == "mainnet" {
-            self.data_dir.clone()
+            self.manager.storage_dir.clone()
         } else {
-            format!("{}/{}", self.data_dir, NETWORK)
+            format!("{}/{}", self.manager.storage_dir, NETWORK)
         }
     }
 }
 
-impl Drop for BitcoinManager {
-    fn drop(&mut self) {
-        self.kill()
+pub struct BitcoinApi(String);
+
+#[async_trait]
+impl Starts for BitcoinApi {
+    async fn has_started(&self) -> bool {
+        reqwest::get(&self.0).await.is_ok()
     }
 }
 

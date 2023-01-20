@@ -400,13 +400,13 @@ dependencies = [
 name = "bitcoind"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.21.0",
  "bitcoin",
  "lightning",
  "lightning-block-sync",
  "log",
  "serde_json",
- "settings",
  "tokio",
 ]
 
@@ -2544,6 +2544,7 @@ dependencies = [
 name = "test-utils"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bitcoin",
  "clap",
  "lightning",
