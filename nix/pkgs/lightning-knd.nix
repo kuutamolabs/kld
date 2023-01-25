@@ -32,7 +32,7 @@ rustPlatform.buildRustPackage ({
   nativeBuildInputs = [ pkg-config bitcoind cockroachdb teos ] ++ lib.optionals enableLint [ clippy ];
 
   doCheck = enableTests;
-  checkFlags = [
+  cargoTestFlags = [
     "--workspace"
     "--all-features"
     "--all-targets"
