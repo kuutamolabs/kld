@@ -2,7 +2,7 @@ pub mod ldk_database;
 pub mod peer;
 pub mod wallet_database;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use log::{error, info};
 use settings::Settings;
 pub use tokio_postgres::{Client, NoTls, Transaction};
@@ -30,18 +30,20 @@ macro_rules! from_maybe_i64 {
 }
 
 async fn connection(settings: &Settings) -> Result<Client> {
-    let mut params = format!(
+    let log_safe_params = format!(
         "host={} port={} user={} dbname={}",
         settings.database_host,
         settings.database_port,
         settings.database_user,
         settings.database_name
     );
-    info!("Creating database connection with params: {}", params);
+    let mut params = log_safe_params.clone();
     if !settings.database_password.is_empty() {
         params = format!("{} password={}", params, settings.database_password);
     }
-    let (client, connection) = tokio_postgres::connect(&params, NoTls).await?;
+    let (client, connection) = tokio_postgres::connect(&params, NoTls)
+        .await
+        .with_context(|| format!("could not connect to database ({})", log_safe_params))?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             error!("Database connection error: {}", e);
@@ -56,18 +58,9 @@ mod embedded {
 }
 
 pub async fn migrate_database(settings: &Settings) -> Result<()> {
-    {
-        let mut temp_settings = settings.clone();
-        temp_settings.database_name = "defaultdb".to_string();
-        let client = connection(&temp_settings).await?;
-        client
-            .execute(
-                &format!("CREATE DATABASE IF NOT EXISTS {}", &settings.database_name),
-                &[],
-            )
-            .await?;
-    }
-    let mut client = connection(settings).await?;
+    let mut client = connection(settings)
+        .await
+        .with_context(|| format!("cannot connect to database '{}'", settings.database_name))?;
     info!("Running database migrations");
     embedded::migrations::runner()
         .run_async(&mut client)

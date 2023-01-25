@@ -21,20 +21,11 @@
       imports = [
         ./nix/pkgs/flake-module.nix
         ./nix/modules/flake-module.nix
+        ./nix/modules/tests/flake-module.nix
         ./nix/checks/flake-module.nix
         ./nix/treefmt/flake-module.nix
         ./nix/shell.nix
       ];
       systems = [ "x86_64-linux" ];
-
-      perSystem = { system, ... }: {
-        _module.args.pkgs = import inputs.nixpkgs {
-          inherit system;
-          config.allowUnfreePredicate = (pkg: builtins.elem
-            (builtins.parseDrvName pkg.pname).name [
-            "cockroach"
-          ]);
-        };
-      };
     };
 }
