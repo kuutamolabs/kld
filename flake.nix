@@ -6,6 +6,18 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 
+    # These flakes are only used by crane at the moment, we pin them here so
+    # that flake users can override them as needed.
+    flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
+    rust-overlay.inputs.flake-utils.follows = "flake-utils";
+
+    crane.url = "github:ipetkov/crane";
+    crane.inputs.nixpkgs.follows = "nixpkgs";
+    crane.inputs.flake-utils.follows = "flake-utils";
+    crane.inputs.rust-overlay.follows = "rust-overlay";
+
     treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 

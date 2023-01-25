@@ -1,4 +1,4 @@
-{ rustPlatform
+{ craneLib
 , lib
 , clippy
 , openssl
@@ -6,37 +6,45 @@
 , cockroachdb
 , teos
 , pkg-config
-, runCommand
-, enableLint ? false
-, enableTests ? false
-,
+, self
 }:
-rustPlatform.buildRustPackage ({
-  name = "lightning-knd" + lib.optionalString enableLint "-clippy";
-  # avoid trigger rebuilds if unrelated files are changed
-  src = runCommand "src" { } ''
-    install -D ${../../Cargo.toml} $out/Cargo.toml
-    install -D ${../../Cargo.lock} $out/Cargo.lock
-    cp -r ${../../src} $out/src
-    cp -r ${../../api} $out/api
-    cp -r ${../../bitcoind} $out/bitcoind
-    cp -r ${../../database} $out/database
-    cp -r ${../../logger} $out/logger
-    cp -r ${../../settings} $out/settings
-    cp -r ${../../tests} $out/tests
-    cp -r ${../../test-utils} $out/test-utils
-  '';
-  cargoLock.lockFile = ../../Cargo.lock;
-
-  buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config bitcoind cockroachdb teos ] ++ lib.optionals enableLint [ clippy ];
-
-  doCheck = enableTests;
-  cargoTestFlags = [
-    "--workspace"
-    "--all-features"
-    "--all-targets"
+let
+  paths = [
+    "Cargo.toml"
+    "Cargo.lock"
+    "src"
+    "api"
+    "bitcoind"
+    "database"
+    "logger"
+    "settings"
+    "tests"
+    "test-utils"
   ];
+  src = lib.cleanSourceWith {
+    src = self;
+    filter = path: _type: lib.any (p: lib.hasPrefix "${self}/${p}" path) paths;
+  };
+  buildInputs = [ openssl ];
+  nativeBuildInputs = [ pkg-config ];
+  cargoExtraArgs = "--workspace --all-features";
+  cargoArtifacts = craneLib.buildDepsOnly {
+    inherit src buildInputs nativeBuildInputs cargoExtraArgs;
+  };
+in
+craneLib.buildPackage {
+  name = "lightning-knd";
+  inherit src cargoArtifacts buildInputs nativeBuildInputs;
+  cargoExtraArgs = "${cargoExtraArgs} --all-targets";
+  passthru.clippy = craneLib.cargoClippy {
+    inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+    cargoClippyExtraArgs = "--no-deps -- -D warnings";
+  };
+
+  checkInputs = [ bitcoind cockroachdb teos ];
+
+  doCheck = true;
+
   meta = with lib; {
     description = "HA Bitcoin Lightning Node";
     homepage = "https://github.com/kuutamoaps/lightning-knd";
@@ -45,27 +53,3 @@ rustPlatform.buildRustPackage ({
     platforms = platforms.unix;
   };
 }
-  // lib.optionalAttrs enableLint {
-  src = runCommand "src" { } ''
-    install -D ${../../Cargo.toml} $out/Cargo.toml
-    install -D ${../../Cargo.lock} $out/Cargo.lock
-    cp -r ${../../src} $out/src
-    cp -r ${../../api} $out/api
-    cp -r ${../../bitcoind} $out/bitcoind
-    cp -r ${../../database} $out/database
-    cp -r ${../../logger} $out/logger
-    cp -r ${../../settings} $out/settings
-    cp -r ${../../tests} $out/tests
-    cp -r ${../../test-utils} $out/test-utils
-  '';
-  buildPhase = ''
-    cargo clippy --workspace --all-targets --all-features --no-deps -- -D warnings
-    if grep -R 'dbg!' ./src; then
-      echo "use of dbg macro found in code!"
-      false
-    fi
-  '';
-  installPhase = ''
-    touch $out
-  '';
-})
