@@ -29,7 +29,7 @@ macro_rules! from_maybe_i64 {
     };
 }
 
-async fn connection(settings: &Settings) -> Result<Client> {
+pub async fn connection(settings: &Settings) -> Result<Client> {
     let log_safe_params = format!(
         "host={} port={} user={} dbname={}",
         settings.database_host,

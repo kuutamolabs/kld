@@ -7,8 +7,8 @@ use bitcoin::hashes::Hash;
 use bitcoin::{BlockHash, TxMerkleNode};
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
-use database::migrate_database;
 use database::peer::Peer;
+
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::Filter;
@@ -20,17 +20,9 @@ use lightning::util::persist::Persister;
 use lightning::util::test_utils as ln_utils;
 use lightning::{check_added_monitors, check_closed_broadcast, check_closed_event};
 use logger::KndLogger;
-use settings::Settings;
 use test_utils::random_public_key;
 
-use crate::with_cockroach;
-
-async fn new_database(settings: &Settings, name: &str) -> LdkDatabase {
-    let mut new_settings = settings.clone();
-    new_settings.database_name = name.to_string();
-    migrate_database(&new_settings).await.unwrap();
-    LdkDatabase::new(&new_settings).await.unwrap()
-}
+use crate::{create_database, with_cockroach};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() {
@@ -67,8 +59,12 @@ pub async fn test_peers() {
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_channel_monitors() {
     with_cockroach(|settings| async move {
-        let database_0 = new_database(settings, "test1").await;
-        let database_1 = new_database(settings, "test2").await;
+        let database_0 = LdkDatabase::new(&create_database(settings, "test1").await)
+            .await
+            .unwrap();
+        let database_1 = LdkDatabase::new(&create_database(settings, "test2").await)
+            .await
+            .unwrap();
 
         // Create the nodes, giving them data databases.
         let chanmon_cfgs = create_chanmon_cfgs(2);

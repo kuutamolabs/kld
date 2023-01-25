@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicU16;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
+use database::connection;
 use database::migrate_database;
 use futures::Future;
 use futures::FutureExt;
@@ -10,8 +11,8 @@ use logger::KndLogger;
 use once_cell::sync::OnceCell;
 use settings::Settings;
 use test_utils::cockroach;
-use test_utils::test_settings_for_database;
 use test_utils::CockroachManager;
+use test_utils::TestSettingsBuilder;
 use tokio::runtime::Handle;
 
 pub mod ldk_database;
@@ -43,7 +44,7 @@ async fn cockroach() -> &'static (Settings, Mutex<CockroachManager>) {
             Handle::current().block_on(async move {
                 let mut cockroach = cockroach!();
                 cockroach.start().await;
-                let settings = test_settings_for_database(&cockroach);
+                let settings = TestSettingsBuilder::new().with_database(&cockroach).build();
                 migrate_database(&settings).await.unwrap();
                 (settings, Mutex::new(cockroach))
             })
@@ -56,4 +57,16 @@ pub async fn teardown() {
         let mut lock = cockroach().await.1.lock().unwrap();
         lock.kill();
     }
+}
+
+pub async fn create_database(settings: &Settings, name: &str) -> Settings {
+    let client = connection(settings).await.unwrap();
+    client
+        .execute(&format!("CREATE DATABASE IF NOT EXISTS {}", name), &[])
+        .await
+        .unwrap();
+    let mut new_settings = settings.clone();
+    new_settings.database_name = name.to_string();
+    migrate_database(&new_settings).await.unwrap();
+    new_settings
 }

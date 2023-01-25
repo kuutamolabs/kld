@@ -29,9 +29,8 @@ impl TestSettingsBuilder {
         self
     }
 
-    pub fn for_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
+    pub fn with_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
         self.settings.database_port = database.port.to_string();
-        self.settings.database_name = "test".to_string();
         self
     }
 
@@ -53,12 +52,6 @@ impl Default for TestSettingsBuilder {
 
 pub fn test_settings() -> Settings {
     TestSettingsBuilder::default().build()
-}
-
-pub fn test_settings_for_database(database: &CockroachManager) -> Settings {
-    TestSettingsBuilder::default()
-        .for_database(database)
-        .build()
 }
 
 pub fn random_public_key() -> PublicKey {

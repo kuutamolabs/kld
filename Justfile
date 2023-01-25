@@ -6,7 +6,7 @@ fix:
   cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged  -- -D warnings
 
 test:
-  cargo test --all --all-features
+  cargo test --workspace --all-features
 
 # Start up the servers for manual testing
 manual:
