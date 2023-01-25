@@ -6,10 +6,13 @@
       imports = [ self.nixosModules.lightning-knd ];
     };
   };
-  # This is the test code that will check if our service is running correctly:
+  # This test is still wip
   testScript = ''
     start_all()
+
     # wait for our service to start
     node1.wait_for_unit("lightning-knd")
+    # FIXME: we still need to configure bitcoind so that the service can start correctly
+    #node1.wait_until_succeeds("curl -v http://127.0.0.1:2233/metrics >&2")
   '';
 }
