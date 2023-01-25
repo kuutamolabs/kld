@@ -3,6 +3,7 @@ use std::fs;
 #[cfg(test)]
 use test_utils::fake_fs as fs;
 
+use anyhow::{bail, Context, Result};
 use bitcoin::hashes::{sha256, Hash, HashEngine};
 use log::info;
 use rand::{thread_rng, Rng};
@@ -13,18 +14,21 @@ pub struct KeyGenerator {
 }
 
 impl KeyGenerator {
-    pub fn init(data_dir: &str) -> KeyGenerator {
+    pub fn init(data_dir: &str) -> Result<KeyGenerator> {
         let seed_path = format!("{}/secret_seed", data_dir);
         let seed = if let Ok(seed) = fs::read(&seed_path) {
             info!("Loading secret seed: {}", seed_path);
-            seed.try_into().unwrap()
+            match seed.try_into() {
+                Err(_) => bail!("Invalid seed file at {}", seed_path),
+                Ok(v) => v,
+            }
         } else {
             let seed: [u8; 32] = thread_rng().gen();
-            fs::write(&seed_path, seed).unwrap();
+            fs::write(&seed_path, seed).with_context(|| format!("cannot write {}", seed_path))?;
             info!("Generated secret seed: {}", seed_path);
             seed
         };
-        KeyGenerator { seed }
+        Ok(KeyGenerator { seed })
     }
 
     pub fn wallet_seed(&self) -> [u8; 32] {
@@ -49,8 +53,8 @@ impl KeyGenerator {
 }
 
 #[test]
-fn test_key_generator() {
-    let key_generator = KeyGenerator::init("");
+fn test_key_generator() -> Result<()> {
+    let key_generator = KeyGenerator::init("")?;
     let wallet_seed = key_generator.wallet_seed();
     let lightning_seed = key_generator.lightning_seed();
     let macaroon_seed = key_generator.macaroon_seed();
@@ -61,4 +65,5 @@ fn test_key_generator() {
 
     assert_ne!(wallet_seed, lightning_seed);
     assert_ne!(lightning_seed, macaroon_seed);
+    Ok(())
 }

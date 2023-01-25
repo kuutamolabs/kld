@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
@@ -33,7 +33,9 @@ pub fn main() -> Result<()> {
 
     runtime.block_on(migrate_database(&settings))?;
 
-    let key_generator = Arc::new(KeyGenerator::init(&settings.data_dir));
+    let key_generator = Arc::new(
+        KeyGenerator::init(&settings.data_dir).context("cannot initialize key generator")?,
+    );
 
     let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
     let wallet_database = runtime.block_on(WalletDatabase::new(&settings))?;
