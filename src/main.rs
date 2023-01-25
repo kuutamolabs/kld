@@ -37,14 +37,24 @@ pub fn main() -> Result<()> {
         KeyGenerator::init(&settings.data_dir).context("cannot initialize key generator")?,
     );
 
-    let database = Arc::new(runtime.block_on(LdkDatabase::new(&settings))?);
-    let wallet_database = runtime.block_on(WalletDatabase::new(&settings))?;
+    let database = Arc::new(
+        runtime
+            .block_on(LdkDatabase::new(&settings))
+            .context("cannot connect to ldk database")?,
+    );
+    let wallet_database = runtime
+        .block_on(WalletDatabase::new(&settings))
+        .context("cannot connect to wallet database")?;
 
-    let bitcoind_client = Arc::new(runtime.block_on(Client::new(
-        settings.bitcoind_rpc_host.clone(),
-        settings.bitcoind_rpc_port,
-        settings.bitcoin_cookie_path.clone(),
-    ))?);
+    let bitcoind_client = Arc::new(
+        runtime
+            .block_on(Client::new(
+                settings.bitcoind_rpc_host.clone(),
+                settings.bitcoind_rpc_port,
+                settings.bitcoin_cookie_path.clone(),
+            ))
+            .context("cannot connect to bitcoined")?,
+    );
     let wallet = Arc::new(Wallet::new(
         &key_generator.wallet_seed(),
         &settings,
