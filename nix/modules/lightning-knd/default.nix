@@ -78,6 +78,7 @@ in
         User = "lightning-knd";
         Group = "lightning-knd";
         SupplementaryGroups = [ "cockroachdb" ];
+        StateDirectory = "lightning-knd";
 
         # New file permissions
         UMask = "0027"; # 0640 / 0750

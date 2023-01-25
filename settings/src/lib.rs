@@ -13,9 +13,13 @@ pub struct Settings {
     #[clap(long, default_value = "testnet", env = "KND_BITCOIN_COOKIE_PATH")]
     pub bitcoin_cookie_path: String,
 
-    #[clap(long, default_value = "/var/lib/knd", env = "KND_DATA_DIR")]
+    #[clap(long, default_value = "/var/lib/lightning-knd", env = "KND_DATA_DIR")]
     pub data_dir: String,
-    #[clap(long, default_value = "/var/lib/knd/certs", env = "KND_CERTS_DIR")]
+    #[clap(
+        long,
+        default_value = "/var/lib/lightning-knd/certs",
+        env = "KND_CERTS_DIR"
+    )]
     pub certs_dir: String,
     #[clap(long, default_value = "one", env = "KND_NODE_ID")]
     pub node_id: String,
