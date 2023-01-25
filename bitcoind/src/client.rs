@@ -1,5 +1,5 @@
 use crate::convert::{BlockchainInfo, FeeResponse, RawTx};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use base64::engine::general_purpose;
 use base64::Engine;
 use bitcoin::blockdata::transaction::Transaction;
@@ -72,7 +72,11 @@ impl Client {
         )?;
         bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
-            .await?;
+            .await
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::PermissionDenied,
+                                    "Failed to make initial call to bitcoind - please check your RPC user/password and access settings")
+            })?;
         let mut fees: HashMap<Target, AtomicU32> = HashMap::new();
         fees.insert(Target::Background, AtomicU32::new(MIN_FEERATE));
         fees.insert(Target::Normal, AtomicU32::new(2000));
@@ -93,13 +97,23 @@ impl Client {
         bitcoind_rpc_host: String,
         bitcoind_rpc_port: u16,
         bitcoin_cookie_path: String,
-    ) -> std::io::Result<RpcClient> {
-        let mut file = File::open(bitcoin_cookie_path)?;
+    ) -> Result<RpcClient> {
+        let mut file = File::open(&bitcoin_cookie_path).with_context(|| {
+            format!(
+                "Failed to open bitcoin cookie path at '{}'",
+                bitcoin_cookie_path
+            )
+        })?;
         let mut cookie = String::new();
-        file.read_to_string(&mut cookie)?;
+        file.read_to_string(&mut cookie).with_context(|| {
+            format!(
+                "Failed to read bitcoin cookie from '{}'",
+                bitcoin_cookie_path
+            )
+        })?;
         let credentials = general_purpose::STANDARD.encode(cookie.as_bytes());
         let http_endpoint = HttpEndpoint::for_host(bitcoind_rpc_host).with_port(bitcoind_rpc_port);
-        RpcClient::new(&credentials, http_endpoint)
+        RpcClient::new(&credentials, http_endpoint).context("failed to create rpc client")
     }
 
     fn poll_for_fee_estimates(fees: Arc<HashMap<Target, AtomicU32>>, rpc_client: Arc<RpcClient>) {

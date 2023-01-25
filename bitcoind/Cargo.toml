@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+settings = { path = "../settings" }
 bitcoin = "0.29.2"
 lightning = { version = "0.0.113", features = ["max_level_trace"] }
 lightning-block-sync = { version = "0.0.113", features = [ "rpc-client" ] }

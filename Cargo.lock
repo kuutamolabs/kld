@@ -407,6 +407,7 @@ dependencies = [
  "lightning-block-sync",
  "log",
  "serde_json",
+ "settings",
  "tokio",
 ]
 
