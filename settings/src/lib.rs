@@ -10,7 +10,11 @@ pub struct Settings {
     pub bitcoind_rpc_port: u16,
     #[clap(long, default_value = "testnet", env = "KND_BITCOIN_NETWORK")]
     pub bitcoin_network: Network,
-    #[clap(long, default_value = "testnet", env = "KND_BITCOIN_COOKIE_PATH")]
+    #[clap(
+        long,
+        default_value = "/var/lib/bitcoind-testnet/.cookie",
+        env = "KND_BITCOIN_COOKIE_PATH"
+    )]
     pub bitcoin_cookie_path: String,
 
     #[clap(long, default_value = "/var/lib/lightning-knd", env = "KND_DATA_DIR")]
