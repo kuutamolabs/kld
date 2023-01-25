@@ -5,6 +5,7 @@
 }:
 let
   cfg = config.kuutamo.lightning-knd;
+  bitcoind-instance = "lightning-knd-${cfg.network}";
 in
 {
   options.kuutamo.lightning-knd = {
@@ -22,17 +23,32 @@ in
       '';
     };
 
+    network = lib.mkOption {
+      # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
+      # We might however not need more than that.
+      #type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
+      type = lib.types.enum [ "bitcoin" "testnet" ];
+      default = "bitcoin";
+      description = lib.mdDoc "Bitcoin network to use.";
+    };
+
+    testnet = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = lib.mdDoc "Whether to use the testnet instead of mainnet.";
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = ''
+      description = lib.mDoc ''
         Whether to open ports used by lightning-knd
       '';
     };
     publicAddresses = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
-      description = ''
+      description = lib.mDoc ''
         Comma-seperated list of ip addresses on which the lightning is *directly* reachable.
       '';
     };
@@ -52,6 +68,12 @@ in
       ensurePermissions."DATABASE lightning_knd" = "ALL";
     }];
 
+    services.bitcoind.${bitcoind-instance} = {
+      enable = true;
+      testnet = cfg.network == "testnet";
+      rpc.port = 8332;
+    };
+
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ ];
 
     users.users.lightning-knd = {
@@ -66,10 +88,14 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" "cockroachdb.service" ];
       environment = {
-        KND_DATABASE_HOST = "/run/cockroachdb";
-        KND_DATABASE_PORT = "26257";
-        KND_DATABASE_USER = "lightning-knd";
-        KND_DATABASE_NAME = "lightning_knd";
+        KND_DATABASE_HOST = lib.mkDefault "/run/cockroachdb";
+        KND_DATABASE_PORT = lib.mkDefault "26257";
+        KND_DATABASE_USER = lib.mkDefault "lightning-knd";
+        KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
+        KND_EXPORTER_ADDRESS = lib.mkDefault "127.0.0.1:2233";
+        KND_REST_API_ADDRESS = lib.mkDefault "127.0.0.1:2244";
+        KND_BITCOIN_COOKIE_PATH = lib.mkDefault "${config.services.bitcoind.${bitcoind-instance}.dataDir}/.cookie";
+        KND_BITCOIN_NETWORK = lib.mkDefault cfg.network;
       };
       path = [
         config.services.cockroachdb.package
