@@ -34,5 +34,3 @@ CREATE TABLE peers (
     address         BYTES NOT NULL,
     PRIMARY KEY ( public_key, address )
 );
-
-GRANT SELECT ON TABLE peers TO grafana;
