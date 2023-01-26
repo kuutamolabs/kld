@@ -50,7 +50,7 @@ pub struct TeosApi(String);
 
 #[async_trait]
 impl Starts for TeosApi {
-    async fn has_started(&self) -> bool {
+    async fn has_started(&self, _manager: &Manager) -> bool {
         match reqwest::get(self.0.clone()).await {
             Ok(_) => true,
             Err(e) => e.is_status(),

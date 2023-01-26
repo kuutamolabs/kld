@@ -72,11 +72,7 @@ impl Client {
         )?;
         bitcoind_rpc_client
             .call_method::<BlockchainInfo>("getblockchaininfo", &[])
-            .await
-            .map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::PermissionDenied,
-                                    "Failed to make initial call to bitcoind - please check your RPC user/password and access settings")
-            })?;
+            .await?;
         let mut fees: HashMap<Target, AtomicU32> = HashMap::new();
         fees.insert(Target::Background, AtomicU32::new(MIN_FEERATE));
         fees.insert(Target::Normal, AtomicU32::new(2000));

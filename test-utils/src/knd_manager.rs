@@ -100,7 +100,7 @@ pub struct KndApi(String);
 
 #[async_trait]
 impl Starts for KndApi {
-    async fn has_started(&self) -> bool {
+    async fn has_started(&self, _manager: &Manager) -> bool {
         reqwest::get(format!("http://{}/health", self.0))
             .await
             .is_ok()

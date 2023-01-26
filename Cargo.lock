@@ -2756,9 +2756,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.21.0",
  "bitcoin",
  "clap 4.1.1",
  "lightning",
+ "lightning-block-sync",
  "rand",
  "reqwest",
  "settings",

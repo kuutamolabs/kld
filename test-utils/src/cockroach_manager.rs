@@ -50,7 +50,7 @@ pub struct CockroachApi(String);
 
 #[async_trait]
 impl Starts for CockroachApi {
-    async fn has_started(&self) -> bool {
+    async fn has_started(&self, _manager: &Manager) -> bool {
         reqwest::get(format!("http://{}", self.0)).await.is_ok()
     }
 }
