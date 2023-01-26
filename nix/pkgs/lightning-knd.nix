@@ -32,7 +32,11 @@ rustPlatform.buildRustPackage ({
   nativeBuildInputs = [ pkg-config bitcoind cockroachdb teos ] ++ lib.optionals enableLint [ clippy ];
 
   doCheck = enableTests;
-
+  cargoTestFlags = [
+    "--workspace"
+    "--all-features"
+    "--all-targets"
+  ];
   meta = with lib; {
     description = "HA Bitcoin Lightning Node";
     homepage = "https://github.com/kuutamoaps/lightning-knd";
