@@ -87,9 +87,9 @@ where
 {
     match serde_json::from_slice::<T>(bytes) {
         Ok(t) => Ok(t),
-        Err(e) => {
+        Err(_) => {
             let s = String::from_utf8_lossy(bytes);
-            bail!("cannot parse '{}' as json: {}", s, e)
+            bail!("Expected json output, but got: {}", s)
         }
     }
 }
