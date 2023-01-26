@@ -18,7 +18,7 @@ use crate::api::{
     wallet::{get_balance, new_address, transfer},
     ws::ws_handler,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use api::routes;
 use axum::{
     extract::Extension,
@@ -26,60 +26,74 @@ use axum::{
     routing::{delete, get, post},
     Router,
 };
-use axum_server::{tls_rustls::RustlsConfig, Handle};
+use axum_server::{
+    tls_rustls::{RustlsAcceptor, RustlsConfig},
+    Handle, Server,
+};
 use futures::{future::Shared, Future};
 use hyper::StatusCode;
 use log::{error, info};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
 
-pub async fn start_rest_api(
-    listen_address: String,
-    certs_dir: String,
-    lightning_api: Arc<dyn LightningInterface + Send + Sync>,
-    wallet_api: Arc<dyn WalletInterface + Send + Sync>,
-    macaroon_auth: Arc<MacaroonAuth>,
-    quit_signal: Shared<impl Future<Output = ()>>,
-) -> Result<()> {
-    info!("Starting REST API");
-    let rustls_config = config(&certs_dir).await;
-    let cors = CorsLayer::permissive();
-    let handle = Handle::new();
+pub struct RestApi {
+    server: Server<RustlsAcceptor>,
+}
 
-    let app = Router::new()
-        .route(routes::ROOT, get(root))
-        .route(routes::GET_INFO, get(get_info))
-        .route(routes::GET_BALANCE, get(get_balance))
-        .route(routes::LIST_CHANNELS, get(list_channels))
-        .route(routes::OPEN_CHANNEL, post(open_channel))
-        .route(routes::NEW_ADDR, get(new_address))
-        .route(routes::WITHDRAW, post(transfer))
-        .route(routes::LIST_PEERS, get(list_peers))
-        .route(routes::CONNECT_PEER, post(connect_peer))
-        .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
-        .route(routes::WEBSOCKET, get(ws_handler))
-        .fallback(handler_404)
-        .layer(cors)
-        .layer(Extension(lightning_api))
-        .layer(Extension(wallet_api))
-        .layer(Extension(macaroon_auth));
-
+pub async fn bind_api_server(listen_address: String, certs_dir: String) -> Result<RestApi> {
+    let rustls_config = config(&certs_dir)
+        .await
+        .context("failed to load tls configuration")?;
     let addr = listen_address.parse()?;
+    info!("Starting REST API on {addr}");
+    Ok(RestApi {
+        server: axum_server::bind_rustls(addr, rustls_config),
+    })
+}
 
-    tokio::select!(
-        result = axum_server::bind_rustls(addr, rustls_config)
-            .serve(app.into_make_service_with_connect_info::<SocketAddr>()) => {
-                if let Err(e) = result {
-                    error!("API server shutdown unexpectedly: {}", e);
-                } else {
-                    info!("API server shutdown successfully.");
+impl RestApi {
+    pub async fn serve(
+        self,
+        lightning_api: Arc<dyn LightningInterface + Send + Sync>,
+        wallet_api: Arc<dyn WalletInterface + Send + Sync>,
+        macaroon_auth: Arc<MacaroonAuth>,
+        quit_signal: Shared<impl Future<Output = ()>>,
+    ) -> Result<()> {
+        let cors = CorsLayer::permissive();
+        let handle = Handle::new();
+
+        let app = Router::new()
+            .route(routes::ROOT, get(root))
+            .route(routes::GET_INFO, get(get_info))
+            .route(routes::GET_BALANCE, get(get_balance))
+            .route(routes::LIST_CHANNELS, get(list_channels))
+            .route(routes::OPEN_CHANNEL, post(open_channel))
+            .route(routes::NEW_ADDR, get(new_address))
+            .route(routes::WITHDRAW, post(transfer))
+            .route(routes::LIST_PEERS, get(list_peers))
+            .route(routes::CONNECT_PEER, post(connect_peer))
+            .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
+            .route(routes::WEBSOCKET, get(ws_handler))
+            .fallback(handler_404)
+            .layer(cors)
+            .layer(Extension(lightning_api))
+            .layer(Extension(wallet_api))
+            .layer(Extension(macaroon_auth));
+
+        tokio::select!(
+            result = self.server.serve(app.into_make_service_with_connect_info::<SocketAddr>()) => {
+                    if let Err(e) = result {
+                        error!("API server shutdown unexpectedly: {}", e);
+                    } else {
+                        info!("API server shutdown successfully.");
+                    }
                 }
-        }
-        _ = quit_signal => {
-            handle.graceful_shutdown(Some(Duration::from_secs(30)));
-        }
-    );
-    Ok(())
+            _ = quit_signal => {
+                handle.graceful_shutdown(Some(Duration::from_secs(30)));
+            }
+        );
+        Ok(())
+    }
 }
 
 async fn root(
@@ -97,13 +111,13 @@ async fn handler_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "No such method.")
 }
 
-async fn config(certs_dir: &str) -> RustlsConfig {
+async fn config(certs_dir: &str) -> Result<RustlsConfig> {
     RustlsConfig::from_pem_file(
         format!("{}/knd.crt", certs_dir),
         format!("{}/knd.key", certs_dir),
     )
     .await
-    .unwrap()
+    .context("failed to load certificates")
 }
 
 #[macro_export]

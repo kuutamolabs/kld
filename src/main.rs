@@ -4,7 +4,7 @@ use database::ldk_database::LdkDatabase;
 use database::migrate_database;
 use database::wallet_database::WalletDatabase;
 use futures::FutureExt;
-use lightning_knd::api::{start_rest_api, MacaroonAuth};
+use lightning_knd::api::{bind_api_server, MacaroonAuth};
 use lightning_knd::controller::Controller;
 use lightning_knd::key_generator::KeyGenerator;
 use lightning_knd::prometheus::start_prometheus_exporter;
@@ -78,6 +78,8 @@ pub fn main() -> Result<()> {
     )?);
 
     runtime.block_on(async {
+        let server = bind_api_server(settings.rest_api_address.clone(), settings.certs_dir.clone()).await?;
+
         let quit_signal = quit_signal().shared();
         tokio::select!(
             _ = quit_signal.clone() => {
@@ -91,7 +93,7 @@ pub fn main() -> Result<()> {
                 }
                 result
             },
-            result = start_rest_api(settings.rest_api_address.clone(), settings.certs_dir.clone(), controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
+            result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
                 if let Err(e) = result {
                     warn!("REST API failed: {}", e);
                     return Err(e);
