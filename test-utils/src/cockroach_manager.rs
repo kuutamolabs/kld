@@ -2,6 +2,7 @@ use crate::{
     manager::{Manager, Starts},
     ports::get_available_port,
 };
+use anyhow::Result;
 use async_trait::async_trait;
 
 pub struct CockroachManager {
@@ -11,7 +12,7 @@ pub struct CockroachManager {
 }
 
 impl CockroachManager {
-    pub async fn start(&mut self) {
+    pub async fn start(&mut self) -> Result<()> {
         let args = &[
             "start-single-node",
             "--insecure",

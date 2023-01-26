@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
 use std::vec;
 
+use anyhow::Result;
 use bitcoin::blockdata::block::{Block, BlockHeader};
 use bitcoin::hashes::Hash;
 use bitcoin::{BlockHash, TxMerkleNode};
@@ -25,7 +26,7 @@ use test_utils::random_public_key;
 use crate::{create_database, with_cockroach};
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_peers() {
+pub async fn test_peers() -> Result<()> {
     with_cockroach(|settings| async move {
         let database = LdkDatabase::new(settings).await.unwrap();
 
@@ -51,13 +52,13 @@ pub async fn test_peers() {
         let peers = database.fetch_peers().await.unwrap();
         assert!(!peers.contains(&peer));
     })
-    .await;
+    .await
 }
 
 // (Test copied from LDK FilesystemPersister).
 // Test relaying a few payments and check that the persisted data is updated the appropriate number of times.
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_channel_monitors() {
+pub async fn test_channel_monitors() -> Result<()> {
     with_cockroach(|settings| async move {
         let database_0 = LdkDatabase::new(&create_database(settings, "test1").await)
             .await
@@ -179,11 +180,11 @@ pub async fn test_channel_monitors() {
         // Make sure everything is persisted as expected after close.
         check_persisted_data!(11);
     })
-    .await;
+    .await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_network_graph() {
+pub async fn test_network_graph() -> Result<()> {
     with_cockroach(|settings| async move {
         let database = LdkDatabase::new(settings).await.unwrap();
 
@@ -228,7 +229,7 @@ pub async fn test_network_graph() {
             .unwrap()
             .is_some());
     })
-    .await;
+    .await
 }
 
 type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, Arc<KndLogger>>>;

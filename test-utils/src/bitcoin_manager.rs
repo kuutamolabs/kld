@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::fs::File;
 
 use async_trait::async_trait;
@@ -18,7 +19,7 @@ pub struct BitcoinManager {
 }
 
 impl BitcoinManager {
-    pub async fn start(&mut self) {
+    pub async fn start(&mut self) -> Result<()> {
         let args = &[
             "-server",
             "-noconnect",
@@ -28,9 +29,12 @@ impl BitcoinManager {
             &format!("-rpcport={}", &self.rpc_port.to_string()),
             &format!("-rpcauth={}", &self.rpc_auth),
         ];
-        self.manager.start("bitcoind", args).await;
+        self.manager.start("bitcoind", args).await?;
         // Getting occasional bad file descriptor in tests. Maybe this helps.
-        File::open(self.cookie_path()).unwrap().sync_all().unwrap();
+        File::open(self.cookie_path())
+            .unwrap()
+            .sync_all()
+            .with_context(|| format!("failed to open {}", self.cookie_path()))
     }
 
     pub fn cookie_path(&self) -> String {

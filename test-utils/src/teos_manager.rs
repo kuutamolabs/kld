@@ -5,6 +5,7 @@ use crate::{
     manager::{Manager, Starts},
     ports::get_available_port,
 };
+use anyhow::Result;
 
 pub struct TeosManager {
     manager: Manager,
@@ -14,7 +15,7 @@ pub struct TeosManager {
 }
 
 impl TeosManager {
-    pub async fn start(&mut self) {
+    pub async fn start(&mut self) -> Result<()> {
         let args = &[
             "--apibind=127.0.0.1",
             &format!("--apiport={}", self.port),

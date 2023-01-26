@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = { version = "1.0.68", features = [ "backtrace" ] }
 settings = { path = "../settings" }
 lightning = { version = "0.0.113", features = [ "max_level_trace" ] }
 bitcoin = "0.29.2"

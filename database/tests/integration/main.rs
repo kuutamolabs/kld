@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicU16;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
+use anyhow::{Context, Result};
 use database::connection;
 use database::migrate_database;
 use futures::Future;
@@ -20,33 +21,37 @@ pub mod wallet_database;
 
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
-pub async fn with_cockroach<F, Fut>(test: F)
+pub async fn with_cockroach<F, Fut>(test: F) -> Result<()>
 where
     F: FnOnce(&'static Settings) -> Fut,
     Fut: Future<Output = ()>,
 {
-    let (settings, _cockroach) = cockroach().await;
+    let (settings, _cockroach) = cockroach().await?;
     let result = panic::AssertUnwindSafe(test(settings)).catch_unwind().await;
 
     teardown().await;
     if let Err(e) = result {
         panic::resume_unwind(e);
     }
+    Ok(())
 }
 
 // Need to call teardown function at the end of the test if using this.
-async fn cockroach() -> &'static (Settings, Mutex<CockroachManager>) {
+async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
     COCKROACH_REF_COUNT.fetch_add(1, Ordering::AcqRel);
     static INSTANCE: OnceCell<(Settings, Mutex<CockroachManager>)> = OnceCell::new();
-    INSTANCE.get_or_init(|| {
+    INSTANCE.get_or_try_init(|| {
         KndLogger::init("test", log::LevelFilter::Debug);
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 let mut cockroach = cockroach!();
-                cockroach.start().await;
+                cockroach
+                    .start()
+                    .await
+                    .context("could not start cockroach")?;
                 let settings = TestSettingsBuilder::new().with_database(&cockroach).build();
                 migrate_database(&settings).await.unwrap();
-                (settings, Mutex::new(cockroach))
+                Ok((settings, Mutex::new(cockroach)))
             })
         })
     })
@@ -54,8 +59,10 @@ async fn cockroach() -> &'static (Settings, Mutex<CockroachManager>) {
 
 pub async fn teardown() {
     if COCKROACH_REF_COUNT.fetch_sub(1, Ordering::AcqRel) == 1 {
-        let mut lock = cockroach().await.1.lock().unwrap();
-        lock.kill();
+        if let Ok(c) = cockroach().await {
+            let mut lock = c.1.lock().unwrap();
+            lock.kill();
+        }
     }
 }
 
