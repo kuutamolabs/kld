@@ -14,6 +14,7 @@ let
     "Cargo.lock"
     "src"
     "api"
+    "benches"
     "bitcoind"
     "database"
     "logger"
