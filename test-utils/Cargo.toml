@@ -7,8 +7,10 @@ edition = "2021"
 anyhow = { version = "1.0.68", features = [ "backtrace" ] }
 settings = { path = "../settings" }
 lightning = { version = "0.0.113", features = [ "max_level_trace" ] }
+lightning-block-sync = { version = "0.0.113", features = [ "rpc-client" ] }
 bitcoin = "0.29.2"
 rand = "0.8.5"
+base64 = "0.21.0"
 reqwest = { version = "0.11", default-features = false, features = [ "blocking" ] }
 tokio = { version = "1", features = [ "full" ] }
 clap = { version = "4.1.1", features = ["derive", "env"] }

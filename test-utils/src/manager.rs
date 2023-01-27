@@ -55,7 +55,7 @@ impl Manager {
 
             let i = Instant::now();
             let started = loop {
-                if self.starts.has_started().await {
+                if self.starts.has_started(self).await {
                     break true;
                 };
                 if i.elapsed() >= Duration::from_secs(60) {
@@ -91,7 +91,7 @@ impl Manager {
 
 #[async_trait]
 pub trait Starts {
-    async fn has_started(&self) -> bool;
+    async fn has_started(&self, manager: &Manager) -> bool;
 }
 
 impl Drop for Manager {
