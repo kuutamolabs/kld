@@ -1,4 +1,5 @@
 extern crate criterion;
+use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
@@ -14,34 +15,38 @@ use test_utils::{cockroach, TestSettingsBuilder};
 criterion_group! {
     name = benches;
     config = Criterion::default().significance_level(0.1).sample_size(10).measurement_time(std::time::Duration::from_secs(30));
-    targets = send_payment_two_nodes
+    targets = bench_send_payment_two_nodes
 }
 criterion_main!(benches);
 
+// we add wrapper functions like that to only unwrap in one place and still cleanup all ressources.
+pub fn bench_send_payment_two_nodes(c: &mut Criterion) {
+    send_payment_two_nodes(c).unwrap()
+}
+
 /// Send one payment between two nodes with two cockroach instances.
 /// The functional_test_utils just calls the message handlers on each node, no network involved.
-pub fn send_payment_two_nodes(c: &mut Criterion) {
+pub fn send_payment_two_nodes(c: &mut Criterion) -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .enable_time()
-        .build()
-        .unwrap();
+        .build()?;
 
     let mut cockroach_0 = cockroach!();
-    runtime.block_on(cockroach_0.start());
+    runtime.block_on(cockroach_0.start())?;
     let settings_0 = TestSettingsBuilder::new()
         .with_database(&cockroach_0)
         .build();
-    runtime.block_on(migrate_database(&settings_0)).unwrap();
-    let db_0 = runtime.block_on(LdkDatabase::new(&settings_0)).unwrap();
+    runtime.block_on(migrate_database(&settings_0))?;
+    let db_0 = runtime.block_on(LdkDatabase::new(&settings_0))?;
 
     let mut cockroach_1 = cockroach!(1);
-    runtime.block_on(cockroach_1.start());
+    runtime.block_on(cockroach_1.start())?;
     let settings_1 = TestSettingsBuilder::new()
         .with_database(&cockroach_1)
         .build();
-    runtime.block_on(migrate_database(&settings_1)).unwrap();
-    let db_1 = runtime.block_on(LdkDatabase::new(&settings_1)).unwrap();
+    runtime.block_on(migrate_database(&settings_1))?;
+    let db_1 = runtime.block_on(LdkDatabase::new(&settings_1))?;
 
     let mut chanmon_cfgs = create_chanmon_cfgs(2);
     chanmon_cfgs[0].logger.enable(Warn);
@@ -82,4 +87,5 @@ pub fn send_payment_two_nodes(c: &mut Criterion) {
             send_payment(&nodes[0], &vec![&nodes[1]][..], 1000);
         });
     });
+    Ok(())
 }
