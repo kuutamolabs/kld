@@ -1,5 +1,6 @@
 use std::{str::FromStr, time::Duration};
 
+use anyhow::Result;
 use api::{routes, GetInfo};
 use bitcoin::Address;
 use bitcoind::Client;
@@ -9,11 +10,11 @@ use tokio::time::{sleep_until, Instant};
 // This test is run separately (in its own process) from the other threads.
 // As it starts all the services it might clash with other tests.
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_start() {
+pub async fn test_start() -> Result<()> {
     let mut cockroach = cockroach!();
-    cockroach.start().await;
+    cockroach.start().await?;
     let mut bitcoin = bitcoin!();
-    bitcoin.start().await;
+    bitcoin.start().await?;
 
     let n_blocks = 6;
     let bitcoin_client = Client::new(
@@ -31,10 +32,10 @@ pub async fn test_start() {
         .await;
 
     let mut teos = teos!(&bitcoin);
-    teos.start().await;
+    teos.start().await?;
 
     let mut knd = knd!(&bitcoin, &cockroach);
-    knd.start().await;
+    knd.start().await?;
 
     let health = knd.call_exporter("health").await.unwrap();
     assert_eq!(health, "OK");
@@ -47,17 +48,20 @@ pub async fn test_start() {
     let result = knd.call_rest_api(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
     assert_eq!(n_blocks, info.block_height);
+
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Only run this for manual testing"]
-pub async fn test_manual() {
+pub async fn test_manual() -> Result<()> {
     let mut cockroach = cockroach!();
-    cockroach.start().await;
+    cockroach.start().await?;
     let mut bitcoin = bitcoin!();
-    bitcoin.start().await;
+    bitcoin.start().await?;
     let mut knd = knd!(&bitcoin, &cockroach);
-    knd.start().await;
+    knd.start().await?;
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;
+    Ok(())
 }

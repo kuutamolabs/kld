@@ -10,73 +10,75 @@ use serde::de;
 
 use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY};
 
-use super::api::API_SETTINGS;
+use super::api::create_api_server;
 
-#[test]
-fn test_cli_get_info() -> Result<()> {
-    let output = run_cli("get-info", &[]);
+#[tokio::test]
+async fn test_cli_get_info() -> Result<()> {
+    let output = run_cli("get-info", &[]).await?;
     let _: GetInfo = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_get_balance() -> Result<()> {
-    let output = run_cli("get-balance", &[]);
+#[tokio::test]
+async fn test_cli_get_balance() -> Result<()> {
+    let output = run_cli("get-balance", &[]).await?;
     let _: WalletBalance = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_new_address() -> Result<()> {
-    let output = run_cli("new-address", &[]);
+#[tokio::test]
+async fn test_cli_new_address() -> Result<()> {
+    let output = run_cli("new-address", &[]).await?;
     let _: NewAddressResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_withdraw() -> Result<()> {
+#[tokio::test]
+async fn test_cli_withdraw() -> Result<()> {
     let output = run_cli(
         "withdraw",
         &["--address", TEST_ADDRESS, "--satoshis", "1000"],
-    );
+    )
+    .await?;
     let _: WalletTransferResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_list_channels() -> Result<()> {
-    let output = run_cli("list-channels", &[]);
+#[tokio::test]
+async fn test_cli_list_channels() -> Result<()> {
+    let output = run_cli("list-channels", &[]).await?;
     let _: Vec<Channel> = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_list_peers() -> Result<()> {
-    let output = run_cli("list-peers", &[]);
+#[tokio::test]
+async fn test_cli_list_peers() -> Result<()> {
+    let output = run_cli("list-peers", &[]).await?;
     let _: Vec<Peer> = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_connect_peer() -> Result<()> {
-    let output = run_cli("connect-peer", &["--public-key", TEST_PUBLIC_KEY]);
+#[tokio::test]
+async fn test_cli_connect_peer() -> Result<()> {
+    let output = run_cli("connect-peer", &["--public-key", TEST_PUBLIC_KEY]).await?;
     let _: PublicKey = deserialize(&output.stdout)?;
     Ok(())
 }
 
-#[test]
-fn test_cli_disconnect_peer() -> Result<()> {
-    let output = run_cli("disconnect-peer", &["--public-key", TEST_PUBLIC_KEY]);
+#[tokio::test]
+async fn test_cli_disconnect_peer() -> Result<()> {
+    let output = run_cli("disconnect-peer", &["--public-key", TEST_PUBLIC_KEY]).await?;
 
     deserialize(&output.stdout)
 }
 
-#[test]
-fn test_cli_open_channel() -> Result<()> {
+#[tokio::test]
+async fn test_cli_open_channel() -> Result<()> {
     let output = run_cli(
         "open-channel",
         &["--public-key", TEST_PUBLIC_KEY, "--satoshis", "1000"],
-    );
+    )
+    .await?;
     let _: FundChannelResponse = deserialize(&output.stdout)?;
     Ok(())
 }
@@ -87,15 +89,15 @@ where
 {
     match serde_json::from_slice::<T>(bytes) {
         Ok(t) => Ok(t),
-        Err(e) => {
+        Err(_) => {
             let s = String::from_utf8_lossy(bytes);
-            bail!("cannot parse '{}' as json: {}", s, e)
+            bail!("Expected json output, but got: {}", s)
         }
     }
 }
 
-fn run_cli(command: &str, extra_args: &[&str]) -> Output {
-    let settings = &API_SETTINGS;
+async fn run_cli(command: &str, extra_args: &[&str]) -> Result<Output> {
+    let settings = create_api_server().await?;
 
     let output = Command::new(env!("CARGO_BIN_EXE_lightning-knd-cli"))
         .args([
@@ -114,5 +116,5 @@ fn run_cli(command: &str, extra_args: &[&str]) -> Output {
     if !output.status.success() {
         panic!("{}", String::from_utf8(output.stderr).unwrap());
     }
-    output
+    Ok(output)
 }

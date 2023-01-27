@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use crate::with_cockroach;
+use anyhow::Result;
 use bdk::database::{BatchDatabase, BatchOperations, Database, SyncTime};
 use bdk::{BlockTime, KeychainKind, LocalUtxo, TransactionDetails};
 use bitcoin::consensus::encode::deserialize;
@@ -9,7 +10,7 @@ use bitcoin::*;
 use database::wallet_database::WalletDatabase;
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_script_pubkey() {
+pub async fn test_script_pubkey() -> Result<()> {
     with_cockroach(|settings| async move {
         let mut wallet_database = WalletDatabase::new(settings).await.unwrap();
         let script = Script::from(
@@ -47,11 +48,11 @@ pub async fn test_script_pubkey() {
             .unwrap();
         assert_eq!(wallet_database.iter_script_pubkeys(None).unwrap().len(), 0);
     })
-    .await;
+    .await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_utxo() {
+pub async fn test_utxo() -> Result<()> {
     with_cockroach(|settings| async move {
         let mut wallet_database = WalletDatabase::new(settings).await.unwrap();
         let outpoint = OutPoint::from_str(
@@ -77,11 +78,11 @@ pub async fn test_utxo() {
         assert_eq!(wallet_database.iter_utxos().unwrap().len(), 1);
         assert_eq!(wallet_database.get_utxo(&outpoint).unwrap(), Some(utxo));
     })
-    .await;
+    .await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_raw_tx() {
+pub async fn test_raw_tx() -> Result<()> {
     with_cockroach(|settings| async move {
     let mut wallet_database = WalletDatabase::new(settings).await.unwrap();
     let hex_tx = Vec::<u8>::from_hex("0100000001a15d57094aa7a21a28cb20b59aab8fc7d1149a3bdbcddba9c622e4f5f6a99ece010000006c493046022100f93bb0e7d8db7bd46e40132d1f8242026e045f03a0efe71bbb8e3f475e970d790221009337cd7f1f929f00cc6ff01f03729b069a7c21b59b1736ddfee5db5946c5da8c0121033b9b137ee87d5a812d6f506efdd37f0affa7ffc310711c06c7f3e097c9447c52ffffffff0100e1f505000000001976a9140389035a9225b3839e2bbf32d826a1e222031fd888ac00000000").unwrap();
@@ -92,11 +93,11 @@ pub async fn test_raw_tx() {
     let txid = tx.txid();
 
     assert_eq!(wallet_database.get_raw_tx(&txid).unwrap(), Some(tx));
-    }).await;
+    }).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_tx() {
+pub async fn test_tx() -> Result<()> {
     with_cockroach(|settings| async move {
     let mut wallet_database = WalletDatabase::new(settings).await.unwrap();
     let hex_tx = Vec::<u8>::from_hex("0100000001a15d57094aa7a21a28cb20b59aab8fc7d1149a3bdbcddba9c622e4f5f6a99ece010000006c493046022100f93bb0e7d8db7bd46e40132d1f8242026e045f03a0efe71bbb8e3f475e970d790221009337cd7f1f929f00cc6ff01f03729b069a7c21b59b1736ddfee5db5946c5da8c0121033b9b137ee87d5a812d6f506efdd37f0affa7ffc310711c06c7f3e097c9447c52ffffffff0100e1f505000000001976a9140389035a9225b3839e2bbf32d826a1e222031fd888ac00000000").unwrap();
@@ -133,11 +134,11 @@ pub async fn test_tx() {
         wallet_database.get_tx(&tx_details.txid, false).unwrap(),
         Some(tx_details)
     );
-    }).await;
+    }).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_last_index() {
+pub async fn test_last_index() -> Result<()> {
     with_cockroach(|settings| async move {
         let mut wallet_database = WalletDatabase::new(settings).await.unwrap();
         wallet_database
@@ -179,11 +180,11 @@ pub async fn test_last_index() {
             Some(0)
         );
     })
-    .await;
+    .await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_sync_time() {
+pub async fn test_sync_time() -> Result<()> {
     with_cockroach(|settings| async move {
         let mut wallet_database = WalletDatabase::new(settings).await.unwrap();
         assert!(wallet_database.get_sync_time().unwrap().is_none());
@@ -205,5 +206,5 @@ pub async fn test_sync_time() {
         wallet_database.del_sync_time().unwrap();
         assert!(wallet_database.get_sync_time().unwrap().is_none());
     })
-    .await;
+    .await
 }

@@ -5,6 +5,7 @@ use crate::cockroach_manager::CockroachManager;
 use crate::https_client;
 use crate::manager::{Manager, Starts};
 use crate::ports::get_available_port;
+use anyhow::Result;
 use std::env::set_var;
 use std::fs;
 
@@ -17,7 +18,7 @@ pub struct KndManager {
 }
 
 impl KndManager {
-    pub async fn start(&mut self) {
+    pub async fn start(&mut self) -> Result<()> {
         self.manager.start(&self.bin_path, &[]).await
     }
 

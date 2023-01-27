@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::{
     fs::{self, File},
     io::Read,
@@ -35,7 +36,7 @@ impl Manager {
         }
     }
 
-    pub async fn start(&mut self, command: &str, args: &[&str]) {
+    pub async fn start(&mut self, command: &str, args: &[&str]) -> Result<()> {
         if self.process.is_none() {
             let path = format!("{}/test.log", self.storage_dir);
             let log_file = File::create(&path).unwrap();
@@ -48,7 +49,7 @@ impl Manager {
                 .stderr(err)
                 .args(args)
                 .spawn()
-                .unwrap();
+                .with_context(|| format!("failed to start {}", command))?;
 
             self.process = Some(child);
 
@@ -75,6 +76,7 @@ impl Manager {
                 println!("Successfully started: {}", self.instance_name);
             }
         }
+        Ok(())
     }
 
     pub fn kill(&mut self) {
