@@ -9,7 +9,7 @@
       devShells.default = pkgs.mkShell {
         packages = [
           # code formatting
-          config.packages.treefmt
+          config.treefmt.build.wrapper
 
           # tasks and automation
           pkgs.just
