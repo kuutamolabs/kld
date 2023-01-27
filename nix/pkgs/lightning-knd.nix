@@ -41,6 +41,10 @@ craneLib.buildPackage {
     inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
     cargoClippyExtraArgs = "--no-deps -- -D warnings";
   };
+  passthru.benches = craneLib.mkCargoDerivation {
+    inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+    buildPhaseCargoCommand = "cargo bench --no-run";
+  };
 
   checkInputs = [ bitcoind cockroachdb teos ];
 
