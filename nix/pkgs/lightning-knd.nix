@@ -39,7 +39,7 @@ craneLib.buildPackage {
   cargoExtraArgs = "${cargoExtraArgs} --all-targets";
   passthru.clippy = craneLib.cargoClippy {
     inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
-    cargoClippyExtraArgs = "--no-deps -- -D warnings";
+    cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
   };
   passthru.benches = craneLib.mkCargoDerivation {
     inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
