@@ -6,7 +6,7 @@
         craneLib = inputs.crane.lib.${system};
         inherit (config.packages) cockroachdb;
       };
-      bitcoind = pkgs.bitcoind.override { withWallet = false; withGui = false; };
+      bitcoind = pkgs.bitcoind.override { withGui = false; };
       cockroachdb = pkgs.callPackage ./cockroachdb.nix { };
       default = self'.packages.lightning-knd;
     };

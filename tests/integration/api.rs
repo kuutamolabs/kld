@@ -431,17 +431,20 @@ pub async fn create_api_server() -> Result<Settings> {
         MacaroonAuth::init(&[0u8; 32], &s.data_dir).context("cannot initialize macaroon auth")?,
     );
 
-    let server = bind_api_server(rest_api_address, certs_dir).await?;
-
     // Run the API with its own runtime in its own thread.
     spawn(move || {
         API_RUNTIME
-            .block_on(server.serve(
-                LIGHTNING.clone(),
-                Arc::new(MockWallet::default()),
-                macaroon_auth,
-                quit_signal().shared(),
-            ))
+            .block_on(async {
+                bind_api_server(rest_api_address, certs_dir)
+                    .await?
+                    .serve(
+                        LIGHTNING.clone(),
+                        Arc::new(MockWallet::default()),
+                        macaroon_auth,
+                        quit_signal().shared(),
+                    )
+                    .await
+            })
             .unwrap()
     });
 
@@ -477,10 +480,7 @@ fn unauthorized_request(settings: &Settings, method: Method, route: &str) -> Req
 }
 
 fn admin_request(settings: &Settings, method: Method, route: &str) -> Result<RequestBuilder> {
-    Ok(
-        unauthorized_request(settings, method, route)
-            .header("macaroon", admin_macaroon(&settings)?),
-    )
+    Ok(unauthorized_request(settings, method, route).header("macaroon", admin_macaroon(settings)?))
 }
 
 fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
@@ -495,7 +495,7 @@ fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
 
 fn readonly_request(settings: &Settings, method: Method, route: &str) -> Result<RequestBuilder> {
     Ok(unauthorized_request(settings, method, route)
-        .header("macaroon", readonly_macaroon(&settings)?))
+        .header("macaroon", readonly_macaroon(settings)?))
 }
 
 fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(

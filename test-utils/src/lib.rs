@@ -24,11 +24,6 @@ impl TestSettingsBuilder {
         TestSettingsBuilder { settings }
     }
 
-    pub fn with_node_id(mut self, node_id: &str) -> TestSettingsBuilder {
-        self.settings.node_id = node_id.to_string();
-        self
-    }
-
     pub fn with_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
         self.settings.database_port = database.port.to_string();
         self

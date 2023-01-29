@@ -8,4 +8,4 @@ mod payment_info;
 pub mod prometheus;
 pub mod wallet;
 
-pub const VERSION: &str = concat!("LYND v", env!("CARGO_PKG_VERSION"));
+pub const VERSION: &str = concat!("KND v", env!("CARGO_PKG_VERSION"));

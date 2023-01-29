@@ -72,6 +72,9 @@ in
       enable = true;
       testnet = cfg.network == "testnet";
       rpc.port = 8332;
+      extraConfig = ''
+        txindex=1
+      '';
     };
 
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ ];

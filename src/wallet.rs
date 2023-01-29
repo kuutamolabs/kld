@@ -128,7 +128,7 @@ impl Wallet {
                 file: settings.bitcoin_cookie_path.clone().into(),
             },
             network: settings.bitcoin_network,
-            wallet_name: "kln-main".to_string(),
+            wallet_name: "knd-wallet".to_string(),
             sync_params: None,
         };
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
