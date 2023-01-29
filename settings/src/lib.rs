@@ -33,6 +33,7 @@ pub struct Settings {
     pub env: String,
     #[clap(long, default_value = "9234", env = "KND_PEER_PORT")]
     pub knd_peer_port: u16,
+    /// The node alias on the lighning network.
     #[clap(long, default_value = "testnode", env = "KND_NODE_NAME")]
     pub knd_node_name: String,
     #[clap(long, default_value = "127.0.0.1:9234", env = "KND_LISTEN_ADDRESSES")]
