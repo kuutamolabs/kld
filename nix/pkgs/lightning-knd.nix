@@ -36,7 +36,7 @@ in
 craneLib.buildPackage {
   name = "lightning-knd";
   inherit src cargoArtifacts buildInputs nativeBuildInputs;
-  cargoExtraArgs = "${cargoExtraArgs} --all-targets";
+  cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib --tests";
   passthru.clippy = craneLib.cargoClippy {
     inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
     cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
