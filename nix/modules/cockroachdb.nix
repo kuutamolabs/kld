@@ -109,6 +109,7 @@ in
       {
         serviceConfig = {
           RuntimeDirectory = "cockroachdb";
+          WorkingDirectory = "/var/lib/cockroachdb";
           # for cli
           path = [ cfg.package ];
           # we need to run this as root since do not have a password yet.
