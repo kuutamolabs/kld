@@ -1,0 +1,14 @@
+# Debug nixos test interactively, i.e. `just debug-test kuutamod`
+debug-test TEST:
+  nix build ".#checks.x86_64-linux.{{TEST}}.driver" -L
+  # Now type start_all() to launch all virtual machines
+  # Type server.shell_interact() to get a shell
+  PYTHONBREAKPOINT=remote_pdb.set_trace REMOTE_PDB_HOST=127.0.0.1 REMOTE_PDB_PORT=4444 ./result/bin/nixos-test-driver
+
+# Run a single test locally
+run-test TEST:
+  nix build ".#checks.x86_64-linux.{{TEST}}" -L
+
+# To attach to a breakpoint() call of debug-test
+debug-repl:
+   socat READLINE tcp:127.0.0.1:4444,forever,interval=2

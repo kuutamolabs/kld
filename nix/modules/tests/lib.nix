@@ -14,5 +14,6 @@ in
   # This is useful for referencing modules or packages from your own flake as well as importing
   # from other flakes.
   node.specialArgs = { inherit self; };
+  _module.args = { inherit self; };
   imports = [ test ];
 }).config.result

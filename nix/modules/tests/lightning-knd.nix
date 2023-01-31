@@ -1,4 +1,4 @@
-(import ./lib.nix) {
+(import ./lib.nix) ({ self, pkgs, ... }: {
   name = "from-nixos";
   nodes = {
     # self here is set by using specialArgs in `lib.nix`
@@ -6,13 +6,21 @@
       imports = [ self.nixosModules.lightning-knd ];
     };
   };
+
+  extraPythonPackages = _p: [ self.packages.${pkgs.system}.remote-pdb ];
+
   # This test is still wip
   testScript = ''
     start_all()
 
     # wait for our service to start
-    node1.wait_for_unit("lightning-knd")
-    # FIXME: we still need to configure bitcoind so that the service can start correctly
-    #node1.wait_until_succeeds("curl -v http://127.0.0.1:2233/metrics >&2")
+    #node1.wait_for_unit("lightning-knd")
+
+    # useful for debugging
+    def remote_shell(machine):
+        machine.shell_interact("tcp:127.0.0.1:4444")
+
+    #remote_shell(machine)
+    #breakpoint()
   '';
-}
+})
