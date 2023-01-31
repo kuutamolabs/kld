@@ -87,6 +87,8 @@ in
   config = {
     services.cockroachdb.extraArgs = [
       "--socket-dir=/run/cockroachdb"
+      # disable file-based logging
+      "--log-dir="
     ];
     services.cockroachdb.enable = true;
     # TODO: setup clustering and ssl certificates.
