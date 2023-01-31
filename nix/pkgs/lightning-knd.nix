@@ -36,19 +36,25 @@ in
 craneLib.buildPackage {
   name = "lightning-knd";
   inherit src cargoArtifacts buildInputs nativeBuildInputs;
-  cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib --tests";
-  passthru.clippy = craneLib.cargoClippy {
-    inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
-    cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
-  };
-  passthru.benches = craneLib.mkCargoDerivation {
-    inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
-    buildPhaseCargoCommand = "cargo bench --no-run";
+  cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
+  passthru = {
+    clippy = craneLib.cargoClippy {
+      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+      cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
+    };
+    benches = craneLib.mkCargoDerivation {
+      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+      buildPhaseCargoCommand = "cargo bench --no-run";
+    };
+    # having the tests seperate avoids having to run them on every package change.
+    tests = craneLib.cargoTest {
+      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+      checkInputs = [ bitcoind cockroachdb teos ];
+    };
   };
 
-  checkInputs = [ bitcoind cockroachdb teos ];
-
-  doCheck = true;
+  # we run tests in a seperate package
+  doCheck = false;
 
   meta = with lib; {
     description = "HA Bitcoin Lightning Node";
