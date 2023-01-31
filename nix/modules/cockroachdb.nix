@@ -87,6 +87,8 @@ in
   config = {
     services.cockroachdb.extraArgs = [
       "--socket-dir=/run/cockroachdb"
+      # disable file-based logging
+      "--log-dir="
     ];
     services.cockroachdb.enable = true;
     # TODO: setup clustering and ssl certificates.
@@ -109,6 +111,7 @@ in
       {
         serviceConfig = {
           RuntimeDirectory = "cockroachdb";
+          WorkingDirectory = "/var/lib/cockroachdb";
           # for cli
           path = [ cfg.package ];
           # we need to run this as root since do not have a password yet.
