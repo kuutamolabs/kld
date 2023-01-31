@@ -64,7 +64,7 @@ axum = { version = "0.6.4", features = ["ws", "headers"] }
 axum-server = { version = "0.4", features = ["tls-rustls"] }
 tower-http = { version = "0.3.5", features = [ "cors" ] }
 async-trait = "0.1.63"
-clap = { version = "4.1.1", features = ["derive"] }
+clap = { version = "4.1.4", features = ["derive"] }
 reqwest = { version = "0.11", features = [ "blocking" ] }
 
 [dev-dependencies]
