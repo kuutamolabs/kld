@@ -12,3 +12,7 @@ run-test TEST:
 # To attach to a breakpoint() call of debug-test
 debug-repl:
    socat READLINE tcp:127.0.0.1:4444,forever,interval=2
+
+# To attach to a machine.shell_interact("tcp:127.0.0.1:4444") call of debug-test
+debug-shell:
+   socat 'READLINE,PROMPT=$ ' tcp-listen:4444,reuseaddr
