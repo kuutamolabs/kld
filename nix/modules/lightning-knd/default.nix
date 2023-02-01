@@ -28,8 +28,8 @@ in
       # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
       # We might however not need more than that.
       #type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
-      type = lib.types.enum [ "bitcoin" "testnet" ];
-      default = "bitcoin";
+      type = lib.types.enum [ "main" "testnet" ];
+      default = "main";
       description = lib.mdDoc "Bitcoin network to use.";
     };
 

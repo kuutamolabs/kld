@@ -1,4 +1,6 @@
-use bitcoin::Network;
+mod bitcoin_network;
+
+pub use crate::bitcoin_network::Network;
 use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]

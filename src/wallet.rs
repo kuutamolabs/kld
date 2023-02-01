@@ -13,12 +13,13 @@ use bdk::{
 };
 use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
-    Address, Network, OutPoint, Script, Transaction,
+    Address, OutPoint, Script, Transaction,
 };
 use bitcoind::Client;
 use database::wallet_database::WalletDatabase;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use log::{error, info};
+use settings::Network;
 use settings::Settings;
 
 use crate::api::WalletInterface;
@@ -93,11 +94,11 @@ impl Wallet {
         bitcoind_client: Arc<Client>,
         database: WalletDatabase,
     ) -> Result<Wallet> {
-        let xprivkey = ExtendedPrivKey::new_master(settings.bitcoin_network, seed)?;
+        let xprivkey = ExtendedPrivKey::new_master(settings.bitcoin_network.into(), seed)?;
         let native_segwit_base_path = "m/84";
 
         let coin_type = match settings.bitcoin_network {
-            Network::Bitcoin => 0,
+            Network::Main => 0,
             _ => 1,
         };
 
@@ -115,7 +116,7 @@ impl Wallet {
         let bdk_wallet = Arc::new(Mutex::new(bdk::Wallet::new(
             receive_descriptor_template,
             Some(change_descriptor_template),
-            settings.bitcoin_network,
+            settings.bitcoin_network.into(),
             database,
         )?));
 
@@ -127,7 +128,7 @@ impl Wallet {
             auth: Auth::Cookie {
                 file: settings.bitcoin_cookie_path.clone().into(),
             },
-            network: settings.bitcoin_network,
+            network: settings.bitcoin_network.into(),
             wallet_name: "knd-wallet".to_string(),
             sync_params: None,
         };
