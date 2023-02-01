@@ -864,23 +864,27 @@ impl Database for WalletDatabase {
 impl BatchDatabase for WalletDatabase {
     type Batch = WalletDatabase;
 
-    fn begin_batch(&self) -> Self::Batch {
+    fn begin_batch(&self) -> Result<Self::Batch, bdk::Error> {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 let database = WalletDatabase {
                     client: self.client.clone(),
                 };
-                database.client.batch_execute("BEGIN").await.unwrap();
-                database
+                database.client.batch_execute("BEGIN").await.map_err(|e| {
+                    bdk::Error::Generic(format!("Failed to begin SQL transaction: {}", e))
+                })?;
+                Ok(database)
             })
         })
     }
 
-    fn commit_batch(&mut self, batch: Self::Batch) -> Result<(), Error> {
+    fn commit_batch(&mut self, batch: Self::Batch) -> Result<(), bdk::Error> {
         tokio::task::block_in_place(move || {
-            Handle::current()
-                .block_on(async move { batch.client.batch_execute("COMMIT").await.unwrap() });
-        });
-        Ok(())
+            Handle::current().block_on(async move {
+                batch.client.batch_execute("COMMIT").await.map_err(|e| {
+                    bdk::Error::Generic(format!("Failed to commit SQL transaction: {}", e))
+                })
+            })
+        })
     }
 }
