@@ -105,7 +105,7 @@ in
         KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
         KND_BITCOIN_NETWORK = lib.mkDefault cfg.network;
 
-        KND_BITCOIN_RPC_HOST = lib.mkDefault "localhost";
+        KND_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KND_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
       };
       path = [
@@ -123,7 +123,7 @@ in
             bitcoin-cli \
               -datadir=${bitcoinCfg.dataDir} \
               -rpccookiefile=${bitcoinCfg.dataDir}/.cookie \
-              -rpcconnect=localhost \
+              -rpcconnect=127.0.0.1 \
               -rpcport=${toString bitcoinCfg.rpc.port} \
               -rpcwait getblockchaininfo
           install -m755 ${bitcoinCfg.dataDir}/.cookie /var/lib/lightning-knd/.cookie
