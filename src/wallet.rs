@@ -139,7 +139,7 @@ impl Wallet {
             // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
             if let Err(e) = wallet_clone
                 .lock()
-                .unwrap()
+                .expect("Cannot obtain mutex for wallet")
                 .sync(&blockchain, SyncOptions::default())
             {
                 error!("Walled sync failed: {}", e);
