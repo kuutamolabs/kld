@@ -120,11 +120,13 @@ impl Wallet {
             database,
         )?));
 
+        let url = format!(
+            "http://{}:{}",
+            settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
+        );
+
         let wallet_config = RpcConfig {
-            url: format!(
-                "http://{}:{}",
-                settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
-            ),
+            url: url.clone(),
             auth: Auth::Cookie {
                 file: settings.bitcoin_cookie_path.clone().into(),
             },
@@ -143,7 +145,7 @@ impl Wallet {
                 .expect("Cannot obtain mutex for wallet")
                 .sync(&blockchain, SyncOptions::default())
             {
-                error!("Walled sync failed: {}", e);
+                error!("Walled sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
             } else {
                 info!("Wallet sync complete.");
             }
