@@ -24,16 +24,16 @@ static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 pub async fn with_cockroach<F, Fut>(test: F) -> Result<()>
 where
     F: FnOnce(&'static Settings) -> Fut,
-    Fut: Future<Output = ()>,
+    Fut: Future<Output = Result<()>>,
 {
     let (settings, _cockroach) = cockroach().await?;
     let result = panic::AssertUnwindSafe(test(settings)).catch_unwind().await;
 
     teardown().await;
-    if let Err(e) = result {
-        panic::resume_unwind(e);
+    match result {
+        Err(e) => panic::resume_unwind(e),
+        Ok(v) => v,
     }
-    Ok(())
 }
 
 // Need to call teardown function at the end of the test if using this.
