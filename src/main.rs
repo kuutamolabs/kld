@@ -9,7 +9,7 @@ use lightning_knd::controller::Controller;
 use lightning_knd::key_generator::KeyGenerator;
 use lightning_knd::prometheus::start_prometheus_exporter;
 use lightning_knd::wallet::Wallet;
-use log::{info, warn};
+use log::info;
 use settings::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -55,21 +55,26 @@ pub fn main() -> Result<()> {
             ))
             .context("cannot connect to bitcoined")?,
     );
-    let wallet = Arc::new(Wallet::new(
-        &key_generator.wallet_seed(),
-        &settings,
-        bitcoind_client.clone(),
-        wallet_database,
-    )?);
+    let wallet = Arc::new(
+        Wallet::new(
+            &key_generator.wallet_seed(),
+            &settings,
+            bitcoind_client.clone(),
+            wallet_database,
+        )
+        .context("Cannot create wallet")?,
+    );
 
-    let (controller, background_processor) = runtime.block_on(Controller::start_ldk(
-        settings.clone(),
-        database,
-        bitcoind_client,
-        wallet.clone(),
-        key_generator.clone(),
-        shutdown_flag.clone(),
-    ))?;
+    let (controller, background_processor) = runtime
+        .block_on(Controller::start_ldk(
+            settings.clone(),
+            database,
+            bitcoind_client,
+            wallet.clone(),
+            key_generator.clone(),
+            shutdown_flag.clone(),
+        ))
+        .context("Failed to start ldk controller")?;
     let controller = Arc::new(controller);
 
     let macaroon_auth = Arc::new(MacaroonAuth::init(
@@ -87,26 +92,21 @@ pub fn main() -> Result<()> {
                 Ok(())
             },
             result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
-                if let Err(e) = result {
-                    warn!("Prometheus exporter failed: {}", e);
-                    return Err(e);
-                }
-                result
+                result.context("prometheus exporter failed")
             },
             result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
-                if let Err(e) = result {
-                    warn!("REST API failed: {}", e);
-                    return Err(e);
-                }
-                result
+                result.context("REST API failed")
             }
         )
     })?;
 
     info!("Shutting down");
     shutdown_flag.store(true, Ordering::Release);
-    background_processor.stop().unwrap();
+    let res = background_processor
+        .stop()
+        .context("could not stop background processor");
     controller.stop();
+    res?;
     runtime.shutdown_timeout(Duration::from_secs(30));
     info!("Stopped all threads. Process finished.");
     Ok(())

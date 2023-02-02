@@ -4,7 +4,7 @@ use crate::key_generator::KeyGenerator;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
 use crate::{net_utils, VERSION};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
@@ -308,7 +308,10 @@ impl Controller {
             database.clone(),
         ));
 
-        let is_first_start = database.is_first_start().await?;
+        let is_first_start = database
+            .is_first_start()
+            .await
+            .context("could not check if database has been initialized")?;
         // Initialize the KeysManager
         // The key seed that we use to derive the node privkey (that corresponds to the node pubkey) and
         // other secret key material.
@@ -364,7 +367,10 @@ impl Controller {
                     user_config,
                     channel_monitor_mut_references,
                 );
-                database.fetch_channel_manager(read_args).await?
+                database
+                    .fetch_channel_manager(read_args)
+                    .await
+                    .context("failed to query channel manage from database")?
             }
         };
 
@@ -427,7 +433,8 @@ impl Controller {
         let network_graph = Arc::new(
             database
                 .fetch_graph()
-                .await?
+                .await
+                .context("Could not query network graph from database")?
                 .unwrap_or_else(|| NetworkGraph::new(genesis, KndLogger::global())),
         );
 
