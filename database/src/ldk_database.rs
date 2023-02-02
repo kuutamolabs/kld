@@ -72,7 +72,7 @@ impl LdkDatabase {
             .client
             .read()
             .await
-            .query_opt("SELECT true FROM channel_manager", &[])
+            .query_opt("SELECT true FROM channel_manager LIMIT 1", &[])
             .await?
             .is_none())
     }
@@ -251,7 +251,7 @@ impl LdkDatabase {
             .await
             .query_one(
                 "SELECT manager \
-            FROM channel_manager",
+            FROM channel_manager LIMIT 1",
                 &[],
             )
             .await?;
