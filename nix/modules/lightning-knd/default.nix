@@ -111,8 +111,7 @@ in
       path = [
         config.services.cockroachdb.package
         bitcoinCfg.package # for cli
-        pkgs.acl
-        pkgs.coreutils
+        pkgs.util-linux # setpriv
       ];
       serviceConfig = {
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
@@ -127,9 +126,6 @@ in
               -rpcport=${toString bitcoinCfg.rpc.port} \
               -rpcwait getblockchaininfo
           install -m755 ${bitcoinCfg.dataDir}/.cookie /var/lib/lightning-knd/.cookie
-
-          # allow lightning to access unix socket
-          setfacl -m u:lightning-knd:rw /run/cockroachdb/.s.PGSQL.26257
         ''}";
         User = "lightning-knd";
         Group = "lightning-knd";
