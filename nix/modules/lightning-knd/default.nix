@@ -111,8 +111,7 @@ in
       path = [
         config.services.cockroachdb.package
         bitcoinCfg.package # for cli
-        pkgs.acl
-        pkgs.coreutils
+        pkgs.util-linux # setpriv
       ];
       serviceConfig = {
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
