@@ -17,7 +17,7 @@ aes-gcm-siv = { version = "0.11.1" }
 crypto-common = { version = "0.1.6", features = ["rand_core"] }
 anyhow = "1.0.68"
 refinery = { version = "0.8.7", features = [ "tokio-postgres" ] }
-bdk = "0.26.0"
+bdk = { git = "https://github.com/Mic92/bdk", branch = "backport-begin-batch-result" }
 serde_json = { version = "1.0" }
 async-trait = "0.1.63"
 

@@ -92,7 +92,7 @@ impl LightningInterface for Controller {
     }
 
     fn network(&self) -> bitcoin::Network {
-        self.settings.bitcoin_network
+        self.settings.bitcoin_network.into()
     }
 
     fn num_active_channels(&self) -> usize {
@@ -334,7 +334,7 @@ impl Controller {
                 let getinfo_resp = bitcoind_client.get_blockchain_info().await;
 
                 let chain_params = ChainParameters {
-                    network: settings.bitcoin_network,
+                    network: settings.bitcoin_network.into(),
                     best_block: BestBlock::new(
                         getinfo_resp.latest_blockhash,
                         getinfo_resp.latest_height as u32,
@@ -401,7 +401,7 @@ impl Controller {
             chain_tip = Some(
                 init::synchronize_listeners(
                     &mut bitcoind_client.deref(),
-                    settings.bitcoin_network,
+                    settings.bitcoin_network.into(),
                     &mut cache,
                     chain_listeners,
                 )
@@ -421,7 +421,9 @@ impl Controller {
         }
 
         // Initialize the P2PGossipSync
-        let genesis = genesis_block(settings.bitcoin_network).header.block_hash();
+        let genesis = genesis_block(settings.bitcoin_network.into())
+            .header
+            .block_hash();
         let network_graph = Arc::new(
             database
                 .fetch_graph()
@@ -503,7 +505,7 @@ impl Controller {
         let network = settings.bitcoin_network;
         tokio::spawn(async move {
             let mut derefed = bitcoind_block_source.deref();
-            let chain_poller = poll::ChainPoller::new(&mut derefed, network);
+            let chain_poller = poll::ChainPoller::new(&mut derefed, network.into());
             let chain_listener = (chain_monitor_listener, channel_manager_listener);
             let mut spv_client = SpvClient::new(
                 chain_tip.unwrap(),
@@ -528,7 +530,7 @@ impl Controller {
             keys_manager.clone(),
             inbound_payments,
             outbound_payments,
-            settings.bitcoin_network,
+            settings.bitcoin_network.into(),
             network_graph.clone(),
             wallet.clone(),
             async_api_requests.clone(),

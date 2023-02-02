@@ -18,7 +18,7 @@
 
     # useful for debugging
     def remote_shell(machine):
-        machine.shell_interact("tcp:127.0.0.1:4444")
+        machine.shell_interact("tcp:127.0.0.1:4444,forever,interval=2")
 
     #remote_shell(machine)
     #breakpoint()

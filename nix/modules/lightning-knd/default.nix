@@ -6,6 +6,7 @@
 let
   cfg = config.kuutamo.lightning-knd;
   bitcoind-instance = "lightning-knd-${cfg.network}";
+  bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
 in
 {
   options.kuutamo.lightning-knd = {
@@ -27,8 +28,8 @@ in
       # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
       # We might however not need more than that.
       #type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
-      type = lib.types.enum [ "bitcoin" "testnet" ];
-      default = "bitcoin";
+      type = lib.types.enum [ "main" "testnet" ];
+      default = "main";
       description = lib.mdDoc "Bitcoin network to use.";
     };
 
@@ -89,7 +90,11 @@ in
     # fix me, we need to wait for the database to start first
     systemd.services.lightning-knd = {
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" "cockroachdb.service" ];
+      after = [
+        "network.target"
+        "cockroachdb.service"
+        "bitcoind.service"
+      ];
       environment = {
         KND_DATABASE_HOST = lib.mkDefault "/run/cockroachdb";
         KND_DATABASE_PORT = lib.mkDefault "26257";
@@ -97,13 +102,35 @@ in
         KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
         KND_EXPORTER_ADDRESS = lib.mkDefault "127.0.0.1:2233";
         KND_REST_API_ADDRESS = lib.mkDefault "127.0.0.1:2244";
-        KND_BITCOIN_COOKIE_PATH = lib.mkDefault "${config.services.bitcoind.${bitcoind-instance}.dataDir}/.cookie";
+        KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
         KND_BITCOIN_NETWORK = lib.mkDefault cfg.network;
+
+        KND_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
+        KND_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
       };
       path = [
         config.services.cockroachdb.package
+        bitcoinCfg.package # for cli
+        pkgs.acl
+        pkgs.coreutils
       ];
       serviceConfig = {
+        ExecStartPre = "+${pkgs.writeShellScript "setup" ''
+          setpriv --reuid bitcoind-${bitcoind-instance} \
+                  --regid bitcoind-${bitcoind-instance} \
+                  --clear-groups \
+                  --inh-caps=-all -- \
+            bitcoin-cli \
+              -datadir=${bitcoinCfg.dataDir} \
+              -rpccookiefile=${bitcoinCfg.dataDir}/.cookie \
+              -rpcconnect=127.0.0.1 \
+              -rpcport=${toString bitcoinCfg.rpc.port} \
+              -rpcwait getblockchaininfo
+          install -m755 ${bitcoinCfg.dataDir}/.cookie /var/lib/lightning-knd/.cookie
+
+          # allow lightning to access unix socket
+          setfacl -m u:lightning-knd:rw /run/cockroachdb/.s.PGSQL.26257
+        ''}";
         User = "lightning-knd";
         Group = "lightning-knd";
         SupplementaryGroups = [ "cockroachdb" ];
@@ -149,8 +176,6 @@ in
         SystemCallArchitectures = "native";
         # blacklist some syscalls
         SystemCallFilter = [ "~@cpu-emulation @debug @keyring @mount @obsolete @privileged @setuid" ];
-
-        ExecStartPre = "+${pkgs.acl}/bin/setfacl -m u:lightning-knd:rw /run/cockroachdb/.s.PGSQL.26257";
         ExecStart = lib.getExe cfg.package;
       };
     };

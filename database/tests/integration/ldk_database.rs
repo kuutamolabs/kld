@@ -28,7 +28,7 @@ use crate::{create_database, with_cockroach};
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() -> Result<()> {
     with_cockroach(|settings| async move {
-        let database = LdkDatabase::new(settings).await.unwrap();
+        let database = LdkDatabase::new(settings).await?;
 
         let peer = Peer {
             public_key: random_public_key(),
@@ -37,20 +37,21 @@ pub async fn test_peers() -> Result<()> {
                 1020,
             )),
         };
-        let saved_peer = database.fetch_peer(&peer.public_key).await.unwrap();
+        let saved_peer = database.fetch_peer(&peer.public_key).await?;
         assert_eq!(None, saved_peer);
 
-        database.persist_peer(&peer).await.unwrap();
+        database.persist_peer(&peer).await?;
 
-        let saved_peer = database.fetch_peer(&peer.public_key).await.unwrap();
+        let saved_peer = database.fetch_peer(&peer.public_key).await?;
         assert_eq!(peer, saved_peer.unwrap());
 
-        let peers = database.fetch_peers().await.unwrap();
+        let peers = database.fetch_peers().await?;
         assert!(peers.contains(&peer));
 
         database.delete_peer(&peer).await;
-        let peers = database.fetch_peers().await.unwrap();
+        let peers = database.fetch_peers().await?;
         assert!(!peers.contains(&peer));
+        Ok(())
     })
     .await
 }
@@ -60,12 +61,8 @@ pub async fn test_peers() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_channel_monitors() -> Result<()> {
     with_cockroach(|settings| async move {
-        let database_0 = LdkDatabase::new(&create_database(settings, "test1").await)
-            .await
-            .unwrap();
-        let database_1 = LdkDatabase::new(&create_database(settings, "test2").await)
-            .await
-            .unwrap();
+        let database_0 = LdkDatabase::new(&create_database(settings, "test1").await).await?;
+        let database_1 = LdkDatabase::new(&create_database(settings, "test2").await).await?;
 
         // Create the nodes, giving them data databases.
         let chanmon_cfgs = create_chanmon_cfgs(2);
@@ -95,13 +92,11 @@ pub async fn test_channel_monitors() -> Result<()> {
         // open.
         let mut persisted_chan_data_0 = database_0
             .fetch_channel_monitors(nodes[0].keys_manager)
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(persisted_chan_data_0.len(), 0);
         let mut persisted_chan_data_1 = database_1
             .fetch_channel_monitors(nodes[0].keys_manager)
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(persisted_chan_data_1.len(), 0);
 
         // Helper to make sure the channel is on the expected update ID.
@@ -179,6 +174,7 @@ pub async fn test_channel_monitors() -> Result<()> {
 
         // Make sure everything is persisted as expected after close.
         check_persisted_data!(11);
+        Ok(())
     })
     .await
 }
@@ -186,7 +182,7 @@ pub async fn test_channel_monitors() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_network_graph() -> Result<()> {
     with_cockroach(|settings| async move {
-        let database = LdkDatabase::new(settings).await.unwrap();
+        let database = LdkDatabase::new(settings).await?;
 
         let network_graph = Arc::new(NetworkGraph::new(
             BlockHash::all_zeros(),
@@ -201,8 +197,7 @@ pub async fn test_network_graph() -> Result<()> {
             Arc<Client>,
             Arc<KndLogger>,
             TestScorer,
-        >>::persist_graph(&database, &network_graph)
-        .unwrap();
+        >>::persist_graph(&database, &network_graph)?;
         assert!(database.fetch_graph().await.unwrap().is_some());
 
         let scorer = Mutex::new(ProbabilisticScorer::new(
@@ -218,16 +213,15 @@ pub async fn test_network_graph() -> Result<()> {
             Arc<Client>,
             Arc<KndLogger>,
             TestScorer,
-        >>::persist_scorer(&database, &scorer)
-        .unwrap();
+        >>::persist_scorer(&database, &scorer)?;
         assert!(database
             .fetch_scorer(
                 ProbabilisticScoringParameters::default(),
                 network_graph.clone()
             )
-            .await
-            .unwrap()
+            .await?
             .is_some());
+        Ok(())
     })
     .await
 }
