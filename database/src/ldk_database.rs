@@ -321,8 +321,8 @@ where
         let mut buf = vec![];
         channel_manager.write(&mut buf).unwrap();
         block_in_place!(
-            "UPSERT INTO channel_manager (manager, timestamp) \
-            VALUES ($1, CURRENT_TIMESTAMP)",
+            "UPSERT INTO channel_manager (id, manager, timestamp) \
+            VALUES ('manager', $1, CURRENT_TIMESTAMP)",
             &[&buf],
             self
         );
@@ -336,8 +336,8 @@ where
         let mut buf = vec![];
         network_graph.write(&mut buf).unwrap();
         block_in_place!(
-            "UPSERT INTO network_graph (graph, timestamp)
-            VALUES ($1, CURRENT_TIMESTAMP)",
+            "UPSERT INTO network_graph (id, graph, timestamp)
+            VALUES ('graph', $1, CURRENT_TIMESTAMP)",
             &[&buf],
             self
         );
@@ -348,8 +348,8 @@ where
         let mut buf = vec![];
         scorer.write(&mut buf).unwrap();
         block_in_place!(
-            "UPSERT INTO scorer (scorer, timestamp)
-            VALUES ($1, CURRENT_TIMESTAMP)",
+            "UPSERT INTO scorer (id, scorer, timestamp)
+            VALUES ('scorer', $1, CURRENT_TIMESTAMP)",
             &[&buf],
             self
         );

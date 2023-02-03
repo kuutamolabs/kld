@@ -25,7 +25,7 @@ impl Manager {
     ) -> Self {
         let instance_name = format!("{}_{}", name, node_index);
         let storage_dir = format!("{}/{}", output_dir, instance_name);
-        fs::remove_dir_all(&storage_dir).unwrap_or_default();
+        let _ = fs::remove_dir_all(&storage_dir);
         fs::create_dir_all(&storage_dir).unwrap();
 
         Manager {
