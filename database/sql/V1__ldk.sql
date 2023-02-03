@@ -1,13 +1,14 @@
 CREATE TABLE channel_manager (
-    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp(),
-    manager         BYTES NOT NULL
+    id              BYTES PRIMARY KEY,
+    manager         BYTES NOT NULL,
+    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp()
 );
 
 CREATE TABLE channel_monitors (
     out_point       BYTES NOT NULL,
     update_id       INT NOT NULL,
-    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp(),
     monitor         BYTES NOT NULL,
+    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp(),
     PRIMARY KEY ( out_point )
 );
 
@@ -20,13 +21,15 @@ CREATE TABLE channel_monitor_updates (
 );
 
 CREATE TABLE network_graph (
-    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp(),
-    graph           BYTES NOT NULL
+    id              BYTES PRIMARY KEY,
+    graph           BYTES NOT NULL,
+    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp()
 );
 
 CREATE TABLE scorer (
-    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp(),
-    scorer          BYTES NOT NULL
+    id              BYTES PRIMARY KEY,
+    scorer          BYTES NOT NULL,
+    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp()
 );
 
 CREATE TABLE peers (

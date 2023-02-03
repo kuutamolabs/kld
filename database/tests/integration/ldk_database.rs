@@ -14,7 +14,7 @@ use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::Filter;
 use lightning::ln::{channelmanager, functional_test_utils::*};
-use lightning::routing::gossip::NetworkGraph;
+use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::events::{ClosureReason, MessageSendEventsProvider};
 use lightning::util::persist::Persister;
@@ -189,31 +189,71 @@ pub async fn test_network_graph() -> Result<()> {
             KndLogger::global(),
         ));
         // how to make this less verbose?
-        <LdkDatabase as Persister<
-            '_,
-            Arc<KndTestChainMonitor>,
-            Arc<Client>,
-            Arc<KeysManager>,
-            Arc<Client>,
-            Arc<KndLogger>,
-            TestScorer,
-        >>::persist_graph(&database, &network_graph)?;
+        let persist = |database, network_graph| {
+            <LdkDatabase as Persister<
+                '_,
+                Arc<KndTestChainMonitor>,
+                Arc<Client>,
+                Arc<KeysManager>,
+                Arc<Client>,
+                Arc<KndLogger>,
+                TestScorer,
+            >>::persist_graph(database, network_graph)
+        };
+
+        persist(&database, &network_graph)?;
         assert!(database.fetch_graph().await.unwrap().is_some());
 
+        network_graph.set_last_rapid_gossip_sync_timestamp(10);
+        persist(&database, &network_graph)?;
+        assert!(database.fetch_graph().await.unwrap().is_some());
+
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+pub async fn test_scorer() -> Result<()> {
+    with_cockroach(|settings| async move {
+        let database = LdkDatabase::new(settings).await?;
+
+        let network_graph = Arc::new(NetworkGraph::new(
+            BlockHash::all_zeros(),
+            KndLogger::global(),
+        ));
         let scorer = Mutex::new(ProbabilisticScorer::new(
             ProbabilisticScoringParameters::default(),
             network_graph.clone(),
             KndLogger::global(),
         ));
-        <LdkDatabase as Persister<
-            '_,
-            Arc<KndTestChainMonitor>,
-            Arc<Client>,
-            Arc<KeysManager>,
-            Arc<Client>,
-            Arc<KndLogger>,
-            TestScorer,
-        >>::persist_scorer(&database, &scorer)?;
+        let persist = |database, scorer| {
+            <LdkDatabase as Persister<
+                '_,
+                Arc<KndTestChainMonitor>,
+                Arc<Client>,
+                Arc<KeysManager>,
+                Arc<Client>,
+                Arc<KndLogger>,
+                TestScorer,
+            >>::persist_scorer(database, scorer)
+        };
+
+        persist(&database, &scorer)?;
+        assert!(database
+            .fetch_scorer(
+                ProbabilisticScoringParameters::default(),
+                network_graph.clone()
+            )
+            .await?
+            .is_some());
+
+        scorer
+            .lock()
+            .unwrap()
+            .add_banned(&NodeId::from_pubkey(&random_public_key()));
+
+        persist(&database, &scorer)?;
         assert!(database
             .fetch_scorer(
                 ProbabilisticScoringParameters::default(),
