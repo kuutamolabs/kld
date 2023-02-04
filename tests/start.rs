@@ -30,6 +30,7 @@ pub async fn test_start() -> Result<()> {
             &Address::from_str("2N4eQYCbKUHCCTUjBJeHcJp9ok6J2GZsTDt").unwrap(),
         )
         .await;
+    bitcoin_client.wait_for_blockchain_synchronisation().await;
 
     let mut teos = teos!(&bitcoin);
     teos.start().await?;

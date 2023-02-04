@@ -55,6 +55,8 @@ pub fn main() -> Result<()> {
             ))
             .context("cannot connect to bitcoined")?,
     );
+    runtime.block_on(bitcoind_client.wait_for_blockchain_synchronisation());
+
     let wallet = Arc::new(
         Wallet::new(
             &key_generator.wallet_seed(),

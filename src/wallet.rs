@@ -47,11 +47,7 @@ impl WalletInterface for Wallet {
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<Transaction> {
-        let height = self
-            .bitcoind_client
-            .get_blockchain_info()
-            .await
-            .latest_height as u32;
+        let height = self.bitcoind_client.get_blockchain_info().await.blocks as u32;
 
         match self.wallet.try_lock() {
             Ok(wallet) => {

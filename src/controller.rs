@@ -88,7 +88,7 @@ impl LightningInterface for Controller {
         let info = tokio::task::block_in_place(move || {
             Handle::current().block_on(self.bitcoind_client.get_blockchain_info())
         });
-        info.latest_height
+        info.blocks
     }
 
     fn network(&self) -> bitcoin::Network {
@@ -339,8 +339,8 @@ impl Controller {
                 let chain_params = ChainParameters {
                     network: settings.bitcoin_network.into(),
                     best_block: BestBlock::new(
-                        getinfo_resp.latest_blockhash,
-                        getinfo_resp.latest_height as u32,
+                        getinfo_resp.best_block_hash,
+                        getinfo_resp.blocks as u32,
                     ),
                 };
                 let new_channel_manager = channelmanager::ChannelManager::new(
@@ -352,7 +352,7 @@ impl Controller {
                     user_config,
                     chain_params,
                 );
-                (getinfo_resp.latest_blockhash, new_channel_manager)
+                (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
                 let mut channel_monitor_mut_references = Vec::new();
                 for (_, channel_monitor) in channelmonitors.iter_mut() {

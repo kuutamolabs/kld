@@ -17,7 +17,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct Client {
     bitcoind_rpc_client: Arc<RpcClient>,
@@ -87,6 +87,29 @@ impl Client {
             bitcoind_rpc_host, bitcoind_rpc_port
         );
         Ok(client)
+    }
+
+    pub async fn wait_for_blockchain_synchronisation(&self) {
+        info!("Waiting for blockchain synchronisation.");
+        let one_week = 60 * 60 * 24 * 7;
+        loop {
+            let info = self.get_blockchain_info().await;
+            let one_week_ago = SystemTime::now()
+                .checked_sub(Duration::from_secs(one_week))
+                .unwrap()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            if info.blocks == info.headers
+                && info.mediantime as u64 > one_week_ago
+                // Its rare to see 100% verification.
+                && info.verification_progress > 0.99
+            {
+                return;
+            }
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        }
     }
 
     fn get_new_rpc_client(
