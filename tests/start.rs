@@ -1,4 +1,8 @@
-use std::{str::FromStr, time::Duration};
+use std::{
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use anyhow::Result;
 use api::{routes, GetInfo};
@@ -21,6 +25,7 @@ pub async fn test_start() -> Result<()> {
         "127.0.0.1".to_string(),
         bitcoin.rpc_port,
         bitcoin.cookie_path(),
+        Arc::new(AtomicBool::new(false)),
     )
     .await
     .unwrap();

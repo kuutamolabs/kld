@@ -52,6 +52,7 @@ pub fn main() -> Result<()> {
                 settings.bitcoind_rpc_host.clone(),
                 settings.bitcoind_rpc_port,
                 settings.bitcoin_cookie_path.clone(),
+                shutdown_flag.clone(),
             ))
             .context("cannot connect to bitcoined")?,
     );
