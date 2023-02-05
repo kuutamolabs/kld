@@ -52,9 +52,12 @@ pub fn main() -> Result<()> {
                 settings.bitcoind_rpc_host.clone(),
                 settings.bitcoind_rpc_port,
                 settings.bitcoin_cookie_path.clone(),
+                shutdown_flag.clone(),
             ))
             .context("cannot connect to bitcoined")?,
     );
+    runtime.block_on(bitcoind_client.wait_for_blockchain_synchronisation());
+
     let wallet = Arc::new(
         Wallet::new(
             &key_generator.wallet_seed(),

@@ -7,6 +7,7 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
+    bitcoincore_rpc::{bitcoincore_rpc_json::ScanningDetails, RpcApi},
     blockchain::{rpc::Auth, ConfigurableBlockchain, RpcBlockchain, RpcConfig},
     wallet::AddressInfo,
     Balance, FeeRate, SignOptions, SyncOptions,
@@ -47,11 +48,7 @@ impl WalletInterface for Wallet {
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<Transaction> {
-        let height = self
-            .bitcoind_client
-            .get_blockchain_info()
-            .await
-            .latest_height as u32;
+        let height = self.bitcoind_client.get_blockchain_info().await.blocks as u32;
 
         match self.wallet.try_lock() {
             Ok(wallet) => {
@@ -136,20 +133,31 @@ impl Wallet {
         };
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
 
-        info!("Syncing wallet to blockchain.");
-        let wallet_clone = bdk_wallet.clone();
-        tokio::task::spawn_blocking(move || {
-            // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
-            if let Err(e) = wallet_clone
-                .lock()
-                .expect("Cannot obtain mutex for wallet")
-                .sync(&blockchain, SyncOptions::default())
-            {
-                error!("Walled sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
-            } else {
-                info!("Wallet sync complete.");
+        match blockchain.get_wallet_info()?.scanning {
+            Some(ScanningDetails::Scanning { duration, progress }) => {
+                info!(
+                    "Wallet is synchronising with the blockchain. {}% progress after {} seconds.",
+                    (progress * 100_f32).round(),
+                    duration
+                );
             }
-        });
+            _ => {
+                info!("Syncing wallet to blockchain.");
+                let wallet_clone = bdk_wallet.clone();
+                tokio::task::spawn_blocking(move || {
+                    // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
+                    if let Err(e) = wallet_clone
+                        .lock()
+                        .expect("Cannot obtain mutex for wallet")
+                        .sync(&blockchain, SyncOptions::default())
+                    {
+                        error!("Walled sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
+                    } else {
+                        info!("Wallet sync complete.");
+                    }
+                });
+            }
+        };
 
         Ok(Wallet {
             wallet: bdk_wallet,

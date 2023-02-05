@@ -15,13 +15,14 @@ use serde_json::{self, json};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct Client {
     bitcoind_rpc_client: Arc<RpcClient>,
     fees: Arc<HashMap<Target, AtomicU32>>,
+    shutdown_flag: Arc<AtomicBool>,
 }
 
 #[derive(Clone, Eq, Hash, PartialEq)]
@@ -64,6 +65,7 @@ impl Client {
         bitcoind_rpc_host: String,
         bitcoind_rpc_port: u16,
         bitcoin_cookie_path: String,
+        shutdown_flag: Arc<AtomicBool>,
     ) -> Result<Self> {
         let bitcoind_rpc_client = Client::get_new_rpc_client(
             bitcoind_rpc_host.clone(),
@@ -80,13 +82,41 @@ impl Client {
         let client = Self {
             bitcoind_rpc_client: Arc::new(bitcoind_rpc_client),
             fees: Arc::new(fees),
+            shutdown_flag: shutdown_flag.clone(),
         };
-        Client::poll_for_fee_estimates(client.fees.clone(), client.bitcoind_rpc_client.clone());
+        Client::poll_for_fee_estimates(
+            client.fees.clone(),
+            client.bitcoind_rpc_client.clone(),
+            shutdown_flag,
+        );
         info!(
             "Connected to bitcoind at {}:{}",
             bitcoind_rpc_host, bitcoind_rpc_port
         );
         Ok(client)
+    }
+
+    pub async fn wait_for_blockchain_synchronisation(&self) {
+        info!("Waiting for blockchain synchronisation.");
+        let one_week = 60 * 60 * 24 * 7;
+        while !self.shutdown_flag.load(Ordering::SeqCst) {
+            let info = self.get_blockchain_info().await;
+            let one_week_ago = SystemTime::now()
+                .checked_sub(Duration::from_secs(one_week))
+                .unwrap()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            if info.blocks == info.headers
+                && info.mediantime as u64 > one_week_ago
+                // Its rare to see 100% verification.
+                && info.verification_progress > 0.99
+            {
+                return;
+            }
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        }
     }
 
     fn get_new_rpc_client(
@@ -112,9 +142,13 @@ impl Client {
         RpcClient::new(&credentials, http_endpoint).context("failed to create rpc client")
     }
 
-    fn poll_for_fee_estimates(fees: Arc<HashMap<Target, AtomicU32>>, rpc_client: Arc<RpcClient>) {
+    fn poll_for_fee_estimates(
+        fees: Arc<HashMap<Target, AtomicU32>>,
+        rpc_client: Arc<RpcClient>,
+        shutdown_flag: Arc<AtomicBool>,
+    ) {
         tokio::spawn(async move {
-            loop {
+            while !shutdown_flag.load(Ordering::SeqCst) {
                 let background_estimate = {
                     let background_conf_target = json!(144);
                     let background_estimate_mode = json!("ECONOMICAL");
