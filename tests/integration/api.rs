@@ -1,8 +1,8 @@
-use std::sync::RwLock;
 use std::thread::spawn;
+use std::time::Duration;
 use std::{fs, sync::Arc};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use axum::http::HeaderValue;
 use futures::FutureExt;
 use hex::ToHex;
@@ -24,6 +24,7 @@ use api::{
     Peer, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
+use tokio::sync::RwLock;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
@@ -403,22 +404,13 @@ fn fund_channel_request() -> FundChannel {
 
 static API_RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-static API_SETTINGS: RwLock<Option<Settings>> = RwLock::new(None);
+static API_SETTINGS: Lazy<RwLock<Option<Settings>>> = Lazy::new(|| RwLock::new(None));
 
 pub async fn create_api_server() -> Result<Settings> {
-    let mut settings = match API_SETTINGS.write() {
-        Ok(s) => s,
-        Err(e) => bail!("failed to lock API_SETTINGS singleton: {}", e),
-    };
+    let mut settings = API_SETTINGS.write().await;
     if settings.is_some() {
         drop(settings); // release lock
-        return Ok(API_SETTINGS
-            .read()
-            .as_ref()
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .clone());
+        return Ok(API_SETTINGS.read().await.as_ref().unwrap().clone());
     }
     KndLogger::init("test", log::LevelFilter::Info);
     let s = TestSettingsBuilder::new()
@@ -448,15 +440,16 @@ pub async fn create_api_server() -> Result<Settings> {
             .unwrap()
     });
 
+    while send(readonly_request(&s, Method::GET, routes::ROOT)?)
+        .await
+        .0
+        .is_err()
+    {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
     *settings = Some(s);
     drop(settings); // release lock
-    Ok(API_SETTINGS
-        .read()
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .clone())
+    Ok(API_SETTINGS.read().await.as_ref().unwrap().clone())
 }
 
 // TODO: those should be read only once when parsing settings...
