@@ -4,7 +4,7 @@ use crate::key_generator::KeyGenerator;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
 use crate::{net_utils, VERSION};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
@@ -33,7 +33,7 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
-use log::{error, warn};
+use log::{error, info, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
@@ -176,10 +176,9 @@ impl LightningInterface for Controller {
         public_key: PublicKey,
         socket_addr: Option<SocketAddr>,
     ) -> Result<()> {
-        socket_addr.ok_or_else(|| anyhow!("Need a socket address for peer"))?;
         Ok(connect_peer(
             public_key,
-            socket_addr.expect("Need a socket address"),
+            socket_addr.context("Need a socket address for peer")?,
             self.peer_manager.clone(),
         )
         .await?)
@@ -666,29 +665,17 @@ async fn connect_peer(
     peer_addr: SocketAddr,
     peer_manager: Arc<PeerManager>,
 ) -> Result<()> {
-    match lightning_net_tokio::connect_outbound(peer_manager.clone(), public_key, peer_addr).await {
-        Some(connection_closed_future) => {
-            let mut connection_closed_future = Box::pin(connection_closed_future);
-            loop {
-                match futures::poll!(&mut connection_closed_future) {
-                    std::task::Poll::Ready(_) => {
-                        bail!("Could not connect to peer");
-                    }
-                    std::task::Poll::Pending => {}
-                }
-                // Avoid blocking the tokio context by sleeping a bit
-                match peer_manager
-                    .get_peer_node_ids()
-                    .iter()
-                    .find(|id| **id == public_key)
-                {
-                    Some(_) => return Ok(()),
-                    None => tokio::time::sleep(Duration::from_millis(10)).await,
-                }
-            }
-        }
-        None => bail!("Could not connect to peer"),
-    }
+    let connection_closed =
+        lightning_net_tokio::connect_outbound(peer_manager.clone(), public_key, peer_addr)
+            .await
+            .context("Could not connect to peer {public_key}@{peer_addr}")?;
+
+    info!("Connected to peer {public_key}@{peer_addr}");
+    tokio::spawn(async move {
+        connection_closed.await;
+        info!("Disconnected from peer {public_key}@{peer_addr}");
+    });
+    Ok(())
 }
 
 type ChainMonitor = chainmonitor::ChainMonitor<
