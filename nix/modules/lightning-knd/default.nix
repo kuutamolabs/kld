@@ -23,7 +23,12 @@ in
         Lightning-knd package to use
       '';
     };
-
+    logLevel = lib.mkOption {
+      type = lib.types.enum [ "info" "debug" "trace" ];
+      default = "info";
+      example = "debug";
+      description = lib.mdDoc "Log level for lightning-knd";
+    };
     network = lib.mkOption {
       # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
       # We might however not need more than that.
@@ -96,6 +101,7 @@ in
         "bitcoind.service"
       ];
       environment = {
+        KND_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KND_DATABASE_HOST = lib.mkDefault "/run/cockroachdb";
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
