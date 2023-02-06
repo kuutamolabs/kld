@@ -1,5 +1,5 @@
 use crate::{connection, to_i64, Client};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Txid};
@@ -36,7 +36,9 @@ macro_rules! block_in_place {
         tokio::task::block_in_place(move || {
             $self.runtime.block_on(async move {
                 $self
-                    .client
+                    .client()
+                    .await
+                    .unwrap()
                     .read()
                     .await
                     .execute($statement, $params)
@@ -48,7 +50,8 @@ macro_rules! block_in_place {
 }
 
 pub struct LdkDatabase {
-    pub(crate) client: Arc<RwLock<Client>>,
+    settings: Settings,
+    client: Arc<RwLock<Client>>,
     runtime: Handle,
 }
 
@@ -62,14 +65,29 @@ impl LdkDatabase {
         let client = Arc::new(RwLock::new(client));
 
         Ok(LdkDatabase {
+            settings: settings.clone(),
             client,
             runtime: Handle::current(),
         })
     }
 
+    /// Try to reconnect to the database if the connection has been dropped.
+    /// If this is not possible one of the callers of this function should shut the node down.
+    async fn client(&self) -> Result<Arc<RwLock<Client>>> {
+        if self.client.read().await.is_closed() {
+            let mut guard = self.client.write().await;
+            if guard.is_closed() {
+                let client = connection(&self.settings).await?;
+                *guard = client;
+            }
+        }
+        Ok(self.client.clone())
+    }
+
     pub async fn is_first_start(&self) -> Result<bool> {
         Ok(self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query_opt("SELECT true FROM channel_manager", &[])
@@ -78,7 +96,8 @@ impl LdkDatabase {
     }
 
     pub async fn persist_peer(&self, peer: &Peer) -> Result<()> {
-        self.client
+        self.client()
+            .await?
             .read()
             .await
             .execute(
@@ -96,7 +115,8 @@ impl LdkDatabase {
     pub async fn fetch_peer(&self, public_key: &PublicKey) -> Result<Option<Peer>> {
         debug!("Fetching peer from database");
         let peer = self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query_opt(
@@ -119,7 +139,8 @@ impl LdkDatabase {
         debug!("Fetching peers from database");
         let mut peers = Vec::new();
         for row in self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query("SELECT * FROM peers", &[])
@@ -136,8 +157,9 @@ impl LdkDatabase {
         Ok(peers)
     }
 
-    pub async fn delete_peer(&self, peer: &Peer) {
-        self.client
+    pub async fn delete_peer(&self, peer: &Peer) -> Result<()> {
+        self.client()
+            .await?
             .read()
             .await
             .execute(
@@ -148,8 +170,8 @@ impl LdkDatabase {
                     &peer.socket_addr.to_string().as_bytes(),
                 ],
             )
-            .await
-            .unwrap();
+            .await?;
+        Ok(())
     }
 
     pub async fn fetch_channel_monitors<Signer: Sign, K: Deref>(
@@ -164,7 +186,8 @@ impl LdkDatabase {
         //		F::Target: FeeEstimator,
     {
         let rows = self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query(
@@ -172,8 +195,7 @@ impl LdkDatabase {
             FROM channel_monitors",
                 &[],
             )
-            .await
-            .unwrap();
+            .await?;
         let mut monitors: Vec<(BlockHash, ChannelMonitor<Signer>)> = vec![];
         for row in rows {
             let out_point: Vec<u8> = row.get("out_point");
@@ -246,7 +268,8 @@ impl LdkDatabase {
         <L as Deref>::Target: Logger,
     {
         let row = self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query_one(
@@ -256,18 +279,14 @@ impl LdkDatabase {
             )
             .await?;
         let manager: Vec<u8> = row.get("manager");
-        Ok(
-            <(BlockHash, ChannelManager<M, T, K, F, L>)>::read(
-                &mut Cursor::new(manager),
-                read_args,
-            )
-            .unwrap(),
-        )
+        <(BlockHash, ChannelManager<M, T, K, F, L>)>::read(&mut Cursor::new(manager), read_args)
+            .map_err(|e| anyhow!(e.to_string()))
     }
 
     pub async fn fetch_graph(&self) -> Result<Option<NetworkGraph<Arc<KndLogger>>>> {
         let graph = self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query_opt("SELECT graph FROM network_graph", &[])
@@ -287,7 +306,8 @@ impl LdkDatabase {
     ) -> Result<Option<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, Arc<KndLogger>>>>
     {
         let scorer = self
-            .client
+            .client()
+            .await?
             .read()
             .await
             .query_opt("SELECT scorer FROM scorer", &[])

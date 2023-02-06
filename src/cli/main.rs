@@ -42,7 +42,7 @@ enum Command {
     ListPeers,
     /// Connect with a network peer.
     ConnectPeer {
-        /// The public key of the node to connect to.
+        /// The public key (id) of the node to connect to. Optionally provide host and port [id@host:port].
         #[arg(long)]
         public_key: String,
     },

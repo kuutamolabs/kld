@@ -10,14 +10,18 @@ use bitcoin::consensus::encode::{deserialize, serialize};
 use bitcoin::{OutPoint, Script, Transaction, TxOut, Txid};
 use log::info;
 use settings::Settings;
-use tokio::runtime::Handle;
+use tokio::{runtime::Handle, sync::RwLock};
 
 macro_rules! execute_blocking {
     ($statement: literal, $params: expr, $self: expr) => {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 $self
-                    .client
+                    .client()
+                    .await
+                    .map_err(|e| Error::Generic(e.to_string()))?
+                    .read()
+                    .await
                     .execute($statement, $params)
                     .await
                     .map_err(|e| Error::Generic(e.to_string()))
@@ -31,7 +35,11 @@ macro_rules! query_blocking {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 $self
-                    .client
+                    .client()
+                    .await
+                    .map_err(|e| Error::Generic(e.to_string()))?
+                    .read()
+                    .await
                     .query($statement, $params)
                     .await
                     .map_err(|e| Error::Generic(e.to_string()))
@@ -42,7 +50,8 @@ macro_rules! query_blocking {
 
 #[derive(Clone)]
 pub struct WalletDatabase {
-    client: Arc<Client>,
+    settings: Settings,
+    client: Arc<RwLock<Client>>,
 }
 
 impl WalletDatabase {
@@ -53,8 +62,22 @@ impl WalletDatabase {
         );
         let client = connection(settings).await?;
         Ok(WalletDatabase {
-            client: Arc::new(client),
+            settings: settings.clone(),
+            client: Arc::new(RwLock::new(client)),
         })
+    }
+
+    /// Try to reconnect to the database if the connection has been dropped.
+    /// If this is not possible one of the callers of this function should shut the node down.
+    async fn client(&self) -> Result<Arc<RwLock<Client>>> {
+        if self.client.read().await.is_closed() {
+            let mut guard = self.client.write().await;
+            if guard.is_closed() {
+                let client = connection(&self.settings).await?;
+                *guard = client;
+            }
+        }
+        Ok(self.client.clone())
     }
 
     fn insert_script_pubkey(
@@ -864,26 +887,44 @@ impl Database for WalletDatabase {
 impl BatchDatabase for WalletDatabase {
     type Batch = WalletDatabase;
 
-    fn begin_batch(&self) -> Result<Self::Batch, bdk::Error> {
+    fn begin_batch(&self) -> Result<Self::Batch, Error> {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 let database = WalletDatabase {
-                    client: self.client.clone(),
+                    settings: self.settings.clone(),
+                    client: self
+                        .client()
+                        .await
+                        .map_err(|e| Error::Generic(e.to_string()))?,
                 };
-                database.client.batch_execute("BEGIN").await.map_err(|e| {
-                    bdk::Error::Generic(format!("Failed to begin SQL transaction: {}", e))
-                })?;
+                database
+                    .client()
+                    .await
+                    .map_err(|e| Error::Generic(e.to_string()))?
+                    .read()
+                    .await
+                    .batch_execute("BEGIN")
+                    .await
+                    .map_err(|e| {
+                        Error::Generic(format!("Failed to begin SQL transaction: {}", e))
+                    })?;
                 Ok(database)
             })
         })
     }
 
-    fn commit_batch(&mut self, batch: Self::Batch) -> Result<(), bdk::Error> {
+    fn commit_batch(&mut self, batch: Self::Batch) -> Result<(), Error> {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
-                batch.client.batch_execute("COMMIT").await.map_err(|e| {
-                    bdk::Error::Generic(format!("Failed to commit SQL transaction: {}", e))
-                })
+                batch
+                    .client()
+                    .await
+                    .map_err(|e| Error::Generic(e.to_string()))?
+                    .read()
+                    .await
+                    .batch_execute("COMMIT")
+                    .await
+                    .map_err(|e| Error::Generic(format!("Failed to commit SQL transaction: {}", e)))
             })
         })
     }

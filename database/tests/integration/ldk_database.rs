@@ -48,7 +48,7 @@ pub async fn test_peers() -> Result<()> {
         let peers = database.fetch_peers().await?;
         assert!(peers.contains(&peer));
 
-        database.delete_peer(&peer).await;
+        database.delete_peer(&peer).await?;
         let peers = database.fetch_peers().await?;
         assert!(!peers.contains(&peer));
         Ok(())

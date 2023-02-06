@@ -29,6 +29,11 @@ in
       example = "debug";
       description = lib.mdDoc "Log level for lightning-knd";
     };
+    peerPort = lib.mkOption {
+      type = lib.types.port;
+      default = 9234;
+      description = lib.mdDoc "Port to listen for lightning peer connections";
+    };
     network = lib.mkOption {
       # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
       # We might however not need more than that.
@@ -102,6 +107,7 @@ in
       ];
       environment = {
         KND_LOG_LEVEL = lib.mkDefault cfg.logLevel;
+        KND_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KND_DATABASE_HOST = lib.mkDefault "/run/cockroachdb";
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
