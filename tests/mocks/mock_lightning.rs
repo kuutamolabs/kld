@@ -158,7 +158,7 @@ impl LightningInterface for MockLightning {
     async fn list_peers(&self) -> Result<Vec<Peer>> {
         Ok(vec![Peer {
             public_key: PublicKey::from_str(TEST_PUBLIC_KEY).unwrap(),
-            socked_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
             status: PeerStatus::Connected,
             alias: "test".to_string(),
         }])
@@ -172,5 +172,7 @@ impl LightningInterface for MockLightning {
         Ok(())
     }
 
-    fn disconnect_peer(&self, _public_key: PublicKey) {}
+    async fn disconnect_peer(&self, _public_key: PublicKey) -> Result<()> {
+        Ok(())
+    }
 }

@@ -157,18 +157,15 @@ impl LdkDatabase {
         Ok(peers)
     }
 
-    pub async fn delete_peer(&self, peer: &Peer) -> Result<()> {
+    pub async fn delete_peer(&self, public_key: &PublicKey) -> Result<()> {
         self.client()
             .await?
             .read()
             .await
             .execute(
                 "DELETE FROM peers \
-            WHERE public_key = $1 AND address = $2",
-                &[
-                    &peer.public_key.encode(),
-                    &peer.socket_addr.to_string().as_bytes(),
-                ],
+            WHERE public_key = $1",
+                &[&public_key.encode()],
             )
             .await?;
         Ok(())

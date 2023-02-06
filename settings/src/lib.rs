@@ -33,11 +33,13 @@ pub struct Settings {
     pub log_level: String,
     #[clap(long, default_value = "test", env = "KND_ENV")]
     pub env: String,
+    /// The port to listen to new peer connections on.
     #[clap(long, default_value = "9234", env = "KND_PEER_PORT")]
     pub knd_peer_port: u16,
     /// The node alias on the lighning network.
     #[clap(long, default_value = "testnode", env = "KND_NODE_NAME")]
     pub knd_node_name: String,
+    /// Listen addresses to broadcast to the lightning network.
     #[clap(long, default_value = "127.0.0.1:9234", env = "KND_LISTEN_ADDRESSES")]
     pub knd_listen_addresses: Vec<String>,
 
