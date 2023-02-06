@@ -5,7 +5,10 @@ mod manager;
 pub mod ports;
 pub mod teos_manager;
 
-use std::{fs::File, io::Read};
+use std::{
+    fs::{self, File},
+    io::Read,
+};
 
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 use clap::{builder::OsStr, Parser};
@@ -30,6 +33,7 @@ impl TestSettingsBuilder {
     }
 
     pub fn with_data_dir(mut self, data_dir: &str) -> TestSettingsBuilder {
+        fs::create_dir_all(data_dir).unwrap();
         self.settings.data_dir = data_dir.to_string();
         self
     }
