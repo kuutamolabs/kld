@@ -25,6 +25,7 @@ use std::convert::TryInto;
 use std::io::Cursor;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::{fs, io};
 use tokio::runtime::Handle;
 use tokio::sync::RwLock;
 
@@ -157,18 +158,15 @@ impl LdkDatabase {
         Ok(peers)
     }
 
-    pub async fn delete_peer(&self, peer: &Peer) -> Result<()> {
+    pub async fn delete_peer(&self, public_key: &PublicKey) -> Result<()> {
         self.client()
             .await?
             .read()
             .await
             .execute(
                 "DELETE FROM peers \
-            WHERE public_key = $1 AND address = $2",
-                &[
-                    &peer.public_key.encode(),
-                    &peer.socket_addr.to_string().as_bytes(),
-                ],
+            WHERE public_key = $1",
+                &[&public_key.encode()],
             )
             .await?;
         Ok(())
@@ -284,19 +282,15 @@ impl LdkDatabase {
     }
 
     pub async fn fetch_graph(&self) -> Result<Option<NetworkGraph<Arc<KndLogger>>>> {
-        let graph = self
-            .client()
-            .await?
-            .read()
-            .await
-            .query_opt("SELECT graph FROM network_graph", &[])
-            .await?
-            .map(|row| {
-                let bytes: Vec<u8> = row.get(0);
-                NetworkGraph::read(&mut Cursor::new(bytes), KndLogger::global())
-                    .expect("Unable to deserialize network graph")
-            });
-        Ok(graph)
+        match fs::read(format!("{}/network_graph", self.settings.data_dir)) {
+            Ok(bytes) => {
+                let graph = NetworkGraph::read(&mut Cursor::new(bytes), KndLogger::global())
+                    .map_err(|e| anyhow!(e))?;
+                Ok(Some(graph))
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 
     pub async fn fetch_scorer(
@@ -337,9 +331,9 @@ where
     fn persist_manager(
         &self,
         channel_manager: &ChannelManager<M, T, K, F, L>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<(), io::Error> {
         let mut buf = vec![];
-        channel_manager.write(&mut buf).unwrap();
+        channel_manager.write(&mut buf)?;
         block_in_place!(
             "UPSERT INTO channel_manager (id, manager, timestamp) \
             VALUES ('manager', $1, CURRENT_TIMESTAMP)",
@@ -349,24 +343,19 @@ where
         Ok(())
     }
 
+    // Network graph could get very large so just write it to disk for now.
     fn persist_graph(
         &self,
         network_graph: &lightning::routing::gossip::NetworkGraph<L>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<(), io::Error> {
         let mut buf = vec![];
-        network_graph.write(&mut buf).unwrap();
-        block_in_place!(
-            "UPSERT INTO network_graph (id, graph, timestamp)
-            VALUES ('graph', $1, CURRENT_TIMESTAMP)",
-            &[&buf],
-            self
-        );
-        Ok(())
+        network_graph.write(&mut buf)?;
+        fs::write(format!("{}/network_graph", self.settings.data_dir), &buf)
     }
 
-    fn persist_scorer(&self, scorer: &S) -> Result<(), std::io::Error> {
+    fn persist_scorer(&self, scorer: &S) -> Result<(), io::Error> {
         let mut buf = vec![];
-        scorer.write(&mut buf).unwrap();
+        scorer.write(&mut buf)?;
         block_in_place!(
             "UPSERT INTO scorer (id, scorer, timestamp)
             VALUES ('scorer', $1, CURRENT_TIMESTAMP)",

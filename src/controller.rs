@@ -163,7 +163,7 @@ impl LightningInterface for Controller {
             };
             response.push(Peer {
                 public_key: peer.public_key,
-                socked_addr: peer.socket_addr,
+                socket_addr: peer.socket_addr,
                 status,
                 alias: self.alias_of(peer.public_key).unwrap_or_default(),
             });
@@ -180,12 +180,14 @@ impl LightningInterface for Controller {
             public_key,
             socket_addr.context("Need a socket address for peer")?,
             self.peer_manager.clone(),
+            self.database.clone(),
         )
         .await?)
     }
 
-    fn disconnect_peer(&self, public_key: PublicKey) {
+    async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
         self.peer_manager.disconnect_by_node_id(public_key, false);
+        self.database.delete_peer(&public_key).await
     }
 
     fn addresses(&self) -> Vec<String> {
@@ -608,9 +610,13 @@ impl Controller {
                     }
                     match connect_database.fetch_peer(&unconnected_node_id).await {
                         Ok(Some(peer)) => {
-                            let _ =
-                                connect_peer(peer.public_key, peer.socket_addr, connect_pm.clone())
-                                    .await;
+                            let _ = connect_peer(
+                                peer.public_key,
+                                peer.socket_addr,
+                                connect_pm.clone(),
+                                connect_database.clone(),
+                            )
+                            .await;
                         }
                         Err(e) => error!("{}", e),
                         _ => (),
@@ -664,12 +670,18 @@ async fn connect_peer(
     public_key: PublicKey,
     peer_addr: SocketAddr,
     peer_manager: Arc<PeerManager>,
+    database: Arc<LdkDatabase>,
 ) -> Result<()> {
     let connection_closed =
-        lightning_net_tokio::connect_outbound(peer_manager.clone(), public_key, peer_addr)
+        lightning_net_tokio::connect_outbound(peer_manager, public_key, peer_addr)
             .await
             .context("Could not connect to peer {public_key}@{peer_addr}")?;
-
+    database
+        .persist_peer(&database::peer::Peer {
+            public_key,
+            socket_addr: peer_addr,
+        })
+        .await?;
     info!("Connected to peer {public_key}@{peer_addr}");
     tokio::spawn(async move {
         connection_closed.await;

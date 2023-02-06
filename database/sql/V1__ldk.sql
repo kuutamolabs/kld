@@ -20,12 +20,6 @@ CREATE TABLE channel_monitor_updates (
     PRIMARY KEY ( out_point, update_id )
 );
 
-CREATE TABLE network_graph (
-    id              BYTES PRIMARY KEY,
-    graph           BYTES NOT NULL,
-    timestamp       TIMESTAMP NOT NULL DEFAULT current_timestamp()
-);
-
 CREATE TABLE scorer (
     id              BYTES PRIMARY KEY,
     scorer          BYTES NOT NULL,

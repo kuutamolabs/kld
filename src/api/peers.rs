@@ -21,7 +21,7 @@ pub(crate) async fn list_peers(
         .map(|p| Peer {
             id: p.public_key.serialize().to_hex(),
             connected: p.status.to_string(),
-            netaddr: p.socked_addr.to_string(),
+            netaddr: p.socket_addr.to_string(),
             alias: p.alias.clone(),
         })
         .collect();
@@ -62,7 +62,7 @@ pub(crate) async fn disconnect_peer(
     handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
 
     let public_key = handle_err!(PublicKey::from_str(&id));
-    lightning_interface.disconnect_peer(public_key);
+    handle_err!(lightning_interface.disconnect_peer(public_key).await);
 
     Ok(Json(()))
 }

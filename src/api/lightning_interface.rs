@@ -45,7 +45,7 @@ pub trait LightningInterface {
         socket_addr: Option<SocketAddr>,
     ) -> Result<()>;
 
-    fn disconnect_peer(&self, public_key: PublicKey);
+    async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()>;
 
     async fn open_channel(
         &self,
@@ -58,7 +58,7 @@ pub trait LightningInterface {
 
 pub struct Peer {
     pub public_key: PublicKey,
-    pub socked_addr: SocketAddr,
+    pub socket_addr: SocketAddr,
     pub status: PeerStatus,
     pub alias: String,
 }
