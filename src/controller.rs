@@ -4,7 +4,7 @@ use crate::key_generator::KeyGenerator;
 use crate::payment_info::PaymentInfoStorage;
 use crate::wallet::Wallet;
 use crate::{net_utils, VERSION};
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
@@ -118,6 +118,13 @@ impl LightningInterface for Controller {
         push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
+        if !self
+            .peer_manager
+            .get_peer_node_ids()
+            .contains(&their_network_key)
+        {
+            return Err(anyhow!("Peer not connected"));
+        }
         let user_channel_id: u128 = random();
         let channel_id = self
             .channel_manager
@@ -477,12 +484,10 @@ impl Controller {
         let peer_manager_connection_handler = peer_manager.clone();
         let listening_port = settings.knd_peer_port;
         let stop_listen = shutdown_flag.clone();
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", listening_port))
+            .await
+            .context("Failed to bind to listen port")?;
         tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", listening_port))
-                .await
-                .expect(
-                    "Failed to bind to listen port - is something else already listening on it?",
-                );
             loop {
                 let peer_mgr = peer_manager_connection_handler.clone();
                 let tcp_stream = listener.accept().await.unwrap().0;
@@ -490,11 +495,17 @@ impl Controller {
                     return;
                 }
                 tokio::spawn(async move {
-                    lightning_net_tokio::setup_inbound(
+                    let address = tcp_stream
+                        .peer_addr()
+                        .map(|a| a.to_string())
+                        .unwrap_or_else(|_| "unknown".to_string());
+                    let disconnected = lightning_net_tokio::setup_inbound(
                         peer_mgr.clone(),
                         tcp_stream.into_std().unwrap(),
-                    )
-                    .await;
+                    );
+                    info!("Inbound peer connection from {address}");
+                    disconnected.await;
+                    info!("Inbound peer disonnected from {address}");
                 });
             }
         });
@@ -594,10 +605,7 @@ impl Controller {
         let connect_database = database.clone();
         let stop_connect = shutdown_flag.clone();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
-                interval.tick().await;
-
                 let connected_node_ids = connect_pm.get_peer_node_ids();
                 for unconnected_node_id in connect_cm
                     .list_channels()
@@ -622,6 +630,7 @@ impl Controller {
                         _ => (),
                     }
                 }
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
         });
 
