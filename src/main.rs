@@ -30,6 +30,7 @@ pub fn main() -> Result<()> {
     let _g = runtime.enter();
 
     let shutdown_flag = Arc::new(AtomicBool::new(false));
+    let quit_signal = quit_signal().shared();
 
     runtime.block_on(migrate_database(&settings))?;
 
@@ -75,7 +76,6 @@ pub fn main() -> Result<()> {
             bitcoind_client,
             wallet.clone(),
             key_generator.clone(),
-            shutdown_flag.clone(),
         ))
         .context("Failed to start ldk controller")?;
     let controller = Arc::new(controller);
@@ -88,14 +88,13 @@ pub fn main() -> Result<()> {
     runtime.block_on(async {
         let server = bind_api_server(settings.rest_api_address.clone(), settings.certs_dir.clone()).await?;
 
-        let quit_signal = quit_signal().shared();
         tokio::select!(
             _ = quit_signal.clone() => {
                 info!("Received quit signal.");
                 Ok(())
             },
             result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
-                result.context("prometheus exporter failed")
+                result.context("Prometheus exporter failed")
             },
             result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
                 result.context("REST API failed")
