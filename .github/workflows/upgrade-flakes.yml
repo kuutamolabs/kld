@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   schedule:
     - cron:  '51 2 * * 0,4'
+permissions:
+  pull-requests: write
 jobs:
   createPullRequest:
     runs-on: ubuntu-latest
@@ -14,8 +16,5 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Update flake.lock
         uses: DeterminateSystems/update-flake-lock@v16
-        with:
-           token: ${{ secrets.GH_TOKEN_FOR_CI }}
