@@ -2,8 +2,9 @@ use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, Wallet
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
 use crate::payment_info::PaymentInfoStorage;
+use crate::peer_manager::PeerManager;
 use crate::wallet::Wallet;
-use crate::{net_utils, VERSION};
+use crate::VERSION;
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
@@ -33,7 +34,7 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
-use log::{error, info, warn};
+use log::{error, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
@@ -41,7 +42,6 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tokio::runtime::Handle;
@@ -183,18 +183,19 @@ impl LightningInterface for Controller {
         public_key: PublicKey,
         socket_addr: Option<SocketAddr>,
     ) -> Result<()> {
-        Ok(connect_peer(
-            public_key,
-            socket_addr.context("Need a socket address for peer")?,
-            self.peer_manager.clone(),
-            self.database.clone(),
-        )
-        .await?)
+        Ok(self
+            .peer_manager
+            .connect_peer(
+                public_key,
+                socket_addr.context("Need a socket address for peer")?,
+            )
+            .await?)
     }
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
-        self.peer_manager.disconnect_by_node_id(public_key, false);
-        self.database.delete_peer(&public_key).await
+        self.peer_manager
+            .disconnect_by_node_id(public_key, false)
+            .await
     }
 
     fn addresses(&self) -> Vec<String> {
@@ -267,7 +268,7 @@ pub struct Controller {
     database: Arc<LdkDatabase>,
     bitcoind_client: Arc<Client>,
     channel_manager: Arc<ChannelManager>,
-    peer_manager: Arc<PeerManager>,
+    peer_manager: PeerManager,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
     async_api_requests: Arc<AsyncAPIRequests>,
@@ -286,7 +287,6 @@ impl Controller {
         bitcoind_client: Arc<Client>,
         wallet: Arc<Wallet>,
         key_generator: Arc<KeyGenerator>,
-        shutdown_flag: Arc<AtomicBool>,
     ) -> Result<(Controller, BackgroundProcessor)> {
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await.chain;
@@ -452,7 +452,6 @@ impl Controller {
             KndLogger::global(),
         ));
 
-        // Initialize the PeerManager
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
         let onion_messenger: Arc<OnionMessenger> = Arc::new(OnionMessenger::new(
             keys_manager.clone(),
@@ -469,7 +468,7 @@ impl Controller {
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger.clone(),
         };
-        let peer_manager: Arc<PeerManager> = Arc::new(PeerManager::new(
+        let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
             keys_manager.get_node_secret(Recipient::Node).unwrap(),
             current_time.try_into().unwrap(),
@@ -477,38 +476,12 @@ impl Controller {
             KndLogger::global(),
             IgnoringMessageHandler {},
         ));
-
-        // ## Running LDK
-        // Initialize networking
-
-        let peer_manager_connection_handler = peer_manager.clone();
-        let listening_port = settings.knd_peer_port;
-        let stop_listen = shutdown_flag.clone();
-        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", listening_port))
-            .await
-            .context("Failed to bind to listen port")?;
-        tokio::spawn(async move {
-            loop {
-                let peer_mgr = peer_manager_connection_handler.clone();
-                let tcp_stream = listener.accept().await.unwrap().0;
-                if stop_listen.load(Ordering::Acquire) {
-                    return;
-                }
-                tokio::spawn(async move {
-                    let address = tcp_stream
-                        .peer_addr()
-                        .map(|a| a.to_string())
-                        .unwrap_or_else(|_| "unknown".to_string());
-                    let disconnected = lightning_net_tokio::setup_inbound(
-                        peer_mgr.clone(),
-                        tcp_stream.into_std().unwrap(),
-                    );
-                    info!("Inbound peer connection from {address}");
-                    disconnected.await;
-                    info!("Inbound peer disonnected from {address}");
-                });
-            }
-        });
+        let peer_manager = PeerManager::new(
+            ldk_peer_manager.clone(),
+            channel_manager.clone(),
+            database.clone(),
+            settings.clone(),
+        )?;
 
         // Connect and Disconnect Blocks
         if chain_tip.is_none() {
@@ -594,70 +567,14 @@ impl Controller {
             chain_monitor.clone(),
             channel_manager.clone(),
             GossipSync::p2p(gossip_sync.clone()),
-            peer_manager.clone(),
+            ldk_peer_manager.clone(),
             KndLogger::global(),
             Some(scorer),
         );
 
-        // Regularly reconnect to channel peers.
-        let connect_cm = channel_manager.clone();
-        let connect_pm = peer_manager.clone();
-        let connect_database = database.clone();
-        let stop_connect = shutdown_flag.clone();
-        tokio::spawn(async move {
-            loop {
-                let connected_node_ids = connect_pm.get_peer_node_ids();
-                for unconnected_node_id in connect_cm
-                    .list_channels()
-                    .iter()
-                    .map(|chan| chan.counterparty.node_id)
-                    .filter(|id| !connected_node_ids.contains(id))
-                {
-                    if stop_connect.load(Ordering::Acquire) {
-                        return;
-                    }
-                    match connect_database.fetch_peer(&unconnected_node_id).await {
-                        Ok(Some(peer)) => {
-                            let _ = connect_peer(
-                                peer.public_key,
-                                peer.socket_addr,
-                                connect_pm.clone(),
-                                connect_database.clone(),
-                            )
-                            .await;
-                        }
-                        Err(e) => error!("{}", e),
-                        _ => (),
-                    }
-                }
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        });
-
-        // Regularly broadcast our node_announcement. This is only required (or possible) if we have
-        // some public channels, and is only useful if we have public listen address(es) to announce.
-        // In a production environment, this should occur only after the announcement of new channels
-        // to avoid churn in the global network graph.
-        if settings.knd_node_name.len() > 32 {
-            bail!("Node Alias can not be longer than 32 bytes");
-        }
-        let mut alias = [0; 32];
-        alias[..settings.knd_node_name.len()].copy_from_slice(settings.knd_node_name.as_bytes());
-        let peer_man = Arc::clone(&peer_manager);
-        if !settings.knd_listen_addresses.is_empty() {
-            let addresses = settings.knd_listen_addresses.clone();
-            tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(60));
-                loop {
-                    interval.tick().await;
-                    peer_man.broadcast_node_announcement(
-                        [0; 3],
-                        alias,
-                        addresses.iter().map(|s| net_utils::to_address(s)).collect(),
-                    );
-                }
-            });
-        }
+        peer_manager.listen().await?;
+        peer_manager.keep_channel_peers_connected();
+        peer_manager.regularly_broadcast_node_announcement();
 
         Ok((
             Controller {
@@ -675,46 +592,22 @@ impl Controller {
     }
 }
 
-async fn connect_peer(
-    public_key: PublicKey,
-    peer_addr: SocketAddr,
-    peer_manager: Arc<PeerManager>,
-    database: Arc<LdkDatabase>,
-) -> Result<()> {
-    let connection_closed =
-        lightning_net_tokio::connect_outbound(peer_manager, public_key, peer_addr)
-            .await
-            .context("Could not connect to peer {public_key}@{peer_addr}")?;
-    database
-        .persist_peer(&database::peer::Peer {
-            public_key,
-            socket_addr: peer_addr,
-        })
-        .await?;
-    info!("Connected to peer {public_key}@{peer_addr}");
-    tokio::spawn(async move {
-        connection_closed.await;
-        info!("Disconnected from peer {public_key}@{peer_addr}");
-    });
-    Ok(())
-}
-
-type ChainMonitor = chainmonitor::ChainMonitor<
-    InMemorySigner,
-    Arc<dyn Filter + Send + Sync>,
-    Arc<Client>,
-    Arc<Client>,
-    Arc<KndLogger>,
-    Arc<LdkDatabase>,
->;
-
-pub(crate) type PeerManager = SimpleArcPeerManager<
+pub type LdkPeerManager = SimpleArcPeerManager<
     SocketDescriptor,
     ChainMonitor,
     Client,
     Client,
     dyn chain::Access + Send + Sync,
     KndLogger,
+>;
+
+pub type ChainMonitor = chainmonitor::ChainMonitor<
+    InMemorySigner,
+    Arc<dyn Filter + Send + Sync>,
+    Arc<Client>,
+    Arc<Client>,
+    Arc<KndLogger>,
+    Arc<LdkDatabase>,
 >;
 
 pub(crate) type ChannelManager = SimpleArcChannelManager<ChainMonitor, Client, Client, KndLogger>;
