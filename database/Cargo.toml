@@ -19,7 +19,7 @@ anyhow = "1.0.69"
 refinery = { version = "0.8.7", features = [ "tokio-postgres" ] }
 bdk = { git = "https://github.com/Mic92/bdk", branch = "backport-begin-batch-result" }
 serde_json = { version = "1.0" }
-async-trait = "0.1.63"
+async-trait = "0.1.64"
 
 [dev-dependencies]
 test-utils = { path = "../test-utils" }
