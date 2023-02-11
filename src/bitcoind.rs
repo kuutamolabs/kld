@@ -44,9 +44,8 @@ impl BitcoindClient {
         );
 
         let priorities = Arc::new(Priorities::new());
-        BitcoindClient::poll_for_fee_estimates(priorities.clone(), client.clone());
-
         let bitcoind_client = BitcoindClient { client, priorities };
+
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await?.chain;
         if bitcoind_chain != settings.bitcoin_network.to_string() {
@@ -115,18 +114,24 @@ impl BitcoindClient {
             .deserialize()
     }
 
-    fn poll_for_fee_estimates(fees: Arc<Priorities>, client: Arc<RpcClient>) {
+    pub fn poll_for_fee_estimates(&self) {
+        let client = self.client.clone();
+        let priorities = self.priorities.clone();
         tokio::spawn(async move {
             BitcoindClient::estimate_fee(
-                fees.clone(),
+                priorities.clone(),
                 client.clone(),
                 ConfirmationTarget::Background,
             )
             .await;
-            BitcoindClient::estimate_fee(fees.clone(), client.clone(), ConfirmationTarget::Normal)
-                .await;
             BitcoindClient::estimate_fee(
-                fees.clone(),
+                priorities.clone(),
+                client.clone(),
+                ConfirmationTarget::Normal,
+            )
+            .await;
+            BitcoindClient::estimate_fee(
+                priorities.clone(),
                 client.clone(),
                 ConfirmationTarget::HighPriority,
             )
@@ -136,11 +141,11 @@ impl BitcoindClient {
     }
 
     async fn estimate_fee(
-        fees: Arc<Priorities>,
+        priorities: Arc<Priorities>,
         client: Arc<RpcClient>,
         conf_target: ConfirmationTarget,
     ) {
-        let priority = fees.priority_of(&conf_target);
+        let priority = priorities.priority_of(&conf_target);
         match client
             .call_method::<JsonString>(
                 "estimatesmartfee",
@@ -157,7 +162,7 @@ impl BitcoindClient {
                     .unwrap_or(priority.default_fee_rate as u64)
                     / 4) as u32)
                     .max(MIN_FEERATE);
-                fees.store(conf_target, fee);
+                priorities.store(conf_target, fee);
             }
             Ok(Err(e)) => error!("Could not fetch fee estimate: {}", e),
             Err(e) => error!("Could not fetch fee estimate: {}", e),

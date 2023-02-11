@@ -49,6 +49,7 @@ pub fn main() -> Result<()> {
 
     let bitcoind_client = Arc::new(runtime.block_on(BitcoindClient::new(settings.as_ref()))?);
     runtime.block_on(bitcoind_client.wait_for_blockchain_synchronisation())?;
+    bitcoind_client.poll_for_fee_estimates();
 
     let wallet = Arc::new(
         Wallet::new(

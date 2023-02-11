@@ -52,13 +52,15 @@ pub async fn test_bitcoind_client() -> Result<()> {
         client.get_est_sat_per_1000_weight(ConfirmationTarget::Background)
     );
     assert_eq!(
-        500,
+        2000,
         client.get_est_sat_per_1000_weight(ConfirmationTarget::Normal)
     );
     assert_eq!(
-        1250,
+        5000,
         client.get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority)
     );
+
+    client.poll_for_fee_estimates();
 
     match block {
         BlockData::FullBlock(block) => assert_eq!(block.block_hash(), best_block.0),
