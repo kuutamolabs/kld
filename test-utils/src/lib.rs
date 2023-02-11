@@ -8,13 +8,16 @@ pub mod teos_manager;
 use std::{
     fs::{self, File},
     io::Read,
+    str::FromStr,
 };
 
+use anyhow::{anyhow, Result};
 use bitcoin::secp256k1::{PublicKey, SecretKey};
+use bitcoin_manager::BitcoinManager;
 use clap::{builder::OsStr, Parser};
 pub use cockroach_manager::CockroachManager;
 use reqwest::{Certificate, Client};
-use settings::Settings;
+use settings::{Network, Settings};
 
 pub struct TestSettingsBuilder {
     settings: Settings,
@@ -25,6 +28,14 @@ impl TestSettingsBuilder {
         let mut settings = Settings::parse_from::<Vec<OsStr>, OsStr>(vec![]);
         settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
         TestSettingsBuilder { settings }
+    }
+
+    pub fn with_bitcoind(mut self, bitcoind: &BitcoinManager) -> Result<TestSettingsBuilder> {
+        self.settings.bitcoin_network =
+            Network::from_str(&bitcoind.network).map_err(|e| anyhow!(e))?;
+        self.settings.bitcoind_rpc_port = bitcoind.rpc_port;
+        self.settings.bitcoin_cookie_path = bitcoind.cookie_path();
+        Ok(self)
     }
 
     pub fn with_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {

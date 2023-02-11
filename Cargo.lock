@@ -413,21 +413,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitcoind"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.21.0",
- "bitcoin",
- "lightning",
- "lightning-block-sync",
- "log",
- "serde_json",
- "settings",
- "tokio",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,7 +789,6 @@ dependencies = [
  "async-trait",
  "bdk",
  "bitcoin",
- "bitcoind",
  "bitvec",
  "crypto-common",
  "futures",
@@ -1496,7 +1480,8 @@ dependencies = [
  "bech32 0.9.1",
  "bitcoin",
  "bitcoin-bech32",
- "bitcoind",
+ "bitcoincore-rpc",
+ "bitcoincore-rpc-json",
  "chrono",
  "clap 4.1.4",
  "criterion",

@@ -1,20 +1,20 @@
 use anyhow::{Context, Result};
-use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
 use database::wallet_database::WalletDatabase;
 use futures::FutureExt;
 use lightning_knd::api::{bind_api_server, MacaroonAuth};
+use lightning_knd::bitcoind::BitcoindClient;
 use lightning_knd::controller::Controller;
 use lightning_knd::key_generator::KeyGenerator;
 use lightning_knd::prometheus::start_prometheus_exporter;
+use lightning_knd::quit_signal;
 use lightning_knd::wallet::Wallet;
 use log::info;
 use settings::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::signal::unix::SignalKind;
 
 pub fn main() -> Result<()> {
     let settings = Arc::new(Settings::load());
@@ -47,17 +47,8 @@ pub fn main() -> Result<()> {
         .block_on(WalletDatabase::new(&settings))
         .context("cannot connect to wallet database")?;
 
-    let bitcoind_client = Arc::new(
-        runtime
-            .block_on(Client::new(
-                settings.bitcoind_rpc_host.clone(),
-                settings.bitcoind_rpc_port,
-                settings.bitcoin_cookie_path.clone(),
-                shutdown_flag.clone(),
-            ))
-            .context("cannot connect to bitcoined")?,
-    );
-    runtime.block_on(bitcoind_client.wait_for_blockchain_synchronisation());
+    let bitcoind_client = Arc::new(runtime.block_on(BitcoindClient::new(settings.as_ref()))?);
+    runtime.block_on(bitcoind_client.wait_for_blockchain_synchronisation())?;
 
     let wallet = Arc::new(
         Wallet::new(
@@ -112,11 +103,4 @@ pub fn main() -> Result<()> {
     runtime.shutdown_timeout(Duration::from_secs(30));
     info!("Stopped all threads. Process finished.");
     Ok(())
-}
-
-async fn quit_signal() {
-    let _ = tokio::signal::unix::signal(SignalKind::quit())
-        .unwrap()
-        .recv()
-        .await;
 }
