@@ -2,10 +2,10 @@ use api::Address;
 use api::{Chain, GetInfo};
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use bitcoin::Network;
-use log::info;
+use log::{info, warn};
 use std::sync::Arc;
 
-use crate::handle_unauthorized;
+use crate::{handle_err, handle_unauthorized};
 
 use super::KndMacaroon;
 use super::LightningInterface;
@@ -25,7 +25,7 @@ pub(crate) async fn get_info(
         num_active_channels: lightning_interface.num_active_channels(),
         num_inactive_channels: lightning_interface.num_inactive_channels(),
         num_peers: lightning_interface.num_peers(),
-        block_height: lightning_interface.block_height(),
+        block_height: handle_err!(lightning_interface.block_height()),
         synced_to_chain: true,
         testnet: lightning_interface.network() != Network::Bitcoin,
         chains: vec![Chain {

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{fs::File, io::Read};
 
 use async_trait::async_trait;
@@ -31,12 +31,7 @@ impl BitcoinManager {
             &format!("-rpcport={}", &self.rpc_port.to_string()),
             &format!("-rpcauth={}", &self.rpc_auth),
         ];
-        self.manager.start("bitcoind", args).await?;
-        // Getting occasional bad file descriptor in tests. Maybe this helps.
-        File::open(self.cookie_path())
-            .unwrap()
-            .sync_all()
-            .with_context(|| format!("failed to open {}", self.cookie_path()))
+        self.manager.start("bitcoind", args).await
     }
 
     pub fn cookie_path(&self) -> String {

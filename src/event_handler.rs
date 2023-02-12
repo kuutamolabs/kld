@@ -16,14 +16,14 @@ use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
 use crate::api::WalletInterface;
+use crate::bitcoind::BitcoindClient;
 use crate::controller::{AsyncAPIRequests, ChannelManager, NetworkGraph};
 use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
 use crate::wallet::Wallet;
-use bitcoind::Client;
 
 pub(crate) struct EventHandler {
     channel_manager: Arc<ChannelManager>,
-    bitcoind_client: Arc<Client>,
+    bitcoind_client: Arc<BitcoindClient>,
     keys_manager: Arc<KeysManager>,
     inbound_payments: PaymentInfoStorage,
     outbound_payments: PaymentInfoStorage,
@@ -38,7 +38,7 @@ impl EventHandler {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_manager: Arc<ChannelManager>,
-        bitcoind_client: Arc<Client>,
+        bitcoind_client: Arc<BitcoindClient>,
         keys_manager: Arc<KeysManager>,
         inbound_payments: PaymentInfoStorage,
         outbound_payments: PaymentInfoStorage,

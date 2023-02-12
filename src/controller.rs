@@ -1,16 +1,16 @@
 use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, WalletInterface};
+use crate::bitcoind::BitcoindClient;
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
 use crate::payment_info::PaymentInfoStorage;
 use crate::peer_manager::PeerManager;
 use crate::wallet::Wallet;
 use crate::VERSION;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::Transaction;
-use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
@@ -84,11 +84,11 @@ impl LightningInterface for Controller {
         self.settings.knd_node_name.clone()
     }
 
-    fn block_height(&self) -> usize {
+    fn block_height(&self) -> Result<u64> {
         let info = tokio::task::block_in_place(move || {
             Handle::current().block_on(self.bitcoind_client.get_blockchain_info())
         });
-        info.blocks
+        info.map(|i| i.blocks)
     }
 
     fn network(&self) -> bitcoin::Network {
@@ -266,7 +266,7 @@ fn api_error(error: APIError) -> anyhow::Error {
 pub struct Controller {
     settings: Arc<Settings>,
     database: Arc<LdkDatabase>,
-    bitcoind_client: Arc<Client>,
+    bitcoind_client: Arc<BitcoindClient>,
     channel_manager: Arc<ChannelManager>,
     peer_manager: PeerManager,
     network_graph: Arc<NetworkGraph>,
@@ -284,27 +284,14 @@ impl Controller {
     pub async fn start_ldk(
         settings: Arc<Settings>,
         database: Arc<LdkDatabase>,
-        bitcoind_client: Arc<Client>,
+        bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet>,
         key_generator: Arc<KeyGenerator>,
     ) -> Result<(Controller, BackgroundProcessor)> {
-        // Check that the bitcoind we've connected to is running the network we expect
-        let bitcoind_chain = bitcoind_client.get_blockchain_info().await.chain;
-        if bitcoind_chain != settings.bitcoin_network.to_string() {
-            bail!(
-                "Chain argument ({}) didn't match bitcoind chain ({})",
-                settings.bitcoin_network,
-                bitcoind_chain
-            );
-        }
-
-        // Initialize the FeeEstimator
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
 
-        // Initialize the BroadcasterInterface
-        // BitcoindClient implements the BroadcasterInterface trait, so it'll act as our transaction
-        // broadcaster.
+        // BitcoindClient implements the BroadcasterInterface trait, so it'll act as our transaction broadcaster.
         let broadcaster = bitcoind_client.clone();
 
         // Initialize the ChainMonitor
@@ -342,7 +329,7 @@ impl Controller {
             .force_announced_channel_preference = false;
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
-                let getinfo_resp = bitcoind_client.get_blockchain_info().await;
+                let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
 
                 let chain_params = ChainParameters {
                     network: settings.bitcoin_network.into(),
@@ -595,8 +582,8 @@ impl Controller {
 pub type LdkPeerManager = SimpleArcPeerManager<
     SocketDescriptor,
     ChainMonitor,
-    Client,
-    Client,
+    BitcoindClient,
+    BitcoindClient,
     dyn chain::Access + Send + Sync,
     KndLogger,
 >;
@@ -604,13 +591,14 @@ pub type LdkPeerManager = SimpleArcPeerManager<
 pub type ChainMonitor = chainmonitor::ChainMonitor<
     InMemorySigner,
     Arc<dyn Filter + Send + Sync>,
-    Arc<Client>,
-    Arc<Client>,
+    Arc<BitcoindClient>,
+    Arc<BitcoindClient>,
     Arc<KndLogger>,
     Arc<LdkDatabase>,
 >;
 
-pub(crate) type ChannelManager = SimpleArcChannelManager<ChainMonitor, Client, Client, KndLogger>;
+pub(crate) type ChannelManager =
+    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KndLogger>;
 
 pub(crate) type InvoicePayer<E> =
     payment::InvoicePayer<Arc<ChannelManager>, Router, Arc<KndLogger>, E>;

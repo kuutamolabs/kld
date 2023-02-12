@@ -25,7 +25,8 @@ impl Manager {
     ) -> Self {
         let instance_name = format!("{}_{}", name, node_index);
         let storage_dir = format!("{}/{}", output_dir, instance_name);
-        let _ = fs::remove_dir_all(&storage_dir);
+        // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
+        let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
         fs::create_dir_all(&storage_dir).unwrap();
 
         Manager {
@@ -81,6 +82,20 @@ impl Manager {
 
     pub fn kill(&mut self) {
         if let Some(mut process) = self.process.take() {
+            println!("Stopping: {}", self.instance_name);
+            if let Ok(Some(_)) = process.try_wait() {
+                return;
+            }
+            let _ = Command::new("kill").arg(process.id().to_string()).output();
+            let mut count = 0;
+            while count < 30 {
+                if let Ok(Some(_)) = process.try_wait() {
+                    println!("{} stopped after {count} secs", self.instance_name);
+                    return;
+                }
+                std::thread::sleep(Duration::from_secs(1));
+                count += 1;
+            }
             println!("Killing: {}", self.instance_name);
             process.kill().unwrap_or_default();
             process.wait().unwrap();

@@ -6,10 +6,10 @@ use anyhow::Result;
 use bitcoin::blockdata::block::{Block, BlockHeader};
 use bitcoin::hashes::Hash;
 use bitcoin::{BlockHash, TxMerkleNode};
-use bitcoind::Client;
 use database::ldk_database::LdkDatabase;
 use database::peer::Peer;
 
+use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::Filter;
@@ -193,9 +193,9 @@ pub async fn test_network_graph() -> Result<()> {
             <LdkDatabase as Persister<
                 '_,
                 Arc<KndTestChainMonitor>,
-                Arc<Client>,
+                Arc<dyn BroadcasterInterface>,
                 Arc<KeysManager>,
-                Arc<Client>,
+                Arc<dyn FeeEstimator>,
                 Arc<KndLogger>,
                 TestScorer,
             >>::persist_graph(database, network_graph)
@@ -231,9 +231,9 @@ pub async fn test_scorer() -> Result<()> {
             <LdkDatabase as Persister<
                 '_,
                 Arc<KndTestChainMonitor>,
-                Arc<Client>,
+                Arc<dyn BroadcasterInterface>,
                 Arc<KeysManager>,
-                Arc<Client>,
+                Arc<dyn FeeEstimator>,
                 Arc<KndLogger>,
                 TestScorer,
             >>::persist_scorer(database, scorer)
@@ -271,8 +271,8 @@ type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, A
 type KndTestChainMonitor = ChainMonitor<
     InMemorySigner,
     Arc<dyn Filter + Send + Sync>,
-    Arc<Client>,
-    Arc<Client>,
+    Arc<dyn BroadcasterInterface>,
+    Arc<dyn FeeEstimator>,
     Arc<KndLogger>,
     Arc<LdkDatabase>,
 >;

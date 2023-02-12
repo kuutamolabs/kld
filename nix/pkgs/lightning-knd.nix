@@ -15,7 +15,6 @@ let
     "src"
     "api"
     "benches"
-    "bitcoind"
     "database"
     "logger"
     "settings"

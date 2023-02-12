@@ -42,7 +42,7 @@ pub struct GetInfo {
     pub num_active_channels: usize,
     pub num_inactive_channels: usize,
     #[serde(rename = "blockheight")]
-    pub block_height: usize,
+    pub block_height: u64,
     pub synced_to_chain: bool,
     pub testnet: bool,
     pub chains: Vec<Chain>,

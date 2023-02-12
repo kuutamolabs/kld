@@ -9,7 +9,7 @@ use lightning::{ln::channelmanager::ChannelDetails, util::config::UserConfig};
 pub trait LightningInterface {
     fn alias(&self) -> String;
 
-    fn block_height(&self) -> usize;
+    fn block_height(&self) -> Result<u64>;
 
     fn identity_pubkey(&self) -> PublicKey;
 

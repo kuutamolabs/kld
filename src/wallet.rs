@@ -16,19 +16,18 @@ use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
     Address, OutPoint, Script, Transaction,
 };
-use bitcoind::Client;
 use database::wallet_database::WalletDatabase;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use log::{error, info};
 use settings::Network;
 use settings::Settings;
 
-use crate::api::WalletInterface;
+use crate::{api::WalletInterface, bitcoind::BitcoindClient};
 
 pub struct Wallet {
     // bdk::Wallet uses a RefCell to hold the database which is not thread safe so we use a mutex here.
     wallet: Arc<Mutex<bdk::Wallet<WalletDatabase>>>,
-    bitcoind_client: Arc<Client>,
+    bitcoind_client: Arc<BitcoindClient>,
 }
 
 #[async_trait]
@@ -48,7 +47,7 @@ impl WalletInterface for Wallet {
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<Transaction> {
-        let height = self.bitcoind_client.get_blockchain_info().await.blocks as u32;
+        let height = self.bitcoind_client.get_blockchain_info().await?.blocks as u32;
 
         match self.wallet.try_lock() {
             Ok(wallet) => {
@@ -88,7 +87,7 @@ impl Wallet {
     pub fn new(
         seed: &[u8; 32],
         settings: &Settings,
-        bitcoind_client: Arc<Client>,
+        bitcoind_client: Arc<BitcoindClient>,
         database: WalletDatabase,
     ) -> Result<Wallet> {
         let xprivkey = ExtendedPrivKey::new_master(settings.bitcoin_network.into(), seed)?;

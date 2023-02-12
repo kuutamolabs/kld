@@ -93,8 +93,8 @@ impl LightningInterface for MockLightning {
         self.num_channels
     }
 
-    fn block_height(&self) -> usize {
-        50000
+    fn block_height(&self) -> Result<u64> {
+        Ok(50000)
     }
 
     fn network(&self) -> bitcoin::Network {

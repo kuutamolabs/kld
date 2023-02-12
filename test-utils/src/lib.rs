@@ -8,13 +8,17 @@ pub mod teos_manager;
 use std::{
     fs::{self, File},
     io::Read,
+    str::FromStr,
 };
 
+use anyhow::{anyhow, Context, Result};
 use bitcoin::secp256k1::{PublicKey, SecretKey};
+use bitcoin_manager::BitcoinManager;
 use clap::{builder::OsStr, Parser};
 pub use cockroach_manager::CockroachManager;
 use reqwest::{Certificate, Client};
-use settings::Settings;
+use settings::{Network, Settings};
+use tokio_postgres::NoTls;
 
 pub struct TestSettingsBuilder {
     settings: Settings,
@@ -27,8 +31,16 @@ impl TestSettingsBuilder {
         TestSettingsBuilder { settings }
     }
 
-    pub fn with_database(mut self, database: &CockroachManager) -> TestSettingsBuilder {
-        self.settings.database_port = database.port.to_string();
+    pub fn with_bitcoind(mut self, bitcoind: &BitcoinManager) -> Result<TestSettingsBuilder> {
+        self.settings.bitcoin_network =
+            Network::from_str(&bitcoind.network).map_err(|e| anyhow!(e))?;
+        self.settings.bitcoind_rpc_port = bitcoind.rpc_port;
+        self.settings.bitcoin_cookie_path = bitcoind.cookie_path();
+        Ok(self)
+    }
+
+    pub fn with_database_port(mut self, port: u16) -> TestSettingsBuilder {
+        self.settings.database_port = port.to_string();
         self
     }
 
@@ -108,4 +120,27 @@ pub mod fake_fs {
     pub fn create_dir_all<P: AsRef<Path>>(_path: P) -> io::Result<()> {
         Ok(())
     }
+}
+
+pub async fn connection(settings: &Settings) -> Result<tokio_postgres::Client> {
+    let log_safe_params = format!(
+        "host={} port={} user={} dbname={}",
+        settings.database_host,
+        settings.database_port,
+        settings.database_user,
+        settings.database_name
+    );
+    let mut params = log_safe_params.clone();
+    if !settings.database_password.is_empty() {
+        params = format!("{} password={}", params, settings.database_password);
+    }
+    let (client, connection) = tokio_postgres::connect(&params, NoTls)
+        .await
+        .with_context(|| format!("could not connect to database ({})", log_safe_params))?;
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            println!("Database connection closed: {}", e)
+        }
+    });
+    Ok(client)
 }
