@@ -2748,6 +2748,7 @@ dependencies = [
  "reqwest",
  "settings",
  "tokio",
+ "tokio-postgres",
 ]
 
 [[package]]

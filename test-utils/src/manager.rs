@@ -25,7 +25,8 @@ impl Manager {
     ) -> Self {
         let instance_name = format!("{}_{}", name, node_index);
         let storage_dir = format!("{}/{}", output_dir, instance_name);
-        let _ = fs::remove_dir_all(&storage_dir);
+        // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
+        let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
         fs::create_dir_all(&storage_dir).unwrap();
 
         Manager {

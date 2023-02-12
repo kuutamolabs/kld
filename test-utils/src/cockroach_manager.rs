@@ -1,6 +1,8 @@
 use crate::{
+    connection,
     manager::{Manager, Starts},
     ports::get_available_port,
+    TestSettingsBuilder,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -29,7 +31,7 @@ impl CockroachManager {
         let http_address = format!("127.0.0.1:{}", http_port);
 
         let manager = Manager::new(
-            Box::new(CockroachApi(http_address.clone())),
+            Box::new(CockroachApi(port)),
             output_dir,
             "cockroach",
             node_index,
@@ -46,12 +48,15 @@ impl CockroachManager {
     }
 }
 
-pub struct CockroachApi(String);
+pub struct CockroachApi(u16);
 
 #[async_trait]
 impl Starts for CockroachApi {
     async fn has_started(&self, _manager: &Manager) -> bool {
-        reqwest::get(format!("http://{}", self.0)).await.is_ok()
+        let settings = TestSettingsBuilder::new()
+            .with_database_port(self.0)
+            .build();
+        connection(&settings).await.is_ok()
     }
 }
 

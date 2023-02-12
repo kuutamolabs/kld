@@ -35,7 +35,7 @@ pub fn send_payment_two_nodes(c: &mut Criterion) -> Result<()> {
     let mut cockroach_0 = cockroach!();
     runtime.block_on(cockroach_0.start())?;
     let settings_0 = TestSettingsBuilder::new()
-        .with_database(&cockroach_0)
+        .with_database_port(cockroach_0.port)
         .build();
     runtime.block_on(migrate_database(&settings_0))?;
     let db_0 = runtime.block_on(LdkDatabase::new(&settings_0))?;
@@ -43,7 +43,7 @@ pub fn send_payment_two_nodes(c: &mut Criterion) -> Result<()> {
     let mut cockroach_1 = cockroach!(1);
     runtime.block_on(cockroach_1.start())?;
     let settings_1 = TestSettingsBuilder::new()
-        .with_database(&cockroach_1)
+        .with_database_port(cockroach_1.port)
         .build();
     runtime.block_on(migrate_database(&settings_1))?;
     let db_1 = runtime.block_on(LdkDatabase::new(&settings_1))?;
