@@ -210,7 +210,7 @@ impl EventHandler {
 								 payment hash {:?} with preimage {:?}",
                         payment.amt_msat,
                         if let Some(fee) = fee_paid_msat {
-                            format!(" (fee {} msat)", fee)
+                            format!(" (fee {fee} msat)")
                         } else {
                             "".to_string()
                         },
@@ -265,7 +265,7 @@ impl EventHandler {
                 };
                 let channel_str = |channel_id: &Option<[u8; 32]>| {
                     channel_id
-                        .map(|channel_id| format!(" with channel {:?}", channel_id))
+                        .map(|channel_id| format!(" with channel {channel_id:?}"))
                         .unwrap_or_default()
                 };
                 let from_prev_str = format!(

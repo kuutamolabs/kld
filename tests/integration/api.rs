@@ -455,12 +455,12 @@ pub async fn create_api_server() -> Result<Settings> {
 // TODO: those should be read only once when parsing settings...
 pub fn admin_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     let path = format!("{}/macaroons/admin.macaroon", settings.data_dir);
-    fs::read(&path).with_context(|| format!("Failed to read {}", path))
+    fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
 
 pub fn readonly_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     let path = format!("{}/macaroons/readonly.macaroon", settings.data_dir);
-    fs::read(&path).with_context(|| format!("Failed to read {}", path))
+    fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
 
 static LIGHTNING: Lazy<Arc<MockLightning>> = Lazy::new(|| Arc::new(MockLightning::default()));
@@ -468,7 +468,7 @@ static LIGHTNING: Lazy<Arc<MockLightning>> = Lazy::new(|| Arc::new(MockLightning
 fn unauthorized_request(settings: &Settings, method: Method, route: &str) -> RequestBuilder {
     let address = &settings.rest_api_address;
     https_client()
-        .request(method, format!("https://{}{}", address, route))
+        .request(method, format!("https://{address}{route}"))
         .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
 }
 

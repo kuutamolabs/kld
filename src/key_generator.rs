@@ -15,7 +15,7 @@ pub struct KeyGenerator {
 
 impl KeyGenerator {
     pub fn init(data_dir: &str) -> Result<KeyGenerator> {
-        let seed_path = format!("{}/secret_seed", data_dir);
+        let seed_path = format!("{data_dir}/secret_seed");
         let seed = if let Ok(seed) = fs::read(&seed_path) {
             info!("Loading secret seed: {}", seed_path);
             match seed.try_into() {
@@ -24,7 +24,7 @@ impl KeyGenerator {
             }
         } else {
             let seed: [u8; 32] = thread_rng().gen();
-            fs::write(&seed_path, seed).with_context(|| format!("cannot write {}", seed_path))?;
+            fs::write(&seed_path, seed).with_context(|| format!("cannot write {seed_path}"))?;
             info!("Generated secret seed: {}", seed_path);
             seed
         };

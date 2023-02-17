@@ -25,7 +25,7 @@ impl BitcoinManager {
         let args = &[
             "-server",
             "-noconnect",
-            &format!("-chain={}", NETWORK),
+            &format!("-chain={NETWORK}"),
             &format!("-datadir={}", &self.manager.storage_dir),
             &format!("-port={}", &self.p2p_port.to_string()),
             &format!("-rpcport={}", &self.rpc_port.to_string()),
@@ -69,7 +69,7 @@ fn cookie_path(manager: &Manager) -> String {
     } else {
         format!("{}/{}", manager.storage_dir, NETWORK)
     };
-    format!("{}/.cookie", dir)
+    format!("{dir}/.cookie")
 }
 
 pub struct BitcoinApi {

@@ -29,16 +29,16 @@ impl MacaroonAuth {
         let base64 = admin_macaroon.serialize(macaroon::Format::V2)?;
         general_purpose::URL_SAFE.decode_vec(base64, &mut buf)?;
 
-        fs::create_dir_all(format!("{}/macaroons", data_dir))?;
+        fs::create_dir_all(format!("{data_dir}/macaroons"))?;
         // access.macaroon is compatible with CLN
-        fs::write(format!("{}/macaroons/access.macaroon", data_dir), &buf)?;
+        fs::write(format!("{data_dir}/macaroons/access.macaroon"), &buf)?;
         // admin.macaroon is compatible with LND
         fs::write(
-            format!("{}/macaroons/admin.macaroon", data_dir),
+            format!("{data_dir}/macaroons/admin.macaroon"),
             admin_macaroon.serialize(macaroon::Format::V2)?,
         )?;
         fs::write(
-            format!("{}/macaroons/readonly.macaroon", data_dir),
+            format!("{data_dir}/macaroons/readonly.macaroon"),
             readonly_macaroon.serialize(macaroon::Format::V2)?,
         )?;
 

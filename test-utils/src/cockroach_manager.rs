@@ -28,7 +28,7 @@ impl CockroachManager {
     pub fn test_cockroach(output_dir: &str, node_index: u16) -> CockroachManager {
         let port = get_available_port().expect("Cannot find free port for cockroach");
         let http_port = get_available_port().expect("Cannot find free http port for cockroach");
-        let http_address = format!("127.0.0.1:{}", http_port);
+        let http_address = format!("127.0.0.1:{http_port}");
 
         let manager = Manager::new(
             Box::new(CockroachApi(port)),

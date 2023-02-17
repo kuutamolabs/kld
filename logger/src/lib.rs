@@ -36,7 +36,7 @@ impl Log for KndLogger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             let level = record.level().to_string().to_lowercase();
-            print!("level={}", level);
+            print!("level={level}");
             print!(" pid={}", process::id());
             print!(" message=\"{}\"", record.args());
             print!(" target=\"{}\"", record.target());
