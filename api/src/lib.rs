@@ -22,6 +22,10 @@ pub mod routes {
     pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
     /// Open channel with a connected peer node.
     pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
+    /// Update channel fee policy.
+    pub const SET_CHANNEL_FEE: &str = "/v1/channel/setChannelFee";
+    /// Close an existing channel with a peer.
+    pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel";
 
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.
@@ -172,6 +176,33 @@ pub struct FundChannelResponse {
     /// channel_id of the newly created channel (hex)
     pub channel_id: String,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChannelFee {
+    // Short channel ID or channel id. It can be "all" for updating all channels.
+    pub id: String,
+    // Optional value in msats added as base fee to any routed payment.
+    pub base: Option<u32>,
+    // Optional value that is added proportionally per-millionths to any routed payment volume in satoshi.
+    pub ppm: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SetChannelFee {
+    // Base fee in msats.
+    pub base: u32,
+    // Fee per-millionths
+    pub ppm: u32,
+    // Peer ID
+    pub peer_id: String,
+    // Channel ID
+    pub channel_id: String,
+    // Short channel ID
+    pub short_channel_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct NewAddress {

@@ -1,11 +1,16 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use api::Channel;
+use api::ChannelFee;
 use api::FundChannel;
 use api::FundChannelResponse;
+use api::SetChannelFee;
+use api::SetChannelFeeResponse;
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
+use lightning::ln::channelmanager::ChannelDetails;
 use log::{info, warn};
 
 use crate::handle_bad_request;
@@ -86,4 +91,67 @@ pub(crate) async fn open_channel(
         channel_id: result.channel_id.encode_hex(),
     };
     Ok(Json(response))
+}
+
+pub(crate) async fn set_channel_fee(
+    macaroon: KndMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Json(channel_fee): Json<ChannelFee>,
+) -> Result<impl IntoResponse, StatusCode> {
+    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+
+    let mut updated_channels = vec![];
+
+    if channel_fee.id == "all" {
+        let mut peer_channels: HashMap<PublicKey, Vec<ChannelDetails>> = HashMap::new();
+        for channel in lightning_interface.list_channels() {
+            if let Some(channel_ids) = peer_channels.get_mut(&channel.counterparty.node_id) {
+                channel_ids.push(channel);
+            } else {
+                peer_channels.insert(channel.counterparty.node_id, vec![channel]);
+            }
+        }
+        for (node_id, channels) in peer_channels {
+            let channel_ids: Vec<[u8; 32]> = channels.iter().map(|c| c.channel_id).collect();
+            let (base, ppm) = handle_err!(lightning_interface.set_channel_fee(
+                &node_id,
+                &channel_ids,
+                channel_fee.ppm,
+                channel_fee.base
+            ));
+            for channel in channels {
+                updated_channels.push(SetChannelFee {
+                    base,
+                    ppm,
+                    peer_id: node_id.to_string(),
+                    channel_id: channel.channel_id.encode_hex(),
+                    short_channel_id: to_string_empty!(channel.short_channel_id),
+                });
+            }
+        }
+    } else {
+        let short_channel_id = handle_bad_request!(channel_fee.id.parse::<u64>());
+        if let Some(channel) = lightning_interface
+            .list_channels()
+            .iter()
+            .find(|c| c.short_channel_id == Some(short_channel_id))
+        {
+            let (base, ppm) = handle_err!(lightning_interface.set_channel_fee(
+                &channel.counterparty.node_id,
+                &[channel.channel_id],
+                channel_fee.ppm,
+                channel_fee.base
+            ));
+            updated_channels.push(SetChannelFee {
+                base,
+                ppm,
+                peer_id: channel.counterparty.node_id.to_string(),
+                channel_id: channel.channel_id.encode_hex(),
+                short_channel_id: to_string_empty!(channel.short_channel_id),
+            });
+        }
+    }
+
+    Ok(Json(SetChannelFeeResponse(updated_channels)))
 }

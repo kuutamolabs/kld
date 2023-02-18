@@ -13,7 +13,7 @@ pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
 use crate::api::{
-    channels::{list_channels, open_channel},
+    channels::{list_channels, open_channel, set_channel_fee},
     peers::{connect_peer, disconnect_peer, list_peers},
     wallet::{get_balance, new_address, transfer},
     ws::ws_handler,
@@ -68,6 +68,7 @@ impl RestApi {
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_CHANNELS, get(list_channels))
             .route(routes::OPEN_CHANNEL, post(open_channel))
+            .route(routes::SET_CHANNEL_FEE, post(set_channel_fee))
             .route(routes::NEW_ADDR, get(new_address))
             .route(routes::WITHDRAW, post(transfer))
             .route(routes::LIST_PEERS, get(list_peers))

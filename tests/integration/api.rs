@@ -20,15 +20,16 @@ use settings::Settings;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
-    routes, Channel, FundChannel, FundChannelResponse, GetInfo, NewAddress, NewAddressResponse,
-    Peer, WalletBalance, WalletTransfer, WalletTransferResponse,
+    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    NewAddressResponse, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
-use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY};
+use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 use crate::quit_signal;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -87,6 +88,27 @@ pub async fn test_unauthorized() -> Result<()> {
             Method::POST,
             routes::OPEN_CHANNEL,
             fund_channel_request
+        )?)
+        .await
+        .unwrap_err()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        send(unauthorized_request(
+            &settings,
+            Method::POST,
+            routes::SET_CHANNEL_FEE,
+        ))
+        .await
+        .unwrap_err()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        send(readonly_request_with_body(
+            &settings,
+            Method::POST,
+            routes::SET_CHANNEL_FEE,
+            set_channel_fee_request
         )?)
         .await
         .unwrap_err()
@@ -268,7 +290,7 @@ async fn test_listchannels_readonly() -> Result<()> {
     );
     assert_eq!("true", channel.connected);
     assert_eq!("usable", channel.state);
-    assert_eq!("34234124", channel.short_channel_id);
+    assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
     assert_eq!(
         "0000000000000000000000000000000000000000000000000000000000000000",
         channel.funding_txid
@@ -304,6 +326,51 @@ async fn test_openchannel_admin() -> Result<()> {
         "0101010101010101010101010101010101010101010101010101010101010101",
         response.channel_id
     );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_set_channel_fee_admin() -> Result<()> {
+    let settings = create_api_server().await?;
+    let response: SetChannelFeeResponse = send(admin_request_with_body(
+        &settings,
+        Method::POST,
+        routes::SET_CHANNEL_FEE,
+        set_channel_fee_request,
+    )?)
+    .await
+    .deserialize();
+
+    let fee = response.0.get(0).context("Bad response")?;
+    assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), fee.short_channel_id);
+    assert_eq!(TEST_PUBLIC_KEY, fee.peer_id);
+    assert_eq!(set_channel_fee_request().base, Some(fee.base));
+    assert_eq!(set_channel_fee_request().ppm, Some(fee.ppm));
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_set_all_channel_fees_admin() -> Result<()> {
+    let settings = create_api_server().await?;
+    let request = ChannelFee {
+        id: "all".to_string(),
+        base: Some(32500),
+        ppm: Some(1200),
+    };
+    let response: SetChannelFeeResponse = send(admin_request_with_body(
+        &settings,
+        Method::POST,
+        routes::SET_CHANNEL_FEE,
+        || request.clone(),
+    )?)
+    .await
+    .deserialize();
+
+    let fee = response.0.get(0).context("Bad response")?;
+    assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), fee.short_channel_id);
+    assert_eq!(TEST_PUBLIC_KEY, fee.peer_id);
+    assert_eq!(request.base, Some(fee.base));
+    assert_eq!(request.ppm, Some(fee.ppm));
     Ok(())
 }
 
@@ -399,6 +466,14 @@ fn fund_channel_request() -> FundChannel {
         compact_lease: None,
         min_conf: Some(5),
         utxos: vec![],
+    }
+}
+
+fn set_channel_fee_request() -> ChannelFee {
+    ChannelFee {
+        id: TEST_SHORT_CHANNEL_ID.to_string(),
+        base: Some(32500),
+        ppm: Some(1200),
     }
 }
 

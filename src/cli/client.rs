@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
-use api::{routes, FundChannel, NewAddress, WalletTransfer};
+use api::{routes, ChannelFee, FundChannel, NewAddress, WalletTransfer};
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder},
     header::{HeaderValue, CONTENT_TYPE},
@@ -90,6 +90,16 @@ impl Api {
             compact_lease: None,
         };
         send(self.request_with_body(Method::POST, routes::OPEN_CHANNEL, open_channel))
+    }
+
+    pub fn set_channel_fee(
+        &self,
+        id: String,
+        base: Option<u32>,
+        ppm: Option<u32>,
+    ) -> Result<String> {
+        let fee_request = ChannelFee { id, base, ppm };
+        send(self.request_with_body(Method::POST, routes::SET_CHANNEL_FEE, fee_request))
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
