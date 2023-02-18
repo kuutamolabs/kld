@@ -35,7 +35,7 @@ pub fn main() -> Result<()> {
     runtime.block_on(migrate_database(&settings))?;
 
     let key_generator = Arc::new(
-        KeyGenerator::init(&settings.data_dir).context("cannot initialize key generator")?,
+        KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
     );
 
     let database = Arc::new(

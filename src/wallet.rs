@@ -142,6 +142,7 @@ impl Wallet {
             }
             _ => {
                 info!("Syncing wallet to blockchain.");
+                // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
                 let wallet_clone = bdk_wallet.clone();
                 tokio::task::spawn_blocking(move || {
                     // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
