@@ -255,9 +255,7 @@ fn api_error(error: APIError) -> anyhow::Error {
                 .to_string()
         }
         APIError::IncompatibleShutdownScript { ref script } => {
-            format!(
-                "Provided a scriptpubkey format not accepted by peer: {script}"
-            )
+            format!("Provided a scriptpubkey format not accepted by peer: {script}")
         }
     })
 }
