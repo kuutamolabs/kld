@@ -9,7 +9,7 @@ use lightning_knd::prometheus::start_prometheus_exporter;
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
     let address = test_settings().exporter_address.clone();
-    println!("ADDRESS: {}", address);
+    println!("ADDRESS: {address}");
 
     let metrics = Arc::new(MockLightning {
         num_nodes: 10,
@@ -55,7 +55,7 @@ pub async fn test_prometheus() -> Result<()> {
 }
 
 async fn call_exporter(address: &str, method: &str) -> Result<String, reqwest::Error> {
-    reqwest::get(format!("http://{}/{}", address, method))
+    reqwest::get(format!("http://{address}/{method}"))
         .await?
         .text()
         .await

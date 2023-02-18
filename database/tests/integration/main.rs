@@ -72,7 +72,7 @@ pub async fn teardown() {
 pub async fn create_database(settings: &Settings, name: &str) -> Settings {
     let client = connection(settings).await.unwrap();
     client
-        .execute(&format!("CREATE DATABASE IF NOT EXISTS {}", name), &[])
+        .execute(&format!("CREATE DATABASE IF NOT EXISTS {name}"), &[])
         .await
         .unwrap();
     let mut new_settings = settings.clone();

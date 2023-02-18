@@ -905,9 +905,7 @@ impl BatchDatabase for WalletDatabase {
                     .await
                     .batch_execute("BEGIN")
                     .await
-                    .map_err(|e| {
-                        Error::Generic(format!("Failed to begin SQL transaction: {}", e))
-                    })?;
+                    .map_err(|e| Error::Generic(format!("Failed to begin SQL transaction: {e}")))?;
                 Ok(database)
             })
         })
@@ -924,7 +922,7 @@ impl BatchDatabase for WalletDatabase {
                     .await
                     .batch_execute("COMMIT")
                     .await
-                    .map_err(|e| Error::Generic(format!("Failed to commit SQL transaction: {}", e)))
+                    .map_err(|e| Error::Generic(format!("Failed to commit SQL transaction: {e}")))
             })
         })
     }

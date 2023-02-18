@@ -243,22 +243,19 @@ impl<K: Eq + Hash, V> AsyncSenders<K, V> {
 
 fn api_error(error: APIError) -> anyhow::Error {
     anyhow::Error::msg(match error {
-        APIError::APIMisuseError { ref err } => format!("Misuse error: {}", err),
+        APIError::APIMisuseError { ref err } => format!("Misuse error: {err}"),
         APIError::FeeRateTooHigh {
             ref err,
             ref feerate,
-        } => format!("{} feerate: {}", err, feerate),
-        APIError::InvalidRoute { ref err } => format!("Invalid route provided: {}", err),
-        APIError::ChannelUnavailable { ref err } => format!("Channel unavailable: {}", err),
+        } => format!("{err} feerate: {feerate}"),
+        APIError::InvalidRoute { ref err } => format!("Invalid route provided: {err}"),
+        APIError::ChannelUnavailable { ref err } => format!("Channel unavailable: {err}"),
         APIError::MonitorUpdateInProgress => {
             "Client indicated a channel monitor update is in progress but not yet complete"
                 .to_string()
         }
         APIError::IncompatibleShutdownScript { ref script } => {
-            format!(
-                "Provided a scriptpubkey format not accepted by peer: {}",
-                script
-            )
+            format!("Provided a scriptpubkey format not accepted by peer: {script}")
         }
     })
 }

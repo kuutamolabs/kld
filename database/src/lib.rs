@@ -43,7 +43,7 @@ pub async fn connection(settings: &Settings) -> Result<Client> {
     }
     let (client, connection) = tokio_postgres::connect(&params, NoTls)
         .await
-        .with_context(|| format!("could not connect to database ({})", log_safe_params))?;
+        .with_context(|| format!("could not connect to database ({log_safe_params})"))?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             error!("Database connection error: {}", e);

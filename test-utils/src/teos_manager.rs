@@ -30,7 +30,7 @@ impl TeosManager {
 
     pub fn test_teos(output_dir: &str, bitcoin: &BitcoinManager) -> TeosManager {
         let port = get_available_port().unwrap();
-        let http_address = format!("http://127.0.0.1:{}/get_subscription_info", port);
+        let http_address = format!("http://127.0.0.1:{port}/get_subscription_info");
 
         let manager = Manager::new(Box::new(TeosApi(http_address)), output_dir, "teosd", 0);
         TeosManager {

@@ -73,7 +73,7 @@ fn main() {
 
     match run_command(args) {
         Ok(_) => (),
-        Err(e) => println!("Error executing command: {}", e),
+        Err(e) => println!("Error executing command: {e}"),
     }
 }
 
@@ -95,6 +95,6 @@ fn run_command(args: Args) -> Result<()> {
             push_msat,
         } => api.open_channel(public_key, satoshis, push_msat)?,
     };
-    println!("{}", result);
+    println!("{result}");
     Ok(())
 }

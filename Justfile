@@ -2,8 +2,8 @@
 lint:
   cargo clippy --workspace --all-targets --all-features -- -D warnings
 fix:
-  treefmt
   cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged  -- -D warnings
+  treefmt
 
 test:
   cargo test --workspace --all-features

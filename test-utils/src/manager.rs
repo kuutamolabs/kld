@@ -23,8 +23,8 @@ impl Manager {
         name: &str,
         node_index: u16,
     ) -> Self {
-        let instance_name = format!("{}_{}", name, node_index);
-        let storage_dir = format!("{}/{}", output_dir, instance_name);
+        let instance_name = format!("{name}_{node_index}");
+        let storage_dir = format!("{output_dir}/{instance_name}");
         // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
         let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
         fs::create_dir_all(&storage_dir).unwrap();
@@ -50,7 +50,7 @@ impl Manager {
                 .stderr(err)
                 .args(args)
                 .spawn()
-                .with_context(|| format!("failed to start {}", command))?;
+                .with_context(|| format!("failed to start {command}"))?;
 
             self.process = Some(child);
 
@@ -69,8 +69,8 @@ impl Manager {
                 let mut buf = String::new();
                 file.read_to_string(&mut buf).unwrap();
                 println!("Timed out waiting to start: {}", self.instance_name);
-                println!("Begin log file: {}", path);
-                println!("{}", buf);
+                println!("Begin log file: {path}");
+                println!("{buf}");
                 println!("End of log file.");
                 panic!("Failed to start {}", self.instance_name);
             } else {
