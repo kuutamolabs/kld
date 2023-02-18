@@ -75,6 +75,10 @@ impl KndManager {
 
         set_var("KND_DATA_DIR", &manager.storage_dir);
         set_var("KND_CERTS_DIR", certs_dir);
+        set_var(
+            "KND_MNEMONIC_PATH",
+            format!("{}/mnemonic", &manager.storage_dir),
+        );
         set_var("KND_EXPORTER_ADDRESS", &exporter_address);
         set_var("KND_REST_API_ADDRESS", &rest_api_address);
         set_var("KND_BITCOIN_NETWORK", &bitcoin.network);

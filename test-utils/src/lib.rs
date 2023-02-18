@@ -47,6 +47,7 @@ impl TestSettingsBuilder {
     pub fn with_data_dir(mut self, data_dir: &str) -> TestSettingsBuilder {
         fs::create_dir_all(data_dir).unwrap();
         self.settings.data_dir = data_dir.to_string();
+        self.settings.mnemonic_path = format!("{}/mnemonic", self.settings.data_dir);
         self
     }
 
@@ -112,6 +113,9 @@ pub mod fake_fs {
     use std::{io, path::Path};
 
     pub fn read<P: AsRef<Path>>(_path: P) -> io::Result<Vec<u8>> {
+        Err(io::Error::from(io::ErrorKind::NotFound))
+    }
+    pub fn read_to_string<P: AsRef<Path>>(_path: P) -> io::Result<String> {
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
     pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(_path: P, _contents: C) -> io::Result<()> {

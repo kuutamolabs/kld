@@ -362,7 +362,7 @@ impl Controller {
                 database
                     .fetch_channel_manager(read_args)
                     .await
-                    .context("failed to query channel manage from database")?
+                    .context("failed to query channel manager from database")?
             }
         };
 

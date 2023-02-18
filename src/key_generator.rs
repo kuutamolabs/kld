@@ -1,34 +1,35 @@
+use bip39::Mnemonic;
 #[cfg(not(test))]
 use std::fs;
 #[cfg(test)]
 use test_utils::fake_fs as fs;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use bitcoin::hashes::{sha256, Hash, HashEngine};
 use log::info;
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 
 // To start lets have only one primary seed to backup and derive everything else from that.
 pub struct KeyGenerator {
-    seed: [u8; 32],
+    mnemonic: Mnemonic,
 }
 
 impl KeyGenerator {
-    pub fn init(data_dir: &str) -> Result<KeyGenerator> {
-        let seed_path = format!("{data_dir}/secret_seed");
-        let seed = if let Ok(seed) = fs::read(&seed_path) {
-            info!("Loading secret seed: {}", seed_path);
-            match seed.try_into() {
-                Err(_) => bail!("Invalid seed file at {}", seed_path),
-                Ok(v) => v,
-            }
+    pub fn init(mnemonic_path: &str) -> Result<KeyGenerator> {
+        let mnemonic = if let Ok(words) = fs::read_to_string(mnemonic_path) {
+            info!("Loading mnemonic from {mnemonic_path}");
+            Mnemonic::parse(words)?
         } else {
-            let seed: [u8; 32] = thread_rng().gen();
-            fs::write(&seed_path, seed).with_context(|| format!("cannot write {seed_path}"))?;
-            info!("Generated secret seed: {}", seed_path);
-            seed
+            let mut rng = thread_rng();
+            let mnemonic = Mnemonic::generate_in_with(&mut rng, bip39::Language::English, 24)?;
+
+            fs::write(mnemonic_path, mnemonic.to_string())
+                .with_context(|| format!("Cannot write to {mnemonic_path}"))?;
+
+            info!("Generated a new mnemonic: {}", mnemonic_path);
+            mnemonic
         };
-        Ok(KeyGenerator { seed })
+        Ok(KeyGenerator { mnemonic })
     }
 
     pub fn wallet_seed(&self) -> [u8; 32] {
@@ -45,7 +46,7 @@ impl KeyGenerator {
 
     fn generate_key(&self, extra_input: &str) -> [u8; 32] {
         let mut engine = sha256::HashEngine::default();
-        engine.input(&self.seed);
+        engine.input(&self.mnemonic.to_seed(""));
         engine.input(extra_input.as_bytes());
         let hash = sha256::Hash::from_engine(engine);
         hash.into_inner()

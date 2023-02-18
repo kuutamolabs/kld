@@ -1495,6 +1495,7 @@ dependencies = [
  "prometheus",
  "rand",
  "reqwest",
+ "rust-bip39",
  "serde",
  "serde_json",
  "settings",
@@ -2269,6 +2270,18 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
+]
+
+[[package]]
+name = "rust-bip39"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f868fd508789837c62557c8eb3c2ce6891ed3b4961e96e14f068d35299c270f"
+dependencies = [
+ "bitcoin_hashes",
+ "rand_core",
+ "serde",
+ "unicode-normalization",
 ]
 
 [[package]]

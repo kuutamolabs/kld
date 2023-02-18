@@ -27,6 +27,12 @@ pub struct Settings {
         env = "KND_CERTS_DIR"
     )]
     pub certs_dir: String,
+    #[clap(
+        long,
+        default_value = "/var/lib/lightning-knd/mnemonic",
+        env = "KND_MNEMONIC_PATH"
+    )]
+    pub mnemonic_path: String,
     #[clap(long, default_value = "one", env = "KND_NODE_ID")]
     pub node_id: String,
     #[clap(long, default_value = "info", env = "KND_LOG_LEVEL")]
