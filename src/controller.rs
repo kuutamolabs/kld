@@ -150,6 +150,12 @@ impl LightningInterface for Controller {
         })
     }
 
+    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()> {
+        self.channel_manager
+            .close_channel(channel_id, counterparty_node_id)
+            .map_err(api_error)
+    }
+
     fn set_channel_fee(
         &self,
         counterparty_node_id: &PublicKey,

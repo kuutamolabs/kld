@@ -204,6 +204,12 @@ pub struct SetChannelFee {
 #[derive(Serialize, Deserialize)]
 pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
 
+#[derive(Serialize, Deserialize)]
+pub struct CloseChannel {
+    /// Channel ID of short channel ID
+    pub id: String,
+}
+
 #[derive(Serialize, Deserialize, Default)]
 pub struct NewAddress {
     /// Address type (bech32 only)

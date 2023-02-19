@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use api::Channel;
 use api::ChannelFee;
+use api::CloseChannel;
 use api::FundChannel;
 use api::FundChannelResponse;
 use api::SetChannelFee;
@@ -147,7 +148,30 @@ pub(crate) async fn set_channel_fee(
             channel_id: channel.channel_id.encode_hex(),
             short_channel_id: to_string_empty!(channel.short_channel_id),
         });
+    } else {
+        return Err(StatusCode::NOT_FOUND);
     }
 
     Ok(Json(SetChannelFeeResponse(updated_channels)))
+}
+
+pub(crate) async fn close_channel(
+    macaroon: KndMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Json(channel): Json<CloseChannel>,
+) -> Result<impl IntoResponse, StatusCode> {
+    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+
+    if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+        c.channel_id.encode_hex::<String>() == channel.id
+            || c.short_channel_id.unwrap_or_default().to_string() == channel.id
+    }) {
+        handle_err!(
+            lightning_interface.close_channel(&channel.channel_id, &channel.counterparty.node_id)
+        );
+        Ok(Json(()))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }

@@ -188,4 +188,12 @@ impl LightningInterface for MockLightning {
     async fn disconnect_peer(&self, _public_key: PublicKey) -> Result<()> {
         Ok(())
     }
+
+    fn close_channel(
+        &self,
+        _channel_id: &[u8; 32],
+        _counterparty_node_id: &PublicKey,
+    ) -> Result<()> {
+        Ok(())
+    }
 }

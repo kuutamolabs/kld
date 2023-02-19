@@ -20,8 +20,8 @@ use settings::Settings;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
-    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
-    NewAddressResponse, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
+    routes, Channel, ChannelFee, CloseChannel, FundChannel, FundChannelResponse, GetInfo,
+    NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
@@ -109,6 +109,29 @@ pub async fn test_unauthorized() -> Result<()> {
             Method::POST,
             routes::SET_CHANNEL_FEE,
             set_channel_fee_request
+        )?)
+        .await
+        .unwrap_err()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        send(unauthorized_request(
+            &settings,
+            Method::DELETE,
+            routes::CLOSE_CHANNEL,
+        ))
+        .await
+        .unwrap_err()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        send(readonly_request_with_body(
+            &settings,
+            Method::DELETE,
+            routes::CLOSE_CHANNEL,
+            || CloseChannel {
+                id: TEST_SHORT_CHANNEL_ID.to_string()
+            }
         )?)
         .await
         .unwrap_err()
@@ -248,7 +271,7 @@ async fn test_root_admin() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_getinfo_readonly() -> Result<()> {
+async fn test_get_info_readonly() -> Result<()> {
     let settings = create_api_server().await?;
     let info: GetInfo = send(readonly_request(&settings, Method::GET, routes::GET_INFO)?)
         .await
@@ -258,7 +281,7 @@ async fn test_getinfo_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_getbalance_readonly() -> Result<()> {
+async fn test_get_balance_readonly() -> Result<()> {
     let settings = create_api_server().await?;
     let balance: WalletBalance = send(readonly_request(
         &settings,
@@ -274,7 +297,7 @@ async fn test_getbalance_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_listchannels_readonly() -> Result<()> {
+async fn test_list_channels_readonly() -> Result<()> {
     let settings = create_api_server().await?;
     let channels: Vec<Channel> = send(readonly_request(
         &settings,
@@ -308,7 +331,7 @@ async fn test_listchannels_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_openchannel_admin() -> Result<()> {
+async fn test_open_channel_admin() -> Result<()> {
     let settings = create_api_server().await?;
     let response: FundChannelResponse = send(admin_request_with_body(
         &settings,
@@ -371,6 +394,22 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
     assert_eq!(TEST_PUBLIC_KEY, fee.peer_id);
     assert_eq!(request.base, Some(fee.base));
     assert_eq!(request.ppm, Some(fee.ppm));
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_close_channel_admin() -> Result<()> {
+    let settings = create_api_server().await?;
+    let result = send(admin_request_with_body(
+        &settings,
+        Method::DELETE,
+        routes::CLOSE_CHANNEL,
+        || CloseChannel {
+            id: TEST_SHORT_CHANNEL_ID.to_string(),
+        },
+    )?)
+    .await;
+    assert!(result.0.is_ok());
     Ok(())
 }
 

@@ -62,6 +62,8 @@ pub trait LightningInterface {
         push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
+
+    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()>;
 }
 
 pub struct Peer {

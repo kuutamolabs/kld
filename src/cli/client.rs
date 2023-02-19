@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
-use api::{routes, ChannelFee, FundChannel, NewAddress, WalletTransfer};
+use api::{routes, ChannelFee, CloseChannel, FundChannel, NewAddress, WalletTransfer};
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder},
     header::{HeaderValue, CONTENT_TYPE},
@@ -100,6 +100,11 @@ impl Api {
     ) -> Result<String> {
         let fee_request = ChannelFee { id, base, ppm };
         send(self.request_with_body(Method::POST, routes::SET_CHANNEL_FEE, fee_request))
+    }
+
+    pub fn close_channel(&self, id: String) -> Result<String> {
+        let close_channel = CloseChannel { id };
+        send(self.request_with_body(Method::DELETE, routes::CLOSE_CHANNEL, close_channel))
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

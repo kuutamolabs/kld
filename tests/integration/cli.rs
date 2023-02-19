@@ -102,7 +102,7 @@ async fn test_cli_set_channel_fee() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_cli_set_channel_feei_all() -> Result<()> {
+async fn test_cli_set_channel_fee_all() -> Result<()> {
     let output = run_cli(
         "set-channel-fee",
         &["--id", "all", "--base-fee", "1000", "--ppm-fee", "200"],
@@ -110,6 +110,16 @@ async fn test_cli_set_channel_feei_all() -> Result<()> {
     .await?;
     let _: SetChannelFeeResponse = deserialize(&output.stdout)?;
     Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_close_channel() -> Result<()> {
+    let output = run_cli(
+        "close-channel",
+        &["--id", &TEST_SHORT_CHANNEL_ID.to_string()],
+    )
+    .await?;
+    deserialize(&output.stdout)
 }
 
 fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T>
