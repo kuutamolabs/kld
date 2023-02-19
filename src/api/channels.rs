@@ -130,27 +130,23 @@ pub(crate) async fn set_channel_fee(
                 });
             }
         }
-    } else {
-        let short_channel_id = handle_bad_request!(channel_fee.id.parse::<u64>());
-        if let Some(channel) = lightning_interface
-            .list_channels()
-            .iter()
-            .find(|c| c.short_channel_id == Some(short_channel_id))
-        {
-            let (base, ppm) = handle_err!(lightning_interface.set_channel_fee(
-                &channel.counterparty.node_id,
-                &[channel.channel_id],
-                channel_fee.ppm,
-                channel_fee.base
-            ));
-            updated_channels.push(SetChannelFee {
-                base,
-                ppm,
-                peer_id: channel.counterparty.node_id.to_string(),
-                channel_id: channel.channel_id.encode_hex(),
-                short_channel_id: to_string_empty!(channel.short_channel_id),
-            });
-        }
+    } else if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+        c.channel_id.encode_hex::<String>() == channel_fee.id
+            || c.short_channel_id.unwrap_or_default().to_string() == channel_fee.id
+    }) {
+        let (base, ppm) = handle_err!(lightning_interface.set_channel_fee(
+            &channel.counterparty.node_id,
+            &[channel.channel_id],
+            channel_fee.ppm,
+            channel_fee.base
+        ));
+        updated_channels.push(SetChannelFee {
+            base,
+            ppm,
+            peer_id: channel.counterparty.node_id.to_string(),
+            channel_id: channel.channel_id.encode_hex(),
+            short_channel_id: to_string_empty!(channel.short_channel_id),
+        });
     }
 
     Ok(Json(SetChannelFeeResponse(updated_channels)))
