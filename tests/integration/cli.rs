@@ -2,13 +2,13 @@ use std::process::{Command, Output};
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FundChannelResponse, GetInfo, NewAddressResponse, Peer, WalletBalance,
-    WalletTransferResponse,
+    Channel, FundChannelResponse, GetInfo, NewAddressResponse, Peer, SetChannelFeeResponse,
+    WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use serde::de;
 
-use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY};
+use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 use super::api::create_api_server;
 
@@ -81,6 +81,45 @@ async fn test_cli_open_channel() -> Result<()> {
     .await?;
     let _: FundChannelResponse = deserialize(&output.stdout)?;
     Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_set_channel_fee() -> Result<()> {
+    let output = run_cli(
+        "set-channel-fee",
+        &[
+            "--id",
+            &TEST_SHORT_CHANNEL_ID.to_string(),
+            "--base-fee",
+            "1000",
+            "--ppm-fee",
+            "200",
+        ],
+    )
+    .await?;
+    let _: SetChannelFeeResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_set_channel_fee_all() -> Result<()> {
+    let output = run_cli(
+        "set-channel-fee",
+        &["--id", "all", "--base-fee", "1000", "--ppm-fee", "200"],
+    )
+    .await?;
+    let _: SetChannelFeeResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_close_channel() -> Result<()> {
+    let output = run_cli(
+        "close-channel",
+        &["--id", &TEST_SHORT_CHANNEL_ID.to_string()],
+    )
+    .await?;
+    deserialize(&output.stdout)
 }
 
 fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T>

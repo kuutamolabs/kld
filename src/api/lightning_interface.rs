@@ -33,6 +33,14 @@ pub trait LightningInterface {
 
     fn list_channels(&self) -> Vec<ChannelDetails>;
 
+    fn set_channel_fee(
+        &self,
+        counterparty_node_id: &PublicKey,
+        channel_id: &[[u8; 32]],
+        forwarding_fee_proportional_millionths: Option<u32>,
+        forwarding_fee_base_msat: Option<u32>,
+    ) -> Result<(u32, u32)>;
+
     fn alias_of(&self, node_id: PublicKey) -> Option<String>;
 
     fn addresses(&self) -> Vec<String>;
@@ -54,6 +62,8 @@ pub trait LightningInterface {
         push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
+
+    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()>;
 }
 
 pub struct Peer {

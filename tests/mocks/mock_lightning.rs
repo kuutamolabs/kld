@@ -18,7 +18,7 @@ use lightning::{
 use lightning_knd::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 use test_utils::random_public_key;
 
-use super::{TEST_PUBLIC_KEY, TEST_TX};
+use super::{TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
 
 pub struct MockLightning {
     pub num_peers: usize,
@@ -45,7 +45,7 @@ impl Default for MockLightning {
                 index: 2,
             }),
             channel_type: None,
-            short_channel_id: Some(34234124),
+            short_channel_id: Some(TEST_SHORT_CHANNEL_ID),
             outbound_scid_alias: None,
             inbound_scid_alias: None,
             channel_value_satoshis: 1000000,
@@ -127,6 +127,19 @@ impl LightningInterface for MockLightning {
         self.channels.clone()
     }
 
+    fn set_channel_fee(
+        &self,
+        _counterparty_node_id: &PublicKey,
+        _channel_id: &[[u8; 32]],
+        forwarding_fee_proportional_millionths: Option<u32>,
+        forwarding_fee_base_msat: Option<u32>,
+    ) -> Result<(u32, u32)> {
+        Ok((
+            forwarding_fee_base_msat.unwrap_or(5000),
+            forwarding_fee_proportional_millionths.unwrap_or(200),
+        ))
+    }
+
     fn alias_of(&self, _node_id: PublicKey) -> Option<String> {
         Some("test_node".to_string())
     }
@@ -173,6 +186,14 @@ impl LightningInterface for MockLightning {
     }
 
     async fn disconnect_peer(&self, _public_key: PublicKey) -> Result<()> {
+        Ok(())
+    }
+
+    fn close_channel(
+        &self,
+        _channel_id: &[u8; 32],
+        _counterparty_node_id: &PublicKey,
+    ) -> Result<()> {
         Ok(())
     }
 }

@@ -150,6 +150,35 @@ impl LightningInterface for Controller {
         })
     }
 
+    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()> {
+        self.channel_manager
+            .close_channel(channel_id, counterparty_node_id)
+            .map_err(api_error)
+    }
+
+    fn set_channel_fee(
+        &self,
+        counterparty_node_id: &PublicKey,
+        channel_ids: &[[u8; 32]],
+        forwarding_fee_proportional_millionths: Option<u32>,
+        forwarding_fee_base_msat: Option<u32>,
+    ) -> Result<(u32, u32)> {
+        let mut channel_config = &mut self.user_config.channel_config.clone();
+        if let Some(fee) = forwarding_fee_proportional_millionths {
+            channel_config.forwarding_fee_proportional_millionths = fee;
+        }
+        if let Some(fee) = forwarding_fee_base_msat {
+            channel_config.forwarding_fee_base_msat = fee;
+        }
+        self.channel_manager
+            .update_channel_config(counterparty_node_id, channel_ids, channel_config)
+            .map_err(api_error)?;
+        Ok((
+            channel_config.forwarding_fee_base_msat,
+            channel_config.forwarding_fee_proportional_millionths,
+        ))
+    }
+
     fn alias_of(&self, public_key: PublicKey) -> Option<String> {
         self.network_graph
             .read_only()
@@ -269,6 +298,7 @@ pub struct Controller {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
     async_api_requests: Arc<AsyncAPIRequests>,
+    user_config: UserConfig,
 }
 
 impl Controller {
@@ -570,6 +600,7 @@ impl Controller {
                 network_graph,
                 wallet,
                 async_api_requests,
+                user_config,
             },
             background_processor,
         ))

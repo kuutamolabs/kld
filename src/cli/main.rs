@@ -66,6 +66,22 @@ enum Command {
         #[arg(long)]
         push_msat: Option<String>,
     },
+    SetChannelFee {
+        /// Channel ID, short channel ID or "all" for all channels.
+        #[arg(long)]
+        id: String,
+        /// Optional value in msats added as base fee to any routed payment.
+        #[arg(long)]
+        base_fee: Option<u32>,
+        /// Optional value that is added proportionally per-millionths to any routed payment volume in satoshi
+        #[arg(long)]
+        ppm_fee: Option<u32>,
+    },
+    CloseChannel {
+        /// Channel ID or short channel ID.
+        #[arg(long)]
+        id: String,
+    },
 }
 
 fn main() {
@@ -94,6 +110,12 @@ fn run_command(args: Args) -> Result<()> {
             satoshis,
             push_msat,
         } => api.open_channel(public_key, satoshis, push_msat)?,
+        Command::SetChannelFee {
+            id,
+            base_fee,
+            ppm_fee,
+        } => api.set_channel_fee(id, base_fee, ppm_fee)?,
+        Command::CloseChannel { id } => api.close_channel(id)?,
     };
     println!("{result}");
     Ok(())
