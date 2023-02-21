@@ -63,6 +63,28 @@ in
         Comma-seperated list of ip addresses on which the lightning is *directly* reachable.
       '';
     };
+    exporterAddress = lib.mkOption {
+      type = lib.types.str;
+      default = "127.0.0.1:2233";
+      description = lib.mDoc ''
+        Address and port to bind to for exporting metrics
+      '';
+    };
+    restApiAddress = lib.mkOption {
+      type = lib.types.str;
+      default = "127.0.0.1:2244";
+      description = lib.mDoc ''
+        Address and port to bind to for the REST API
+      '';
+    };
+
+    nodeAlias = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        The alias of this lightning node
+      '';
+    };
   };
 
   imports = [
@@ -108,12 +130,13 @@ in
       environment = {
         KND_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KND_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
+        KND_NODE_NAME = lib.mkDefault cfg.nodeAlias;
         KND_DATABASE_HOST = lib.mkDefault "/run/cockroachdb";
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
         KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
-        KND_EXPORTER_ADDRESS = lib.mkDefault "127.0.0.1:2233";
-        KND_REST_API_ADDRESS = lib.mkDefault "127.0.0.1:2244";
+        KND_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
+        KND_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
         KND_BITCOIN_NETWORK = lib.mkDefault cfg.network;
 
