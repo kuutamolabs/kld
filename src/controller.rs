@@ -195,9 +195,15 @@ impl LightningInterface for Controller {
             .iter()
             .map(|c| c.counterparty.node_id)
             .collect();
-        let mut persistent_peers = self.database.fetch_peers().await?;
+        let persistent_peers = self.database.fetch_peers().await?;
+
         let mut response = vec![];
-        for public_key in channel_peers {
+
+        let mut all_pub_keys: Vec<PublicKey> = persistent_peers.keys().cloned().collect();
+        all_pub_keys.extend_from_slice(&connected_peers);
+        all_pub_keys.extend_from_slice(&channel_peers);
+
+        for public_key in all_pub_keys {
             let status = if connected_peers.contains(&public_key) {
                 PeerStatus::Connected
             } else {
@@ -208,18 +214,10 @@ impl LightningInterface for Controller {
                 public_key,
                 // Currently unable to map a socket address to public key for inbound connections.
                 // Waiting for rust-lightning release.
-                socket_addr: persistent_peers.remove(&public_key).map(|s| s.to_owned()),
+                socket_addr: persistent_peers.get(&public_key).map(|s| s.to_owned()),
                 status,
                 alias: self.alias_of(&public_key).unwrap_or_default(),
             });
-        }
-        for (public_key, socket_addr) in persistent_peers {
-            response.push(Peer {
-                public_key,
-                socket_addr: Some(socket_addr),
-                status: PeerStatus::Disconnected,
-                alias: self.alias_of(&public_key).unwrap_or_default(),
-            })
         }
         Ok(response)
     }

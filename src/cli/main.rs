@@ -66,6 +66,7 @@ enum Command {
         #[arg(long)]
         push_msat: Option<String>,
     },
+    /// Set channel fees.
     SetChannelFee {
         /// Channel ID, short channel ID or "all" for all channels.
         #[arg(long)]
@@ -77,6 +78,7 @@ enum Command {
         #[arg(long)]
         ppm_fee: Option<u32>,
     },
+    /// Close a channel.
     CloseChannel {
         /// Channel ID or short channel ID.
         #[arg(long)]
