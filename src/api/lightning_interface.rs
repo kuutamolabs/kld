@@ -41,7 +41,7 @@ pub trait LightningInterface {
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)>;
 
-    fn alias_of(&self, node_id: PublicKey) -> Option<String>;
+    fn alias_of(&self, node_id: &PublicKey) -> Option<String>;
 
     fn addresses(&self) -> Vec<String>;
 
@@ -68,11 +68,12 @@ pub trait LightningInterface {
 
 pub struct Peer {
     pub public_key: PublicKey,
-    pub socket_addr: SocketAddr,
+    pub socket_addr: Option<SocketAddr>,
     pub status: PeerStatus,
     pub alias: String,
 }
 
+#[derive(PartialEq)]
 pub enum PeerStatus {
     Connected,
     Disconnected,

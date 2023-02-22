@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
-use crate::{handle_err, handle_unauthorized};
+use crate::{api::PeerStatus, handle_err, handle_unauthorized};
 use api::Peer;
 use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
@@ -20,8 +20,8 @@ pub(crate) async fn list_peers(
         .iter()
         .map(|p| Peer {
             id: p.public_key.serialize().to_hex(),
-            connected: p.status.to_string(),
-            netaddr: p.socket_addr.to_string(),
+            connected: p.status == PeerStatus::Connected,
+            netaddr: p.socket_addr.map(|s| s.to_string()),
             alias: p.alias.clone(),
         })
         .collect();

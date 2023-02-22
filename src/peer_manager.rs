@@ -45,19 +45,15 @@ impl PeerManager {
         tokio::spawn(async move {
             loop {
                 let peer_mgr = ldk_peer_manager.clone();
-                let tcp_stream = listener.accept().await.unwrap().0;
+                let (tcp_stream, socket_addr) = listener.accept().await.unwrap();
                 tokio::spawn(async move {
-                    let address = tcp_stream
-                        .peer_addr()
-                        .map(|a| a.to_string())
-                        .unwrap_or_else(|_| "unknown".to_string());
                     let disconnected = lightning_net_tokio::setup_inbound(
                         peer_mgr.clone(),
                         tcp_stream.into_std().unwrap(),
                     );
-                    info!("Inbound peer connection from {address}");
+                    info!("Inbound peer connection from {socket_addr}");
                     disconnected.await;
-                    info!("Inbound peer disonnected from {address}");
+                    info!("Inbound peer disconnected from {socket_addr}");
                 });
             }
         });
