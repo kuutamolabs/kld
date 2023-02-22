@@ -1,6 +1,7 @@
 use std::{
     str::FromStr,
     sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{bail, Result};
@@ -8,7 +9,10 @@ use async_trait::async_trait;
 use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     bitcoincore_rpc::{bitcoincore_rpc_json::ScanningDetails, RpcApi},
-    blockchain::{rpc::Auth, ConfigurableBlockchain, RpcBlockchain, RpcConfig},
+    blockchain::{
+        rpc::{Auth, RpcSyncParams},
+        ConfigurableBlockchain, RpcBlockchain, RpcConfig,
+    },
     wallet::AddressInfo,
     Balance, FeeRate, SignOptions, SyncOptions,
 };
@@ -121,6 +125,14 @@ impl Wallet {
             settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
         );
 
+        let rpc_sync_params = RpcSyncParams {
+            start_script_count: 100,
+            // Assuming wallet is not pre generated/funded.
+            start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            force_start_time: false,
+            poll_rate_sec: 3,
+        };
+
         let wallet_config = RpcConfig {
             url: url.clone(),
             auth: Auth::Cookie {
@@ -128,7 +140,7 @@ impl Wallet {
             },
             network: settings.bitcoin_network.into(),
             wallet_name: "knd-wallet".to_string(),
-            sync_params: None,
+            sync_params: Some(rpc_sync_params),
         };
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
 
