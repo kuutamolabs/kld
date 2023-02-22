@@ -46,11 +46,11 @@ pub async fn test_peers() -> Result<()> {
         assert_eq!(peer, saved_peer.unwrap());
 
         let peers = database.fetch_peers().await?;
-        assert!(peers.contains(&peer));
+        assert!(peers.contains_key(&peer.public_key));
 
         database.delete_peer(&peer.public_key).await?;
         let peers = database.fetch_peers().await?;
-        assert!(!peers.contains(&peer));
+        assert!(!peers.contains_key(&peer.public_key));
         Ok(())
     })
     .await

@@ -21,8 +21,10 @@ use lightning::util::ser::Writeable;
 use log::{debug, info};
 use logger::KndLogger;
 use settings::Settings;
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
+use std::net::SocketAddr;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::{fs, io};
@@ -136,9 +138,9 @@ impl LdkDatabase {
         Ok(peer)
     }
 
-    pub async fn fetch_peers(&self) -> Result<Vec<Peer>> {
+    pub async fn fetch_peers(&self) -> Result<HashMap<PublicKey, SocketAddr>> {
         debug!("Fetching peers from database");
-        let mut peers = Vec::new();
+        let mut peers = HashMap::new();
         for row in self
             .client()
             .await?
@@ -148,11 +150,9 @@ impl LdkDatabase {
             .await?
         {
             let public_key: Vec<u8> = row.get("public_key");
+            let public_key = PublicKey::from_slice(&public_key)?;
             let address: Vec<u8> = row.get("address");
-            peers.push(Peer {
-                public_key: PublicKey::from_slice(&public_key).unwrap(),
-                socket_addr: String::from_utf8(address)?.parse().unwrap(),
-            });
+            peers.insert(public_key, String::from_utf8(address)?.parse()?);
         }
         debug!("Fetched {} peers", peers.len());
         Ok(peers)

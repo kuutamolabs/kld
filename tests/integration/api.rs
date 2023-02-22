@@ -462,8 +462,8 @@ async fn test_list_peers_readonly() -> Result<()> {
         "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
         peer.id
     );
-    assert_eq!("127.0.0.1:8080", peer.netaddr);
-    assert_eq!("connected", peer.connected);
+    assert_eq!(Some("127.0.0.1:8080".to_string()), peer.netaddr);
+    assert!(peer.connected);
     assert_eq!("test", peer.alias);
     Ok(())
 }

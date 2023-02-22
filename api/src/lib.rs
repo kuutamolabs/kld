@@ -225,7 +225,7 @@ pub struct NewAddressResponse {
 #[derive(Serialize, Deserialize)]
 pub struct Peer {
     pub id: String,
-    pub connected: String,
-    pub netaddr: String,
+    pub connected: bool,
+    pub netaddr: Option<String>,
     pub alias: String,
 }

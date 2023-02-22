@@ -59,7 +59,7 @@ pub(crate) async fn list_channels(
             spendable_msatoshi: c.outbound_capacity_msat.to_string(),
             direction: u8::from(c.is_outbound),
             alias: lightning_interface
-                .alias_of(c.counterparty.node_id)
+                .alias_of(&c.counterparty.node_id)
                 .unwrap_or_default(),
         })
         .collect();

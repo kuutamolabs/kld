@@ -179,30 +179,47 @@ impl LightningInterface for Controller {
         ))
     }
 
-    fn alias_of(&self, public_key: PublicKey) -> Option<String> {
+    fn alias_of(&self, public_key: &PublicKey) -> Option<String> {
         self.network_graph
             .read_only()
-            .node(&NodeId::from_pubkey(&public_key))
+            .node(&NodeId::from_pubkey(public_key))
             .and_then(|n| n.announcement_info.as_ref().map(|a| a.alias.to_string()))
     }
 
+    /// List all the peers that we have channels with along with their connection status.
     async fn list_peers(&self) -> Result<Vec<Peer>> {
         let connected_peers = self.peer_manager.get_peer_node_ids();
-        let all_peers = self.database.fetch_peers().await?;
-
+        let channel_peers: Vec<PublicKey> = self
+            .channel_manager
+            .list_channels()
+            .iter()
+            .map(|c| c.counterparty.node_id)
+            .collect();
+        let mut persistent_peers = self.database.fetch_peers().await?;
         let mut response = vec![];
-        for peer in all_peers {
-            let status = if connected_peers.contains(&peer.public_key) {
+        for public_key in channel_peers {
+            let status = if connected_peers.contains(&public_key) {
                 PeerStatus::Connected
             } else {
                 PeerStatus::Disconnected
             };
+
             response.push(Peer {
-                public_key: peer.public_key,
-                socket_addr: peer.socket_addr,
+                public_key,
+                // Currently unable to map a socket address to public key for inbound connections.
+                // Waiting for rust-lightning release.
+                socket_addr: persistent_peers.remove(&public_key).map(|s| s.to_owned()),
                 status,
-                alias: self.alias_of(peer.public_key).unwrap_or_default(),
+                alias: self.alias_of(&public_key).unwrap_or_default(),
             });
+        }
+        for (public_key, socket_addr) in persistent_peers {
+            response.push(Peer {
+                public_key,
+                socket_addr: Some(socket_addr),
+                status: PeerStatus::Disconnected,
+                alias: self.alias_of(&public_key).unwrap_or_default(),
+            })
         }
         Ok(response)
     }
