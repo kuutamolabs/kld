@@ -1,4 +1,4 @@
-{ self, ... }:
+{ self, inputs, ... }:
 {
   flake = {
     nixosModules = {
@@ -16,6 +16,19 @@
           };
         };
       default = self.nixosModules.lightning-knd;
+
+      disko-partitioning-script = ./disko-partitioning-script.nix;
+
+      lightning-knd-node = {
+        imports = [
+          ./lightning-knd-node
+          self.nixosModules.lightning-knd
+          self.nixosModules.disko-partitioning-script
+          self.nixosModules.kuutamo-binary-cache
+          inputs.srvos.nixosModules.server
+          inputs.disko.nixosModules.disko
+        ];
+      };
     };
   };
 }
