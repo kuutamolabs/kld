@@ -6,6 +6,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 
+
     # These flakes are only used by crane at the moment, we pin them here so
     # that flake users can override them as needed.
     flake-utils.url = "github:numtide/flake-utils";
@@ -19,6 +20,22 @@
     crane.inputs.rust-overlay.follows = "rust-overlay";
 
     treefmt-nix.url = "github:numtide/treefmt-nix";
+
+    ## dependencies for deploying nodes
+    srvos.url = "github:numtide/srvos";
+    srvos.inputs.nixpkgs.follows = "nixpkgs";
+
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
+
+    nixos-images.url = "github:nix-community/nixos-images";
+
+    nixos-anywhere.url = "github:numtide/nixos-anywhere";
+    nixos-anywhere.inputs.nixpkgs.follows = "nixpkgs";
+    nixos-anywhere.inputs.disko.follows = "disko";
+    nixos-anywhere.inputs.nixos-images.follows = "nixos-images";
+    nixos-anywhere.inputs.treefmt-nix.follows = "treefmt-nix";
+    nixos-anywhere.inputs.flake-parts.follows = "flake-parts";
   };
 
   nixConfig.extra-substituters = [

@@ -27,6 +27,26 @@
         "type": "github"
       }
     },
+    "disko": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1677116397,
+        "narHash": "sha256-2OHwhv4k1SDEuNxhq+zluvrd5pbW8d4TP9NKW4B8iO8=",
+        "owner": "nix-community",
+        "repo": "disko",
+        "rev": "8fddb2fd721365fa77ff68b709539639d4dc65d7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "disko",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -78,6 +98,89 @@
         "type": "github"
       }
     },
+    "nixos-2211": {
+      "locked": {
+        "lastModified": 1677075010,
+        "narHash": "sha256-X+UmR1AkdR//lPVcShmLy8p1n857IGf7y+cyCArp8bU=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "c95bf18beba4290af25c60cbaaceea1110d0f727",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "release-22.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixos-anywhere": {
+      "inputs": {
+        "disko": [
+          "disko"
+        ],
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "nixos-images": [
+          "nixos-images"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "treefmt-nix": [
+          "treefmt-nix"
+        ]
+      },
+      "locked": {
+        "lastModified": 1677223771,
+        "narHash": "sha256-52TjgMrCA7Q/ilztzDdTREbZZhvntabzWyOqJ8IiEFI=",
+        "owner": "numtide",
+        "repo": "nixos-anywhere",
+        "rev": "a1d93f94df80033da2b16885d8cdec637385037a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "nixos-anywhere",
+        "type": "github"
+      }
+    },
+    "nixos-images": {
+      "inputs": {
+        "nixos-2211": "nixos-2211",
+        "nixos-unstable": "nixos-unstable"
+      },
+      "locked": {
+        "lastModified": 1677114101,
+        "narHash": "sha256-DsyzqMBhIVJjn2exv06CHD+/q7LkTUYV60OQK0orDMc=",
+        "owner": "nix-community",
+        "repo": "nixos-images",
+        "rev": "aa36908ec21e0ac0c0f1982b721df1030ed3f24f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "nixos-images",
+        "type": "github"
+      }
+    },
+    "nixos-unstable": {
+      "locked": {
+        "lastModified": 1677098068,
+        "narHash": "sha256-ZvxvGkPxp0fg/YKqqrW8sapr/1GJ2CmA+IBAFS+NuMs=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "3d566e183b71fec07b6d466375190f9e79b1e735",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable-small",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1677098068,
@@ -113,10 +216,14 @@
     "root": {
       "inputs": {
         "crane": "crane",
+        "disko": "disko",
         "flake-parts": "flake-parts",
         "flake-utils": "flake-utils",
+        "nixos-anywhere": "nixos-anywhere",
+        "nixos-images": "nixos-images",
         "nixpkgs": "nixpkgs",
         "rust-overlay": "rust-overlay",
+        "srvos": "srvos",
         "treefmt-nix": "treefmt-nix"
       }
     },
@@ -140,6 +247,26 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "srvos": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1677148975,
+        "narHash": "sha256-CpvrK5xn21SPnhvVUlRPZHUFE28QLiZhwA4i+DXnoQ8=",
+        "owner": "numtide",
+        "repo": "srvos",
+        "rev": "bbc55aaa74bf831c09e70ec01d18634de8b965c9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "srvos",
         "type": "github"
       }
     },
