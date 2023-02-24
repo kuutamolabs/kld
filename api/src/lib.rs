@@ -27,6 +27,10 @@ pub mod routes {
     /// Close an existing channel with a peer.
     pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel";
 
+    /// --- Network ---
+    /// Look up a node on the network.
+    pub const LIST_NODE: &str = "/v1/network/listnode";
+
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.
     pub const GET_BALANCE: &str = "/v1/getbalance";
@@ -61,7 +65,7 @@ pub struct Address {
     #[serde(rename = "type")]
     pub address_type: String,
     pub address: String,
-    pub port: String,
+    pub port: u16,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -228,4 +232,15 @@ pub struct Peer {
     pub connected: bool,
     pub netaddr: Option<String>,
     pub alias: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Node {
+    #[serde(rename = "nodeid")]
+    pub node_id: String,
+    pub alias: String,
+    pub color: String,
+    pub last_timestamp: u32,
+    pub features: String,
+    pub addresses: Vec<Address>,
 }

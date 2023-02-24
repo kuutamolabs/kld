@@ -11,8 +11,9 @@ use lightning::{
     chain::transaction::OutPoint,
     ln::{
         channelmanager::{ChannelCounterparty, ChannelDetails},
-        features::InitFeatures,
+        features::{Features, InitFeatures},
     },
+    routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeInfo},
     util::config::UserConfig,
 };
 use lightning_knd::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
@@ -198,5 +199,23 @@ impl LightningInterface for MockLightning {
         _counterparty_node_id: &PublicKey,
     ) -> Result<()> {
         Ok(())
+    }
+
+    fn list_node(&self, _node_id: &PublicKey) -> Option<NodeInfo> {
+        let mut alias = [0u8; 32];
+        alias[..4].copy_from_slice("test".as_bytes());
+        let announcement = NodeAnnouncementInfo {
+            features: Features::empty(),
+            last_update: 21000000,
+            rgb: [1, 2, 3],
+            alias: NodeAlias(alias),
+            addresses: vec![],
+            announcement_message: None,
+        };
+        Some(NodeInfo {
+            channels: vec![],
+            lowest_inbound_channel_fees: None,
+            announcement_info: Some(announcement),
+        })
     }
 }

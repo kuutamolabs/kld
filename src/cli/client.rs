@@ -107,6 +107,10 @@ impl Api {
         send(self.request_with_body(Method::DELETE, routes::CLOSE_CHANNEL, close_channel))
     }
 
+    pub fn list_nodes(&self, id: String) -> Result<String> {
+        send(self.request_with_body(Method::GET, routes::LIST_NODE, id))
+    }
+
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
         self.client
             .request(method, format!("https://{}{}", self.host, route))

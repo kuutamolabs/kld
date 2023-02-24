@@ -21,8 +21,8 @@ use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
     routes, Channel, ChannelFee, CloseChannel, FundChannel, FundChannelResponse, GetInfo,
-    NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
-    WalletTransferResponse,
+    NewAddress, NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance,
+    WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -228,6 +228,16 @@ pub async fn test_unauthorized() -> Result<()> {
             routes::DISCONNECT_PEER,
             || TEST_ADDRESS
         )?)
+        .await
+        .unwrap_err()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        send(unauthorized_request(
+            &settings,
+            Method::GET,
+            routes::LIST_NODE
+        ))
         .await
         .unwrap_err()
     );
@@ -480,6 +490,25 @@ async fn test_connect_peer_admin() -> Result<()> {
     .await
     .deserialize();
     assert_eq!(TEST_PUBLIC_KEY, response);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_node() -> Result<()> {
+    let settings = create_api_server().await?;
+    let node: Node = send(readonly_request_with_body(
+        &settings,
+        Method::GET,
+        routes::LIST_NODE,
+        || TEST_PUBLIC_KEY,
+    )?)
+    .await
+    .deserialize();
+    assert_eq!(TEST_PUBLIC_KEY, node.node_id);
+    assert_eq!("test", node.alias);
+    assert_eq!("010203", node.color);
+    assert_eq!(21000000, node.last_timestamp);
+    assert!(!node.features.is_empty());
     Ok(())
 }
 

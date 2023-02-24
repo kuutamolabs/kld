@@ -22,7 +22,7 @@ use lightning::ln::channelmanager::{
 };
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, SimpleArcPeerManager};
 use lightning::onion_message::SimpleArcOnionMessenger;
-use lightning::routing::gossip::{self, NodeId, P2PGossipSync};
+use lightning::routing::gossip::{self, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
@@ -244,6 +244,13 @@ impl LightningInterface for Controller {
 
     fn addresses(&self) -> Vec<String> {
         self.settings.knd_listen_addresses.clone()
+    }
+
+    fn list_node(&self, public_key: &PublicKey) -> Option<NodeInfo> {
+        self.network_graph
+            .read_only()
+            .node(&NodeId::from_pubkey(public_key))
+            .cloned()
     }
 }
 

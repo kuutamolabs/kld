@@ -84,6 +84,12 @@ enum Command {
         #[arg(long)]
         id: String,
     },
+    /// Get information about a node from the network graph.
+    ListNodes {
+        /// Node ID
+        #[arg(long)]
+        id: String,
+    },
 }
 
 fn main() {
@@ -118,6 +124,7 @@ fn run_command(args: Args) -> Result<()> {
             ppm_fee,
         } => api.set_channel_fee(id, base_fee, ppm_fee)?,
         Command::CloseChannel { id } => api.close_channel(id)?,
+        Command::ListNodes { id } => api.list_nodes(id)?,
     };
     println!("{result}");
     Ok(())

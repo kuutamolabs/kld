@@ -41,9 +41,9 @@ pub(crate) async fn get_info(
             .iter()
             .filter_map(|a| a.split_once(':'))
             .map(|a| Address {
-                address_type: "IPv4".to_string(),
+                address_type: "ipv4".to_string(),
                 address: a.0.to_string(),
-                port: a.1.to_string(),
+                port: a.1.parse().unwrap_or_default(),
             })
             .collect(),
     };
