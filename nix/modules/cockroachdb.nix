@@ -92,7 +92,7 @@ in
     ];
     services.cockroachdb.enable = true;
     # TODO: setup clustering and ssl certificates.
-    services.cockroachdb.insecure = true;
+    services.cockroachdb.insecure = lib.mkDefault true;
 
     systemd.services.cockroachdb =
       let

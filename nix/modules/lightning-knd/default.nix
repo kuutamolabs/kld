@@ -87,10 +87,6 @@ in
     };
   };
 
-  imports = [
-    ../cockroachdb.nix
-  ];
-
   config = {
     # for cli
     environment.systemPackages = [ cfg.package ];
