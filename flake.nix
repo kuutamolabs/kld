@@ -1,5 +1,5 @@
 {
-  description = "Bitcoin Lightning node";
+  description = "A Lightning Network Router node distribution by kuutamo ";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
