@@ -2,7 +2,7 @@ use std::process::{Command, Output};
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FundChannelResponse, GetInfo, NewAddressResponse, Peer, SetChannelFeeResponse,
+    Channel, FundChannelResponse, GetInfo, NewAddressResponse, Node, Peer, SetChannelFeeResponse,
     WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
@@ -120,6 +120,13 @@ async fn test_cli_close_channel() -> Result<()> {
     )
     .await?;
     deserialize(&output.stdout)
+}
+
+#[tokio::test]
+async fn test_cli_list_nodes() -> Result<()> {
+    let output = run_cli("list-nodes", &["--id", TEST_PUBLIC_KEY]).await?;
+    let _: Vec<Node> = deserialize(&output.stdout)?;
+    Ok(())
 }
 
 fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T>

@@ -4,7 +4,9 @@ use anyhow::Result;
 use api::{routes, GetInfo};
 use bitcoin::Address;
 use lightning_knd::bitcoind::BitcoindClient;
-use test_utils::{bitcoin, cockroach, knd, teos, TestSettingsBuilder};
+use test_utils::{
+    bitcoin, bitcoin_manager::BitcoinManager, cockroach, knd, teos, TestSettingsBuilder,
+};
 use tokio::time::{sleep_until, Instant};
 
 // This test is run separately (in its own process) from the other threads.
@@ -15,19 +17,8 @@ pub async fn test_start() -> Result<()> {
     cockroach.start().await?;
     let mut bitcoin = bitcoin!();
     bitcoin.start().await?;
-
     let n_blocks = 6;
-
-    let settings = TestSettingsBuilder::new().with_bitcoind(&bitcoin)?.build();
-    let bitcoin_client = &BitcoindClient::new(&settings).await?;
-
-    bitcoin_client
-        .generate_to_address(
-            n_blocks,
-            &Address::from_str("2N4eQYCbKUHCCTUjBJeHcJp9ok6J2GZsTDt")?,
-        )
-        .await?;
-    bitcoin_client.wait_for_blockchain_synchronisation().await?;
+    generate_blocks(&bitcoin, n_blocks).await?;
 
     let mut teos = teos!(&bitcoin);
     teos.start().await?;
@@ -57,9 +48,24 @@ pub async fn test_manual() -> Result<()> {
     cockroach.start().await?;
     let mut bitcoin = bitcoin!();
     bitcoin.start().await?;
+    generate_blocks(&bitcoin, 3).await?;
     let mut knd = knd!(&bitcoin, &cockroach);
     knd.start().await?;
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;
+    Ok(())
+}
+
+async fn generate_blocks(bitcoin: &BitcoinManager, n_blocks: u64) -> Result<()> {
+    let settings = TestSettingsBuilder::new().with_bitcoind(bitcoin)?.build();
+    let bitcoin_client = &BitcoindClient::new(&settings).await?;
+
+    bitcoin_client
+        .generate_to_address(
+            n_blocks,
+            &Address::from_str("2N4eQYCbKUHCCTUjBJeHcJp9ok6J2GZsTDt")?,
+        )
+        .await?;
+    bitcoin_client.wait_for_blockchain_synchronisation().await?;
     Ok(())
 }

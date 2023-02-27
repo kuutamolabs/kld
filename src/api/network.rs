@@ -32,7 +32,7 @@ pub(crate) async fn list_node(
                 features: announcement.features.to_string(),
                 addresses: announcement.addresses.iter().map(to_api_address).collect(),
             };
-            return Ok(Json(node));
+            return Ok(Json(vec![node]));
         }
     }
     Err(StatusCode::NOT_FOUND)

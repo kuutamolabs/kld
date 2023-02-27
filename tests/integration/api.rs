@@ -496,7 +496,7 @@ async fn test_connect_peer_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_node() -> Result<()> {
     let settings = create_api_server().await?;
-    let node: Node = send(readonly_request_with_body(
+    let nodes: Vec<Node> = send(readonly_request_with_body(
         &settings,
         Method::GET,
         routes::LIST_NODE,
@@ -504,6 +504,7 @@ async fn test_list_node() -> Result<()> {
     )?)
     .await
     .deserialize();
+    let node = nodes.get(0).context("no node in response")?;
     assert_eq!(TEST_PUBLIC_KEY, node.node_id);
     assert_eq!("test", node.alias);
     assert_eq!("010203", node.color);

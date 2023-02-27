@@ -3,6 +3,7 @@ mod client;
 use crate::client::Api;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use serde_json::to_string_pretty;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -105,26 +106,30 @@ fn run_command(args: Args) -> Result<()> {
     let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
     let result = match args.command {
-        Command::GetInfo => api.get_info()?,
-        Command::GetBalance => api.get_balance()?,
-        Command::NewAddress => api.new_address()?,
-        Command::Withdraw { address, satoshis } => api.withdraw(address, satoshis)?,
-        Command::ListChannels => api.list_channels()?,
-        Command::ListPeers => api.list_peers()?,
-        Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
-        Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
+        Command::GetInfo => to_string_pretty(&api.get_info()?)?,
+        Command::GetBalance => to_string_pretty(&api.get_balance()?)?,
+        Command::NewAddress => to_string_pretty(&api.new_address()?)?,
+        Command::Withdraw { address, satoshis } => {
+            to_string_pretty(&api.withdraw(address, satoshis)?)?
+        }
+        Command::ListChannels => to_string_pretty(&api.list_channels()?)?,
+        Command::ListPeers => to_string_pretty(&api.list_peers()?)?,
+        Command::ConnectPeer { public_key } => to_string_pretty(&api.connect_peer(public_key)?)?,
+        Command::DisconnectPeer { public_key } => {
+            to_string_pretty(&api.disconnect_peer(public_key)?)?
+        }
         Command::OpenChannel {
             public_key,
             satoshis,
             push_msat,
-        } => api.open_channel(public_key, satoshis, push_msat)?,
+        } => to_string_pretty(&api.open_channel(public_key, satoshis, push_msat)?)?,
         Command::SetChannelFee {
             id,
             base_fee,
             ppm_fee,
-        } => api.set_channel_fee(id, base_fee, ppm_fee)?,
-        Command::CloseChannel { id } => api.close_channel(id)?,
-        Command::ListNodes { id } => api.list_nodes(id)?,
+        } => to_string_pretty(&api.set_channel_fee(id, base_fee, ppm_fee)?)?,
+        Command::CloseChannel { id } => to_string_pretty(&api.close_channel(id)?)?,
+        Command::ListNodes { id } => to_string_pretty(&api.list_nodes(id)?)?,
     };
     println!("{result}");
     Ok(())
