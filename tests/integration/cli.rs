@@ -123,8 +123,15 @@ async fn test_cli_close_channel() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_cli_list_nodes() -> Result<()> {
+async fn test_cli_get_node() -> Result<()> {
     let output = run_cli("list-nodes", &["--id", TEST_PUBLIC_KEY]).await?;
+    let _: Vec<Node> = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_list_nodes() -> Result<()> {
+    let output = run_cli("list-nodes", &[]).await?;
     let _: Vec<Node> = deserialize(&output.stdout)?;
     Ok(())
 }

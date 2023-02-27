@@ -11,13 +11,7 @@ pub async fn test_prometheus() -> Result<()> {
     let address = test_settings().exporter_address.clone();
     println!("ADDRESS: {address}");
 
-    let metrics = Arc::new(MockLightning {
-        num_nodes: 10,
-        num_channels: 20,
-        num_peers: 5,
-        wallet_balance: 500000,
-        channels: vec![],
-    });
+    let metrics = Arc::new(MockLightning::default());
     tokio::spawn(start_prometheus_exporter(
         address.clone(),
         metrics.clone(),

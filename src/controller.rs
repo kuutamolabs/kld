@@ -38,7 +38,7 @@ use log::{error, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::ops::Deref;
@@ -246,11 +246,12 @@ impl LightningInterface for Controller {
         self.settings.knd_listen_addresses.clone()
     }
 
-    fn list_node(&self, public_key: &PublicKey) -> Option<NodeInfo> {
-        self.network_graph
-            .read_only()
-            .node(&NodeId::from_pubkey(public_key))
-            .cloned()
+    fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {
+        self.network_graph.read_only().node(node_id).cloned()
+    }
+
+    fn list_nodes(&self) -> BTreeMap<NodeId, NodeInfo> {
+        self.network_graph.read_only().nodes().clone()
     }
 }
 

@@ -15,7 +15,7 @@ pub use wallet_interface::WalletInterface;
 use self::methods::get_info;
 use crate::api::{
     channels::{close_channel, list_channels, open_channel, set_channel_fee},
-    network::list_node,
+    network::{get_node, list_nodes},
     peers::{connect_peer, disconnect_peer, list_peers},
     wallet::{get_balance, new_address, transfer},
     ws::ws_handler,
@@ -77,7 +77,8 @@ impl RestApi {
             .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::CONNECT_PEER, post(connect_peer))
             .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
-            .route(routes::LIST_NODE, get(list_node))
+            .route(routes::LIST_NODES, get(list_nodes))
+            .route(routes::LIST_NODE, get(get_node))
             .route(routes::WEBSOCKET, get(ws_handler))
             .fallback(handler_404)
             .layer(cors)
@@ -112,7 +113,6 @@ async fn root(
 }
 
 async fn handler_404() -> impl IntoResponse {
-    println!("NOT FOUND!!!!");
     (StatusCode::NOT_FOUND, "No such method.")
 }
 

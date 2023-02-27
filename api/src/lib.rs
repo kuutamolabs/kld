@@ -29,7 +29,9 @@ pub mod routes {
 
     /// --- Network ---
     /// Look up a node on the network.
-    pub const LIST_NODE: &str = "/v1/network/listnode";
+    pub const LIST_NODE: &str = "/v1/network/listnode/:id";
+    /// Return list of all nodes on the network
+    pub const LIST_NODES: &str = "/v1/network/listnodes";
 
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.

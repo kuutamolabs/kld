@@ -236,7 +236,7 @@ pub async fn test_unauthorized() -> Result<()> {
         send(unauthorized_request(
             &settings,
             Method::GET,
-            routes::LIST_NODE
+            routes::LIST_NODES
         ))
         .await
         .unwrap_err()
@@ -494,13 +494,12 @@ async fn test_connect_peer_admin() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_list_node() -> Result<()> {
+async fn test_get_node() -> Result<()> {
     let settings = create_api_server().await?;
-    let nodes: Vec<Node> = send(readonly_request_with_body(
+    let nodes: Vec<Node> = send(readonly_request(
         &settings,
         Method::GET,
-        routes::LIST_NODE,
-        || TEST_PUBLIC_KEY,
+        &routes::LIST_NODE.replace(":id", TEST_PUBLIC_KEY),
     )?)
     .await
     .deserialize();
@@ -510,6 +509,20 @@ async fn test_list_node() -> Result<()> {
     assert_eq!("010203", node.color);
     assert_eq!(21000000, node.last_timestamp);
     assert!(!node.features.is_empty());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_nodes() -> Result<()> {
+    let settings = create_api_server().await?;
+    let nodes: Vec<Node> = send(readonly_request(
+        &settings,
+        Method::GET,
+        routes::LIST_NODES,
+    )?)
+    .await
+    .deserialize();
+    assert_eq!(TEST_PUBLIC_KEY, nodes.get(0).context("bad result")?.node_id);
     Ok(())
 }
 

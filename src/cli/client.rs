@@ -112,8 +112,8 @@ impl Api {
         send(self.request_with_body(Method::DELETE, routes::CLOSE_CHANNEL, close_channel))
     }
 
-    pub fn list_nodes(&self, id: String) -> Result<Vec<Node>> {
-        send(self.request_with_body(Method::GET, routes::LIST_NODE, id))
+    pub fn list_nodes(&self, id: Option<String>) -> Result<Vec<Node>> {
+        send(self.request_with_body(Method::GET, routes::LIST_NODES, id))
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

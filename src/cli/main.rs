@@ -89,7 +89,7 @@ enum Command {
     ListNodes {
         /// Node ID
         #[arg(long)]
-        id: String,
+        id: Option<String>,
     },
 }
 
