@@ -20,9 +20,9 @@ use settings::Settings;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
-    routes, Channel, ChannelFee, CloseChannel, FundChannel, FundChannelResponse, GetInfo,
-    NewAddress, NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -125,13 +125,10 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        send(readonly_request(
             &settings,
             Method::DELETE,
-            routes::CLOSE_CHANNEL,
-            || CloseChannel {
-                id: TEST_SHORT_CHANNEL_ID.to_string()
-            }
+            &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
         )?)
         .await
         .unwrap_err()
@@ -222,11 +219,10 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        send(readonly_request(
             &settings,
             Method::DELETE,
-            routes::DISCONNECT_PEER,
-            || TEST_ADDRESS
+            &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
         )?)
         .await
         .unwrap_err()
@@ -410,13 +406,10 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_close_channel_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let result = send(admin_request_with_body(
+    let result = send(admin_request(
         &settings,
         Method::DELETE,
-        routes::CLOSE_CHANNEL,
-        || CloseChannel {
-            id: TEST_SHORT_CHANNEL_ID.to_string(),
-        },
+        &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
     )?)
     .await;
     assert!(result.0.is_ok());

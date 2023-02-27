@@ -2,9 +2,9 @@ use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
 use api::{
-    routes, Channel, ChannelFee, CloseChannel, FundChannel, FundChannelResponse, GetInfo,
-    NewAddress, NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
@@ -73,7 +73,7 @@ impl Api {
     }
 
     pub fn disconnect_peer(&self, id: String) -> Result<()> {
-        send(self.request_with_body(Method::DELETE, routes::DISCONNECT_PEER, id))
+        send(self.request(Method::DELETE, &routes::DISCONNECT_PEER.replace(":id", &id)))
     }
 
     pub fn open_channel(
@@ -108,12 +108,15 @@ impl Api {
     }
 
     pub fn close_channel(&self, id: String) -> Result<()> {
-        let close_channel = CloseChannel { id };
-        send(self.request_with_body(Method::DELETE, routes::CLOSE_CHANNEL, close_channel))
+        send(self.request(Method::DELETE, &routes::CLOSE_CHANNEL.replace(":id", &id)))
     }
 
     pub fn list_nodes(&self, id: Option<String>) -> Result<Vec<Node>> {
-        send(self.request_with_body(Method::GET, routes::LIST_NODES, id))
+        if let Some(id) = id {
+            send(self.request(Method::GET, &routes::LIST_NODES.replace(":id", &id)))
+        } else {
+            send(self.request(Method::GET, routes::LIST_NODES))
+        }
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

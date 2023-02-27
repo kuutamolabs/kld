@@ -15,7 +15,7 @@ pub mod routes {
     /// Returns the list of peers connected with the node.
     pub const LIST_PEERS: &str = "/v1/peer/listPeers";
     /// Disconnect from a connected network peer.
-    pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect";
+    pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect/:id";
 
     /// --- Channels ---
     /// Get the list of channels open on the node.
@@ -25,7 +25,7 @@ pub mod routes {
     /// Update channel fee policy.
     pub const SET_CHANNEL_FEE: &str = "/v1/channel/setChannelFee";
     /// Close an existing channel with a peer.
-    pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel";
+    pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel/:id";
 
     /// --- Network ---
     /// Look up a node on the network.
@@ -209,12 +209,6 @@ pub struct SetChannelFee {
 
 #[derive(Serialize, Deserialize)]
 pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
-
-#[derive(Serialize, Deserialize)]
-pub struct CloseChannel {
-    /// Channel ID of short channel ID
-    pub id: String,
-}
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct NewAddress {
