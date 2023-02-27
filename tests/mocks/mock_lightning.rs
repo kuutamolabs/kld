@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
 };
@@ -11,12 +12,12 @@ use lightning::{
     chain::transaction::OutPoint,
     ln::{
         channelmanager::{ChannelCounterparty, ChannelDetails},
-        features::InitFeatures,
+        features::{Features, InitFeatures},
     },
+    routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::config::UserConfig,
 };
 use lightning_knd::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
-use test_utils::random_public_key;
 
 use super::{TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
 
@@ -26,14 +27,16 @@ pub struct MockLightning {
     pub num_channels: usize,
     pub wallet_balance: u64,
     pub channels: Vec<ChannelDetails>,
+    pub public_key: PublicKey,
 }
 
 impl Default for MockLightning {
     fn default() -> Self {
+        let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
         let channel = ChannelDetails {
             channel_id: [1u8; 32],
             counterparty: ChannelCounterparty {
-                node_id: PublicKey::from_str(TEST_PUBLIC_KEY).unwrap(),
+                node_id: public_key,
                 features: InitFeatures::empty(),
                 unspendable_punishment_reserve: 5000,
                 forwarding_info: None,
@@ -72,6 +75,7 @@ impl Default for MockLightning {
             num_channels: 7,
             wallet_balance: 8,
             channels: vec![channel],
+            public_key,
         }
     }
 }
@@ -82,7 +86,7 @@ impl LightningInterface for MockLightning {
         "test".to_string()
     }
     fn identity_pubkey(&self) -> PublicKey {
-        random_public_key()
+        self.public_key
     }
 
     fn graph_num_nodes(&self) -> usize {
@@ -170,7 +174,7 @@ impl LightningInterface for MockLightning {
 
     async fn list_peers(&self) -> Result<Vec<Peer>> {
         Ok(vec![Peer {
-            public_key: PublicKey::from_str(TEST_PUBLIC_KEY).unwrap(),
+            public_key: self.public_key,
             socket_addr: Some(SocketAddr::new(
                 IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                 8080,
@@ -198,5 +202,30 @@ impl LightningInterface for MockLightning {
         _counterparty_node_id: &PublicKey,
     ) -> Result<()> {
         Ok(())
+    }
+
+    fn get_node(&self, _node_id: &NodeId) -> Option<NodeInfo> {
+        let mut alias = [0u8; 32];
+        alias[..4].copy_from_slice("test".as_bytes());
+        let announcement = NodeAnnouncementInfo {
+            features: Features::empty(),
+            last_update: 21000000,
+            rgb: [1, 2, 3],
+            alias: NodeAlias(alias),
+            addresses: vec![],
+            announcement_message: None,
+        };
+        Some(NodeInfo {
+            channels: vec![],
+            lowest_inbound_channel_fees: None,
+            announcement_info: Some(announcement),
+        })
+    }
+
+    fn list_nodes(&self) -> BTreeMap<NodeId, NodeInfo> {
+        let mut nodes = BTreeMap::new();
+        let node_id = NodeId::from_pubkey(&self.public_key);
+        nodes.insert(node_id, self.get_node(&node_id).unwrap());
+        nodes
     }
 }

@@ -1,13 +1,18 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
-use api::{routes, ChannelFee, CloseChannel, FundChannel, NewAddress, WalletTransfer};
+use api::{
+    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
+};
+use bitcoin::secp256k1::PublicKey;
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder},
     header::{HeaderValue, CONTENT_TYPE},
     Certificate, Method,
 };
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 pub struct Api {
     host: String,
@@ -32,19 +37,19 @@ impl Api {
         })
     }
 
-    pub fn get_info(&self) -> Result<String> {
+    pub fn get_info(&self) -> Result<GetInfo> {
         send(self.request(Method::GET, routes::GET_INFO))
     }
 
-    pub fn get_balance(&self) -> Result<String> {
+    pub fn get_balance(&self) -> Result<WalletBalance> {
         send(self.request(Method::GET, routes::GET_BALANCE))
     }
 
-    pub fn new_address(&self) -> Result<String> {
+    pub fn new_address(&self) -> Result<NewAddressResponse> {
         send(self.request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default()))
     }
 
-    pub fn withdraw(&self, address: String, satoshis: String) -> Result<String> {
+    pub fn withdraw(&self, address: String, satoshis: String) -> Result<WalletTransferResponse> {
         let wallet_transfer = WalletTransfer {
             address,
             satoshis,
@@ -55,20 +60,20 @@ impl Api {
         send(self.request_with_body(Method::POST, routes::WITHDRAW, wallet_transfer))
     }
 
-    pub fn list_channels(&self) -> Result<String> {
+    pub fn list_channels(&self) -> Result<Vec<Channel>> {
         send(self.request(Method::GET, routes::LIST_CHANNELS))
     }
 
-    pub fn list_peers(&self) -> Result<String> {
+    pub fn list_peers(&self) -> Result<Vec<Peer>> {
         send(self.request(Method::GET, routes::LIST_PEERS))
     }
 
-    pub fn connect_peer(&self, id: String) -> Result<String> {
+    pub fn connect_peer(&self, id: String) -> Result<PublicKey> {
         send(self.request_with_body(Method::POST, routes::CONNECT_PEER, id))
     }
 
-    pub fn disconnect_peer(&self, id: String) -> Result<String> {
-        send(self.request_with_body(Method::DELETE, routes::DISCONNECT_PEER, id))
+    pub fn disconnect_peer(&self, id: String) -> Result<()> {
+        send(self.request(Method::DELETE, &routes::DISCONNECT_PEER.replace(":id", &id)))
     }
 
     pub fn open_channel(
@@ -76,7 +81,7 @@ impl Api {
         id: String,
         satoshis: String,
         push_msat: Option<String>,
-    ) -> Result<String> {
+    ) -> Result<FundChannelResponse> {
         let open_channel = FundChannel {
             id,
             satoshis,
@@ -97,14 +102,21 @@ impl Api {
         id: String,
         base: Option<u32>,
         ppm: Option<u32>,
-    ) -> Result<String> {
+    ) -> Result<SetChannelFeeResponse> {
         let fee_request = ChannelFee { id, base, ppm };
         send(self.request_with_body(Method::POST, routes::SET_CHANNEL_FEE, fee_request))
     }
 
-    pub fn close_channel(&self, id: String) -> Result<String> {
-        let close_channel = CloseChannel { id };
-        send(self.request_with_body(Method::DELETE, routes::CLOSE_CHANNEL, close_channel))
+    pub fn close_channel(&self, id: String) -> Result<()> {
+        send(self.request(Method::DELETE, &routes::CLOSE_CHANNEL.replace(":id", &id)))
+    }
+
+    pub fn list_nodes(&self, id: Option<String>) -> Result<Vec<Node>> {
+        if let Some(id) = id {
+            send(self.request(Method::GET, &routes::LIST_NODES.replace(":id", &id)))
+        } else {
+            send(self.request(Method::GET, routes::LIST_NODES))
+        }
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
@@ -129,12 +141,12 @@ impl Api {
     }
 }
 
-fn send(builder: RequestBuilder) -> Result<String> {
+fn send<T: DeserializeOwned>(builder: RequestBuilder) -> Result<T> {
     let response = builder.send()?;
     if !response.status().is_success() {
         return Err(anyhow!("{}", response.status()));
     }
-    Ok(response.text()?)
+    Ok(response.json()?)
 }
 
 fn read_file(path: &str) -> Result<Vec<u8>> {

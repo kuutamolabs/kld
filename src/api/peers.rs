@@ -2,7 +2,7 @@ use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
 use crate::{api::PeerStatus, handle_err, handle_unauthorized};
 use api::Peer;
-use axum::{response::IntoResponse, Extension, Json};
+use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use hyper::StatusCode;
 use log::{info, warn};
@@ -57,7 +57,7 @@ pub(crate) async fn disconnect_peer(
     macaroon: KndMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-    Json(id): Json<String>,
+    Path(id): Path<String>,
 ) -> Result<impl IntoResponse, StatusCode> {
     handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
 

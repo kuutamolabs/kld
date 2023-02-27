@@ -22,7 +22,7 @@ use lightning::ln::channelmanager::{
 };
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, SimpleArcPeerManager};
 use lightning::onion_message::SimpleArcOnionMessenger;
-use lightning::routing::gossip::{self, NodeId, P2PGossipSync};
+use lightning::routing::gossip::{self, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
@@ -38,7 +38,7 @@ use log::{error, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::ops::Deref;
@@ -244,6 +244,14 @@ impl LightningInterface for Controller {
 
     fn addresses(&self) -> Vec<String> {
         self.settings.knd_listen_addresses.clone()
+    }
+
+    fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {
+        self.network_graph.read_only().node(node_id).cloned()
+    }
+
+    fn list_nodes(&self) -> BTreeMap<NodeId, NodeInfo> {
+        self.network_graph.read_only().nodes().clone()
     }
 }
 

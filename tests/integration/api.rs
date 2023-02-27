@@ -20,8 +20,8 @@ use settings::Settings;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
-    routes, Channel, ChannelFee, CloseChannel, FundChannel, FundChannelResponse, GetInfo,
-    NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
+    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
@@ -125,13 +125,10 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        send(readonly_request(
             &settings,
             Method::DELETE,
-            routes::CLOSE_CHANNEL,
-            || CloseChannel {
-                id: TEST_SHORT_CHANNEL_ID.to_string()
-            }
+            &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
         )?)
         .await
         .unwrap_err()
@@ -222,12 +219,21 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        send(readonly_request(
             &settings,
             Method::DELETE,
-            routes::DISCONNECT_PEER,
-            || TEST_ADDRESS
+            &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
         )?)
+        .await
+        .unwrap_err()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        send(unauthorized_request(
+            &settings,
+            Method::GET,
+            routes::LIST_NODES
+        ))
         .await
         .unwrap_err()
     );
@@ -400,13 +406,10 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_close_channel_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let result = send(admin_request_with_body(
+    let result = send(admin_request(
         &settings,
         Method::DELETE,
-        routes::CLOSE_CHANNEL,
-        || CloseChannel {
-            id: TEST_SHORT_CHANNEL_ID.to_string(),
-        },
+        &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
     )?)
     .await;
     assert!(result.0.is_ok());
@@ -480,6 +483,39 @@ async fn test_connect_peer_admin() -> Result<()> {
     .await
     .deserialize();
     assert_eq!(TEST_PUBLIC_KEY, response);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_get_node() -> Result<()> {
+    let settings = create_api_server().await?;
+    let nodes: Vec<Node> = send(readonly_request(
+        &settings,
+        Method::GET,
+        &routes::LIST_NODE.replace(":id", TEST_PUBLIC_KEY),
+    )?)
+    .await
+    .deserialize();
+    let node = nodes.get(0).context("no node in response")?;
+    assert_eq!(TEST_PUBLIC_KEY, node.node_id);
+    assert_eq!("test", node.alias);
+    assert_eq!("010203", node.color);
+    assert_eq!(21000000, node.last_timestamp);
+    assert!(!node.features.is_empty());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_nodes() -> Result<()> {
+    let settings = create_api_server().await?;
+    let nodes: Vec<Node> = send(readonly_request(
+        &settings,
+        Method::GET,
+        routes::LIST_NODES,
+    )?)
+    .await
+    .deserialize();
+    assert_eq!(TEST_PUBLIC_KEY, nodes.get(0).context("bad result")?.node_id);
     Ok(())
 }
 

@@ -15,7 +15,7 @@ pub mod routes {
     /// Returns the list of peers connected with the node.
     pub const LIST_PEERS: &str = "/v1/peer/listPeers";
     /// Disconnect from a connected network peer.
-    pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect";
+    pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect/:id";
 
     /// --- Channels ---
     /// Get the list of channels open on the node.
@@ -25,7 +25,13 @@ pub mod routes {
     /// Update channel fee policy.
     pub const SET_CHANNEL_FEE: &str = "/v1/channel/setChannelFee";
     /// Close an existing channel with a peer.
-    pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel";
+    pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel/:id";
+
+    /// --- Network ---
+    /// Look up a node on the network.
+    pub const LIST_NODE: &str = "/v1/network/listnode/:id";
+    /// Return list of all nodes on the network
+    pub const LIST_NODES: &str = "/v1/network/listnodes";
 
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.
@@ -61,7 +67,7 @@ pub struct Address {
     #[serde(rename = "type")]
     pub address_type: String,
     pub address: String,
-    pub port: String,
+    pub port: u16,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -204,12 +210,6 @@ pub struct SetChannelFee {
 #[derive(Serialize, Deserialize)]
 pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
 
-#[derive(Serialize, Deserialize)]
-pub struct CloseChannel {
-    /// Channel ID of short channel ID
-    pub id: String,
-}
-
 #[derive(Serialize, Deserialize, Default)]
 pub struct NewAddress {
     /// Address type (bech32 only)
@@ -228,4 +228,15 @@ pub struct Peer {
     pub connected: bool,
     pub netaddr: Option<String>,
     pub alias: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Node {
+    #[serde(rename = "nodeid")]
+    pub node_id: String,
+    pub alias: String,
+    pub color: String,
+    pub last_timestamp: u32,
+    pub features: String,
+    pub addresses: Vec<Address>,
 }
