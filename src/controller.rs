@@ -2,6 +2,7 @@ use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, Wallet
 use crate::bitcoind::BitcoindClient;
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
+use crate::net_utils::display_net_address;
 use crate::payment_info::PaymentInfoStorage;
 use crate::peer_manager::PeerManager;
 use crate::wallet::Wallet;
@@ -35,7 +36,7 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
-use log::{error, warn};
+use log::{error, info, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
@@ -232,7 +233,7 @@ impl LightningInterface for Controller {
                 .connect_peer(public_key, net_address)
                 .await
         } else {
-            let addresses = self
+            let addresses: Vec<NetAddress> = self
                 .network_graph
                 .read_only()
                 .node(&NodeId::from_pubkey(&public_key))
@@ -240,14 +241,22 @@ impl LightningInterface for Controller {
                 .announcement_info
                 .as_ref()
                 .map(|announcement| announcement.addresses.clone())
-                .context("No addresses found for node")?;
+                .context("No addresses found for node")?
+                .into_iter()
+                .filter(|a| matches!(a, NetAddress::IPv4 { addr: _, port: _ }))
+                .collect();
             for address in addresses {
-                if self
+                if let Err(e) = self
                     .peer_manager
-                    .connect_peer(public_key, address)
+                    .connect_peer(public_key, address.clone())
                     .await
-                    .is_ok()
                 {
+                    info!(
+                        "Could not connect to {public_key}@{}. {}",
+                        display_net_address(&address),
+                        e
+                    );
+                } else {
                     return Ok(());
                 }
             }

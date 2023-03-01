@@ -1,18 +1,16 @@
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
-    str::FromStr,
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
 use database::ldk_database::LdkDatabase;
 use lightning::ln::msgs::NetAddress;
 use log::{error, info};
 use settings::Settings;
 
-use crate::controller::{ChannelManager, LdkPeerManager};
+use crate::{
+    controller::{ChannelManager, LdkPeerManager},
+    net_utils::{parse_net_address, to_socket_address},
+};
 
 pub struct PeerManager {
     ldk_peer_manager: Arc<LdkPeerManager>,
@@ -117,7 +115,7 @@ impl PeerManager {
         if !self.settings.knd_listen_addresses.is_empty() {
             let mut addresses = vec![];
             for address in self.settings.knd_listen_addresses.clone() {
-                addresses.push(to_net_address(&address)?);
+                addresses.push(parse_net_address(&address)?);
             }
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(60));
@@ -172,28 +170,4 @@ async fn connect_peer(
         info!("Disconnected from peer {public_key}@{socket_addr}");
     });
     Ok(())
-}
-
-fn to_net_address(address: &str) -> Result<NetAddress> {
-    let (address, port) = address.split_once(':').unwrap();
-    match IpAddr::from_str(address)? {
-        IpAddr::V4(a) => Ok(NetAddress::IPv4 {
-            addr: a.octets(),
-            port: port.parse()?,
-        }),
-        IpAddr::V6(a) => Ok(NetAddress::IPv6 {
-            addr: a.octets(),
-            port: port.parse()?,
-        }),
-    }
-}
-
-fn to_socket_address(address: &NetAddress) -> Result<SocketAddr> {
-    match address {
-        NetAddress::IPv4 { addr, port } => Ok(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::from(*addr),
-            *port,
-        ))),
-        _ => Err(anyhow!("unsupported address type")),
-    }
 }

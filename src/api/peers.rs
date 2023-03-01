@@ -1,15 +1,15 @@
-use std::{net::Ipv4Addr, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use crate::{
     api::{network::to_api_address, PeerStatus},
     handle_err, handle_unauthorized,
+    net_utils::parse_net_address,
 };
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use api::Peer;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use hyper::StatusCode;
-use lightning::ln::msgs::NetAddress;
 use log::{info, warn};
 
 use super::{KndMacaroon, LightningInterface, MacaroonAuth};
@@ -42,16 +42,16 @@ pub(crate) async fn connect_peer(
 ) -> Result<impl IntoResponse, StatusCode> {
     handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
 
-    let (public_key, socket_addr) = match id.split_once('@') {
-        Some((public_key, socket_addr)) => (
+    let (public_key, net_address) = match id.split_once('@') {
+        Some((public_key, net_address)) => (
             handle_err!(PublicKey::from_str(public_key)),
-            Some(handle_err!(to_net_address(socket_addr))),
+            Some(handle_err!(parse_net_address(net_address))),
         ),
         None => (handle_err!(PublicKey::from_str(&id)), None),
     };
     handle_err!(
         lightning_interface
-            .connect_peer(public_key, socket_addr)
+            .connect_peer(public_key, net_address)
             .await
     );
 
@@ -70,16 +70,4 @@ pub(crate) async fn disconnect_peer(
     handle_err!(lightning_interface.disconnect_peer(public_key).await);
 
     Ok(Json(()))
-}
-
-fn to_net_address(a: &str) -> Result<NetAddress> {
-    if let Some((ip, port)) = a.split_once(':') {
-        let ipv4 = Ipv4Addr::from_str(ip)?;
-        Ok(NetAddress::IPv4 {
-            addr: ipv4.octets(),
-            port: port.parse()?,
-        })
-    } else {
-        Err(anyhow!("Invalid IPv4 address:port"))
-    }
 }
