@@ -81,13 +81,13 @@ enum Command {
     },
     /// Close a channel.
     CloseChannel {
-        /// Channel ID or short channel ID.
+        /// Channel ID or short channel ID to close.
         #[arg(long)]
         id: String,
     },
-    /// Get information about a node from the network graph.
+    /// Get node information from the network graph.
     ListNodes {
-        /// Node ID
+        /// Provide Node ID to get info about a single node.
         #[arg(long)]
         id: Option<String>,
     },

@@ -5,7 +5,6 @@ pub mod bitcoind;
 pub mod controller;
 mod event_handler;
 pub mod key_generator;
-mod net_utils;
 mod payment_info;
 mod peer_manager;
 pub mod prometheus;

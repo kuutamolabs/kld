@@ -1,4 +1,3 @@
-use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
 use std::vec;
 
@@ -13,6 +12,7 @@ use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::Filter;
+use lightning::ln::msgs::NetAddress;
 use lightning::ln::{channelmanager, functional_test_utils::*};
 use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
@@ -32,10 +32,10 @@ pub async fn test_peers() -> Result<()> {
 
         let peer = Peer {
             public_key: random_public_key(),
-            socket_addr: std::net::SocketAddr::V4(SocketAddrV4::new(
-                Ipv4Addr::new(127, 0, 0, 1),
-                1020,
-            )),
+            net_address: NetAddress::IPv4 {
+                addr: [128, 23, 34, 2],
+                port: 1000,
+            },
         };
         let saved_peer = database.fetch_peer(&peer.public_key).await?;
         assert_eq!(None, saved_peer);

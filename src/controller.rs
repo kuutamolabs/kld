@@ -20,6 +20,7 @@ use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{
     ChainParameters, ChannelManagerReadArgs, SimpleArcChannelManager,
 };
+use lightning::ln::msgs::NetAddress;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, SimpleArcPeerManager};
 use lightning::onion_message::SimpleArcOnionMessenger;
 use lightning::routing::gossip::{self, NodeId, NodeInfo, P2PGossipSync};
@@ -40,7 +41,6 @@ use rand::{random, thread_rng, Rng};
 use settings::Settings;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
-use std::net::SocketAddr;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -214,7 +214,7 @@ impl LightningInterface for Controller {
                 public_key,
                 // Currently unable to map a socket address to public key for inbound connections.
                 // Waiting for rust-lightning release.
-                socket_addr: persistent_peers.get(&public_key).map(|s| s.to_owned()),
+                net_address: persistent_peers.get(&public_key).map(|s| s.to_owned()),
                 status,
                 alias: self.alias_of(&public_key).unwrap_or_default(),
             });
@@ -225,15 +225,34 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        socket_addr: Option<SocketAddr>,
+        net_address: Option<NetAddress>,
     ) -> Result<()> {
-        Ok(self
-            .peer_manager
-            .connect_peer(
-                public_key,
-                socket_addr.context("Need a socket address for peer")?,
-            )
-            .await?)
+        if let Some(net_address) = net_address {
+            self.peer_manager
+                .connect_peer(public_key, net_address)
+                .await
+        } else {
+            let addresses = self
+                .network_graph
+                .read_only()
+                .node(&NodeId::from_pubkey(&public_key))
+                .context("Node not found in network graph")?
+                .announcement_info
+                .as_ref()
+                .map(|announcement| announcement.addresses.clone())
+                .context("No addresses found for node")?;
+            for address in addresses {
+                if self
+                    .peer_manager
+                    .connect_peer(public_key, address)
+                    .await
+                    .is_ok()
+                {
+                    return Ok(());
+                }
+            }
+            Err(anyhow!("Could not connect to any peer addresses."))
+        }
     }
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
@@ -611,7 +630,7 @@ impl Controller {
 
         peer_manager.listen().await?;
         peer_manager.keep_channel_peers_connected();
-        peer_manager.regularly_broadcast_node_announcement();
+        peer_manager.regularly_broadcast_node_announcement()?;
 
         Ok((
             Controller {

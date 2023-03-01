@@ -20,7 +20,7 @@ use settings::Settings;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
-    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    routes, Address, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
     NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
@@ -29,7 +29,7 @@ use tokio::sync::RwLock;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
-use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
+use crate::mocks::{TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 use crate::quit_signal;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -332,7 +332,7 @@ async fn test_list_channels_readonly() -> Result<()> {
     assert_eq!("10000", channel.our_channel_reserve_satoshis);
     assert_eq!("100000", channel.spendable_msatoshi);
     assert_eq!(1, channel.direction);
-    assert_eq!("test_node", channel.alias);
+    assert_eq!(TEST_ALIAS, channel.alias);
     Ok(())
 }
 
@@ -460,14 +460,17 @@ async fn test_list_peers_readonly() -> Result<()> {
     )?)
     .await
     .deserialize();
-    let peer = response.get(0).unwrap();
-    assert_eq!(
-        "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
-        peer.id
-    );
-    assert_eq!(Some("127.0.0.1:8080".to_string()), peer.netaddr);
-    assert!(peer.connected);
-    assert_eq!("test", peer.alias);
+    let netaddr = Some(Address {
+        address_type: "ipv4".to_string(),
+        address: "127.0.0.1".to_string(),
+        port: 5555,
+    });
+    assert!(response.contains(&Peer {
+        id: TEST_PUBLIC_KEY.to_string(),
+        connected: true,
+        netaddr,
+        alias: TEST_ALIAS.to_string()
+    }));
     Ok(())
 }
 
@@ -498,9 +501,14 @@ async fn test_get_node() -> Result<()> {
     .deserialize();
     let node = nodes.get(0).context("no node in response")?;
     assert_eq!(TEST_PUBLIC_KEY, node.node_id);
-    assert_eq!("test", node.alias);
+    assert_eq!(TEST_ALIAS, node.alias);
     assert_eq!("010203", node.color);
     assert_eq!(21000000, node.last_timestamp);
+    assert!(node.addresses.contains(&Address {
+        address_type: "ipv4".to_string(),
+        address: "127.0.0.1".to_string(),
+        port: 5555
+    }));
     assert!(!node.features.is_empty());
     Ok(())
 }

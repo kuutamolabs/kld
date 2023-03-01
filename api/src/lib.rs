@@ -62,7 +62,7 @@ pub struct GetInfo {
     pub address: Vec<Address>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Address {
     #[serde(rename = "type")]
     pub address_type: String,
@@ -222,11 +222,11 @@ pub struct NewAddressResponse {
     pub address: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Peer {
     pub id: String,
     pub connected: bool,
-    pub netaddr: Option<String>,
+    pub netaddr: Option<Address>,
     pub alias: String,
 }
 

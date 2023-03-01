@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    str::FromStr,
-};
+use std::{collections::BTreeMap, str::FromStr};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -13,13 +9,14 @@ use lightning::{
     ln::{
         channelmanager::{ChannelCounterparty, ChannelDetails},
         features::{Features, InitFeatures},
+        msgs::NetAddress,
     },
     routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::config::UserConfig,
 };
 use lightning_knd::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 
-use super::{TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
+use super::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
 
 pub struct MockLightning {
     pub num_peers: usize,
@@ -28,6 +25,7 @@ pub struct MockLightning {
     pub wallet_balance: u64,
     pub channels: Vec<ChannelDetails>,
     pub public_key: PublicKey,
+    pub ipv4_address: NetAddress,
 }
 
 impl Default for MockLightning {
@@ -69,6 +67,10 @@ impl Default for MockLightning {
             inbound_htlc_maximum_msat: Some(300000),
             config: None,
         };
+        let ipv4_address = NetAddress::IPv4 {
+            addr: [127, 0, 0, 1],
+            port: 5555,
+        };
         Self {
             num_peers: 5,
             num_nodes: 6,
@@ -76,6 +78,7 @@ impl Default for MockLightning {
             wallet_balance: 8,
             channels: vec![channel],
             public_key,
+            ipv4_address,
         }
     }
 }
@@ -145,7 +148,7 @@ impl LightningInterface for MockLightning {
     }
 
     fn alias_of(&self, _node_id: &PublicKey) -> Option<String> {
-        Some("test_node".to_string())
+        Some(TEST_ALIAS.to_string())
     }
 
     fn addresses(&self) -> Vec<String> {
@@ -175,19 +178,16 @@ impl LightningInterface for MockLightning {
     async fn list_peers(&self) -> Result<Vec<Peer>> {
         Ok(vec![Peer {
             public_key: self.public_key,
-            socket_addr: Some(SocketAddr::new(
-                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                8080,
-            )),
+            net_address: Some(self.ipv4_address.clone()),
             status: PeerStatus::Connected,
-            alias: "test".to_string(),
+            alias: TEST_ALIAS.to_string(),
         }])
     }
 
     async fn connect_peer(
         &self,
         _public_key: PublicKey,
-        _socket_addr: Option<SocketAddr>,
+        _socket_addr: Option<NetAddress>,
     ) -> Result<()> {
         Ok(())
     }
@@ -206,13 +206,13 @@ impl LightningInterface for MockLightning {
 
     fn get_node(&self, _node_id: &NodeId) -> Option<NodeInfo> {
         let mut alias = [0u8; 32];
-        alias[..4].copy_from_slice("test".as_bytes());
+        alias[..TEST_ALIAS.len()].copy_from_slice(TEST_ALIAS.as_bytes());
         let announcement = NodeAnnouncementInfo {
             features: Features::empty(),
             last_update: 21000000,
             rgb: [1, 2, 3],
             alias: NodeAlias(alias),
-            addresses: vec![],
+            addresses: vec![self.ipv4_address.clone()],
             announcement_message: None,
         };
         Some(NodeInfo {

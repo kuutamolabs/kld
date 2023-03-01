@@ -14,3 +14,5 @@ pub const TEST_PUBLIC_KEY: &str =
     "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266";
 
 pub const TEST_SHORT_CHANNEL_ID: u64 = 0x0102030405060708;
+
+pub const TEST_ALIAS: &str = "test node";

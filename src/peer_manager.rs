@@ -1,15 +1,18 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
 use database::ldk_database::LdkDatabase;
+use lightning::ln::msgs::NetAddress;
 use log::{error, info};
 use settings::Settings;
 
-use crate::{
-    controller::{ChannelManager, LdkPeerManager},
-    net_utils,
-};
+use crate::controller::{ChannelManager, LdkPeerManager};
 
 pub struct PeerManager {
     ldk_peer_manager: Arc<LdkPeerManager>,
@@ -60,7 +63,7 @@ impl PeerManager {
         Ok(())
     }
 
-    pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: SocketAddr) -> Result<()> {
+    pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: NetAddress) -> Result<()> {
         connect_peer(
             self.ldk_peer_manager.clone(),
             self.database.clone(),
@@ -89,7 +92,7 @@ impl PeerManager {
                                 ldk_peer_manager.clone(),
                                 database.clone(),
                                 peer.public_key,
-                                peer.socket_addr,
+                                peer.net_address,
                             )
                             .await;
                         }
@@ -106,25 +109,25 @@ impl PeerManager {
     // some public channels, and is only useful if we have public listen address(es) to announce.
     // In a production environment, this should occur only after the announcement of new channels
     // to avoid churn in the global network graph.
-    pub fn regularly_broadcast_node_announcement(&self) {
+    pub fn regularly_broadcast_node_announcement(&self) -> Result<()> {
         let mut alias = [0; 32];
         alias[..self.settings.knd_node_name.len()]
             .copy_from_slice(self.settings.knd_node_name.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
         if !self.settings.knd_listen_addresses.is_empty() {
-            let addresses = self.settings.knd_listen_addresses.clone();
+            let mut addresses = vec![];
+            for address in self.settings.knd_listen_addresses.clone() {
+                addresses.push(to_net_address(&address)?);
+            }
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(60));
                 loop {
                     interval.tick().await;
-                    peer_manager.broadcast_node_announcement(
-                        [0; 3],
-                        alias,
-                        addresses.iter().map(|s| net_utils::to_address(s)).collect(),
-                    );
+                    peer_manager.broadcast_node_announcement([0; 3], alias, addresses.clone());
                 }
             });
         }
+        Ok(())
     }
 
     pub fn get_peer_node_ids(&self) -> Vec<PublicKey> {
@@ -150,22 +153,47 @@ async fn connect_peer(
     ldk_peer_manager: Arc<LdkPeerManager>,
     database: Arc<LdkDatabase>,
     public_key: PublicKey,
-    peer_addr: SocketAddr,
+    net_address: NetAddress,
 ) -> Result<()> {
+    let socket_addr = to_socket_address(&net_address)?;
     let connection_closed =
-        lightning_net_tokio::connect_outbound(ldk_peer_manager, public_key, peer_addr)
+        lightning_net_tokio::connect_outbound(ldk_peer_manager, public_key, socket_addr)
             .await
             .context("Could not connect to peer {public_key}@{peer_addr}")?;
     database
         .persist_peer(&database::peer::Peer {
             public_key,
-            socket_addr: peer_addr,
+            net_address,
         })
         .await?;
-    info!("Connected to peer {public_key}@{peer_addr}");
+    info!("Connected to peer {public_key}@{socket_addr}");
     tokio::spawn(async move {
         connection_closed.await;
-        info!("Disconnected from peer {public_key}@{peer_addr}");
+        info!("Disconnected from peer {public_key}@{socket_addr}");
     });
     Ok(())
+}
+
+fn to_net_address(address: &str) -> Result<NetAddress> {
+    let (address, port) = address.split_once(':').unwrap();
+    match IpAddr::from_str(address)? {
+        IpAddr::V4(a) => Ok(NetAddress::IPv4 {
+            addr: a.octets(),
+            port: port.parse()?,
+        }),
+        IpAddr::V6(a) => Ok(NetAddress::IPv6 {
+            addr: a.octets(),
+            port: port.parse()?,
+        }),
+    }
+}
+
+fn to_socket_address(address: &NetAddress) -> Result<SocketAddr> {
+    match address {
+        NetAddress::IPv4 { addr, port } => Ok(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::from(*addr),
+            *port,
+        ))),
+        _ => Err(anyhow!("unsupported address type")),
+    }
 }

@@ -113,7 +113,7 @@ impl Api {
 
     pub fn list_nodes(&self, id: Option<String>) -> Result<Vec<Node>> {
         if let Some(id) = id {
-            send(self.request(Method::GET, &routes::LIST_NODES.replace(":id", &id)))
+            send(self.request(Method::GET, &routes::LIST_NODE.replace(":id", &id)))
         } else {
             send(self.request(Method::GET, routes::LIST_NODES))
         }
