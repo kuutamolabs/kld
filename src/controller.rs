@@ -2,6 +2,7 @@ use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, Wallet
 use crate::bitcoind::BitcoindClient;
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
+use crate::net_utils::display_net_address;
 use crate::payment_info::PaymentInfoStorage;
 use crate::peer_manager::PeerManager;
 use crate::wallet::Wallet;
@@ -20,6 +21,7 @@ use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{
     ChainParameters, ChannelManagerReadArgs, SimpleArcChannelManager,
 };
+use lightning::ln::msgs::NetAddress;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, SimpleArcPeerManager};
 use lightning::onion_message::SimpleArcOnionMessenger;
 use lightning::routing::gossip::{self, NodeId, NodeInfo, P2PGossipSync};
@@ -34,13 +36,12 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
-use log::{error, warn};
+use log::{error, info, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
-use std::net::SocketAddr;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -214,7 +215,7 @@ impl LightningInterface for Controller {
                 public_key,
                 // Currently unable to map a socket address to public key for inbound connections.
                 // Waiting for rust-lightning release.
-                socket_addr: persistent_peers.get(&public_key).map(|s| s.to_owned()),
+                net_address: persistent_peers.get(&public_key).map(|s| s.to_owned()),
                 status,
                 alias: self.alias_of(&public_key).unwrap_or_default(),
             });
@@ -225,15 +226,42 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        socket_addr: Option<SocketAddr>,
+        net_address: Option<NetAddress>,
     ) -> Result<()> {
-        Ok(self
-            .peer_manager
-            .connect_peer(
-                public_key,
-                socket_addr.context("Need a socket address for peer")?,
-            )
-            .await?)
+        if let Some(net_address) = net_address {
+            self.peer_manager
+                .connect_peer(public_key, net_address)
+                .await
+        } else {
+            let addresses: Vec<NetAddress> = self
+                .network_graph
+                .read_only()
+                .node(&NodeId::from_pubkey(&public_key))
+                .context("Node not found in network graph")?
+                .announcement_info
+                .as_ref()
+                .map(|announcement| announcement.addresses.clone())
+                .context("No addresses found for node")?
+                .into_iter()
+                .filter(|a| matches!(a, NetAddress::IPv4 { addr: _, port: _ }))
+                .collect();
+            for address in addresses {
+                if let Err(e) = self
+                    .peer_manager
+                    .connect_peer(public_key, address.clone())
+                    .await
+                {
+                    info!(
+                        "Could not connect to {public_key}@{}. {}",
+                        display_net_address(&address),
+                        e
+                    );
+                } else {
+                    return Ok(());
+                }
+            }
+            Err(anyhow!("Could not connect to any peer addresses."))
+        }
     }
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
@@ -611,7 +639,7 @@ impl Controller {
 
         peer_manager.listen().await?;
         peer_manager.keep_channel_peers_connected();
-        peer_manager.regularly_broadcast_node_announcement();
+        peer_manager.regularly_broadcast_node_announcement()?;
 
         Ok((
             Controller {

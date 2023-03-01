@@ -60,7 +60,7 @@ fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<Node> {
     })
 }
 
-fn to_api_address(net_address: &NetAddress) -> Address {
+pub(crate) fn to_api_address(net_address: &NetAddress) -> Address {
     match net_address {
         NetAddress::IPv4 { addr, port } => Address {
             address_type: "ipv4".to_string(),

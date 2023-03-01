@@ -1,6 +1,11 @@
-use std::{net::SocketAddr, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
-use crate::{api::PeerStatus, handle_err, handle_unauthorized};
+use crate::{
+    api::{network::to_api_address, PeerStatus},
+    handle_err, handle_unauthorized,
+    net_utils::parse_net_address,
+};
+use anyhow::Result;
 use api::Peer;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
@@ -21,7 +26,7 @@ pub(crate) async fn list_peers(
         .map(|p| Peer {
             id: p.public_key.serialize().to_hex(),
             connected: p.status == PeerStatus::Connected,
-            netaddr: p.socket_addr.map(|s| s.to_string()),
+            netaddr: p.net_address.as_ref().map(to_api_address),
             alias: p.alias.clone(),
         })
         .collect();
@@ -37,16 +42,16 @@ pub(crate) async fn connect_peer(
 ) -> Result<impl IntoResponse, StatusCode> {
     handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
 
-    let (public_key, socket_addr) = match id.split_once('@') {
-        Some((public_key, socket_addr)) => (
+    let (public_key, net_address) = match id.split_once('@') {
+        Some((public_key, net_address)) => (
             handle_err!(PublicKey::from_str(public_key)),
-            Some(handle_err!(SocketAddr::from_str(socket_addr))),
+            Some(handle_err!(parse_net_address(net_address))),
         ),
         None => (handle_err!(PublicKey::from_str(&id)), None),
     };
     handle_err!(
         lightning_interface
-            .connect_peer(public_key, socket_addr)
+            .connect_peer(public_key, net_address)
             .await
     );
 

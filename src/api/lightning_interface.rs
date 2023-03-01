@@ -1,10 +1,10 @@
-use std::{collections::BTreeMap, net::SocketAddr};
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 use lightning::{
-    ln::channelmanager::ChannelDetails,
+    ln::{channelmanager::ChannelDetails, msgs::NetAddress},
     routing::gossip::{NodeId, NodeInfo},
     util::config::UserConfig,
 };
@@ -54,7 +54,7 @@ pub trait LightningInterface {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        socket_addr: Option<SocketAddr>,
+        socket_addr: Option<NetAddress>,
     ) -> Result<()>;
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()>;
@@ -76,7 +76,7 @@ pub trait LightningInterface {
 
 pub struct Peer {
     pub public_key: PublicKey,
-    pub socket_addr: Option<SocketAddr>,
+    pub net_address: Option<NetAddress>,
     pub status: PeerStatus,
     pub alias: String,
 }

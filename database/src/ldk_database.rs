@@ -10,6 +10,7 @@ use lightning::chain::keysinterface::{KeysInterface, Sign};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
 use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
+use lightning::ln::msgs::NetAddress;
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore,
@@ -24,7 +25,6 @@ use settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
-use std::net::SocketAddr;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::{fs, io};
@@ -106,10 +106,7 @@ impl LdkDatabase {
             .execute(
                 "UPSERT INTO peers (public_key, address) \
             VALUES ($1, $2)",
-                &[
-                    &peer.public_key.encode().as_slice(),
-                    &peer.socket_addr.to_string().as_bytes(),
-                ],
+                &[&peer.public_key.encode(), &peer.net_address.encode()],
             )
             .await?;
         Ok(())
@@ -117,8 +114,7 @@ impl LdkDatabase {
 
     pub async fn fetch_peer(&self, public_key: &PublicKey) -> Result<Option<Peer>> {
         debug!("Fetching peer from database");
-        let peer = self
-            .client()
+        self.client()
             .await?
             .read()
             .await
@@ -129,16 +125,13 @@ impl LdkDatabase {
             .await?
             .map(|row| {
                 let public_key: Vec<u8> = row.get("public_key");
-                let address: Vec<u8> = row.get("address");
-                Peer {
-                    public_key: PublicKey::from_slice(&public_key).unwrap(),
-                    socket_addr: String::from_utf8(address).unwrap().parse().unwrap(),
-                }
-            });
-        Ok(peer)
+                let net_address: Vec<u8> = row.get("address");
+                Peer::deserialize(public_key, net_address)
+            })
+            .transpose()
     }
 
-    pub async fn fetch_peers(&self) -> Result<HashMap<PublicKey, SocketAddr>> {
+    pub async fn fetch_peers(&self) -> Result<HashMap<PublicKey, NetAddress>> {
         debug!("Fetching peers from database");
         let mut peers = HashMap::new();
         for row in self
@@ -150,9 +143,9 @@ impl LdkDatabase {
             .await?
         {
             let public_key: Vec<u8> = row.get("public_key");
-            let public_key = PublicKey::from_slice(&public_key)?;
-            let address: Vec<u8> = row.get("address");
-            peers.insert(public_key, String::from_utf8(address)?.parse()?);
+            let net_address: Vec<u8> = row.get("address");
+            let peer = Peer::deserialize(public_key, net_address)?;
+            peers.insert(peer.public_key, peer.net_address);
         }
         debug!("Fetched {} peers", peers.len());
         Ok(peers)
