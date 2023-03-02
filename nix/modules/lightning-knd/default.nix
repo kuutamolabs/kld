@@ -95,6 +95,7 @@ in
     services.cockroachdb.ensureUsers = [{
       name = "lightning-knd";
       ensurePermissions."DATABASE lightning_knd" = "ALL";
+      passwordFile = "/var/lib//cockroachdb/certs/client.lightning-knd.passwd";
     }];
 
     services.bitcoind.${bitcoind-instance} = {
@@ -127,13 +128,14 @@ in
         KND_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KND_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KND_NODE_NAME = lib.mkDefault cfg.nodeAlias;
-        KND_DATABASE_HOST = lib.mkDefault "/run/cockroachdb";
+        KND_DATABASE_HOST = lib.mkDefault "localhost";
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
         KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
         KND_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KND_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
+        KND_CERTS_DIR = lib.mkDefault "/var/lib/lightning-knd/certs";
         KND_BITCOIN_NETWORK = lib.mkDefault cfg.network;
 
         KND_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
@@ -144,7 +146,14 @@ in
         bitcoinCfg.package # for cli
         pkgs.util-linux # setpriv
       ];
+      script = ''
+        set -euo pipefail
+        # switch to tls certificates
+        export KND_DATABASE_PASSWORD="$(cat $CREDENTIALS_DIRECTORY/db-passwd)"
+        exec ${lib.getExe cfg.package}
+      '';
       serviceConfig = {
+        LoadCredential = [ "db-passwd:/var/lib/cockroachdb/certs/client.lightning-knd.passwd" ];
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
           setpriv --reuid bitcoind-${bitcoind-instance} \
                   --regid bitcoind-${bitcoind-instance} \
@@ -203,7 +212,6 @@ in
         SystemCallArchitectures = "native";
         # blacklist some syscalls
         SystemCallFilter = [ "~@cpu-emulation @debug @keyring @mount @obsolete @privileged @setuid" ];
-        ExecStart = lib.getExe cfg.package;
       };
     };
   };

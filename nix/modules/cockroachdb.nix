@@ -32,6 +32,14 @@ in
               Name of the user to ensure.
             '';
           };
+          passwordFile = lib.mkOption {
+            type = lib.types.nullOr lib.types.path;
+            default = null;
+            description = lib.mdDoc ''
+              Path to a file containing the password for the user.
+              The file should contain only the password, not any trailing newlines.
+            '';
+          };
 
           ensurePermissions = lib.mkOption {
             type = lib.types.attrsOf lib.types.str;
@@ -86,27 +94,28 @@ in
 
   config = {
     services.cockroachdb.extraArgs = [
+      # TODO: support TLS client certs in lightning-knd
+      "--accept-sql-without-tls"
       "--socket-dir=/run/cockroachdb"
       # disable file-based logging
       "--log-dir="
     ];
     services.cockroachdb.enable = true;
-    # TODO: setup clustering and ssl certificates.
-    services.cockroachdb.insecure = lib.mkDefault true;
+    services.cockroachdb.certsDir = "/var/lib/cockroachdb/certs";
+    services.cockroachdb.openPorts = true;
+    services.cockroachdb.listen.address = "[::]";
 
     systemd.services.cockroachdb =
       let
-        csql = execute:
-          "cockroach sql ${lib.cli.toGNUCommandLineShell {} {
-              url = "postgres://?host=/run/cockroachdb/&port=26257&sslmode=disable";
-              inherit execute;
-          }}";
-        sql = (builtins.map (database: ''CREATE DATABASE IF NOT EXISTS "${database}"'') cfg.ensureDatabases)
+        connectFlags = ''--certs-dir /var/lib/cockroachdb/certs --host "$hostname:26257"'';
+        csql = execute: ''cockroach sql ${connectFlags} ${lib.cli.toGNUCommandLineShell {} { inherit  execute; }}'';
+        sql =
+          (builtins.map (database: ''CREATE DATABASE IF NOT EXISTS "${database}"'') cfg.ensureDatabases)
           ++ (builtins.map (user: ''CREATE USER IF NOT EXISTS "${user.name}"'') cfg.ensureUsers)
           ++ (lib.flatten
-          (builtins.map
-            (user: lib.mapAttrsToList (database: permission: ''GRANT ${permission} ON ${database} TO "${user.name}"'') user.ensurePermissions)
-            cfg.ensureUsers));
+            (builtins.map
+              (user: lib.mapAttrsToList (database: permission: ''GRANT ${permission} ON ${database} TO "${user.name}" '') user.ensurePermissions)
+              cfg.ensureUsers));
       in
       {
         serviceConfig = {
@@ -116,13 +125,23 @@ in
           path = [ cfg.package ];
           # we need to run this as root since do not have a password yet.
           ExecStartPost = "+${pkgs.writeShellScript "setup" ''
-          #set -eux -o pipefail
+          set -eu -o pipefail
           export PATH=$PATH:${cfg.package}/bin
-          while ! ${csql ""} 2>/dev/null; do
-            if ! kill -0 "$MAINPID"; then exit 1; fi
-            sleep 0.1
-          done
-          ${csql sql}
+
+          # check if this is the primary database node
+          if [[ -f /var/lib/cockroachdb/certs/client.root.crt ]]; then
+            hostname=$(${lib.getExe pkgs.openssl} x509 -text -noout -in /var/lib/cockroachdb/certs/node.crt | grep -oP '(?<=DNS:).*')
+
+            if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
+              cockroach init ${connectFlags}
+              touch /var/lib/cockroachdb/.cluster-init
+            fi
+            ${csql sql}
+            # FIXME: this might log the password in the journal -> just use a cert here.
+            ${lib.concatMapStringsSep "\n" (user: lib.optionalString (user.passwordFile != null) ''
+              cockroach ${connectFlags} sql --execute "ALTER USER \"${user.name}\" WITH PASSWORD '$(cat ${user.passwordFile})'"
+            '') cfg.ensureUsers}
+          fi
         ''}";
         };
       };
