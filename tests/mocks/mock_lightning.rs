@@ -14,7 +14,10 @@ use lightning::{
     routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::config::UserConfig,
 };
-use lightning_knd::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
+use lightning_knd::{
+    api::{LightningInterface, OpenChannelResult, Peer, PeerStatus},
+    net_utils::PeerAddress,
+};
 
 use super::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
 
@@ -187,7 +190,7 @@ impl LightningInterface for MockLightning {
     async fn connect_peer(
         &self,
         _public_key: PublicKey,
-        _socket_addr: Option<NetAddress>,
+        _socket_addr: Option<PeerAddress>,
     ) -> Result<()> {
         Ok(())
     }

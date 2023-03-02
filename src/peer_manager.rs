@@ -1,15 +1,14 @@
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
 use database::ldk_database::LdkDatabase;
-use lightning::ln::msgs::NetAddress;
 use log::{error, info};
 use settings::Settings;
 
 use crate::{
     controller::{ChannelManager, LdkPeerManager},
-    net_utils::{parse_net_address, to_socket_address},
+    net_utils::PeerAddress,
 };
 
 pub struct PeerManager {
@@ -61,7 +60,7 @@ impl PeerManager {
         Ok(())
     }
 
-    pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: NetAddress) -> Result<()> {
+    pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: PeerAddress) -> Result<()> {
         connect_peer(
             self.ldk_peer_manager.clone(),
             self.database.clone(),
@@ -90,7 +89,7 @@ impl PeerManager {
                                 ldk_peer_manager.clone(),
                                 database.clone(),
                                 peer.public_key,
-                                peer.net_address,
+                                PeerAddress(peer.net_address),
                             )
                             .await;
                         }
@@ -115,7 +114,7 @@ impl PeerManager {
         if !self.settings.knd_listen_addresses.is_empty() {
             let mut addresses = vec![];
             for address in self.settings.knd_listen_addresses.clone() {
-                addresses.push(parse_net_address(&address)?);
+                addresses.push(address.parse::<PeerAddress>()?.0);
             }
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(Duration::from_secs(60));
@@ -151,9 +150,9 @@ async fn connect_peer(
     ldk_peer_manager: Arc<LdkPeerManager>,
     database: Arc<LdkDatabase>,
     public_key: PublicKey,
-    net_address: NetAddress,
+    peer_address: PeerAddress,
 ) -> Result<()> {
-    let socket_addr = to_socket_address(&net_address)?;
+    let socket_addr = SocketAddr::try_from(peer_address.clone())?;
     let connection_closed =
         lightning_net_tokio::connect_outbound(ldk_peer_manager, public_key, socket_addr)
             .await
@@ -161,7 +160,7 @@ async fn connect_peer(
     database
         .persist_peer(&database::peer::Peer {
             public_key,
-            net_address,
+            net_address: peer_address.0,
         })
         .await?;
     info!("Connected to peer {public_key}@{socket_addr}");

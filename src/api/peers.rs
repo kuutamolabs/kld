@@ -3,7 +3,6 @@ use std::{str::FromStr, sync::Arc};
 use crate::{
     api::{network::to_api_address, PeerStatus},
     handle_err, handle_unauthorized,
-    net_utils::parse_net_address,
 };
 use anyhow::Result;
 use api::Peer;
@@ -45,7 +44,7 @@ pub(crate) async fn connect_peer(
     let (public_key, net_address) = match id.split_once('@') {
         Some((public_key, net_address)) => (
             handle_err!(PublicKey::from_str(public_key)),
-            Some(handle_err!(parse_net_address(net_address))),
+            Some(handle_err!(net_address.parse())),
         ),
         None => (handle_err!(PublicKey::from_str(&id)), None),
     };
