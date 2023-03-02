@@ -2,7 +2,7 @@ use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, Wallet
 use crate::bitcoind::BitcoindClient;
 use crate::event_handler::EventHandler;
 use crate::key_generator::KeyGenerator;
-use crate::net_utils::display_net_address;
+use crate::net_utils::PeerAddress;
 use crate::payment_info::PaymentInfoStorage;
 use crate::peer_manager::PeerManager;
 use crate::wallet::Wallet;
@@ -226,14 +226,14 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        net_address: Option<NetAddress>,
+        peer_address: Option<PeerAddress>,
     ) -> Result<()> {
-        if let Some(net_address) = net_address {
+        if let Some(net_address) = peer_address {
             self.peer_manager
                 .connect_peer(public_key, net_address)
                 .await
         } else {
-            let addresses: Vec<NetAddress> = self
+            let addresses: Vec<PeerAddress> = self
                 .network_graph
                 .read_only()
                 .node(&NodeId::from_pubkey(&public_key))
@@ -244,6 +244,7 @@ impl LightningInterface for Controller {
                 .context("No addresses found for node")?
                 .into_iter()
                 .filter(|a| matches!(a, NetAddress::IPv4 { addr: _, port: _ }))
+                .map(PeerAddress)
                 .collect();
             for address in addresses {
                 if let Err(e) = self
@@ -251,11 +252,7 @@ impl LightningInterface for Controller {
                     .connect_peer(public_key, address.clone())
                     .await
                 {
-                    info!(
-                        "Could not connect to {public_key}@{}. {}",
-                        display_net_address(&address),
-                        e
-                    );
+                    info!("Could not connect to {public_key}@{address}. {}", e);
                 } else {
                     return Ok(());
                 }

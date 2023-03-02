@@ -9,6 +9,8 @@ use lightning::{
     util::config::UserConfig,
 };
 
+use crate::net_utils::PeerAddress;
+
 #[async_trait]
 pub trait LightningInterface {
     fn alias(&self) -> String;
@@ -54,7 +56,7 @@ pub trait LightningInterface {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        socket_addr: Option<NetAddress>,
+        socket_addr: Option<PeerAddress>,
     ) -> Result<()>;
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()>;
