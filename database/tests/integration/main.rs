@@ -50,7 +50,7 @@ async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
                     .await
                     .context("could not start cockroach")?;
                 let settings = TestSettingsBuilder::new()
-                    .with_database_port(cockroach.port)
+                    .with_database_port(cockroach.sql_port)
                     .with_data_dir(&format!("{}/test_database", env!("CARGO_TARGET_TMPDIR")))
                     .build();
                 migrate_database(&settings).await.unwrap();

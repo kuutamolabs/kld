@@ -62,8 +62,12 @@ pub struct Settings {
     pub database_user: String,
     #[clap(long, default_value = "defaultdb", env = "KND_DATABASE_NAME")]
     pub database_name: String,
-    #[clap(long, default_value = "", env = "KND_DATABASE_PASSWORD")]
-    pub database_password: String,
+    #[clap(long, default_value = "", env = "KND_DATABASE_CA_CERT_PATH")]
+    pub database_ca_cert_path: String,
+    #[clap(long, default_value = "", env = "KND_DATABASE_CLIENT_CERT_PATH")]
+    pub database_client_cert_path: String,
+    #[clap(long, default_value = "", env = "KND_DATABASE_CLIENT_KEY_PATH")]
+    pub database_client_key_path: String,
 }
 
 impl Settings {

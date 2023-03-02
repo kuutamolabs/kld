@@ -16,9 +16,10 @@ use bitcoin::secp256k1::{PublicKey, SecretKey};
 use bitcoin_manager::BitcoinManager;
 use clap::{builder::OsStr, Parser};
 pub use cockroach_manager::CockroachManager;
+use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
+use postgres_openssl::MakeTlsConnector;
 use reqwest::{Certificate, Client};
 use settings::{Network, Settings};
-use tokio_postgres::NoTls;
 
 pub struct TestSettingsBuilder {
     settings: Settings,
@@ -28,6 +29,16 @@ impl TestSettingsBuilder {
     pub fn new() -> TestSettingsBuilder {
         let mut settings = Settings::parse_from::<Vec<OsStr>, OsStr>(vec![]);
         settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
+        settings.database_ca_cert_path =
+            format!("{}/certs/cockroach/ca.crt", env!("CARGO_MANIFEST_DIR"));
+        settings.database_client_cert_path = format!(
+            "{}/certs/cockroach/client.root.crt",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        settings.database_client_key_path = format!(
+            "{}/certs/cockroach/client.root.key",
+            env!("CARGO_MANIFEST_DIR")
+        );
         TestSettingsBuilder { settings }
     }
 
@@ -41,6 +52,11 @@ impl TestSettingsBuilder {
 
     pub fn with_database_port(mut self, port: u16) -> TestSettingsBuilder {
         self.settings.database_port = port.to_string();
+        self
+    }
+
+    pub fn with_rest_api_address(mut self, address: String) -> TestSettingsBuilder {
+        self.settings.rest_api_address = address;
         self
     }
 
@@ -134,11 +150,12 @@ pub async fn connection(settings: &Settings) -> Result<tokio_postgres::Client> {
         settings.database_user,
         settings.database_name
     );
-    let mut params = log_safe_params.clone();
-    if !settings.database_password.is_empty() {
-        params = format!("{} password={}", params, settings.database_password);
-    }
-    let (client, connection) = tokio_postgres::connect(&params, NoTls)
+    let mut builder = SslConnector::builder(SslMethod::tls())?;
+    builder.set_ca_file(&settings.database_ca_cert_path)?;
+    builder.set_certificate_file(&settings.database_client_cert_path, SslFiletype::PEM)?;
+    builder.set_private_key_file(&settings.database_client_key_path, SslFiletype::PEM)?;
+    let connector = MakeTlsConnector::new(builder.build());
+    let (client, connection) = tokio_postgres::connect(&log_safe_params, connector)
         .await
         .with_context(|| format!("could not connect to database ({log_safe_params})"))?;
     tokio::spawn(async move {
