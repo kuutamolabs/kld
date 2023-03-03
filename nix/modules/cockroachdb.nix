@@ -5,6 +5,10 @@
 }:
 let
   cfg = config.services.cockroachdb;
+  cockroach-cli = pkgs.runCommand "cockroach-wrapper" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+    makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach \
+      --add-flags " --certs-dir=${config.services.cockroachdb.certsDir} --host=${config.networking.fqdnOrHostName} "
+  '';
 in
 {
   options = {
@@ -103,10 +107,11 @@ in
     services.cockroachdb.openPorts = true;
     services.cockroachdb.listen.address = "[::]";
 
+    environment.systemPackages = [ cockroach-cli ];
+
     systemd.services.cockroachdb =
       let
-        connectFlags = ''--certs-dir /var/lib/cockroachdb-certs --host "$hostname:26257"'';
-        csql = execute: ''cockroach sql ${connectFlags} ${lib.cli.toGNUCommandLineShell {} { inherit  execute; }}'';
+        csql = execute: ''cockroach sql ${lib.cli.toGNUCommandLineShell {} { inherit  execute; }}'';
         sql =
           (builtins.map (database: ''CREATE DATABASE IF NOT EXISTS "${database}"'') cfg.ensureDatabases)
           ++ (builtins.map (user: ''CREATE USER IF NOT EXISTS "${user.name}"'') cfg.ensureUsers)
@@ -117,7 +122,7 @@ in
       in
       {
         # for cli
-        path = [ cfg.package ];
+        path = [ cockroach-cli ];
         serviceConfig = {
           RuntimeDirectory = "cockroachdb";
           WorkingDirectory = "/var/lib/cockroachdb";
@@ -128,10 +133,9 @@ in
 
           # check if this is the primary database node
           if [[ -f /var/lib/cockroachdb-certs/client.root.crt ]]; then
-            hostname=$(${lib.getExe pkgs.openssl} x509 -text -noout -in /var/lib/cockroachdb-certs/node.crt | grep -oP '(?<=DNS:).*')
 
             if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
-              cockroach init ${connectFlags}
+              cockroach init
               touch /var/lib/cockroachdb/.cluster-init
             fi
             ${csql sql}
