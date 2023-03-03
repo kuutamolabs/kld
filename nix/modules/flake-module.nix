@@ -61,7 +61,7 @@
       in
       {
         # some example configuration to make it eval
-        example-lnd-node = lib.nixosSystem {
+        example-kld-node = lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             self.nixosModules.kld-node
