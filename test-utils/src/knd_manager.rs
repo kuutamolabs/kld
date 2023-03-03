@@ -74,7 +74,7 @@ impl KndManager {
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
         set_var("KND_DATA_DIR", &manager.storage_dir);
-        set_var("KND_CERTS_DIR", certs_dir);
+        set_var("KND_CERTS_DIR", &certs_dir);
         set_var(
             "KND_MNEMONIC_PATH",
             format!("{}/mnemonic", &manager.storage_dir),
@@ -85,7 +85,19 @@ impl KndManager {
         set_var("KND_BITCOIN_COOKIE_PATH", bitcoin.cookie_path());
         set_var("KND_BITCOIN_RPC_HOST", "127.0.0.1");
         set_var("KND_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
-        set_var("KND_DATABASE_PORT", cockroach.port.to_string());
+        set_var("KND_DATABASE_PORT", cockroach.sql_port.to_string());
+        set_var(
+            "KND_DATABASE_CA_CERT_PATH",
+            format!("{certs_dir}/cockroach/ca.crt"),
+        );
+        set_var(
+            "KND_DATABASE_CLIENT_KEY_PATH",
+            format!("{certs_dir}/cockroach/client.root.key"),
+        );
+        set_var(
+            "KND_DATABASE_CLIENT_CERT_PATH",
+            format!("{certs_dir}/cockroach/client.root.crt"),
+        );
         set_var("KND_LOG_LEVEL", "debug");
 
         let client = https_client();

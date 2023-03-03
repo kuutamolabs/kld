@@ -94,8 +94,6 @@ in
 
   config = {
     services.cockroachdb.extraArgs = [
-      # TODO: support TLS client certs in lightning-knd
-      "--accept-sql-without-tls"
       "--socket-dir=/run/cockroachdb"
       # disable file-based logging
       "--log-dir="

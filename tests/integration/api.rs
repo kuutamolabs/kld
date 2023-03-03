@@ -17,6 +17,7 @@ use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use settings::Settings;
+use test_utils::ports::get_available_port;
 use test_utils::{https_client, random_public_key, TestSettingsBuilder};
 
 use api::{
@@ -571,12 +572,13 @@ pub async fn create_api_server() -> Result<Settings> {
         return Ok(API_SETTINGS.read().await.as_ref().unwrap().clone());
     }
     KndLogger::init("test", log::LevelFilter::Info);
+    let rest_api_port = get_available_port().context("no port available")?;
+    let rest_api_address = format!("127.0.0.1:{rest_api_port}");
     let s = TestSettingsBuilder::new()
         .with_data_dir(&format!("{}/test_api", env!("CARGO_TARGET_TMPDIR")))
+        .with_rest_api_address(rest_api_address.clone())
         .build();
-    let rest_api_address = s.rest_api_address.clone();
     let certs_dir = s.certs_dir.clone();
-
     let macaroon_auth = Arc::new(
         MacaroonAuth::init(&[0u8; 32], &s.data_dir).context("cannot initialize macaroon auth")?,
     );

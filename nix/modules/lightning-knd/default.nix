@@ -95,7 +95,6 @@ in
     services.cockroachdb.ensureUsers = [{
       name = "lightning-knd";
       ensurePermissions."DATABASE lightning_knd" = "ALL";
-      passwordFile = "/var/lib//cockroachdb/certs/client.lightning-knd.passwd";
     }];
 
     services.bitcoind.${bitcoind-instance} = {
@@ -132,6 +131,9 @@ in
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
         KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
+        KND_DATABASE_CA_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/ca.crt";
+        KND_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.lightning-knd.crt";
+        KND_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.lightning-knd.key";
         KND_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KND_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
@@ -148,12 +150,9 @@ in
       ];
       script = ''
         set -euo pipefail
-        # switch to tls certificates
-        export KND_DATABASE_PASSWORD="$(cat $CREDENTIALS_DIRECTORY/db-passwd)"
         exec ${lib.getExe cfg.package}
       '';
       serviceConfig = {
-        LoadCredential = [ "db-passwd:/var/lib/cockroachdb/certs/client.lightning-knd.passwd" ];
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
           setpriv --reuid bitcoind-${bitcoind-instance} \
                   --regid bitcoind-${bitcoind-instance} \

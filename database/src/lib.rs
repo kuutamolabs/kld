@@ -4,6 +4,8 @@ pub mod wallet_database;
 
 use anyhow::{Context, Result};
 use log::{error, info};
+use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
+use postgres_openssl::MakeTlsConnector;
 use settings::Settings;
 pub use tokio_postgres::{Client, NoTls, Transaction};
 
@@ -37,11 +39,12 @@ pub async fn connection(settings: &Settings) -> Result<Client> {
         settings.database_user,
         settings.database_name
     );
-    let mut params = log_safe_params.clone();
-    if !settings.database_password.is_empty() {
-        params = format!("{} password={}", params, settings.database_password);
-    }
-    let (client, connection) = tokio_postgres::connect(&params, NoTls)
+    let mut builder = SslConnector::builder(SslMethod::tls())?;
+    builder.set_ca_file(&settings.database_ca_cert_path)?;
+    builder.set_certificate_file(&settings.database_client_cert_path, SslFiletype::PEM)?;
+    builder.set_private_key_file(&settings.database_client_key_path, SslFiletype::PEM)?;
+    let connector = MakeTlsConnector::new(builder.build());
+    let (client, connection) = tokio_postgres::connect(&log_safe_params, connector)
         .await
         .with_context(|| format!("could not connect to database ({log_safe_params})"))?;
     tokio::spawn(async move {
