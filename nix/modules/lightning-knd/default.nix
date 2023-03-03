@@ -111,7 +111,6 @@ in
     users.users.lightning-knd = {
       isSystemUser = true;
       group = "lightning-knd";
-      extraGroups = [ "cockroachdb" ];
     };
     users.groups.lightning-knd = { };
 
@@ -131,9 +130,9 @@ in
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
         KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
-        KND_DATABASE_CA_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/ca.crt";
-        KND_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.lightning-knd.crt";
-        KND_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.lightning-knd.key";
+        KND_DATABASE_CA_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb-certs/ca.crt";
+        KND_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb-certs/client.lightning-knd.crt";
+        KND_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/cockroachdb-certs/client.lightning-knd.key";
         KND_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KND_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
