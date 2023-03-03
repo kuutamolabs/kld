@@ -36,14 +36,6 @@ in
               Name of the user to ensure.
             '';
           };
-          passwordFile = lib.mkOption {
-            type = lib.types.nullOr lib.types.path;
-            default = null;
-            description = lib.mdDoc ''
-              Path to a file containing the password for the user.
-              The file should contain only the password, not any trailing newlines.
-            '';
-          };
 
           ensurePermissions = lib.mkOption {
             type = lib.types.attrsOf lib.types.str;
@@ -139,10 +131,6 @@ in
               touch /var/lib/cockroachdb/.cluster-init
             fi
             ${csql sql}
-            # FIXME: this might log the password in the journal -> just use a cert here.
-            ${lib.concatMapStringsSep "\n" (user: lib.optionalString (user.passwordFile != null) ''
-              cockroach ${connectFlags} sql --execute "ALTER USER \"${user.name}\" WITH PASSWORD '$(cat ${user.passwordFile})'"
-            '') cfg.ensureUsers}
           fi
         ''}";
         };
