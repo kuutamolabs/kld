@@ -56,7 +56,7 @@ craneLib.buildPackage {
   doCheck = false;
 
   meta = with lib; {
-    description = "HA Bitcoin Lightning Node";
+    description = "Lightning Network Kuutamo Node Distribution";
     homepage = "https://github.com/kuutamoaps/lightning-knd";
     license = licenses.asl20;
     maintainers = with maintainers; [ mic92 ];

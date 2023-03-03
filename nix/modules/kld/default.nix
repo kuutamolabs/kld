@@ -4,12 +4,12 @@
 , ...
 }:
 let
-  cfg = config.kuutamo.lightning-knd;
-  bitcoind-instance = "lightning-knd-${cfg.network}";
+  cfg = config.kuutamo.kld;
+  bitcoind-instance = "kld-${cfg.network}";
   bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
 in
 {
-  options.kuutamo.lightning-knd = {
+  options.kuutamo.kld = {
     nodeId = lib.mkOption {
       type = lib.types.str;
       default = config.networking.hostName;
@@ -20,14 +20,14 @@ in
     package = lib.mkOption {
       type = lib.types.package;
       description = lib.mdDoc ''
-        Lightning-knd package to use
+        KLD package to use
       '';
     };
     logLevel = lib.mkOption {
       type = lib.types.enum [ "info" "debug" "trace" ];
       default = "info";
       example = "debug";
-      description = lib.mdDoc "Log level for lightning-knd";
+      description = lib.mdDoc "Log level for KLD";
     };
     peerPort = lib.mkOption {
       type = lib.types.port;
@@ -53,7 +53,7 @@ in
       type = lib.types.bool;
       default = true;
       description = lib.mDoc ''
-        Whether to open ports used by lightning-knd
+        Whether to open ports used by KLD
       '';
     };
     publicAddresses = lib.mkOption {
@@ -91,10 +91,10 @@ in
     # for cli
     environment.systemPackages = [ cfg.package ];
 
-    services.cockroachdb.ensureDatabases = [ "lightning_knd" ];
+    services.cockroachdb.ensureDatabases = [ "kld" ];
     services.cockroachdb.ensureUsers = [{
-      name = "lightning-knd";
-      ensurePermissions."DATABASE lightning_knd" = "ALL";
+      name = "kld";
+      ensurePermissions."DATABASE kld" = "ALL";
     }];
 
     services.bitcoind.${bitcoind-instance} = {
@@ -108,14 +108,14 @@ in
 
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ ];
 
-    users.users.lightning-knd = {
+    users.users.kld = {
       isSystemUser = true;
-      group = "lightning-knd";
+      group = "kld";
     };
-    users.groups.lightning-knd = { };
+    users.groups.kld = { };
 
     # fix me, we need to wait for the database to start first
-    systemd.services.lightning-knd = {
+    systemd.services.kld = {
       wantedBy = [ "multi-user.target" ];
       after = [
         "network.target"
@@ -123,24 +123,23 @@ in
         "bitcoind.service"
       ];
       environment = {
-        KND_LOG_LEVEL = lib.mkDefault cfg.logLevel;
-        KND_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
-        KND_NODE_NAME = lib.mkDefault cfg.nodeAlias;
-        KND_DATABASE_HOST = lib.mkDefault config.networking.fqdnOrHostName;
-        KND_DATABASE_PORT = lib.mkDefault "26257";
-        KND_DATABASE_USER = lib.mkDefault "lightning-knd";
-        KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
-        KND_DATABASE_CA_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb-certs/ca.crt";
-        KND_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb-certs/client.lightning-knd.crt";
-        KND_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/cockroachdb-certs/client.lightning-knd.key";
-        KND_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
-        KND_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
-        KND_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/lightning-knd/.cookie";
-        KND_CERTS_DIR = lib.mkDefault "/var/lib/lightning-knd/certs";
-        KND_BITCOIN_NETWORK = lib.mkDefault cfg.network;
-
-        KND_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
-        KND_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
+        KLD_LOG_LEVEL = lib.mkDefault cfg.logLevel;
+        KLD_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
+        KLD_NODE_NAME = lib.mkDefault cfg.nodeAlias;
+        KLD_DATABASE_HOST = lib.mkDefault config.networking.fqdnOrHostName;
+        KLD_DATABASE_PORT = lib.mkDefault "26257";
+        KLD_DATABASE_USER = lib.mkDefault "kld";
+        KLD_DATABASE_NAME = lib.mkDefault "kld";
+        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/ca.crt";
+        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.kld.crt";
+        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.kld.key";
+        KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
+        KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
+        KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
+        KLD_CERTS_DIR = lib.mkDefault "/var/lib/kld/certs";
+        KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
+        KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
+        KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
       };
       path = [
         config.services.cockroachdb.package
@@ -163,12 +162,12 @@ in
               -rpcconnect=127.0.0.1 \
               -rpcport=${toString bitcoinCfg.rpc.port} \
               -rpcwait getblockchaininfo
-          install -m755 ${bitcoinCfg.dataDir}/.cookie /var/lib/lightning-knd/.cookie
+          install -m755 ${bitcoinCfg.dataDir}/.cookie /var/lib/kld/.cookie
         ''}";
-        User = "lightning-knd";
-        Group = "lightning-knd";
+        User = "kld";
+        Group = "kld";
         SupplementaryGroups = [ "cockroachdb" ];
-        StateDirectory = "lightning-knd";
+        StateDirectory = "kld";
 
         # New file permissions
         UMask = "0027"; # 0640 / 0750

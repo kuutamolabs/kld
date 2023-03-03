@@ -82,7 +82,7 @@ impl LightningInterface for Controller {
     }
 
     fn alias(&self) -> String {
-        self.settings.knd_node_name.clone()
+        self.settings.node_name.clone()
     }
 
     fn block_height(&self) -> Result<u64> {
@@ -268,7 +268,7 @@ impl LightningInterface for Controller {
     }
 
     fn addresses(&self) -> Vec<String> {
-        self.settings.knd_listen_addresses.clone()
+        self.settings.listen_addresses.clone()
     }
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {

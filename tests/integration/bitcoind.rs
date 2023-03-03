@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, bail, Result};
 use bitcoin::Address;
+use kld::bitcoind::BitcoindClient;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{BlockData, BlockSource};
-use lightning_knd::bitcoind::BitcoindClient;
 use test_utils::{bitcoin, TestSettingsBuilder};
 
 use crate::mocks::TEST_ADDRESS;

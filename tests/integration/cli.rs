@@ -154,7 +154,7 @@ where
 async fn run_cli(command: &str, extra_args: &[&str]) -> Result<Output> {
     let settings = create_api_server().await?;
 
-    let output = Command::new(env!("CARGO_BIN_EXE_lightning-knd-cli"))
+    let output = Command::new(env!("CARGO_BIN_EXE_kld-cli"))
         .args([
             "--target",
             &settings.rest_api_address,

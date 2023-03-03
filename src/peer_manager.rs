@@ -25,7 +25,7 @@ impl PeerManager {
         database: Arc<LdkDatabase>,
         settings: Arc<Settings>,
     ) -> Result<PeerManager> {
-        if settings.knd_node_name.len() > 32 {
+        if settings.node_name.len() > 32 {
             bail!("Node Alias can not be longer than 32 bytes");
         }
         Ok(PeerManager {
@@ -38,7 +38,7 @@ impl PeerManager {
 
     pub async fn listen(&self) -> Result<()> {
         let listener =
-            tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.settings.knd_peer_port))
+            tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.settings.peer_port))
                 .await
                 .context("Failed to bind to listen port")?;
         let ldk_peer_manager = self.ldk_peer_manager.clone();
@@ -108,12 +108,11 @@ impl PeerManager {
     // to avoid churn in the global network graph.
     pub fn regularly_broadcast_node_announcement(&self) -> Result<()> {
         let mut alias = [0; 32];
-        alias[..self.settings.knd_node_name.len()]
-            .copy_from_slice(self.settings.knd_node_name.as_bytes());
+        alias[..self.settings.node_name.len()].copy_from_slice(self.settings.node_name.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
-        if !self.settings.knd_listen_addresses.is_empty() {
+        if !self.settings.listen_addresses.is_empty() {
             let mut addresses = vec![];
-            for address in self.settings.knd_listen_addresses.clone() {
+            for address in self.settings.listen_addresses.clone() {
                 addresses.push(address.parse::<PeerAddress>()?.0);
             }
             tokio::spawn(async move {

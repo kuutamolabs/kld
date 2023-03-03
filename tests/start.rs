@@ -3,9 +3,9 @@ use std::{str::FromStr, time::Duration};
 use anyhow::Result;
 use api::{routes, GetInfo};
 use bitcoin::Address;
-use lightning_knd::bitcoind::BitcoindClient;
+use kld::bitcoind::BitcoindClient;
 use test_utils::{
-    bitcoin, bitcoin_manager::BitcoinManager, cockroach, knd, teos, TestSettingsBuilder,
+    bitcoin, bitcoin_manager::BitcoinManager, cockroach, kld, teos, TestSettingsBuilder,
 };
 use tokio::time::{sleep_until, Instant};
 
@@ -23,18 +23,18 @@ pub async fn test_start() -> Result<()> {
     let mut teos = teos!(&bitcoin);
     teos.start().await?;
 
-    let mut knd = knd!(&bitcoin, &cockroach);
-    knd.start().await?;
+    let mut kld = kld!(&bitcoin, &cockroach);
+    kld.start().await?;
 
-    let health = knd.call_exporter("health").await.unwrap();
+    let health = kld.call_exporter("health").await.unwrap();
     assert_eq!(health, "OK");
-    let pid = knd.call_exporter("pid").await.unwrap();
-    assert_eq!(pid, knd.pid().unwrap().to_string());
-    assert!(knd.call_exporter("metrics").await.is_ok());
+    let pid = kld.call_exporter("pid").await.unwrap();
+    assert_eq!(pid, kld.pid().unwrap().to_string());
+    assert!(kld.call_exporter("metrics").await.is_ok());
 
-    assert_eq!("OK", knd.call_rest_api("").await.unwrap());
+    assert_eq!("OK", kld.call_rest_api("").await.unwrap());
 
-    let result = knd.call_rest_api(routes::GET_INFO).await.unwrap();
+    let result = kld.call_rest_api(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
     assert_eq!(n_blocks, info.block_height);
 
@@ -49,8 +49,8 @@ pub async fn test_manual() -> Result<()> {
     let mut bitcoin = bitcoin!();
     bitcoin.start().await?;
     generate_blocks(&bitcoin, 3).await?;
-    let mut knd = knd!(&bitcoin, &cockroach);
-    knd.start().await?;
+    let mut kld = kld!(&bitcoin, &cockroach);
+    kld.start().await?;
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;
     Ok(())

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use test_utils::test_settings;
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
-use lightning_knd::prometheus::start_prometheus_exporter;
+use kld::prometheus::start_prometheus_exporter;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
@@ -25,19 +25,13 @@ pub async fn test_prometheus() -> Result<()> {
     assert_eq!(pid, std::process::id().to_string());
 
     let result = call_exporter(&address, "metrics").await?;
-    assert!(get_metric(&result, "lightning_knd_uptime")?.is_finite());
+    assert!(get_metric(&result, "uptime")?.is_finite());
+    assert_eq!(get_metric(&result, "node_count")?, metrics.num_nodes as f64);
     assert_eq!(
-        get_metric(&result, "lightning_node_count")?,
-        metrics.num_nodes as f64
-    );
-    assert_eq!(
-        get_metric(&result, "lightning_channel_count")?,
+        get_metric(&result, "channel_count")?,
         metrics.num_channels as f64
     );
-    assert_eq!(
-        get_metric(&result, "lightning_peer_count")?,
-        metrics.num_peers as f64
-    );
+    assert_eq!(get_metric(&result, "peer_count")?, metrics.num_peers as f64);
     assert_eq!(
         get_metric(&result, "wallet_balance")?,
         metrics.wallet_balance as f64
