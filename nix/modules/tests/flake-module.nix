@@ -3,7 +3,7 @@
 {
   perSystem = { pkgs, ... }: {
     checks = lib.optionalAttrs pkgs.stdenv.isLinux {
-      lightning-knd = import ./lightning-knd.nix { inherit self pkgs; };
+      kld = import ./kld.nix { inherit self pkgs; };
     };
   };
 }

@@ -25,7 +25,7 @@ path = "src/cli/main.rs"
 doctest = false
 
 [[bench]]
-name = "knd_bench"
+name = "kld_bench"
 harness = false
 
 [dependencies]

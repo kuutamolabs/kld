@@ -1,2 +1,2 @@
-# Lightning KND (Kuutamo Node Distribution)
+# kuutamo Lightning Daemon
 

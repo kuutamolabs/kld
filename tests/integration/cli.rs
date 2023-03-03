@@ -159,7 +159,7 @@ async fn run_cli(command: &str, extra_args: &[&str]) -> Result<Output> {
             "--target",
             &settings.rest_api_address,
             "--cert-path",
-            &format!("{}/knd.crt", settings.certs_dir),
+            &format!("{}/kld.crt", settings.certs_dir),
             "--macaroon-path",
             &format!("{}/macaroons/admin.macaroon", settings.data_dir),
             command,

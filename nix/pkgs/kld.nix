@@ -33,7 +33,7 @@ let
   };
 in
 craneLib.buildPackage {
-  name = "lightning-knd";
+  name = "kld";
   inherit src cargoArtifacts buildInputs nativeBuildInputs;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
@@ -57,7 +57,7 @@ craneLib.buildPackage {
 
   meta = with lib; {
     description = "Lightning Network Kuutamo Node Distribution";
-    homepage = "https://github.com/kuutamoaps/lightning-knd";
+    homepage = "https://github.com/kuutamolabs/kld";
     license = licenses.asl20;
     maintainers = with maintainers; [ mic92 ];
     platforms = platforms.unix;

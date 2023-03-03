@@ -118,8 +118,8 @@ async fn handler_404() -> impl IntoResponse {
 
 async fn config(certs_dir: &str) -> Result<RustlsConfig> {
     RustlsConfig::from_pem_file(
-        format!("{certs_dir}/knd.crt"),
-        format!("{certs_dir}/knd.key"),
+        format!("{certs_dir}/kld.crt"),
+        format!("{certs_dir}/kld.key"),
     )
     .await
     .context("failed to load certificates")
