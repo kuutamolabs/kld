@@ -126,7 +126,7 @@ in
         KND_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KND_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KND_NODE_NAME = lib.mkDefault cfg.nodeAlias;
-        KND_DATABASE_HOST = lib.mkDefault "localhost";
+        KND_DATABASE_HOST = lib.mkDefault config.networking.fqdnOrHostName;
         KND_DATABASE_PORT = lib.mkDefault "26257";
         KND_DATABASE_USER = lib.mkDefault "lightning-knd";
         KND_DATABASE_NAME = lib.mkDefault "lightning_knd";
