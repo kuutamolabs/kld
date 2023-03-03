@@ -19,7 +19,7 @@ criterion_group! {
 }
 criterion_main!(benches);
 
-// we add wrapper functions like that to only unwrap in one place and still cleanup all ressources.
+// We add wrapper functions like that to only unwrap in one place and still cleanup all ressources.
 pub fn bench_send_payment_two_nodes(c: &mut Criterion) {
     send_payment_two_nodes(c).unwrap()
 }

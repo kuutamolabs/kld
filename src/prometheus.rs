@@ -18,32 +18,23 @@ use crate::api::LightningInterface;
 static START: OnceCell<Instant> = OnceCell::new();
 
 static UPTIME: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!(
-        "lightning_knd_uptime",
-        "Time in milliseconds how long daemon is running"
-    )
-    .unwrap()
+    register_gauge!("uptime", "Time in milliseconds how long daemon is running").unwrap()
 });
 
 static NODE_COUNT: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!(
-        "lightning_node_count",
-        "The number of nodes in the lightning graph"
-    )
-    .unwrap()
+    register_gauge!("node_count", "The number of nodes in the lightning graph").unwrap()
 });
 
 static CHANNEL_COUNT: Lazy<Gauge> = Lazy::new(|| {
     register_gauge!(
-        "lightning_channel_count",
+        "channel_count",
         "The number of channels in the lightning graph"
     )
     .unwrap()
 });
 
-static PEER_COUNT: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!("lightning_peer_count", "The number of peers this node has").unwrap()
-});
+static PEER_COUNT: Lazy<Gauge> =
+    Lazy::new(|| register_gauge!("peer_count", "The number of peers this node has").unwrap());
 
 static WALLET_BALANCE: Lazy<Gauge> =
     Lazy::new(|| register_gauge!("wallet_balance", "The bitcoin wallet balance").unwrap());

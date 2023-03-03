@@ -3,21 +3,21 @@
   flake = {
     nixosModules = {
       kuutamo-binary-cache = ./binary-cache;
-      lightning-knd = { config, pkgs, ... }:
+      kld = { config, pkgs, ... }:
         let
           packages = self.packages.${pkgs.hostPlatform.system};
         in
         {
           imports = [
-            ./lightning-knd
+            ./kld
             self.nixosModules.cockroachdb
           ];
-          kuutamo.lightning-knd.package = packages.lightning-knd;
-          services.bitcoind."lightning-knd-${config.kuutamo.lightning-knd.network}" = {
+          kuutamo.kld.package = packages.kld;
+          services.bitcoind."kld-${config.kuutamo.kld.network}" = {
             package = packages.bitcoind;
           };
         };
-      default = self.nixosModules.lightning-knd;
+      default = self.nixosModules.kld;
 
       cockroachdb = { pkgs, ... }: {
         imports = [ ./cockroachdb.nix ];
@@ -43,9 +43,9 @@
         self.nixosModules.cockroachdb
       ];
 
-      lightning-knd-node.imports = [
+      kld-node.imports = [
         self.nixosModules.common-node
-        self.nixosModules.lightning-knd
+        self.nixosModules.kld
       ];
     };
     nixosConfigurations =
@@ -64,7 +64,7 @@
         example-lnd-node = lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
-            self.nixosModules.lightning-knd-node
+            self.nixosModules.kld-node
             dummyConfig
           ];
           specialArgs = { inherit self; };

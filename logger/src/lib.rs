@@ -10,11 +10,11 @@ pub struct KndLogger {
 }
 
 // LDK requires the Arc so may as well be global.
-static KND_LOGGER: OnceCell<Arc<KndLogger>> = OnceCell::new();
+static KLD_LOGGER: OnceCell<Arc<KndLogger>> = OnceCell::new();
 
 impl KndLogger {
     pub fn init(node_id: &str, level_filter: LevelFilter) {
-        let logger = KND_LOGGER.get_or_init(|| {
+        let logger = KLD_LOGGER.get_or_init(|| {
             Arc::new(KndLogger {
                 node_id: node_id.to_string(),
             })
@@ -24,7 +24,7 @@ impl KndLogger {
     }
 
     pub fn global() -> Arc<KndLogger> {
-        KND_LOGGER.get().expect("logger is not initialized").clone()
+        KLD_LOGGER.get().expect("logger is not initialized").clone()
     }
 }
 

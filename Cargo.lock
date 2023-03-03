@@ -1240,6 +1240,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "kld"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "api",
+ "async-trait",
+ "axum",
+ "axum-server",
+ "base64 0.21.0",
+ "bdk",
+ "bech32 0.9.1",
+ "bitcoin",
+ "bitcoin-bech32",
+ "bitcoincore-rpc-json",
+ "chrono",
+ "clap 4.1.6",
+ "criterion",
+ "database",
+ "futures",
+ "hex",
+ "hyper",
+ "lightning",
+ "lightning-background-processor",
+ "lightning-block-sync",
+ "lightning-invoice",
+ "lightning-net-tokio",
+ "lightning-rapid-gossip-sync",
+ "log",
+ "logger",
+ "macaroon",
+ "once_cell",
+ "prometheus",
+ "rand",
+ "reqwest",
+ "rust-bip39",
+ "serde",
+ "serde_json",
+ "settings",
+ "test-utils",
+ "tokio",
+ "tower-http 0.4.0",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1311,50 +1355,6 @@ dependencies = [
  "lightning",
  "num-traits",
  "secp256k1",
-]
-
-[[package]]
-name = "lightning-knd"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "api",
- "async-trait",
- "axum",
- "axum-server",
- "base64 0.21.0",
- "bdk",
- "bech32 0.9.1",
- "bitcoin",
- "bitcoin-bech32",
- "bitcoincore-rpc-json",
- "chrono",
- "clap 4.1.6",
- "criterion",
- "database",
- "futures",
- "hex",
- "hyper",
- "lightning",
- "lightning-background-processor",
- "lightning-block-sync",
- "lightning-invoice",
- "lightning-net-tokio",
- "lightning-rapid-gossip-sync",
- "log",
- "logger",
- "macaroon",
- "once_cell",
- "prometheus",
- "rand",
- "reqwest",
- "rust-bip39",
- "serde",
- "serde_json",
- "settings",
- "test-utils",
- "tokio",
- "tower-http 0.4.0",
 ]
 
 [[package]]

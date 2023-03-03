@@ -1,9 +1,9 @@
 {
   perSystem = { config, ... }: {
     checks = {
-      lightning-knd-clippy = config.packages.lightning-knd.clippy;
-      lightning-knd-benches = config.packages.lightning-knd.benches;
-      lightning-knd-tests = config.packages.lightning-knd.tests;
+      kld-clippy = config.packages.kld.clippy;
+      kld-benches = config.packages.kld.benches;
+      kld-tests = config.packages.kld.tests;
     };
   };
 }

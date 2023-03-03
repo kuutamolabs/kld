@@ -3,7 +3,7 @@
   nodes = {
     # self here is set by using specialArgs in `lib.nix`
     node1 = { self, ... }: {
-      imports = [ self.nixosModules.lightning-knd ];
+      imports = [ self.nixosModules.kld ];
     };
   };
 
@@ -14,7 +14,7 @@
     start_all()
 
     # wait for our service to start
-    #node1.wait_for_unit("lightning-knd")
+    #node1.wait_for_unit("kld")
 
     # useful for debugging
     def remote_shell(machine):

@@ -23,12 +23,12 @@
 
           # crane does not have this in nativeBuildInputs
           pkgs.rustc
-        ] ++ config.packages.lightning-knd.nativeBuildInputs
-        ++ config.packages.lightning-knd.tests.nativeBuildInputs;
-        inherit (config.packages.lightning-knd) buildInputs;
+        ] ++ config.packages.kld.nativeBuildInputs
+        ++ config.packages.kld.tests.nativeBuildInputs;
+        inherit (config.packages.kld) buildInputs;
         RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         RUST_BACKTRACE = 1;
-        inherit (self'.packages.lightning-knd) nativeBuildInputs;
+        inherit (self'.packages.kld) nativeBuildInputs;
       };
     };
 }

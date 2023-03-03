@@ -1,6 +1,6 @@
 pub mod bitcoin_manager;
 pub mod cockroach_manager;
-pub mod knd_manager;
+pub mod kld_manager;
 mod manager;
 pub mod ports;
 pub mod teos_manager;
@@ -101,7 +101,7 @@ pub fn https_client() -> Client {
 
 fn test_cert() -> Certificate {
     let mut buf = Vec::new();
-    File::open(format!("{}/certs/knd.crt", env!("CARGO_MANIFEST_DIR")))
+    File::open(format!("{}/certs/kld.crt", env!("CARGO_MANIFEST_DIR")))
         .unwrap()
         .read_to_end(&mut buf)
         .unwrap();

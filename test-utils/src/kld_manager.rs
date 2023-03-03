@@ -49,7 +49,7 @@ impl KndManager {
             .await
     }
 
-    pub fn test_knd(
+    pub fn test_kld(
         output_dir: &str,
         bin_path: &str,
         node_index: u16,
@@ -65,40 +65,40 @@ impl KndManager {
             get_available_port().expect("Cannot find free port")
         );
         let manager = Manager::new(
-            Box::new(KndApi(exporter_address.clone())),
+            Box::new(KldApi(exporter_address.clone())),
             output_dir,
-            "knd",
+            "kld",
             node_index,
         );
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
-        set_var("KND_DATA_DIR", &manager.storage_dir);
-        set_var("KND_CERTS_DIR", &certs_dir);
+        set_var("KLD_DATA_DIR", &manager.storage_dir);
+        set_var("KLD_CERTS_DIR", &certs_dir);
         set_var(
-            "KND_MNEMONIC_PATH",
+            "KLD_MNEMONIC_PATH",
             format!("{}/mnemonic", &manager.storage_dir),
         );
-        set_var("KND_EXPORTER_ADDRESS", &exporter_address);
-        set_var("KND_REST_API_ADDRESS", &rest_api_address);
-        set_var("KND_BITCOIN_NETWORK", &bitcoin.network);
-        set_var("KND_BITCOIN_COOKIE_PATH", bitcoin.cookie_path());
-        set_var("KND_BITCOIN_RPC_HOST", "127.0.0.1");
-        set_var("KND_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
-        set_var("KND_DATABASE_PORT", cockroach.sql_port.to_string());
+        set_var("KLD_EXPORTER_ADDRESS", &exporter_address);
+        set_var("KLD_REST_API_ADDRESS", &rest_api_address);
+        set_var("KLD_BITCOIN_NETWORK", &bitcoin.network);
+        set_var("KLD_BITCOIN_COOKIE_PATH", bitcoin.cookie_path());
+        set_var("KLD_BITCOIN_RPC_HOST", "127.0.0.1");
+        set_var("KLD_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
+        set_var("KLD_DATABASE_PORT", cockroach.sql_port.to_string());
         set_var(
-            "KND_DATABASE_CA_CERT_PATH",
+            "KLD_DATABASE_CA_CERT_PATH",
             format!("{certs_dir}/cockroach/ca.crt"),
         );
         set_var(
-            "KND_DATABASE_CLIENT_KEY_PATH",
+            "KLD_DATABASE_CLIENT_KEY_PATH",
             format!("{certs_dir}/cockroach/client.root.key"),
         );
         set_var(
-            "KND_DATABASE_CLIENT_CERT_PATH",
+            "KLD_DATABASE_CLIENT_CERT_PATH",
             format!("{certs_dir}/cockroach/client.root.crt"),
         );
-        set_var("KND_LOG_LEVEL", "debug");
+        set_var("KLD_LOG_LEVEL", "debug");
 
         let client = https_client();
 
@@ -112,10 +112,10 @@ impl KndManager {
     }
 }
 
-pub struct KndApi(String);
+pub struct KldApi(String);
 
 #[async_trait]
-impl Starts for KndApi {
+impl Starts for KldApi {
     async fn has_started(&self, _manager: &Manager) -> bool {
         reqwest::get(format!("http://{}/health", self.0))
             .await
@@ -124,20 +124,20 @@ impl Starts for KndApi {
 }
 
 #[macro_export]
-macro_rules! knd {
+macro_rules! kld {
     ($bitcoin:expr, $cockroach:expr) => {
-        test_utils::knd_manager::KndManager::test_knd(
+        test_utils::kld_manager::KndManager::test_kld(
             env!("CARGO_TARGET_TMPDIR"),
-            env!("CARGO_BIN_EXE_lightning-knd"),
+            env!("CARGO_BIN_EXE_kld"),
             0,
             $bitcoin,
             $cockroach,
         )
     };
     ($n:literal, $bitcoin:expr, $cockroach:expr) => {
-        test_utils::knd_manager::KndManager::test_knd(
+        test_utils::kld_manager::KndManager::test_kld(
             env!("CARGO_TARGET_TMPDIR"),
-            env!("CARGO_BIN_EXE_lightning-knd"),
+            env!("CARGO_BIN_EXE_kld"),
             $n,
             $bitcoin,
             $cockroach,

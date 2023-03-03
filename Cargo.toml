@@ -1,5 +1,5 @@
 [package]
-name = "lightning-knd"
+name = "kld"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,18 +14,18 @@ members = [
 ]
 
 [[bin]]
-name = "lightning-knd"
+name = "kld"
 path = "src/main.rs"
 
 [[bin]]
-name = "lightning-knd-cli"
+name = "kld-cli"
 path = "src/cli/main.rs"
 
 [lib]
 doctest = false
 
 [[bench]]
-name = "knd_bench"
+name = "kld_bench"
 harness = false
 
 [dependencies]
