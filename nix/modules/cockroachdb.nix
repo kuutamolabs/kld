@@ -99,13 +99,13 @@ in
       "--log-dir="
     ];
     services.cockroachdb.enable = true;
-    services.cockroachdb.certsDir = "/var/lib/cockroachdb/certs";
+    services.cockroachdb.certsDir = "/var/lib/cockroachdb-certs";
     services.cockroachdb.openPorts = true;
     services.cockroachdb.listen.address = "[::]";
 
     systemd.services.cockroachdb =
       let
-        connectFlags = ''--certs-dir /var/lib/cockroachdb/certs --host "$hostname:26257"'';
+        connectFlags = ''--certs-dir /var/lib/cockroachdb-certs --host "$hostname:26257"'';
         csql = execute: ''cockroach sql ${connectFlags} ${lib.cli.toGNUCommandLineShell {} { inherit  execute; }}'';
         sql =
           (builtins.map (database: ''CREATE DATABASE IF NOT EXISTS "${database}"'') cfg.ensureDatabases)
