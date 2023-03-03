@@ -127,7 +127,7 @@ in
           export PATH=$PATH:${cfg.package}/bin
 
           # check if this is the primary database node
-          if [[ -f /var/lib/cockroachdb/certs/client.root.crt ]]; then
+          if [[ -f /var/lib/cockroachdb-certs/client.root.crt ]]; then
             hostname=$(${lib.getExe pkgs.openssl} x509 -text -noout -in /var/lib/cockroachdb-certs/node.crt | grep -oP '(?<=DNS:).*')
 
             if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
