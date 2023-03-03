@@ -116,11 +116,11 @@ in
               cfg.ensureUsers));
       in
       {
+        # for cli
+        path = [ cfg.package ];
         serviceConfig = {
           RuntimeDirectory = "cockroachdb";
           WorkingDirectory = "/var/lib/cockroachdb";
-          # for cli
-          path = [ cfg.package ];
           # we need to run this as root since do not have a password yet.
           ExecStartPost = "+${pkgs.writeShellScript "setup" ''
           set -eu -o pipefail
