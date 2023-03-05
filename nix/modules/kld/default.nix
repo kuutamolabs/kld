@@ -7,6 +7,7 @@ let
   cfg = config.kuutamo.kld;
   bitcoind-instance = "kld-${cfg.network}";
   bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
+  cockroachCfg = config.services.cockroachdb;
 in
 {
   options.kuutamo.kld = {
@@ -127,12 +128,12 @@ in
         KLD_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KLD_NODE_NAME = lib.mkDefault cfg.nodeAlias;
         KLD_DATABASE_HOST = lib.mkDefault config.networking.fqdnOrHostName;
-        KLD_DATABASE_PORT = lib.mkDefault "26257";
+        KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.listen.port);
         KLD_DATABASE_USER = lib.mkDefault "kld";
         KLD_DATABASE_NAME = lib.mkDefault "kld";
-        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/ca.crt";
-        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.kld.crt";
-        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/cockroachdb/certs/client.kld.key";
+        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/ca.crt'';
+        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/client.kld.crt'';
+        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/client.kld.key'';
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
