@@ -40,7 +40,7 @@ use log::{error, info, warn};
 use logger::KndLogger;
 use rand::{random, thread_rng, Rng};
 use settings::Settings;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
@@ -200,9 +200,9 @@ impl LightningInterface for Controller {
 
         let mut response = vec![];
 
-        let mut all_pub_keys: Vec<PublicKey> = persistent_peers.keys().cloned().collect();
-        all_pub_keys.extend_from_slice(&connected_peers);
-        all_pub_keys.extend_from_slice(&channel_peers);
+        let mut all_pub_keys: HashSet<PublicKey> = HashSet::from_iter(connected_peers.clone());
+        all_pub_keys.extend(channel_peers);
+        all_pub_keys.extend(persistent_peers.keys());
 
         for public_key in all_pub_keys {
             let status = if connected_peers.contains(&public_key) {
