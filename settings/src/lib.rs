@@ -19,17 +19,13 @@ pub struct Settings {
     )]
     pub bitcoin_cookie_path: String,
 
-    #[clap(long, default_value = "/var/lib/lightning-kld", env = "KLD_DATA_DIR")]
+    #[clap(long, default_value = "/var/lib/kld", env = "KLD_DATA_DIR")]
     pub data_dir: String,
-    #[clap(
-        long,
-        default_value = "/var/lib/lightning-kld/certs",
-        env = "KLD_CERTS_DIR"
-    )]
+    #[clap(long, default_value = "/var/lib/kld/certs", env = "KLD_CERTS_DIR")]
     pub certs_dir: String,
     #[clap(
         long,
-        default_value = "/var/lib/lightning-kld/mnemonic",
+        default_value = "/var/lib/kld/mnemonic",
         env = "KLD_MNEMONIC_PATH"
     )]
     pub mnemonic_path: String,
