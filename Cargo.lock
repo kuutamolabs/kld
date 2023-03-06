@@ -676,7 +676,7 @@ dependencies = [
  "bitcoin",
  "bitvec",
  "futures",
- "lightning",
+ "lightning 0.0.113",
  "log",
  "logger",
  "once_cell",
@@ -1261,7 +1261,7 @@ dependencies = [
  "futures",
  "hex",
  "hyper",
- "lightning",
+ "lightning 0.0.113",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1319,6 +1319,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.114"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "800ec68a160529ba3ca12c5db629867c4a8de2df272792c1246602966a5b789b"
+dependencies = [
+ "bitcoin",
+]
+
+[[package]]
 name = "lightning-background-processor"
 version = "0.0.113"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1326,7 +1335,7 @@ checksum = "2288d211a2ab15e2c9fb492fb99c7998df1a37f228552f703824ee678b8980c9"
 dependencies = [
  "bitcoin",
  "futures-util",
- "lightning",
+ "lightning 0.0.113",
  "lightning-rapid-gossip-sync",
 ]
 
@@ -1339,7 +1348,7 @@ dependencies = [
  "bitcoin",
  "chunked_transfer",
  "futures-util",
- "lightning",
+ "lightning 0.0.113",
  "serde",
  "serde_json",
 ]
@@ -1352,19 +1361,19 @@ checksum = "e9680857590c3529cf8c7d32b04501f215f2bf1e029fdfa22f4112f66c1741e4"
 dependencies = [
  "bech32 0.9.1",
  "bitcoin_hashes",
- "lightning",
+ "lightning 0.0.113",
  "num-traits",
  "secp256k1",
 ]
 
 [[package]]
 name = "lightning-net-tokio"
-version = "0.0.113"
+version = "0.0.114"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e94b019ffcbd423c67bc8e65093d46cf5c00ff696b4b633936fce6e4d0cb845"
+checksum = "19197703db1195ed908ccd84cd76baaa5916e0d22750a2e1b7188f66516812bd"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.114",
  "tokio",
 ]
 
@@ -1375,7 +1384,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488b68c7d24093d35a83f37c560e427f1085f4c5d37918b81b11d95cd3675a0f"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.113",
 ]
 
 [[package]]
@@ -1417,7 +1426,7 @@ name = "logger"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "lightning",
+ "lightning 0.0.113",
  "log",
  "once_cell",
 ]
@@ -2461,7 +2470,7 @@ dependencies = [
  "base64 0.21.0",
  "bitcoin",
  "clap 4.1.6",
- "lightning",
+ "lightning 0.0.113",
  "lightning-block-sync",
  "openssl",
  "postgres-openssl",
