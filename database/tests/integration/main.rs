@@ -8,7 +8,7 @@ use database::connection;
 use database::migrate_database;
 use futures::Future;
 use futures::FutureExt;
-use logger::KndLogger;
+use logger::KldLogger;
 use once_cell::sync::OnceCell;
 use settings::Settings;
 use test_utils::cockroach;
@@ -41,7 +41,7 @@ async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
     COCKROACH_REF_COUNT.fetch_add(1, Ordering::AcqRel);
     static INSTANCE: OnceCell<(Settings, Mutex<CockroachManager>)> = OnceCell::new();
     INSTANCE.get_or_try_init(|| {
-        KndLogger::init("test", log::LevelFilter::Debug);
+        KldLogger::init("test", log::LevelFilter::Debug);
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 let mut cockroach = cockroach!();

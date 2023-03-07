@@ -14,12 +14,12 @@ use crate::handle_bad_request;
 use crate::handle_err;
 use crate::handle_unauthorized;
 
-use super::KndMacaroon;
+use super::KldMacaroon;
 use super::MacaroonAuth;
 use super::WalletInterface;
 
 pub(crate) async fn get_balance(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -37,7 +37,7 @@ pub(crate) async fn get_balance(
 }
 
 pub(crate) async fn new_address(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
     Json(new_address): Json<NewAddress>,
@@ -57,7 +57,7 @@ pub(crate) async fn new_address(
 }
 
 pub(crate) async fn transfer(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
     Json(wallet_transfer): Json<WalletTransfer>,

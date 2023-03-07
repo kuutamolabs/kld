@@ -18,7 +18,7 @@ use std::time::Duration;
 
 pub fn main() -> Result<()> {
     let settings = Arc::new(Settings::load());
-    logger::KndLogger::init(&settings.node_id, settings.log_level.parse().unwrap());
+    logger::KldLogger::init(&settings.node_id, settings.log_level.parse().unwrap());
 
     info!("Starting Lightning Kuutamo Node Distribution");
 

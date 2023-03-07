@@ -114,6 +114,13 @@ impl BitcoindClient {
             .deserialize()
     }
 
+    pub async fn get_block_hash(&self, height: u32) -> Result<BlockHash> {
+        self.client
+            .call_method::<JsonString>("getblockhash", &[json!(height)])
+            .await?
+            .deserialize()
+    }
+
     pub fn poll_for_fee_estimates(&self) {
         let client = self.client.clone();
         let priorities = self.priorities.clone();

@@ -5,17 +5,17 @@ use std::{process, sync::Arc};
 
 /// A logger instance for logfmt format (https://www.brandur.org/logfmt)
 #[derive(Debug)]
-pub struct KndLogger {
+pub struct KldLogger {
     node_id: String,
 }
 
 // LDK requires the Arc so may as well be global.
-static KLD_LOGGER: OnceCell<Arc<KndLogger>> = OnceCell::new();
+static KLD_LOGGER: OnceCell<Arc<KldLogger>> = OnceCell::new();
 
-impl KndLogger {
+impl KldLogger {
     pub fn init(node_id: &str, level_filter: LevelFilter) {
         let logger = KLD_LOGGER.get_or_init(|| {
-            Arc::new(KndLogger {
+            Arc::new(KldLogger {
                 node_id: node_id.to_string(),
             })
         });
@@ -23,12 +23,12 @@ impl KndLogger {
         let _ = log::set_logger(logger).map(|()| log::set_max_level(level_filter));
     }
 
-    pub fn global() -> Arc<KndLogger> {
+    pub fn global() -> Arc<KldLogger> {
         KLD_LOGGER.get().expect("logger is not initialized").clone()
     }
 }
 
-impl Log for KndLogger {
+impl Log for KldLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= log::max_level()
     }
@@ -48,7 +48,7 @@ impl Log for KndLogger {
     fn flush(&self) {}
 }
 
-impl Logger for KndLogger {
+impl Logger for KldLogger {
     fn log(&self, record: &lightning::util::logger::Record) {
         logger().log(
             &log::RecordBuilder::new()
@@ -77,15 +77,15 @@ impl Logger for KndLogger {
 #[test]
 pub fn test_log() {
     let node_id = "one";
-    KndLogger::init(node_id, LevelFilter::Info);
-    assert_eq!(node_id, KndLogger::global().node_id);
+    KldLogger::init(node_id, LevelFilter::Info);
+    assert_eq!(node_id, KldLogger::global().node_id);
 
     let metadata = MetadataBuilder::new().level(log::Level::Debug).build();
-    assert!(!KndLogger::global().enabled(&metadata));
+    assert!(!KldLogger::global().enabled(&metadata));
 
     let metadata = MetadataBuilder::new().level(log::Level::Info).build();
-    assert!(KndLogger::global().enabled(&metadata));
+    assert!(KldLogger::global().enabled(&metadata));
 
     let metadata = MetadataBuilder::new().level(log::Level::Warn).build();
-    assert!(KndLogger::global().enabled(&metadata));
+    assert!(KldLogger::global().enabled(&metadata));
 }

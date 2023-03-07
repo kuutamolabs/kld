@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 logger = { path = "../logger" }
 settings = { path = "../settings" }
-lightning = { version = "0.0.113", features = ["max_level_trace", "_test_utils"] }
+lightning = { version = "0.0.114", features = ["max_level_trace", "_test_utils"] }
 bitcoin = "0.29.2"
 bitvec = "1.0.1"
 tokio = { version = "1", features = [ "full" ] }

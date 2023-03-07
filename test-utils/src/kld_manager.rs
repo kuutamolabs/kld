@@ -9,7 +9,7 @@ use anyhow::Result;
 use std::env::set_var;
 use std::fs;
 
-pub struct KndManager {
+pub struct KldManager {
     manager: Manager,
     bin_path: String,
     exporter_address: String,
@@ -17,7 +17,7 @@ pub struct KndManager {
     rest_client: reqwest::Client,
 }
 
-impl KndManager {
+impl KldManager {
     pub async fn start(&mut self) -> Result<()> {
         self.manager.start(&self.bin_path, &[]).await
     }
@@ -55,7 +55,7 @@ impl KndManager {
         node_index: u16,
         bitcoin: &BitcoinManager,
         cockroach: &CockroachManager,
-    ) -> KndManager {
+    ) -> KldManager {
         let exporter_address = format!(
             "127.0.0.1:{}",
             get_available_port().expect("Cannot find free port")
@@ -102,7 +102,7 @@ impl KndManager {
 
         let client = https_client();
 
-        KndManager {
+        KldManager {
             manager,
             bin_path: bin_path.to_string(),
             exporter_address,
@@ -126,7 +126,7 @@ impl Starts for KldApi {
 #[macro_export]
 macro_rules! kld {
     ($bitcoin:expr, $cockroach:expr) => {
-        test_utils::kld_manager::KndManager::test_kld(
+        test_utils::kld_manager::KldManager::test_kld(
             env!("CARGO_TARGET_TMPDIR"),
             env!("CARGO_BIN_EXE_kld"),
             0,
@@ -135,7 +135,7 @@ macro_rules! kld {
         )
     };
     ($n:literal, $bitcoin:expr, $cockroach:expr) => {
-        test_utils::kld_manager::KndManager::test_kld(
+        test_utils::kld_manager::KldManager::test_kld(
             env!("CARGO_TARGET_TMPDIR"),
             env!("CARGO_BIN_EXE_kld"),
             $n,

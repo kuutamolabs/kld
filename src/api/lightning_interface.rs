@@ -1,12 +1,10 @@
-use std::collections::BTreeMap;
-
 use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 use lightning::{
     ln::{channelmanager::ChannelDetails, msgs::NetAddress},
     routing::gossip::{NodeId, NodeInfo},
-    util::config::UserConfig,
+    util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
 use crate::net_utils::PeerAddress;
@@ -73,7 +71,7 @@ pub trait LightningInterface {
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 
-    fn list_nodes(&self) -> BTreeMap<NodeId, NodeInfo>;
+    fn nodes(&self) -> IndexedMap<NodeId, NodeInfo>;
 }
 
 pub struct Peer {

@@ -82,10 +82,10 @@ fn verify_role(caveat: &ByteString, expected_role: &str) -> bool {
     strcaveat[8..].split('|').any(|r| r == expected_role)
 }
 
-pub struct KndMacaroon(pub Macaroon);
+pub struct KldMacaroon(pub Macaroon);
 
 #[async_trait]
-impl<S> FromRequestParts<S> for KndMacaroon
+impl<S> FromRequestParts<S> for KldMacaroon
 where
     S: Send + Sync,
 {
@@ -112,11 +112,11 @@ where
                 .map_err(|_| deserialize_err)?
         };
 
-        let macaroon = Macaroon::deserialize(value).map(KndMacaroon);
+        let macaroon = Macaroon::deserialize(value).map(KldMacaroon);
 
         if macaroon.is_err() {
             if let Ok(bytes) = hex::decode(value) {
-                if let Ok(macaroon) = Macaroon::deserialize_binary(&bytes).map(KndMacaroon) {
+                if let Ok(macaroon) = Macaroon::deserialize_binary(&bytes).map(KldMacaroon) {
                     return Ok(macaroon);
                 }
             }

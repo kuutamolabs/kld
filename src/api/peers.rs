@@ -11,10 +11,10 @@ use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use hyper::StatusCode;
 use log::{info, warn};
 
-use super::{KndMacaroon, LightningInterface, MacaroonAuth};
+use super::{KldMacaroon, LightningInterface, MacaroonAuth};
 
 pub(crate) async fn list_peers(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -34,7 +34,7 @@ pub(crate) async fn list_peers(
 }
 
 pub(crate) async fn connect_peer(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(id): Json<String>,
@@ -58,7 +58,7 @@ pub(crate) async fn connect_peer(
 }
 
 pub(crate) async fn disconnect_peer(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(id): Path<String>,
