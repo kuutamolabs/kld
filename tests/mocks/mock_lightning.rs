@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::str::FromStr;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -16,7 +16,7 @@ use lightning::{
         msgs::NetAddress,
     },
     routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
-    util::config::UserConfig,
+    util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
 use super::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
@@ -220,13 +220,12 @@ impl LightningInterface for MockLightning {
         };
         Some(NodeInfo {
             channels: vec![],
-            lowest_inbound_channel_fees: None,
             announcement_info: Some(announcement),
         })
     }
 
-    fn list_nodes(&self) -> BTreeMap<NodeId, NodeInfo> {
-        let mut nodes = BTreeMap::new();
+    fn nodes(&self) -> IndexedMap<NodeId, NodeInfo> {
+        let mut nodes = IndexedMap::new();
         let node_id = NodeId::from_pubkey(&self.public_key);
         nodes.insert(node_id, self.get_node(&node_id).unwrap());
         nodes

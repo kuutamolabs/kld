@@ -9,7 +9,7 @@ mod wallet_interface;
 mod ws;
 
 pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
-pub use macaroon_auth::{KndMacaroon, MacaroonAuth};
+pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
 pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
@@ -103,7 +103,7 @@ impl RestApi {
 }
 
 async fn root(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     if macaroon_auth.verify_readonly_macaroon(&macaroon.0).is_err() {

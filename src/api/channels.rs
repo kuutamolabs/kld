@@ -19,12 +19,12 @@ use crate::handle_err;
 use crate::handle_unauthorized;
 use crate::to_string_empty;
 
-use super::KndMacaroon;
+use super::KldMacaroon;
 use super::LightningInterface;
 use super::MacaroonAuth;
 
 pub(crate) async fn list_channels(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -67,7 +67,7 @@ pub(crate) async fn list_channels(
 }
 
 pub(crate) async fn open_channel(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(fund_channel): Json<FundChannel>,
@@ -95,7 +95,7 @@ pub(crate) async fn open_channel(
 }
 
 pub(crate) async fn set_channel_fee(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(channel_fee): Json<ChannelFee>,
@@ -156,7 +156,7 @@ pub(crate) async fn set_channel_fee(
 }
 
 pub(crate) async fn close_channel(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,

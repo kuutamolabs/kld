@@ -4,7 +4,7 @@ use std::vec;
 use anyhow::Result;
 use bitcoin::blockdata::block::{Block, BlockHeader};
 use bitcoin::hashes::Hash;
-use bitcoin::{BlockHash, TxMerkleNode};
+use bitcoin::{Network, TxMerkleNode};
 use database::ldk_database::LdkDatabase;
 use database::peer::Peer;
 
@@ -12,15 +12,16 @@ use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::Filter;
+use lightning::ln::functional_test_utils::*;
 use lightning::ln::msgs::NetAddress;
-use lightning::ln::{channelmanager, functional_test_utils::*};
 use lightning::routing::gossip::{NetworkGraph, NodeId};
+use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::events::{ClosureReason, MessageSendEventsProvider};
 use lightning::util::persist::Persister;
 use lightning::util::test_utils as ln_utils;
 use lightning::{check_added_monitors, check_closed_broadcast, check_closed_event};
-use logger::KndLogger;
+use logger::KldLogger;
 use test_utils::random_public_key;
 
 use crate::{create_database, with_cockroach};
@@ -91,11 +92,11 @@ pub async fn test_channel_monitors() -> Result<()> {
         // Check that the persisted channel data is empty before any channels are
         // open.
         let mut persisted_chan_data_0 = database_0
-            .fetch_channel_monitors(nodes[0].keys_manager)
+            .fetch_channel_monitors(nodes[0].keys_manager, nodes[0].keys_manager)
             .await?;
         assert_eq!(persisted_chan_data_0.len(), 0);
         let mut persisted_chan_data_1 = database_1
-            .fetch_channel_monitors(nodes[0].keys_manager)
+            .fetch_channel_monitors(nodes[0].keys_manager, nodes[0].keys_manager)
             .await?;
         assert_eq!(persisted_chan_data_1.len(), 0);
 
@@ -103,7 +104,7 @@ pub async fn test_channel_monitors() -> Result<()> {
         macro_rules! check_persisted_data {
             ($expected_update_id: expr) => {
                 persisted_chan_data_0 = database_0
-                    .fetch_channel_monitors(nodes[0].keys_manager)
+                    .fetch_channel_monitors(nodes[0].keys_manager, nodes[0].keys_manager)
                     .await
                     .unwrap();
                 assert_eq!(persisted_chan_data_0.len(), 1);
@@ -111,7 +112,7 @@ pub async fn test_channel_monitors() -> Result<()> {
                     assert_eq!(mon.get_latest_update_id(), $expected_update_id);
                 }
                 persisted_chan_data_1 = database_1
-                    .fetch_channel_monitors(nodes[0].keys_manager)
+                    .fetch_channel_monitors(nodes[0].keys_manager, nodes[0].keys_manager)
                     .await
                     .unwrap();
                 assert_eq!(persisted_chan_data_1.len(), 1);
@@ -122,13 +123,7 @@ pub async fn test_channel_monitors() -> Result<()> {
         }
 
         // Create some initial channel and check that a channel was persisted.
-        let _ = create_announced_chan_between_nodes(
-            &nodes,
-            0,
-            1,
-            channelmanager::provided_init_features(),
-            channelmanager::provided_init_features(),
-        );
+        let _ = create_announced_chan_between_nodes(&nodes, 0, 1);
         check_persisted_data!(0);
 
         // Send a few payments and make sure the monitors are updated to the latest.
@@ -184,23 +179,22 @@ pub async fn test_network_graph() -> Result<()> {
     with_cockroach(|settings| async move {
         let database = LdkDatabase::new(settings).await?;
 
-        let network_graph = Arc::new(NetworkGraph::new(
-            BlockHash::all_zeros(),
-            KndLogger::global(),
-        ));
+        let network_graph = Arc::new(NetworkGraph::new(Network::Regtest, KldLogger::global()));
         // how to make this less verbose?
         let persist = |database, network_graph| {
             <LdkDatabase as Persister<
                 '_,
-                Arc<KndTestChainMonitor>,
+                Arc<KldTestChainMonitor>,
                 Arc<dyn BroadcasterInterface>,
                 Arc<KeysManager>,
+                Arc<KeysManager>,
+                Arc<KeysManager>,
                 Arc<dyn FeeEstimator>,
-                Arc<KndLogger>,
+                Arc<DefaultRouter<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>, &TestScorer>>,
+                Arc<KldLogger>,
                 TestScorer,
             >>::persist_graph(database, network_graph)
         };
-
         persist(&database, &network_graph)?;
         assert!(database.fetch_graph().await.unwrap().is_some());
 
@@ -218,23 +212,23 @@ pub async fn test_scorer() -> Result<()> {
     with_cockroach(|settings| async move {
         let database = LdkDatabase::new(settings).await?;
 
-        let network_graph = Arc::new(NetworkGraph::new(
-            BlockHash::all_zeros(),
-            KndLogger::global(),
-        ));
+        let network_graph = Arc::new(NetworkGraph::new(Network::Regtest, KldLogger::global()));
         let scorer = Mutex::new(ProbabilisticScorer::new(
             ProbabilisticScoringParameters::default(),
             network_graph.clone(),
-            KndLogger::global(),
+            KldLogger::global(),
         ));
         let persist = |database, scorer| {
             <LdkDatabase as Persister<
                 '_,
-                Arc<KndTestChainMonitor>,
+                Arc<KldTestChainMonitor>,
                 Arc<dyn BroadcasterInterface>,
                 Arc<KeysManager>,
+                Arc<KeysManager>,
+                Arc<KeysManager>,
                 Arc<dyn FeeEstimator>,
-                Arc<KndLogger>,
+                Arc<DefaultRouter<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>, &TestScorer>>,
+                Arc<KldLogger>,
                 TestScorer,
             >>::persist_scorer(database, scorer)
         };
@@ -266,13 +260,13 @@ pub async fn test_scorer() -> Result<()> {
     .await
 }
 
-type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, Arc<KndLogger>>>;
+type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>>;
 
-type KndTestChainMonitor = ChainMonitor<
+type KldTestChainMonitor = ChainMonitor<
     InMemorySigner,
     Arc<dyn Filter + Send + Sync>,
     Arc<dyn BroadcasterInterface>,
     Arc<dyn FeeEstimator>,
-    Arc<KndLogger>,
+    Arc<KldLogger>,
     Arc<LdkDatabase>,
 >;

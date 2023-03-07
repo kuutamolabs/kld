@@ -1,8 +1,9 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
 use database::ldk_database::LdkDatabase;
+use lightning::ln::msgs::NetAddress;
 use log::{error, info};
 use settings::Settings;
 
@@ -81,7 +82,7 @@ impl PeerManager {
                     .list_channels()
                     .iter()
                     .map(|chan| chan.counterparty.node_id)
-                    .filter(|id| !connected_node_ids.contains(id))
+                    .filter(|id| !connected_node_ids.iter().any(|(pk, _)| pk == id))
                 {
                     match database.fetch_peer(&unconnected_node_id).await {
                         Ok(Some(peer)) => {
@@ -126,17 +127,16 @@ impl PeerManager {
         Ok(())
     }
 
-    pub fn get_peer_node_ids(&self) -> Vec<PublicKey> {
-        self.ldk_peer_manager.get_peer_node_ids()
+    pub fn get_connected_peers(&self) -> HashMap<PublicKey, Option<NetAddress>> {
+        let mut peers = HashMap::new();
+        for (public_key, net_address) in self.ldk_peer_manager.get_peer_node_ids() {
+            peers.insert(public_key, net_address);
+        }
+        peers
     }
 
-    pub async fn disconnect_by_node_id(
-        &self,
-        node_id: PublicKey,
-        no_connection_possible: bool,
-    ) -> Result<()> {
-        self.ldk_peer_manager
-            .disconnect_by_node_id(node_id, no_connection_possible);
+    pub async fn disconnect_by_node_id(&self, node_id: PublicKey) -> Result<()> {
+        self.ldk_peer_manager.disconnect_by_node_id(node_id);
         self.database.delete_peer(&node_id).await
     }
 

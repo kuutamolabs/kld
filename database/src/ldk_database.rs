@@ -6,12 +6,15 @@ use bitcoin::{BlockHash, Txid};
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
-use lightning::chain::keysinterface::{KeysInterface, Sign};
+use lightning::chain::keysinterface::{
+    EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner,
+};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
 use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
 use lightning::routing::gossip::NetworkGraph;
+use lightning::routing::router::Router;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore,
 };
@@ -20,7 +23,7 @@ use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
 use log::{debug, info};
-use logger::KndLogger;
+use logger::KldLogger;
 use settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -165,14 +168,13 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn fetch_channel_monitors<Signer: Sign, K: Deref>(
+    pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
         &self,
-        keys_manager: K,
-        //		broadcaster: &B,
-        //		fee_estimator: &F,
-    ) -> Result<Vec<(BlockHash, ChannelMonitor<Signer>)>>
-    where
-        <K as Deref>::Target: KeysInterface<Signer = Signer> + Sized,
+        entropy_source: &ES,
+        signer_provider: &SP, //		broadcaster: &B,
+                              //		fee_estimator: &F,
+    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP::Signer>)>>
+where
         //      B::Target: BroadcasterInterface,
         //		F::Target: FeeEstimator,
     {
@@ -187,7 +189,7 @@ impl LdkDatabase {
                 &[],
             )
             .await?;
-        let mut monitors: Vec<(BlockHash, ChannelMonitor<Signer>)> = vec![];
+        let mut monitors: Vec<(BlockHash, ChannelMonitor<SP::Signer>)> = vec![];
         for row in rows {
             let out_point: Vec<u8> = row.get("out_point");
 
@@ -197,7 +199,10 @@ impl LdkDatabase {
 
             let monitor: Vec<u8> = row.get("monitor");
             let mut buffer = Cursor::new(&monitor);
-            match <(BlockHash, ChannelMonitor<Signer>)>::read(&mut buffer, &*keys_manager) {
+            match <(BlockHash, ChannelMonitor<SP::Signer>)>::read(
+                &mut buffer,
+                (entropy_source, signer_provider),
+            ) {
                 Ok((blockhash, channel_monitor)) => {
                     if channel_monitor.get_funding_txo().0.txid != txid
                         || channel_monitor.get_funding_txo().0.index != index
@@ -241,21 +246,26 @@ impl LdkDatabase {
     }
 
     pub async fn fetch_channel_manager<
-        Signer: Sign,
         M: Deref,
         T: Deref,
-        K: Deref,
+        ES: Deref,
+        NS: Deref,
+        SP: Deref,
         F: Deref,
+        R: Deref,
         L: Deref,
     >(
         &self,
-        read_args: ChannelManagerReadArgs<'_, M, T, K, F, L>,
-    ) -> Result<(BlockHash, ChannelManager<M, T, K, F, L>)>
+        read_args: ChannelManagerReadArgs<'_, M, T, ES, NS, SP, F, R, L>,
+    ) -> Result<(BlockHash, ChannelManager<M, T, ES, NS, SP, F, R, L>)>
     where
-        <M as Deref>::Target: Watch<Signer>,
+        <M as Deref>::Target: Watch<<SP::Target as SignerProvider>::Signer>,
         <T as Deref>::Target: BroadcasterInterface,
-        <K as Deref>::Target: KeysInterface<Signer = Signer>,
+        <ES as Deref>::Target: EntropySource,
+        <NS as Deref>::Target: NodeSigner,
+        <SP as Deref>::Target: SignerProvider,
         <F as Deref>::Target: FeeEstimator,
+        <R as Deref>::Target: Router,
         <L as Deref>::Target: Logger,
     {
         let row = self
@@ -270,14 +280,17 @@ impl LdkDatabase {
             )
             .await?;
         let manager: Vec<u8> = row.get("manager");
-        <(BlockHash, ChannelManager<M, T, K, F, L>)>::read(&mut Cursor::new(manager), read_args)
-            .map_err(|e| anyhow!(e.to_string()))
+        <(BlockHash, ChannelManager<M, T, ES, NS, SP, F, R, L>)>::read(
+            &mut Cursor::new(manager),
+            read_args,
+        )
+        .map_err(|e| anyhow!(e.to_string()))
     }
 
-    pub async fn fetch_graph(&self) -> Result<Option<NetworkGraph<Arc<KndLogger>>>> {
+    pub async fn fetch_graph(&self) -> Result<Option<NetworkGraph<Arc<KldLogger>>>> {
         match fs::read(format!("{}/network_graph", self.settings.data_dir)) {
             Ok(bytes) => {
-                let graph = NetworkGraph::read(&mut Cursor::new(bytes), KndLogger::global())
+                let graph = NetworkGraph::read(&mut Cursor::new(bytes), KldLogger::global())
                     .map_err(|e| anyhow!(e))?;
                 Ok(Some(graph))
             }
@@ -289,8 +302,8 @@ impl LdkDatabase {
     pub async fn fetch_scorer(
         &self,
         params: ProbabilisticScoringParameters,
-        graph: Arc<NetworkGraph<Arc<KndLogger>>>,
-    ) -> Result<Option<ProbabilisticScorer<Arc<NetworkGraph<Arc<KndLogger>>>, Arc<KndLogger>>>>
+        graph: Arc<NetworkGraph<Arc<KldLogger>>>,
+    ) -> Result<Option<ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>>>
     {
         let scorer = self
             .client()
@@ -303,7 +316,7 @@ impl LdkDatabase {
                 let bytes: Vec<u8> = row.get(0);
                 ProbabilisticScorer::read(
                     &mut Cursor::new(bytes),
-                    (params.clone(), graph.clone(), KndLogger::global()),
+                    (params.clone(), graph.clone(), KldLogger::global()),
                 )
                 .expect("Unable to deserialize scorer")
             });
@@ -311,19 +324,22 @@ impl LdkDatabase {
     }
 }
 
-impl<'a, Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref, S>
-    Persister<'a, M, T, K, F, L, S> for LdkDatabase
+impl<'a, M: Deref, T: Deref, ES: Deref, NS: Deref, SP: Deref, F: Deref, R: Deref, L: Deref, S>
+    Persister<'a, M, T, ES, NS, SP, F, R, L, S> for LdkDatabase
 where
-    M::Target: 'static + chain::Watch<Signer>,
+    M::Target: 'static + Watch<<SP::Target as SignerProvider>::Signer>,
     T::Target: 'static + BroadcasterInterface,
-    K::Target: 'static + KeysInterface<Signer = Signer>,
+    ES::Target: 'static + EntropySource,
+    NS::Target: 'static + NodeSigner,
+    SP::Target: 'static + SignerProvider,
     F::Target: 'static + FeeEstimator,
+    R::Target: 'static + Router,
     L::Target: 'static + Logger,
     S: 'static + WriteableScore<'a>,
 {
     fn persist_manager(
         &self,
-        channel_manager: &ChannelManager<M, T, K, F, L>,
+        channel_manager: &ChannelManager<M, T, ES, NS, SP, F, R, L>,
     ) -> Result<(), io::Error> {
         let mut buf = vec![];
         channel_manager.write(&mut buf)?;
@@ -359,7 +375,9 @@ where
     }
 }
 
-impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for LdkDatabase {
+impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<ChannelSigner>
+    for LdkDatabase
+{
     // The CHANNEL_MONITORS table stores the latest monitor and its update_id.
     fn persist_new_channel(
         &self,
@@ -396,7 +414,7 @@ impl<ChannelSigner: Sign> chain::chainmonitor::Persist<ChannelSigner> for LdkDat
     fn update_persisted_channel(
         &self,
         funding_txo: OutPoint,
-        _update: &Option<ChannelMonitorUpdate>,
+        _update: Option<&ChannelMonitorUpdate>,
         monitor: &ChannelMonitor<ChannelSigner>,
         update_id: MonitorUpdateId, // only need this if persisting async.
     ) -> ChannelMonitorUpdateStatus {

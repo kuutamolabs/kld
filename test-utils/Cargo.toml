@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 anyhow = { version = "1.0.69", features = [ "backtrace" ] }
 settings = { path = "../settings" }
-lightning = { version = "0.0.113", features = [ "max_level_trace" ] }
-lightning-block-sync = { version = "0.0.113", features = [ "rpc-client" ] }
+lightning = { version = "0.0.114", features = [ "max_level_trace" ] }
+lightning-block-sync = { version = "0.0.114", features = [ "rpc-client" ] }
 bitcoin = "0.29.2"
 rand = "0.8.5"
 base64 = "0.21.0"

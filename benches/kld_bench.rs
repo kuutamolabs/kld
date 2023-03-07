@@ -3,7 +3,7 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use database::ldk_database::LdkDatabase;
 use database::migrate_database;
-use lightning::ln::features::InitFeatures;
+
 use lightning::ln::functional_test_utils::{
     create_announced_chan_between_nodes, create_chanmon_cfgs, create_network, create_node_cfgs,
     create_node_chanmgrs, send_payment,
@@ -74,13 +74,7 @@ pub fn send_payment_two_nodes(c: &mut Criterion) -> Result<()> {
     let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
     let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
 
-    let _ = create_announced_chan_between_nodes(
-        &nodes,
-        0,
-        1,
-        InitFeatures::empty(),
-        InitFeatures::empty(),
-    );
+    let _ = create_announced_chan_between_nodes(&nodes, 0, 1);
 
     c.bench_function("send_payment_two_nodes", |b| {
         b.iter(|| {

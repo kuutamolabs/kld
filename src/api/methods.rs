@@ -7,12 +7,12 @@ use std::sync::Arc;
 
 use crate::{handle_err, handle_unauthorized};
 
-use super::KndMacaroon;
+use super::KldMacaroon;
 use super::LightningInterface;
 use super::MacaroonAuth;
 
 pub(crate) async fn get_info(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {

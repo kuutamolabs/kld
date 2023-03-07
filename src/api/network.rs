@@ -16,24 +16,24 @@ use std::{
 
 use crate::{handle_bad_request, handle_unauthorized};
 
-use super::{KndMacaroon, LightningInterface, MacaroonAuth};
+use super::{KldMacaroon, LightningInterface, MacaroonAuth};
 
 pub(crate) async fn list_nodes(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
     let nodes: Vec<Node> = lightning_interface
-        .list_nodes()
-        .iter()
+        .nodes()
+        .unordered_iter()
         .filter_map(|(node_id, announcement)| to_api_node(node_id, announcement))
         .collect();
     Ok(Json(nodes))
 }
 
 pub(crate) async fn get_node(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(id): Path<String>,

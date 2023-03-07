@@ -15,7 +15,7 @@ use log::{debug, info};
 
 use crate::handle_unauthorized;
 
-use super::{KndMacaroon, MacaroonAuth};
+use super::{KldMacaroon, MacaroonAuth};
 
 /// This is WIP. Just connects and checks macaroon at the moment.
 
@@ -25,7 +25,7 @@ use super::{KndMacaroon, MacaroonAuth};
 /// This is the last point where we can extract TCP/IP metadata such as IP address of the client
 /// as well as things from HTTP headers such as user-agent of the browser etc.
 pub async fn ws_handler(
-    macaroon: KndMacaroon,
+    macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<UserAgent>>,

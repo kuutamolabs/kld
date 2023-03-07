@@ -5,15 +5,15 @@ use crate::key_generator::KeyGenerator;
 use crate::net_utils::PeerAddress;
 use crate::payment_info::PaymentInfoStorage;
 use crate::peer_manager::PeerManager;
+use crate::utxo_lookup::BitcoindUtxoLookup;
 use crate::wallet::Wallet;
 use crate::VERSION;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use bitcoin::blockdata::constants::genesis_block;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::Transaction;
 use database::ldk_database::LdkDatabase;
-use lightning::chain::keysinterface::{InMemorySigner, KeysInterface, KeysManager, Recipient};
+use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{chainmonitor, Watch};
 use lightning::chain::{BestBlock, Filter};
@@ -29,18 +29,18 @@ use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
 use lightning::util::errors::APIError;
+use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::init;
 use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
-use lightning_invoice::payment;
 use lightning_net_tokio::SocketDescriptor;
 use log::{error, info, warn};
-use logger::KndLogger;
-use rand::{random, thread_rng, Rng};
+use logger::KldLogger;
+use rand::random;
 use settings::Settings;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
@@ -64,7 +64,7 @@ impl LightningInterface for Controller {
     }
 
     fn num_peers(&self) -> usize {
-        self.peer_manager.get_peer_node_ids().len()
+        self.peer_manager.get_connected_peers().len()
     }
 
     fn wallet_balance(&self) -> u64 {
@@ -121,8 +121,9 @@ impl LightningInterface for Controller {
     ) -> Result<OpenChannelResult> {
         if !self
             .peer_manager
-            .get_peer_node_ids()
-            .contains(&their_network_key)
+            .get_connected_peers()
+            .iter()
+            .any(|p| p.0 == &their_network_key)
         {
             return Err(anyhow!("Peer not connected"));
         }
@@ -189,7 +190,7 @@ impl LightningInterface for Controller {
 
     /// List all the peers that we have channels with along with their connection status.
     async fn list_peers(&self) -> Result<Vec<Peer>> {
-        let connected_peers = self.peer_manager.get_peer_node_ids();
+        let connected_peers = self.peer_manager.get_connected_peers();
         let channel_peers: Vec<PublicKey> = self
             .channel_manager
             .list_channels()
@@ -200,12 +201,13 @@ impl LightningInterface for Controller {
 
         let mut response = vec![];
 
-        let mut all_pub_keys: HashSet<PublicKey> = HashSet::from_iter(connected_peers.clone());
+        let mut all_pub_keys: HashSet<PublicKey> =
+            HashSet::from_iter(connected_peers.keys().cloned());
         all_pub_keys.extend(channel_peers);
         all_pub_keys.extend(persistent_peers.keys());
 
         for public_key in all_pub_keys {
-            let status = if connected_peers.contains(&public_key) {
+            let status = if connected_peers.contains_key(&public_key) {
                 PeerStatus::Connected
             } else {
                 PeerStatus::Disconnected
@@ -215,7 +217,7 @@ impl LightningInterface for Controller {
                 public_key,
                 // Currently unable to map a socket address to public key for inbound connections.
                 // Waiting for rust-lightning release.
-                net_address: persistent_peers.get(&public_key).map(|s| s.to_owned()),
+                net_address: connected_peers.get(&public_key).cloned().unwrap_or(None),
                 status,
                 alias: self.alias_of(&public_key).unwrap_or_default(),
             });
@@ -262,9 +264,7 @@ impl LightningInterface for Controller {
     }
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
-        self.peer_manager
-            .disconnect_by_node_id(public_key, false)
-            .await
+        self.peer_manager.disconnect_by_node_id(public_key).await
     }
 
     fn addresses(&self) -> Vec<String> {
@@ -275,7 +275,7 @@ impl LightningInterface for Controller {
         self.network_graph.read_only().node(node_id).cloned()
     }
 
-    fn list_nodes(&self) -> BTreeMap<NodeId, NodeInfo> {
+    fn nodes(&self) -> IndexedMap<NodeId, NodeInfo> {
         self.network_graph.read_only().nodes().clone()
     }
 }
@@ -373,7 +373,7 @@ impl Controller {
         let chain_monitor: Arc<ChainMonitor> = Arc::new(chainmonitor::ChainMonitor::new(
             None,
             broadcaster.clone(),
-            KndLogger::global(),
+            KldLogger::global(),
             fee_estimator.clone(),
             database.clone(),
         ));
@@ -394,9 +394,41 @@ impl Controller {
             cur.subsec_nanos(),
         ));
 
+        let network_graph = Arc::new(
+            database
+                .fetch_graph()
+                .await
+                .context("Could not query network graph from database")?
+                .unwrap_or_else(|| {
+                    NetworkGraph::new(settings.bitcoin_network.into(), KldLogger::global())
+                }),
+        );
+        let scorer = Arc::new(Mutex::new(
+            database
+                .fetch_scorer(
+                    ProbabilisticScoringParameters::default(),
+                    network_graph.clone(),
+                )
+                .await?
+                .unwrap_or_else(|| {
+                    ProbabilisticScorer::new(
+                        ProbabilisticScoringParameters::default(),
+                        network_graph.clone(),
+                        KldLogger::global(),
+                    )
+                }),
+        ));
+        let random_seed_bytes: [u8; 32] = random();
+        let router = Arc::new(DefaultRouter::new(
+            network_graph.clone(),
+            KldLogger::global(),
+            random_seed_bytes,
+            scorer.clone(),
+        ));
+
         // Initialize the ChannelManager
         let mut channelmonitors = database
-            .fetch_channel_monitors(keys_manager.clone())
+            .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
             .await?;
         let mut user_config = UserConfig::default();
         user_config
@@ -405,7 +437,6 @@ impl Controller {
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
                 let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
-
                 let chain_params = ChainParameters {
                     network: settings.bitcoin_network.into(),
                     best_block: BestBlock::new(
@@ -417,7 +448,10 @@ impl Controller {
                     fee_estimator.clone(),
                     chain_monitor.clone(),
                     broadcaster.clone(),
-                    KndLogger::global(),
+                    router,
+                    KldLogger::global(),
+                    keys_manager.clone(),
+                    keys_manager.clone(),
                     keys_manager.clone(),
                     user_config,
                     chain_params,
@@ -430,10 +464,13 @@ impl Controller {
                 }
                 let read_args = ChannelManagerReadArgs::new(
                     keys_manager.clone(),
+                    keys_manager.clone(),
+                    keys_manager.clone(),
                     fee_estimator.clone(),
                     chain_monitor.clone(),
                     broadcaster.clone(),
-                    KndLogger::global(),
+                    router,
+                    KldLogger::global(),
                     user_config,
                     channel_monitor_mut_references,
                 );
@@ -462,7 +499,7 @@ impl Controller {
                         channel_monitor,
                         broadcaster.clone(),
                         fee_estimator.clone(),
-                        KndLogger::global(),
+                        KldLogger::global(),
                     ),
                     outpoint,
                 ));
@@ -496,31 +533,28 @@ impl Controller {
             );
         }
 
-        // Initialize the P2PGossipSync
-        let genesis = genesis_block(settings.bitcoin_network.into())
-            .header
-            .block_hash();
-        let network_graph = Arc::new(
-            database
-                .fetch_graph()
-                .await
-                .context("Could not query network graph from database")?
-                .unwrap_or_else(|| NetworkGraph::new(genesis, KndLogger::global())),
-        );
-
-        let gossip_sync = Arc::new(P2PGossipSync::new(
-            network_graph.clone(),
-            None::<Arc<dyn chain::Access + Send + Sync>>,
-            KndLogger::global(),
-        ));
+        let gossip_sync = Arc::new_cyclic(|u| {
+            let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
+                &settings,
+                bitcoind_client.clone(),
+                network_graph.clone(),
+                u.clone(),
+            ));
+            P2PGossipSync::new(
+                network_graph.clone(),
+                Some(utxo_lookup),
+                KldLogger::global(),
+            )
+        });
 
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
         let onion_messenger: Arc<OnionMessenger> = Arc::new(OnionMessenger::new(
             keys_manager.clone(),
-            KndLogger::global(),
+            keys_manager.clone(),
+            KldLogger::global(),
             IgnoringMessageHandler {},
         ));
-        let ephemeral_bytes: [u8; 32] = thread_rng().gen();
+        let ephemeral_bytes: [u8; 32] = random();
         let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -532,11 +566,11 @@ impl Controller {
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
-            keys_manager.get_node_secret(Recipient::Node).unwrap(),
             current_time.try_into().unwrap(),
             &ephemeral_bytes,
-            KndLogger::global(),
+            KldLogger::global(),
             IgnoringMessageHandler {},
+            keys_manager.clone(),
         ));
         let peer_manager = PeerManager::new(
             ldk_peer_manager.clone(),
@@ -590,47 +624,15 @@ impl Controller {
             async_api_requests.clone(),
         );
 
-        // Initialize routing ProbabilisticScorer
-        let scorer = Arc::new(Mutex::new(
-            database
-                .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
-                    network_graph.clone(),
-                )
-                .await?
-                .unwrap_or_else(|| {
-                    ProbabilisticScorer::new(
-                        ProbabilisticScoringParameters::default(),
-                        network_graph.clone(),
-                        KndLogger::global(),
-                    )
-                }),
-        ));
-
-        // Create InvoicePayer
-        let router = DefaultRouter::new(
-            network_graph.clone(),
-            KndLogger::global(),
-            keys_manager.get_secure_random_bytes(),
-            scorer.clone(),
-        );
-        let invoice_payer = Arc::new(InvoicePayer::new(
-            channel_manager.clone(),
-            router,
-            KndLogger::global(),
-            event_handler,
-            payment::Retry::Timeout(Duration::from_secs(10)),
-        ));
-
         // Background Processing
         let background_processor = BackgroundProcessor::start(
             database.clone(),
-            invoice_payer.clone(),
+            event_handler,
             chain_monitor.clone(),
             channel_manager.clone(),
             GossipSync::p2p(gossip_sync.clone()),
             ldk_peer_manager.clone(),
-            KndLogger::global(),
+            KldLogger::global(),
             Some(scorer),
         );
 
@@ -660,8 +662,8 @@ pub type LdkPeerManager = SimpleArcPeerManager<
     ChainMonitor,
     BitcoindClient,
     BitcoindClient,
-    dyn chain::Access + Send + Sync,
-    KndLogger,
+    BitcoindUtxoLookup,
+    KldLogger,
 >;
 
 pub type ChainMonitor = chainmonitor::ChainMonitor<
@@ -669,22 +671,13 @@ pub type ChainMonitor = chainmonitor::ChainMonitor<
     Arc<dyn Filter + Send + Sync>,
     Arc<BitcoindClient>,
     Arc<BitcoindClient>,
-    Arc<KndLogger>,
+    Arc<KldLogger>,
     Arc<LdkDatabase>,
 >;
 
 pub(crate) type ChannelManager =
-    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KndLogger>;
+    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>;
 
-pub(crate) type InvoicePayer<E> =
-    payment::InvoicePayer<Arc<ChannelManager>, Router, Arc<KndLogger>, E>;
+pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<KldLogger>>;
 
-type Router = DefaultRouter<
-    Arc<NetworkGraph>,
-    Arc<KndLogger>,
-    Arc<Mutex<ProbabilisticScorer<Arc<NetworkGraph>, Arc<KndLogger>>>>,
->;
-
-pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<KndLogger>>;
-
-type OnionMessenger = SimpleArcOnionMessenger<KndLogger>;
+type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;
