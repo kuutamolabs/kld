@@ -21,7 +21,7 @@
 
       cockroachdb = { pkgs, ... }: {
         imports = [ ./cockroachdb.nix ];
-        services.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
+        kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
       };
 
       disko-partitioning-script = ./disko-partitioning-script.nix;
