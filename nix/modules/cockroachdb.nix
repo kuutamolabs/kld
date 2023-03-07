@@ -9,6 +9,17 @@ let
     makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach \
       --add-flags " --certs-dir=${config.services.cockroachdb.certsDir} --host=${config.networking.fqdnOrHostName} "
   '';
+
+  logConfig = {
+    sinks.file-groups = { };
+    sinks.stderr = {
+      channels = "all";
+      filter = "NONE";
+      redact = true;
+      redactable = true;
+      exit-on-error = true;
+    };
+  };
 in
 {
   options = {
@@ -92,7 +103,7 @@ in
     services.cockroachdb.extraArgs = [
       "--socket-dir=/run/cockroachdb"
       # disable file-based logging
-      "--log-dir="
+      "--log-config-file=${pkgs.writeText "cockroach-log-config.yaml" (builtins.toJSON logConfig)}"
     ];
     services.cockroachdb.enable = true;
     services.cockroachdb.certsDir = "/var/lib/cockroachdb-certs";
