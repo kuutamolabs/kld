@@ -143,7 +143,7 @@ impl LightningInterface for Controller {
             .channel_opens
             .insert(user_channel_id)
             .await;
-        let transaction = receiver.await?;
+        let transaction = receiver.await??;
         let txid = transaction.txid();
         Ok(OpenChannelResult {
             transaction,
@@ -281,7 +281,7 @@ impl LightningInterface for Controller {
 }
 
 pub struct AsyncAPIRequests {
-    pub channel_opens: AsyncSenders<u128, Transaction>,
+    pub channel_opens: AsyncSenders<u128, Result<Transaction>>,
 }
 
 impl AsyncAPIRequests {

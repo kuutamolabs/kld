@@ -69,14 +69,15 @@ async fn test_cli_connect_peer() -> Result<()> {
 async fn test_cli_disconnect_peer() -> Result<()> {
     let output = run_cli("disconnect-peer", &["--public-key", TEST_PUBLIC_KEY]).await?;
 
-    deserialize(&output.stdout)
+    assert!(&output.stdout.is_empty());
+    Ok(())
 }
 
 #[tokio::test]
 async fn test_cli_open_channel() -> Result<()> {
     let output = run_cli(
         "open-channel",
-        &["--public-key", TEST_PUBLIC_KEY, "--satoshis", "1000"],
+        &["--public-key", TEST_PUBLIC_KEY, "--sats", "1000"],
     )
     .await?;
     let _: FundChannelResponse = deserialize(&output.stdout)?;
@@ -119,7 +120,8 @@ async fn test_cli_close_channel() -> Result<()> {
         &["--id", &TEST_SHORT_CHANNEL_ID.to_string()],
     )
     .await?;
-    deserialize(&output.stdout)
+    assert!(output.stdout.is_empty());
+    Ok(())
 }
 
 #[tokio::test]
