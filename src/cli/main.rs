@@ -62,7 +62,7 @@ enum Command {
         public_key: String,
         /// Amount of satoshis to commit to the channel.
         #[arg(long)]
-        satoshis: String,
+        sats: String,
         /// The number of satoshis to push to the other node side of the channel.
         #[arg(long)]
         push_msat: Option<String>,
@@ -120,7 +120,7 @@ fn run_command(args: Args) -> Result<()> {
         }
         Command::OpenChannel {
             public_key,
-            satoshis,
+            sats: satoshis,
             push_msat,
         } => to_string_pretty(&api.open_channel(public_key, satoshis, push_msat)?)?,
         Command::SetChannelFee {

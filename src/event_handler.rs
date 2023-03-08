@@ -31,6 +31,7 @@ pub(crate) struct EventHandler {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
     async_api_requests: Arc<AsyncAPIRequests>,
+    runtime_handle: Handle,
 }
 
 impl EventHandler {
@@ -46,6 +47,7 @@ impl EventHandler {
         network_graph: Arc<NetworkGraph>,
         wallet: Arc<Wallet>,
         async_api_requests: Arc<AsyncAPIRequests>,
+        runtime_handle: Handle,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -57,6 +59,7 @@ impl EventHandler {
             network_graph,
             wallet,
             async_api_requests,
+            runtime_handle,
         }
     }
 }
@@ -64,7 +67,7 @@ impl EventHandler {
 impl lightning::util::events::EventHandler for EventHandler {
     fn handle_event(&self, event: lightning::util::events::Event) {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(self.handle_event_async(event))
+            self.runtime_handle.block_on(self.handle_event_async(event))
         })
     }
 }
@@ -118,11 +121,16 @@ impl EventHandler {
                     .await;
             }
             Event::ChannelReady {
-                channel_id: _,
+                channel_id,
                 user_channel_id: _,
-                counterparty_node_id: _,
+                counterparty_node_id,
                 channel_type: _,
-            } => {}
+            } => {
+                info!(
+                    "EVENT: Channel {:?} with counterparty {} is ready to use",
+                    channel_id, counterparty_node_id
+                );
+            }
             Event::ChannelClosed {
                 channel_id,
                 reason,

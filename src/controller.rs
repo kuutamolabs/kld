@@ -622,6 +622,7 @@ impl Controller {
             network_graph.clone(),
             wallet.clone(),
             async_api_requests.clone(),
+            Handle::current(),
         );
 
         // Background Processing
