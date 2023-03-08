@@ -54,6 +54,9 @@
           kuutamo.network.ipv6.address = "2001:db8::1";
           kuutamo.network.ipv6.cidr = 64;
           kuutamo.network.ipv6.gateway = "fe80::1";
+
+          kuutamo.cockroachdb.nodeName = "example-00";
+
           users.users.root.openssh.authorizedKeys.keys = [
             "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
           ];

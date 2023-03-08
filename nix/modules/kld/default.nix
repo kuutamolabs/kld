@@ -127,8 +127,8 @@ in
         KLD_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KLD_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KLD_NODE_NAME = lib.mkDefault cfg.nodeAlias;
-        KLD_DATABASE_HOST = lib.mkDefault config.networking.fqdnOrHostName;
-        KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.listen.port);
+        KLD_DATABASE_HOST = lib.mkDefault "localhost";
+        KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.sql.port);
         KLD_DATABASE_USER = lib.mkDefault "kld";
         KLD_DATABASE_NAME = lib.mkDefault "kld";
         KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/ca.crt'';

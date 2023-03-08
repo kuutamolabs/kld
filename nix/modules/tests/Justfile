@@ -16,3 +16,16 @@ debug-repl:
 # To attach to a machine.shell_interact("tcp:127.0.0.1:4444") call of debug-test
 debug-shell:
    socat 'READLINE,PROMPT=$ ' tcp-listen:4444,reuseaddr
+
+generate-cockroach-certs:
+    #!/usr/bin/env bash
+    set -xeuo pipefail
+
+    rm -rf cockroach-certs
+    cockroach cert create-ca --certs-dir=cockroach-certs --ca-key=cockroach-certs/ca.key
+    for node in db1 db2 db3; do
+      cockroach cert create-node --certs-dir=cockroach-certs --ca-key=cockroach-certs/ca.key $node localhost
+      mv cockroach-certs/{node.crt,$node.crt}
+      mv cockroach-certs/{node.key,$node.key}
+    done
+    cockroach cert create-client --certs-dir=cockroach-certs --ca-key=cockroach-certs/ca.key root

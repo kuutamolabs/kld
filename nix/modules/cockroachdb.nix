@@ -5,8 +5,13 @@ let
   crdb = cfg.package;
 
   cockroach-cli = pkgs.runCommand "cockroach-wrapper" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
-    makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach \
-      --add-flags " --certs-dir=${cfg.certsDir} --host=${config.networking.fqdnOrHostName} "
+    makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach-rpc \
+      --set COCKROACH_CERTS_DIR "${cfg.certsDir}" \
+      --set COCKROACH_HOST "${cfg.nodeName}" \
+
+    makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach-sql \
+      --set COCKROACH_CERTS_DIR "${cfg.certsDir}" \
+      --set COCKROACH_URL "postgresql://root@localhost:${toString cfg.sql.port}"
   '';
 
   logConfig = {
@@ -20,7 +25,9 @@ let
     };
   };
 
-  csql = execute: ''cockroach sql ${lib.cli.toGNUCommandLineShell {} { inherit  execute; }}'';
+  csql = execute: ''cockroach-sql sql ${lib.cli.toGNUCommandLineShell {} {
+    inherit execute;
+  }}'';
   initialSql =
     (builtins.map (database: ''CREATE DATABASE IF NOT EXISTS "${database}"'') cfg.ensureDatabases)
     ++ (builtins.map (user: ''CREATE USER IF NOT EXISTS "${user.name}"'') cfg.ensureUsers)
@@ -45,30 +52,18 @@ let
       # Cluster listen address
       "--listen-addr=${cfg.listen.address}:${toString cfg.listen.port}"
 
+      "--sql-addr=${cfg.sql.address}:${toString cfg.sql.port}"
+
       # Cache and memory settings.
       "--cache=${cfg.cache}"
       "--max-sql-memory=${cfg.maxSqlMemory}"
 
       # Certificate/security settings.
-      (if cfg.insecure then "--insecure" else "--certs-dir=${cfg.certsDir}")
+      "--certs-dir=${cfg.certsDir}"
     ]
-    ++ lib.optional (cfg.join != null) "--join=${cfg.join}"
+    ++ lib.optional (cfg.join != [ ]) "--join=${lib.concatStringsSep "," cfg.join}"
     ++ lib.optional (cfg.locality != null) "--locality=${cfg.locality}"
     ++ cfg.extraArgs);
-
-  addressOption = descr: defaultPort: {
-    address = lib.mkOption {
-      type = lib.types.str;
-      default = "[::]";
-      description = lib.mdDoc "Address to bind to for ${descr}";
-    };
-
-    port = lib.mkOption {
-      type = lib.types.port;
-      default = defaultPort;
-      description = lib.mdDoc "Port to bind to for ${descr}";
-    };
-  };
 in
 {
   options = {
@@ -86,7 +81,36 @@ in
         };
       };
 
-      http = addressOption "http-based Admin UI" 8080;
+      sql = {
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "[::1]";
+          description = lib.mdDoc "Address to bind to for sql";
+        };
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 5432;
+          description = lib.mdDoc "Port to bind to for sql";
+        };
+      };
+
+      http = {
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "localhost";
+          description = lib.mdDoc "Address to bind to for http";
+        };
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 8080;
+          description = lib.mdDoc "Port to bind to for http";
+        };
+      };
+
+      nodeName = lib.mkOption {
+        type = lib.types.str;
+        description = "Name of the node";
+      };
 
       locality = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
@@ -102,10 +126,10 @@ in
           Including more tiers is better than including fewer. For example:
 
           ```
-              country=us,region=us-west,datacenter=us-west-1b,rack=12
-              country=ca,region=ca-east,datacenter=ca-east-2,rack=4
+            country=us,region=us-west,datacenter=us-west-1b,rack=12
+            country=ca,region=ca-east,datacenter=ca-east-2,rack=4
 
-              planet=earth,province=manitoba,colo=secondary,power=3
+            planet=earth,province=manitoba,colo=secondary,power=3
           ```
         '';
       };
@@ -116,15 +140,9 @@ in
         description = lib.mdDoc "The addresses for connecting the node to a cluster.";
       };
 
-      insecure = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Run in insecure mode.";
-      };
-
       certsDir = lib.mkOption {
         type = lib.types.nullOr lib.types.path;
-        default = "/var/lib/cockroachdb/certs";
+        default = "/var/lib/cockroachdb-certs";
         description = lib.mdDoc "The path to the certificate directory.";
       };
 
@@ -277,13 +295,6 @@ in
   };
 
   config = {
-    assertions = [
-      {
-        assertion = !cfg.insecure -> cfg.certsDir != null;
-        message = "CockroachDB must have a set of SSL certificates (.certsDir), or run in Insecure Mode (.insecure = true)";
-      }
-    ];
-
     environment.systemPackages = [ cockroach-cli ];
 
     users.users = lib.optionalAttrs (cfg.user == "cockroachdb") {
@@ -310,6 +321,9 @@ in
         requires = [ "time-sync.target" ];
         wantedBy = [ "multi-user.target" ];
 
+        # for cli
+        path = [ cockroach-cli ];
+
         unitConfig.RequiresMountsFor = "/var/lib/cockroachdb";
 
         serviceConfig =
@@ -322,14 +336,12 @@ in
             RuntimeDirectory = "cockroachdb";
             WorkingDirectory = "/var/lib/cockroachdb";
 
-            # for cli
-            path = [ cockroach-cli ];
 
             Restart = "always";
 
             # we need to run this as root since do not have a password yet.
             ExecStartPost = "+${pkgs.writeShellScript "setup" ''
-              set -eu -o pipefail
+              set -x -eu -o pipefail
               export PATH=$PATH:${cfg.package}/bin
 
               # check if this is the primary database node
