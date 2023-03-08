@@ -51,9 +51,11 @@ import ./lib.nix (_: {
         node.wait_for_unit("cockroachdb")
 
     node1.wait_until_succeeds("cockroach-sql sql -e 'SHOW ALL CLUSTER SETTINGS' >&2")
-    #node1.succeed(
-    #    "cockroach-sql workload init bank postgresql://root@localhost:5432 >&2",
-    #    "cockroach-sql workload run bank --duration=1m postgresql://root@localhost:5432 >&2",
-    #)
+    certsdir = "/var/lib/cockroachdb-certs"
+    url = f"postgres://localhost:5432?sslmode=verify-full&sslrootcert={certsdir}/ca.crt&sslcert={certsdir}/client.root.crt&sslkey={certsdir}/client.root.key"
+    node1.succeed(
+        f"cockroach-sql workload init bank '{url}' >&2",
+        f"cockroach-sql workload run bank '{url}' --duration=1m >&2",
+    )
   '';
 })
