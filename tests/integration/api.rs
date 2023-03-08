@@ -5,7 +5,6 @@ use std::{fs, sync::Arc};
 use anyhow::{Context, Result};
 use axum::http::HeaderValue;
 use futures::FutureExt;
-use hex::ToHex;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
@@ -18,7 +17,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
-use test_utils::{https_client, random_public_key, TestSettingsBuilder};
+use test_utils::{https_client, TestSettingsBuilder};
 
 use api::{
     routes, Address, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
@@ -540,7 +539,7 @@ fn withdraw_request() -> WalletTransfer {
 
 fn fund_channel_request() -> FundChannel {
     FundChannel {
-        id: random_public_key().serialize().encode_hex(),
+        id: TEST_PUBLIC_KEY.to_string() + "@1.2.3.4:1234",
         satoshis: "21000000".to_string(),
         fee_rate: Some("4".to_string()),
         announce: Some("true".to_string()),

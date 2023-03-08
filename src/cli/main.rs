@@ -57,7 +57,7 @@ enum Command {
     ListChannels,
     /// Open a channel with another node.
     OpenChannel {
-        /// The public key of the node to open a channel with.
+        /// The public key of the node to open a channel with. Optionally provide host and port [id@host:port].
         #[arg(long)]
         public_key: String,
         /// Amount of satoshis to commit to the channel.

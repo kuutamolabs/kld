@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use api::Channel;
@@ -74,8 +75,19 @@ pub(crate) async fn open_channel(
 ) -> Result<impl IntoResponse, StatusCode> {
     handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
 
-    let pub_key_bytes = handle_bad_request!(hex::decode(fund_channel.id));
-    let public_key = handle_bad_request!(PublicKey::from_slice(&pub_key_bytes));
+    let (public_key, net_address) = match fund_channel.id.split_once('@') {
+        Some((public_key, net_address)) => (
+            handle_err!(PublicKey::from_str(public_key)),
+            Some(handle_err!(net_address.parse())),
+        ),
+        None => (handle_err!(PublicKey::from_str(&fund_channel.id)), None),
+    };
+    handle_err!(
+        lightning_interface
+            .connect_peer(public_key, net_address)
+            .await
+    );
+
     let value = handle_bad_request!(fund_channel.satoshis.parse());
     let push_msat =
         handle_bad_request!(fund_channel.push_msat.map(|x| x.parse::<u64>()).transpose());

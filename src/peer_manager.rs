@@ -62,6 +62,9 @@ impl PeerManager {
     }
 
     pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: PeerAddress) -> Result<()> {
+        if self.get_connected_peers().contains_key(&public_key) {
+            return Ok(());
+        }
         connect_peer(
             self.ldk_peer_manager.clone(),
             self.database.clone(),
