@@ -64,7 +64,6 @@ let
       "--certs-dir=${cfg.certsDir}"
     ]
     ++ lib.optional (cfg.join != [ ]) "--join=${lib.concatStringsSep "," cfg.join}"
-    ++ lib.optional (cfg.locality != null) "--locality=${cfg.locality}"
     ++ cfg.extraArgs);
 in
 {
@@ -112,28 +111,6 @@ in
       nodeName = lib.mkOption {
         type = lib.types.str;
         description = "Name of the node";
-      };
-
-      locality = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = lib.mdDoc ''
-          An ordered, comma-separated list of key-value pairs that describe the
-          topography of the machine. Topography might include country,
-          datacenter or rack designations. Data is automatically replicated to
-          maximize diversities of each tier. The order of tiers is used to
-          determine the priority of the diversity, so the more inclusive
-          localities like country should come before less inclusive localities
-          like datacenter.  The tiers and order must be the same on all nodes.
-          Including more tiers is better than including fewer. For example:
-
-          ```
-            country=us,region=us-west,datacenter=us-west-1b,rack=12
-            country=ca,region=ca-east,datacenter=ca-east-2,rack=4
-
-            planet=earth,province=manitoba,colo=secondary,power=3
-          ```
-        '';
       };
 
       join = lib.mkOption {

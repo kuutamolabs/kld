@@ -1,5 +1,5 @@
 let
-  makeNode = locality: nodeName:
+  makeNode = nodeName:
     { self, lib, config, ... }:
     let
       cfg = config.kuutamo.cockroachdb;
@@ -27,9 +27,6 @@ let
         192.168.1.3 db3
       '';
       kuutamo.cockroachdb.join = [ "db1" "db2" "db3" ];
-      kuutamo.cockroachdb.extraArgs = [
-        "--accept-sql-without-tls"
-      ];
     };
 
 in
@@ -38,9 +35,9 @@ import ./lib.nix (_: {
 
 
   nodes = {
-    node1 = makeNode "country=us,region=east,dc=1" "db1";
-    node2 = makeNode "country=us,region=west,dc=2b" "db2";
-    node3 = makeNode "country=eu,region=west,dc=2" "db3";
+    node1 = makeNode "db1";
+    node2 = makeNode "db2";
+    node3 = makeNode "db3";
   };
 
   # NOTE: All the nodes must start in order and you must NOT use startAll, because
