@@ -29,6 +29,7 @@ impl Api {
             .tls_sni(false)
             .add_root_certificate(cert)
             .use_native_tls()
+            .timeout(None)
             .build()?;
         Ok(Api {
             host: host.to_string(),
