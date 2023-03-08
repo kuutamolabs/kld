@@ -50,8 +50,10 @@ let
       "--http-addr=${cfg.http.address}:${toString cfg.http.port}"
 
       # Cluster listen address
+      "--advertise-addr=${cfg.nodeName}"
       "--listen-addr=${cfg.listen.address}:${toString cfg.listen.port}"
 
+      "--sql-addr=localhost"
       "--sql-addr=${cfg.sql.address}:${toString cfg.sql.port}"
 
       # Cache and memory settings.
