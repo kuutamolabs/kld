@@ -131,6 +131,8 @@ fn run_command(args: Args) -> Result<()> {
         Command::CloseChannel { id } => to_string_pretty(&api.close_channel(id)?)?,
         Command::ListNodes { id } => to_string_pretty(&api.list_nodes(id)?)?,
     };
-    println!("{result}");
+    if result != "null" {
+        println!("{result}");
+    }
     Ok(())
 }
