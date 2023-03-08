@@ -112,7 +112,7 @@ pub async fn test_channel_monitors() -> Result<()> {
                     assert_eq!(mon.get_latest_update_id(), $expected_update_id);
                 }
                 persisted_chan_data_1 = database_1
-                    .fetch_channel_monitors(nodes[0].keys_manager, nodes[0].keys_manager)
+                    .fetch_channel_monitors(nodes[1].keys_manager, nodes[1].keys_manager)
                     .await
                     .unwrap();
                 assert_eq!(persisted_chan_data_1.len(), 1);
