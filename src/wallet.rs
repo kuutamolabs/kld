@@ -1,7 +1,7 @@
 use std::{
     str::FromStr,
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{bail, Result};
@@ -127,8 +127,10 @@ impl Wallet {
 
         let rpc_sync_params = RpcSyncParams {
             start_script_count: 100,
-            // Assuming wallet is not pre generated/funded.
-            start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            // Just start from 24 hours previous for now.
+            start_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH + Duration::from_secs(60 * 60 * 24))?
+                .as_secs(),
             force_start_time: false,
             poll_rate_sec: 3,
         };
@@ -144,32 +146,41 @@ impl Wallet {
         };
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
 
-        match blockchain.get_wallet_info()?.scanning {
-            Some(ScanningDetails::Scanning { duration, progress }) => {
-                info!(
-                    "Wallet is synchronising with the blockchain. {}% progress after {} seconds.",
-                    (progress * 100_f32).round(),
-                    duration
-                );
-            }
-            _ => {
-                info!("Syncing wallet to blockchain.");
-                // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
-                let wallet_clone = bdk_wallet.clone();
-                tokio::task::spawn_blocking(move || {
-                    // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
-                    if let Err(e) = wallet_clone
-                        .lock()
-                        .expect("Cannot obtain mutex for wallet")
-                        .sync(&blockchain, SyncOptions::default())
-                    {
-                        error!("Walled sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
-                    } else {
-                        info!("Wallet sync complete.");
+        // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
+        let wallet_clone = bdk_wallet.clone();
+        tokio::task::spawn_blocking(|| async move {
+            loop {
+                match blockchain.get_wallet_info() {
+                    Ok(wallet_info) => {
+                        match wallet_info.scanning {
+                            Some(ScanningDetails::Scanning { duration, progress }) => {
+                                info!(
+                                    "Wallet is synchronising with the blockchain. {}% progress after {} seconds.",
+                                    (progress * 100_f32).round(),
+                                    duration
+                                );
+                            }
+                            _ => {
+                                // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
+                                if let Err(e) = wallet_clone
+                                    .lock()
+                                    .expect("Cannot obtain mutex for wallet")
+                                    .sync(&blockchain, SyncOptions::default())
+                                {
+                                    error!("Walled sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
+                                } else {
+                                    info!("Wallet is synchronised to blockchain");
+                                }
+                            }
+                        }
                     }
-                });
+                    Err(e) => {
+                        error!("Could not get wallet info: {e}");
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(60)).await;
             }
-        };
+        });
 
         Ok(Wallet {
             wallet: bdk_wallet,
