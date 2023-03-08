@@ -125,14 +125,13 @@ impl Wallet {
             settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
         );
 
+        // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
+        // It prevents a historical sync. So only add funds while kld is running.
         let rpc_sync_params = RpcSyncParams {
             start_script_count: 100,
-            // Just start from 24 hours previous for now.
-            start_time: SystemTime::now()
-                .duration_since(UNIX_EPOCH + Duration::from_secs(60 * 60 * 24))?
-                .as_secs(),
+            start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
             force_start_time: false,
-            poll_rate_sec: 3,
+            poll_rate_sec: 10,
         };
 
         let wallet_config = RpcConfig {
@@ -146,7 +145,6 @@ impl Wallet {
         };
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
 
-        // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
         let wallet_clone = bdk_wallet.clone();
         tokio::task::spawn_blocking(move || {
             loop {
