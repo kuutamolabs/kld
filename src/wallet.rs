@@ -148,7 +148,7 @@ impl Wallet {
 
         // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
         let wallet_clone = bdk_wallet.clone();
-        tokio::task::spawn_blocking(|| async move {
+        tokio::task::spawn_blocking(move || {
             loop {
                 match blockchain.get_wallet_info() {
                     Ok(wallet_info) => {
@@ -178,7 +178,7 @@ impl Wallet {
                         error!("Could not get wallet info: {e}");
                     }
                 }
-                tokio::time::sleep(Duration::from_secs(60)).await;
+                std::thread::sleep(Duration::from_secs(60));
             }
         });
 
