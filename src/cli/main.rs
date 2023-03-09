@@ -3,6 +3,7 @@ mod client;
 use crate::client::Api;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use serde::Serialize;
 use serde_json::to_string_pretty;
 
 #[derive(Parser, Debug)]
@@ -102,37 +103,44 @@ fn main() {
     }
 }
 
+fn print<T>(result: Result<T>) -> Result<()>
+where
+    T: Sized + Serialize,
+{
+    let output = match result {
+        Ok(json) => to_string_pretty(&json)?,
+        Err(e) => e.to_string(),
+    };
+    if output != "null" {
+        println!("{output}");
+    }
+    Ok(())
+}
+
 fn run_command(args: Args) -> Result<()> {
     let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
-    let result = match args.command {
-        Command::GetInfo => to_string_pretty(&api.get_info()?)?,
-        Command::GetBalance => to_string_pretty(&api.get_balance()?)?,
-        Command::NewAddress => to_string_pretty(&api.new_address()?)?,
-        Command::Withdraw { address, satoshis } => {
-            to_string_pretty(&api.withdraw(address, satoshis)?)?
-        }
-        Command::ListChannels => to_string_pretty(&api.list_channels()?)?,
-        Command::ListPeers => to_string_pretty(&api.list_peers()?)?,
-        Command::ConnectPeer { public_key } => to_string_pretty(&api.connect_peer(public_key)?)?,
-        Command::DisconnectPeer { public_key } => {
-            to_string_pretty(&api.disconnect_peer(public_key)?)?
-        }
+    match args.command {
+        Command::GetInfo => print(api.get_info())?,
+        Command::GetBalance => print(api.get_balance())?,
+        Command::NewAddress => print(api.new_address())?,
+        Command::Withdraw { address, satoshis } => print(api.withdraw(address, satoshis))?,
+        Command::ListChannels => print(api.list_channels())?,
+        Command::ListPeers => print(api.list_peers())?,
+        Command::ConnectPeer { public_key } => print(api.connect_peer(public_key))?,
+        Command::DisconnectPeer { public_key } => print(api.disconnect_peer(public_key))?,
         Command::OpenChannel {
             public_key,
             sats: satoshis,
             push_msat,
-        } => to_string_pretty(&api.open_channel(public_key, satoshis, push_msat)?)?,
+        } => print(api.open_channel(public_key, satoshis, push_msat))?,
         Command::SetChannelFee {
             id,
             base_fee,
             ppm_fee,
-        } => to_string_pretty(&api.set_channel_fee(id, base_fee, ppm_fee)?)?,
-        Command::CloseChannel { id } => to_string_pretty(&api.close_channel(id)?)?,
-        Command::ListNodes { id } => to_string_pretty(&api.list_nodes(id)?)?,
+        } => print(api.set_channel_fee(id, base_fee, ppm_fee))?,
+        Command::CloseChannel { id } => print(api.close_channel(id))?,
+        Command::ListNodes { id } => print(api.list_nodes(id))?,
     };
-    if result != "null" {
-        println!("{result}");
-    }
     Ok(())
 }

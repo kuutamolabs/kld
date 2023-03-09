@@ -24,7 +24,7 @@ use anyhow::{Context, Result};
 use api::routes;
 use axum::{
     extract::Extension,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::{delete, get, post},
     Router,
 };
@@ -34,7 +34,7 @@ use axum_server::{
 };
 use futures::{future::Shared, Future};
 use hyper::StatusCode;
-use log::{error, info};
+use log::{error, info, warn};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
 
@@ -105,15 +105,15 @@ impl RestApi {
 async fn root(
     macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
-) -> Result<impl IntoResponse, StatusCode> {
-    if macaroon_auth.verify_readonly_macaroon(&macaroon.0).is_err() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-    Ok("OK")
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_readonly_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
+    Ok(())
 }
 
 async fn handler_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "No such method.")
+    ApiError::NotFound("No such method".to_string())
 }
 
 async fn config(certs_dir: &str) -> Result<RustlsConfig> {
@@ -125,6 +125,26 @@ async fn config(certs_dir: &str) -> Result<RustlsConfig> {
     .context("failed to load certificates")
 }
 
+pub enum ApiError {
+    Unauthorized,
+    NotFound(String),
+    BadRequest(Box<dyn std::error::Error>),
+    InternalServerError(Box<dyn std::error::Error>),
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        match self {
+            ApiError::Unauthorized => (StatusCode::UNAUTHORIZED).into_response(),
+            ApiError::NotFound(s) => (StatusCode::NOT_FOUND, s).into_response(),
+            ApiError::BadRequest(e) => (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+            ApiError::InternalServerError(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+            }
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! to_string_empty {
     ($v: expr) => {
@@ -132,32 +152,19 @@ macro_rules! to_string_empty {
     };
 }
 
-#[macro_export]
-macro_rules! handle_err {
-    ($parse:expr) => {
-        $parse.map_err(|e| {
-            warn!("{}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-    };
+pub fn unauthorized(e: anyhow::Error) -> ApiError {
+    info!("{}", e);
+    ApiError::Unauthorized
 }
 
-#[macro_export]
-macro_rules! handle_unauthorized {
-    ($parse:expr) => {
-        $parse.map_err(|e| {
-            info!("{}", e);
-            StatusCode::UNAUTHORIZED
-        })?
-    };
+pub fn internal_server(e: impl Into<anyhow::Error>) -> ApiError {
+    let anyhow_err = e.into();
+    warn!("{}", anyhow_err);
+    ApiError::InternalServerError(anyhow_err.into())
 }
 
-#[macro_export]
-macro_rules! handle_bad_request {
-    ($parse:expr) => {
-        $parse.map_err(|e| {
-            info!("{}", e);
-            StatusCode::BAD_REQUEST
-        })?
-    };
+pub fn bad_request(e: impl Into<anyhow::Error>) -> ApiError {
+    let anyhow_err = e.into();
+    info!("{}", anyhow_err);
+    ApiError::BadRequest(anyhow_err.into())
 }

@@ -145,7 +145,7 @@ impl Api {
 fn send<T: DeserializeOwned>(builder: RequestBuilder) -> Result<T> {
     let response = builder.send()?;
     if !response.status().is_success() {
-        return Err(anyhow!("{}", response.status()));
+        return Err(anyhow!("{}: {}", response.status(), response.text()?));
     }
     Ok(response.json()?)
 }

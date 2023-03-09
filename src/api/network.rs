@@ -2,28 +2,26 @@ use api::{Address, Node};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
-use hyper::StatusCode;
 use lightning::{
     ln::msgs::NetAddress,
     routing::gossip::{NodeId, NodeInfo},
 };
-use log::info;
 use std::{
     net::{Ipv4Addr, Ipv6Addr},
     str::FromStr,
     sync::Arc,
 };
 
-use crate::{handle_bad_request, handle_unauthorized};
-
-use super::{KldMacaroon, LightningInterface, MacaroonAuth};
+use super::{bad_request, unauthorized, ApiError, KldMacaroon, LightningInterface, MacaroonAuth};
 
 pub(crate) async fn list_nodes(
     macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_readonly_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
     let nodes: Vec<Node> = lightning_interface
         .nodes()
         .unordered_iter()
@@ -37,16 +35,18 @@ pub(crate) async fn get_node(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(id): Path<String>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
-    let public_key = handle_bad_request!(PublicKey::from_str(&id));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_readonly_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
+    let public_key = PublicKey::from_str(&id).map_err(bad_request)?;
     let node_id = NodeId::from_pubkey(&public_key);
     if let Some(node_info) = lightning_interface.get_node(&node_id) {
         if let Some(node) = to_api_node(&node_id, &node_info) {
             return Ok(Json(vec![node]));
         }
     }
-    Err(StatusCode::NOT_FOUND)
+    Err(ApiError::NotFound(id))
 }
 
 fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<Node> {

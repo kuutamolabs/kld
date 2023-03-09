@@ -13,7 +13,6 @@ use logger::KldLogger;
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
@@ -37,205 +36,173 @@ pub async fn test_unauthorized() -> Result<()> {
     let settings = create_api_server().await?;
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(&settings, Method::GET, routes::ROOT))
-            .await
-            .unwrap_err()
+        unauthorized_request(&settings, Method::GET, routes::ROOT)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::GET,
-            routes::GET_INFO
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::GET, routes::GET_INFO)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::GET,
-            routes::GET_BALANCE
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::GET, routes::GET_BALANCE)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::GET,
-            routes::LIST_CHANNELS
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::GET, routes::LIST_CHANNELS)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::POST,
-            routes::OPEN_CHANNEL
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::POST, routes::OPEN_CHANNEL)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        readonly_request_with_body(
             &settings,
             Method::POST,
             routes::OPEN_CHANNEL,
             fund_channel_request
-        )?)
-        .await
-        .unwrap_err()
+        )?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::POST,
-            routes::SET_CHANNEL_FEE,
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::POST, routes::SET_CHANNEL_FEE,)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        readonly_request_with_body(
             &settings,
             Method::POST,
             routes::SET_CHANNEL_FEE,
             set_channel_fee_request
-        )?)
-        .await
-        .unwrap_err()
+        )?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::DELETE,
-            routes::CLOSE_CHANNEL,
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::DELETE, routes::CLOSE_CHANNEL,)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request(
+        readonly_request(
             &settings,
             Method::DELETE,
             &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
-        )?)
-        .await
-        .unwrap_err()
+        )?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::POST,
-            routes::WITHDRAW
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::POST, routes::WITHDRAW)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
-            &settings,
-            Method::POST,
-            routes::WITHDRAW,
-            withdraw_request
-        )?)
-        .await
-        .unwrap_err()
+        readonly_request_with_body(&settings, Method::POST, routes::WITHDRAW, withdraw_request)?
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        readonly_request_with_body(
             &settings,
             Method::GET,
             routes::NEW_ADDR,
             NewAddress::default
-        )?)
-        .await
-        .unwrap_err()
+        )?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
+        readonly_request_with_body(
             &settings,
             Method::GET,
             routes::NEW_ADDR,
             NewAddress::default
-        )?)
-        .await
-        .unwrap_err()
+        )?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::GET,
-            routes::LIST_PEERS
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::GET, routes::LIST_PEERS)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::POST,
-            routes::CONNECT_PEER
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::POST, routes::CONNECT_PEER)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request_with_body(
-            &settings,
-            Method::POST,
-            routes::CONNECT_PEER,
-            || TEST_ADDRESS
-        )?)
-        .await
-        .unwrap_err()
+        readonly_request_with_body(&settings, Method::POST, routes::CONNECT_PEER, || {
+            TEST_ADDRESS
+        })?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::DELETE,
-            routes::DISCONNECT_PEER
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::DELETE, routes::DISCONNECT_PEER)
+            .send()
+            .await?
+            .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(readonly_request(
+        readonly_request(
             &settings,
             Method::DELETE,
             &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
-        )?)
-        .await
-        .unwrap_err()
+        )?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        send(unauthorized_request(
-            &settings,
-            Method::GET,
-            routes::LIST_NODES
-        ))
-        .await
-        .unwrap_err()
+        unauthorized_request(&settings, Method::GET, routes::LIST_NODES)
+            .send()
+            .await?
+            .status()
     );
     Ok(())
 }
@@ -245,9 +212,10 @@ async fn test_not_found() -> Result<()> {
     let settings = create_api_server().await?;
     assert_eq!(
         StatusCode::NOT_FOUND,
-        send(admin_request(&settings, Method::GET, "/x")?)
-            .await
-            .unwrap_err()
+        admin_request(&settings, Method::GET, "/x")?
+            .send()
+            .await?
+            .status()
     );
     Ok(())
 }
@@ -255,33 +223,33 @@ async fn test_not_found() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_root_readonly() -> Result<()> {
     let settings = create_api_server().await?;
-    assert_eq!(
-        "OK",
-        send(readonly_request(&settings, Method::GET, routes::ROOT)?)
-            .await
-            .unwrap()
-    );
+    assert!(readonly_request(&settings, Method::GET, routes::ROOT)?
+        .send()
+        .await?
+        .status()
+        .is_success());
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_root_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    assert_eq!(
-        "OK",
-        send(admin_request(&settings, Method::GET, routes::ROOT)?)
-            .await
-            .unwrap()
-    );
+    assert!(admin_request(&settings, Method::GET, routes::ROOT)?
+        .send()
+        .await?
+        .status()
+        .is_success());
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_info_readonly() -> Result<()> {
     let settings = create_api_server().await?;
-    let info: GetInfo = send(readonly_request(&settings, Method::GET, routes::GET_INFO)?)
-        .await
-        .deserialize();
+    let info: GetInfo = readonly_request(&settings, Method::GET, routes::GET_INFO)?
+        .send()
+        .await?
+        .json()
+        .await?;
     assert_eq!(LIGHTNING.num_peers, info.num_peers);
     Ok(())
 }
@@ -289,13 +257,11 @@ async fn test_get_info_readonly() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_balance_readonly() -> Result<()> {
     let settings = create_api_server().await?;
-    let balance: WalletBalance = send(readonly_request(
-        &settings,
-        Method::GET,
-        routes::GET_BALANCE,
-    )?)
-    .await
-    .deserialize();
+    let balance: WalletBalance = readonly_request(&settings, Method::GET, routes::GET_BALANCE)?
+        .send()
+        .await?
+        .json()
+        .await?;
     assert_eq!(9, balance.total_balance);
     assert_eq!(4, balance.conf_balance);
     assert_eq!(5, balance.unconf_balance);
@@ -305,13 +271,11 @@ async fn test_get_balance_readonly() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_channels_readonly() -> Result<()> {
     let settings = create_api_server().await?;
-    let channels: Vec<Channel> = send(readonly_request(
-        &settings,
-        Method::GET,
-        routes::LIST_CHANNELS,
-    )?)
-    .await
-    .deserialize();
+    let channels: Vec<Channel> = readonly_request(&settings, Method::GET, routes::LIST_CHANNELS)?
+        .send()
+        .await?
+        .json()
+        .await?;
     let channel = channels.get(0).unwrap();
     assert_eq!(
         "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
@@ -339,14 +303,16 @@ async fn test_list_channels_readonly() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_open_channel_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let response: FundChannelResponse = send(admin_request_with_body(
+    let response: FundChannelResponse = admin_request_with_body(
         &settings,
         Method::POST,
         routes::OPEN_CHANNEL,
         fund_channel_request,
-    )?)
-    .await
-    .deserialize();
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
     assert_eq!(
         "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
         response.txid
@@ -361,14 +327,16 @@ async fn test_open_channel_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_set_channel_fee_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let response: SetChannelFeeResponse = send(admin_request_with_body(
+    let response: SetChannelFeeResponse = admin_request_with_body(
         &settings,
         Method::POST,
         routes::SET_CHANNEL_FEE,
         set_channel_fee_request,
-    )?)
-    .await
-    .deserialize();
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
 
     let fee = response.0.get(0).context("Bad response")?;
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), fee.short_channel_id);
@@ -386,14 +354,14 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
         base: Some(32500),
         ppm: Some(1200),
     };
-    let response: SetChannelFeeResponse = send(admin_request_with_body(
-        &settings,
-        Method::POST,
-        routes::SET_CHANNEL_FEE,
-        || request.clone(),
-    )?)
-    .await
-    .deserialize();
+    let response: SetChannelFeeResponse =
+        admin_request_with_body(&settings, Method::POST, routes::SET_CHANNEL_FEE, || {
+            request.clone()
+        })?
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let fee = response.0.get(0).context("Bad response")?;
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), fee.short_channel_id);
@@ -406,27 +374,26 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_close_channel_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let result = send(admin_request(
+    let result = admin_request(
         &settings,
         Method::DELETE,
         &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
-    )?)
-    .await;
-    assert!(result.0.is_ok());
+    )?
+    .send()
+    .await?;
+    assert!(result.status().is_success());
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_withdraw_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let response: WalletTransferResponse = send(admin_request_with_body(
-        &settings,
-        Method::POST,
-        routes::WITHDRAW,
-        withdraw_request,
-    )?)
-    .await
-    .deserialize();
+    let response: WalletTransferResponse =
+        admin_request_with_body(&settings, Method::POST, routes::WITHDRAW, withdraw_request)?
+            .send()
+            .await?
+            .json()
+            .await?;
     assert_eq!("{\"version\":2,\"lock_time\":0,\"input\":[{\"previous_output\":\"0f60fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2:1\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]},{\"previous_output\":\"0f60fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2:0\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]},{\"previous_output\":\"0e53ec5dfb2cb8a71fec32dc9a634a35b7e24799295ddd5278217822e0b31f57:5\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]}],\"output\":[{\"value\":1000,\"script_pubkey\":\"aaee\"},{\"value\":1000,\"script_pubkey\":\"aa\"},{\"value\":800,\"script_pubkey\":\"ff\"}]}", response.tx);
     assert_eq!(
         "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
@@ -438,14 +405,16 @@ async fn test_withdraw_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_new_address_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let response: NewAddressResponse = send(admin_request_with_body(
+    let response: NewAddressResponse = admin_request_with_body(
         &settings,
         Method::GET,
         routes::NEW_ADDR,
         NewAddress::default,
-    )?)
-    .await
-    .deserialize();
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
     assert_eq!(TEST_ADDRESS.to_string(), response.address);
     Ok(())
 }
@@ -453,13 +422,11 @@ async fn test_new_address_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_peers_readonly() -> Result<()> {
     let settings = create_api_server().await?;
-    let response: Vec<Peer> = send(readonly_request(
-        &settings,
-        Method::GET,
-        routes::LIST_PEERS,
-    )?)
-    .await
-    .deserialize();
+    let response: Vec<Peer> = readonly_request(&settings, Method::GET, routes::LIST_PEERS)?
+        .send()
+        .await?
+        .json()
+        .await?;
     let netaddr = Some(Address {
         address_type: "ipv4".to_string(),
         address: "127.0.0.1".to_string(),
@@ -477,28 +444,58 @@ async fn test_list_peers_readonly() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_connect_peer_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let response: String = send(admin_request_with_body(
-        &settings,
-        Method::POST,
-        routes::CONNECT_PEER,
-        || TEST_PUBLIC_KEY,
-    )?)
-    .await
-    .deserialize();
+    let response: String =
+        admin_request_with_body(&settings, Method::POST, routes::CONNECT_PEER, || {
+            TEST_PUBLIC_KEY
+        })?
+        .send()
+        .await?
+        .json()
+        .await?;
     assert_eq!(TEST_PUBLIC_KEY, response);
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_get_node() -> Result<()> {
+async fn test_disconnect_peer_admin() -> Result<()> {
     let settings = create_api_server().await?;
-    let nodes: Vec<Node> = send(readonly_request(
+    let response = admin_request(
+        &settings,
+        Method::DELETE,
+        &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
+    )?
+    .send()
+    .await?;
+    assert!(response.status().is_success());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_disconnect_peer_admin_malformed_key() -> Result<()> {
+    let settings = create_api_server().await?;
+    let response = admin_request(
+        &settings,
+        Method::DELETE,
+        &routes::DISCONNECT_PEER.replace(":id", "abcd"),
+    )?
+    .send()
+    .await?;
+    assert!(response.status().is_client_error());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_get_node_readonly() -> Result<()> {
+    let settings = create_api_server().await?;
+    let nodes: Vec<Node> = readonly_request(
         &settings,
         Method::GET,
         &routes::LIST_NODE.replace(":id", TEST_PUBLIC_KEY),
-    )?)
-    .await
-    .deserialize();
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
     let node = nodes.get(0).context("no node in response")?;
     assert_eq!(TEST_PUBLIC_KEY, node.node_id);
     assert_eq!(TEST_ALIAS, node.alias);
@@ -514,15 +511,13 @@ async fn test_get_node() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_list_nodes() -> Result<()> {
+async fn test_list_nodes_readonly() -> Result<()> {
     let settings = create_api_server().await?;
-    let nodes: Vec<Node> = send(readonly_request(
-        &settings,
-        Method::GET,
-        routes::LIST_NODES,
-    )?)
-    .await
-    .deserialize();
+    let nodes: Vec<Node> = readonly_request(&settings, Method::GET, routes::LIST_NODES)?
+        .send()
+        .await?
+        .json()
+        .await?;
     assert_eq!(TEST_PUBLIC_KEY, nodes.get(0).context("bad result")?.node_id);
     Ok(())
 }
@@ -599,10 +594,11 @@ pub async fn create_api_server() -> Result<Settings> {
             .unwrap()
     });
 
-    while send(readonly_request(&s, Method::GET, routes::ROOT)?)
-        .await
-        .0
-        .is_err()
+    while !readonly_request(&s, Method::GET, routes::ROOT)?
+        .send()
+        .await?
+        .status()
+        .is_success()
     {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -658,28 +654,4 @@ fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(
 ) -> Result<RequestBuilder> {
     let body = serde_json::to_string(&f()).unwrap();
     Ok(readonly_request(settings, method, route)?.body(body))
-}
-
-struct ApiResult(Result<String, StatusCode>);
-
-impl ApiResult {
-    fn deserialize<T: DeserializeOwned>(self) -> T {
-        serde_json::from_str::<T>(&self.0.unwrap()).unwrap()
-    }
-
-    fn unwrap(self) -> String {
-        self.0.unwrap()
-    }
-
-    fn unwrap_err(self) -> StatusCode {
-        self.0.unwrap_err()
-    }
-}
-
-async fn send(builder: RequestBuilder) -> ApiResult {
-    let response = builder.send().await.unwrap();
-    if !response.status().is_success() {
-        return ApiResult(Err(response.status()));
-    }
-    ApiResult(Ok(response.text().await.unwrap()))
 }
