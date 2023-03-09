@@ -1,0 +1,22 @@
+[package]
+name = "deploy"
+version = "0.0.1"
+edition = "2021"
+
+[[bin]]
+name = "kld-deploy"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.69"
+log = { version = "0.4", features = ["std"] }
+serde_json = "1.0.94"
+serde_derive = "1.0.154"
+# FIXME use github version for toml support
+format_serde_error = { version = "0.3.0", features = [ "colored", "serde_json" ], default-features = false, git = "https://github.com/AlexanderThaller/format_serde_error" }
+serde = { version = "1.0.154", features = ["derive"] }
+toml = "0.7.2"
+tempfile = "3"
+ctrlc = { version = "3.2", features = ["termination"] }
+nix = "0.26.2"
+regex = "1"
