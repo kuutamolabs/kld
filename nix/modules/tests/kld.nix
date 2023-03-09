@@ -4,6 +4,7 @@
     # self here is set by using specialArgs in `lib.nix`
     node1 = { self, ... }: {
       imports = [ self.nixosModules.kld ];
+      kuutamo.cockroachdb.nodeName = "kld-00";
     };
   };
 

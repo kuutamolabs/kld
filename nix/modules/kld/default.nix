@@ -7,7 +7,7 @@ let
   cfg = config.kuutamo.kld;
   bitcoind-instance = "kld-${cfg.network}";
   bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
-  cockroachCfg = config.services.cockroachdb;
+  cockroachCfg = config.kuutamo.cockroachdb;
 in
 {
   options.kuutamo.kld = {
@@ -92,8 +92,8 @@ in
     # for cli
     environment.systemPackages = [ cfg.package ];
 
-    services.cockroachdb.ensureDatabases = [ "kld" ];
-    services.cockroachdb.ensureUsers = [{
+    kuutamo.cockroachdb.ensureDatabases = [ "kld" ];
+    kuutamo.cockroachdb.ensureUsers = [{
       name = "kld";
       ensurePermissions."DATABASE kld" = "ALL";
     }];
@@ -127,8 +127,8 @@ in
         KLD_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KLD_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KLD_NODE_NAME = lib.mkDefault cfg.nodeAlias;
-        KLD_DATABASE_HOST = lib.mkDefault config.networking.fqdnOrHostName;
-        KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.listen.port);
+        KLD_DATABASE_HOST = lib.mkDefault "localhost";
+        KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.sql.port);
         KLD_DATABASE_USER = lib.mkDefault "kld";
         KLD_DATABASE_NAME = lib.mkDefault "kld";
         KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/ca.crt'';
@@ -143,7 +143,6 @@ in
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
       };
       path = [
-        config.services.cockroachdb.package
         bitcoinCfg.package # for cli
         pkgs.util-linux # setpriv
       ];
