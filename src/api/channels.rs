@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use api::Channel;
@@ -8,17 +9,18 @@ use api::FundChannelResponse;
 use api::SetChannelFee;
 use api::SetChannelFeeResponse;
 use axum::extract::Path;
-use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
+use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
 use lightning::ln::channelmanager::ChannelDetails;
-use log::{info, warn};
 
-use crate::handle_bad_request;
-use crate::handle_err;
-use crate::handle_unauthorized;
+use crate::api::bad_request;
+use crate::net_utils::PeerAddress;
 use crate::to_string_empty;
 
+use super::internal_server;
+use super::unauthorized;
+use super::ApiError;
 use super::KldMacaroon;
 use super::LightningInterface;
 use super::MacaroonAuth;
@@ -27,8 +29,10 @@ pub(crate) async fn list_channels(
     macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_readonly_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
 
     let channels: Vec<Channel> = lightning_interface
         .list_channels()
@@ -71,21 +75,39 @@ pub(crate) async fn open_channel(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(fund_channel): Json<FundChannel>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_admin_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
 
-    let pub_key_bytes = handle_bad_request!(hex::decode(fund_channel.id));
-    let public_key = handle_bad_request!(PublicKey::from_slice(&pub_key_bytes));
-    let value = handle_bad_request!(fund_channel.satoshis.parse());
-    let push_msat =
-        handle_bad_request!(fund_channel.push_msat.map(|x| x.parse::<u64>()).transpose());
+    let (public_key, net_address) = match fund_channel.id.split_once('@') {
+        Some((public_key, net_address)) => (
+            PublicKey::from_str(public_key).map_err(bad_request)?,
+            Some(net_address.parse::<PeerAddress>().map_err(bad_request)?),
+        ),
+        None => (
+            PublicKey::from_str(&fund_channel.id).map_err(bad_request)?,
+            None,
+        ),
+    };
+    lightning_interface
+        .connect_peer(public_key, net_address)
+        .await
+        .map_err(internal_server)?;
 
-    let result = handle_err!(
-        lightning_interface
-            .open_channel(public_key, value, push_msat, None)
-            .await
-    );
-    let transaction = handle_err!(serde_json::to_string(&result.transaction));
+    let value = fund_channel.satoshis.parse::<u64>().map_err(bad_request)?;
+    let push_msat = fund_channel
+        .push_msat
+        .map(|x| x.parse::<u64>())
+        .transpose()
+        .map_err(bad_request)?;
+
+    let result = lightning_interface
+        .open_channel(public_key, value, push_msat, None)
+        .await
+        .map_err(internal_server)?;
+
+    let transaction = serde_json::to_string(&result.transaction).map_err(internal_server)?;
     let response = FundChannelResponse {
         tx: transaction,
         txid: result.txid.to_string(),
@@ -99,8 +121,10 @@ pub(crate) async fn set_channel_fee(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(channel_fee): Json<ChannelFee>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_admin_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
 
     let mut updated_channels = vec![];
 
@@ -115,12 +139,9 @@ pub(crate) async fn set_channel_fee(
         }
         for (node_id, channels) in peer_channels {
             let channel_ids: Vec<[u8; 32]> = channels.iter().map(|c| c.channel_id).collect();
-            let (base, ppm) = handle_err!(lightning_interface.set_channel_fee(
-                &node_id,
-                &channel_ids,
-                channel_fee.ppm,
-                channel_fee.base
-            ));
+            let (base, ppm) = lightning_interface
+                .set_channel_fee(&node_id, &channel_ids, channel_fee.ppm, channel_fee.base)
+                .map_err(internal_server)?;
             for channel in channels {
                 updated_channels.push(SetChannelFee {
                     base,
@@ -135,12 +156,14 @@ pub(crate) async fn set_channel_fee(
         c.channel_id.encode_hex::<String>() == channel_fee.id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_fee.id
     }) {
-        let (base, ppm) = handle_err!(lightning_interface.set_channel_fee(
-            &channel.counterparty.node_id,
-            &[channel.channel_id],
-            channel_fee.ppm,
-            channel_fee.base
-        ));
+        let (base, ppm) = lightning_interface
+            .set_channel_fee(
+                &channel.counterparty.node_id,
+                &[channel.channel_id],
+                channel_fee.ppm,
+                channel_fee.base,
+            )
+            .map_err(internal_server)?;
         updated_channels.push(SetChannelFee {
             base,
             ppm,
@@ -149,7 +172,7 @@ pub(crate) async fn set_channel_fee(
             short_channel_id: to_string_empty!(channel.short_channel_id),
         });
     } else {
-        return Err(StatusCode::NOT_FOUND);
+        return Err(ApiError::NotFound(channel_fee.id));
     }
 
     Ok(Json(SetChannelFeeResponse(updated_channels)))
@@ -160,18 +183,20 @@ pub(crate) async fn close_channel(
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_admin_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
 
     if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
         c.channel_id.encode_hex::<String>() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
-        handle_err!(
-            lightning_interface.close_channel(&channel.channel_id, &channel.counterparty.node_id)
-        );
+        lightning_interface
+            .close_channel(&channel.channel_id, &channel.counterparty.node_id)
+            .map_err(internal_server)?;
         Ok(Json(()))
     } else {
-        Err(StatusCode::NOT_FOUND)
+        Err(ApiError::NotFound(channel_id))
     }
 }

@@ -1,11 +1,12 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
 use database::ldk_database::LdkDatabase;
 use lightning::ln::msgs::NetAddress;
 use log::{error, info};
 use settings::Settings;
+use tokio::task::JoinHandle;
 
 use crate::{
     controller::{ChannelManager, LdkPeerManager},
@@ -62,13 +63,25 @@ impl PeerManager {
     }
 
     pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: PeerAddress) -> Result<()> {
-        connect_peer(
+        if self.is_connected(&public_key) {
+            return Ok(());
+        }
+        let handle = connect_peer(
             self.ldk_peer_manager.clone(),
             self.database.clone(),
             public_key,
             peer_addr,
         )
-        .await
+        .await?;
+        loop {
+            if self.is_connected(&public_key) {
+                return Ok(());
+            }
+            if handle.is_finished() {
+                return Err(anyhow!("Peer disconnected"));
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await
+        }
     }
 
     pub fn keep_channel_peers_connected(&self) {
@@ -127,12 +140,15 @@ impl PeerManager {
         Ok(())
     }
 
-    pub fn get_connected_peers(&self) -> HashMap<PublicKey, Option<NetAddress>> {
-        let mut peers = HashMap::new();
-        for (public_key, net_address) in self.ldk_peer_manager.get_peer_node_ids() {
-            peers.insert(public_key, net_address);
-        }
-        peers
+    pub fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)> {
+        self.ldk_peer_manager.get_peer_node_ids()
+    }
+
+    pub fn is_connected(&self, public_key: &PublicKey) -> bool {
+        self.ldk_peer_manager
+            .get_peer_node_ids()
+            .iter()
+            .any(|p| p.0 == *public_key)
     }
 
     pub async fn disconnect_by_node_id(&self, node_id: PublicKey) -> Result<()> {
@@ -150,7 +166,7 @@ async fn connect_peer(
     database: Arc<LdkDatabase>,
     public_key: PublicKey,
     peer_address: PeerAddress,
-) -> Result<()> {
+) -> Result<JoinHandle<()>> {
     let socket_addr = SocketAddr::try_from(peer_address.clone())?;
     let connection_closed =
         lightning_net_tokio::connect_outbound(ldk_peer_manager, public_key, socket_addr)
@@ -163,9 +179,8 @@ async fn connect_peer(
         })
         .await?;
     info!("Connected to peer {public_key}@{socket_addr}");
-    tokio::spawn(async move {
+    Ok(tokio::spawn(async move {
         connection_closed.await;
         info!("Disconnected from peer {public_key}@{socket_addr}");
-    });
-    Ok(())
+    }))
 }

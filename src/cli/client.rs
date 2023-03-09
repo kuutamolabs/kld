@@ -29,6 +29,7 @@ impl Api {
             .tls_sni(false)
             .add_root_certificate(cert)
             .use_native_tls()
+            .timeout(None)
             .build()?;
         Ok(Api {
             host: host.to_string(),
@@ -144,7 +145,7 @@ impl Api {
 fn send<T: DeserializeOwned>(builder: RequestBuilder) -> Result<T> {
     let response = builder.send()?;
     if !response.status().is_success() {
-        return Err(anyhow!("{}", response.status()));
+        return Err(anyhow!("{}: {}", response.status(), response.text()?));
     }
     Ok(response.json()?)
 }

@@ -10,12 +10,11 @@ use axum::{
     Extension, TypedHeader,
 };
 use futures::StreamExt;
-use hyper::StatusCode;
 use log::{debug, info};
 
-use crate::handle_unauthorized;
+use crate::api::unauthorized;
 
-use super::{KldMacaroon, MacaroonAuth};
+use super::{ApiError, KldMacaroon, MacaroonAuth};
 
 /// This is WIP. Just connects and checks macaroon at the moment.
 
@@ -30,8 +29,10 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_admin_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_admin_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
     let user_agent = user_agent
         .map(|a| a.to_string())
         .unwrap_or_else(|| "Unknown client".to_string());

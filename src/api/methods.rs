@@ -1,22 +1,22 @@
 use api::Address;
 use api::{Chain, GetInfo};
-use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
+use axum::Json;
+use axum::{response::IntoResponse, Extension};
 use bitcoin::Network;
-use log::{info, warn};
 use std::sync::Arc;
 
-use crate::{handle_err, handle_unauthorized};
-
-use super::KldMacaroon;
-use super::LightningInterface;
 use super::MacaroonAuth;
+use super::{internal_server, unauthorized, LightningInterface};
+use super::{ApiError, KldMacaroon};
 
 pub(crate) async fn get_info(
     macaroon: KldMacaroon,
     Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-) -> Result<impl IntoResponse, StatusCode> {
-    handle_unauthorized!(macaroon_auth.verify_readonly_macaroon(&macaroon.0));
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_readonly_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
 
     let info = GetInfo {
         id: lightning_interface.identity_pubkey().to_string(),
@@ -25,7 +25,9 @@ pub(crate) async fn get_info(
         num_active_channels: lightning_interface.num_active_channels(),
         num_inactive_channels: lightning_interface.num_inactive_channels(),
         num_peers: lightning_interface.num_peers(),
-        block_height: handle_err!(lightning_interface.block_height()),
+        block_height: lightning_interface
+            .block_height()
+            .map_err(internal_server)?,
         synced_to_chain: true,
         testnet: lightning_interface.network() != Network::Bitcoin,
         chains: vec![Chain {

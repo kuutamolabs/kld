@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 use bitcoin_bech32::WitnessProgram;
@@ -31,6 +32,7 @@ pub(crate) struct EventHandler {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
     async_api_requests: Arc<AsyncAPIRequests>,
+    runtime_handle: Handle,
 }
 
 impl EventHandler {
@@ -46,6 +48,7 @@ impl EventHandler {
         network_graph: Arc<NetworkGraph>,
         wallet: Arc<Wallet>,
         async_api_requests: Arc<AsyncAPIRequests>,
+        runtime_handle: Handle,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -57,6 +60,7 @@ impl EventHandler {
             network_graph,
             wallet,
             async_api_requests,
+            runtime_handle,
         }
     }
 }
@@ -64,7 +68,7 @@ impl EventHandler {
 impl lightning::util::events::EventHandler for EventHandler {
     fn handle_event(&self, event: lightning::util::events::Event) {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(self.handle_event_async(event))
+            self.runtime_handle.block_on(self.handle_event_async(event))
         })
     }
 }
@@ -112,23 +116,36 @@ impl EventHandler {
                 {
                     error!("Channel went away before we could fund it. The peer disconnected or refused the channel.");
                 }
+                info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
                 self.async_api_requests
                     .channel_opens
-                    .send(user_channel_id, funding_tx)
+                    .send(user_channel_id, Ok(funding_tx))
                     .await;
             }
             Event::ChannelReady {
-                channel_id: _,
-                user_channel_id: _,
-                counterparty_node_id: _,
+                channel_id,
+                user_channel_id,
+                counterparty_node_id,
                 channel_type: _,
-            } => {}
+            } => {
+                info!(
+                    "EVENT: Channel {:?} - {user_channel_id} with counterparty {} is ready to use.",
+                    channel_id, counterparty_node_id
+                );
+            }
             Event::ChannelClosed {
                 channel_id,
                 reason,
-                user_channel_id: _,
+                user_channel_id,
             } => {
-                info!("EVENT: Channel {:?} closed due to: {}", channel_id, reason);
+                info!("EVENT: Channel {:?} closed due to: {reason}.", channel_id);
+                self.async_api_requests
+                    .channel_opens
+                    .send(
+                        user_channel_id,
+                        Err(anyhow!("Channel closed due to {reason}")),
+                    )
+                    .await;
             }
             Event::DiscardFunding { .. } => {
                 // A "real" node should probably "lock" the UTXOs spent in funding transactions until

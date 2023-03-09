@@ -32,7 +32,7 @@ pub async fn test_start() -> Result<()> {
     assert_eq!(pid, kld.pid().unwrap().to_string());
     assert!(kld.call_exporter("metrics").await.is_ok());
 
-    assert_eq!("OK", kld.call_rest_api("").await.unwrap());
+    assert!(kld.call_rest_api(routes::ROOT).await.is_ok());
 
     let result = kld.call_rest_api(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();

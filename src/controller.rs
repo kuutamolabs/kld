@@ -119,12 +119,7 @@ impl LightningInterface for Controller {
         push_msat: Option<u64>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
-        if !self
-            .peer_manager
-            .get_connected_peers()
-            .iter()
-            .any(|p| p.0 == &their_network_key)
-        {
+        if !self.peer_manager.is_connected(&their_network_key) {
             return Err(anyhow!("Peer not connected"));
         }
         let user_channel_id: u128 = random();
@@ -143,7 +138,7 @@ impl LightningInterface for Controller {
             .channel_opens
             .insert(user_channel_id)
             .await;
-        let transaction = receiver.await?;
+        let transaction = receiver.await??;
         let txid = transaction.txid();
         Ok(OpenChannelResult {
             transaction,
@@ -201,23 +196,28 @@ impl LightningInterface for Controller {
 
         let mut response = vec![];
 
-        let mut all_pub_keys: HashSet<PublicKey> =
-            HashSet::from_iter(connected_peers.keys().cloned());
+        let mut all_pub_keys: HashSet<PublicKey> = HashSet::from_iter(
+            connected_peers
+                .iter()
+                .map(|p| p.0)
+                .collect::<Vec<PublicKey>>(),
+        );
         all_pub_keys.extend(channel_peers);
         all_pub_keys.extend(persistent_peers.keys());
 
         for public_key in all_pub_keys {
-            let status = if connected_peers.contains_key(&public_key) {
+            let net_address = connected_peers
+                .iter()
+                .find(|p| p.0 == public_key)
+                .and_then(|p| p.1.clone());
+            let status = if net_address.is_some() {
                 PeerStatus::Connected
             } else {
                 PeerStatus::Disconnected
             };
-
             response.push(Peer {
                 public_key,
-                // Currently unable to map a socket address to public key for inbound connections.
-                // Waiting for rust-lightning release.
-                net_address: connected_peers.get(&public_key).cloned().unwrap_or(None),
+                net_address,
                 status,
                 alias: self.alias_of(&public_key).unwrap_or_default(),
             });
@@ -281,7 +281,7 @@ impl LightningInterface for Controller {
 }
 
 pub struct AsyncAPIRequests {
-    pub channel_opens: AsyncSenders<u128, Transaction>,
+    pub channel_opens: AsyncSenders<u128, Result<Transaction>>,
 }
 
 impl AsyncAPIRequests {
@@ -622,6 +622,7 @@ impl Controller {
             network_graph.clone(),
             wallet.clone(),
             async_api_requests.clone(),
+            Handle::current(),
         );
 
         // Background Processing
