@@ -8,6 +8,11 @@ let
   bitcoind-instance = "kld-${cfg.network}";
   bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
   cockroachCfg = config.kuutamo.cockroachdb;
+
+  kld-cli = pkgs.runCommand "kld-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+    makeWrapper ${cfg.package}/bin/kld-cli $out/bin/kld-cli \
+      --add-flags "--target ${cfg.restApiAddress} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
+  '';
 in
 {
   options.kuutamo.kld = {
@@ -90,7 +95,7 @@ in
 
   config = {
     # for cli
-    environment.systemPackages = [ cfg.package ];
+    environment.systemPackages = [ kld-cli ];
 
     kuutamo.cockroachdb.ensureDatabases = [ "kld" ];
     kuutamo.cockroachdb.ensureUsers = [{
