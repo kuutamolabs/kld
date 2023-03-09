@@ -10,8 +10,7 @@ members = [
     "database",
     "logger",
     "settings",
-    "test-utils",
-    "deploy"
+    "test-utils"
 ]
 
 [[bin]]

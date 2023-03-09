@@ -7,6 +7,8 @@ edition = "2021"
 name = "kld-deploy"
 path = "src/main.rs"
 
+[workspace]
+
 [dependencies]
 anyhow = "1.0.69"
 log = { version = "0.4", features = ["std"] }
