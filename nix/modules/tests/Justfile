@@ -9,6 +9,12 @@ debug-test TEST:
 run-test TEST:
   nix build ".#checks.x86_64-linux.{{TEST}}" -L
 
+# Regenerate flake used during the test
+generate-test-flake:
+  rm -rf test-flake
+  cargo run --bin kneard-deploy -- --config ./test-config.toml generate-config test-flake
+  git add test-config.toml test-flake
+
 # To attach to a breakpoint() call of debug-test
 debug-repl:
    socat READLINE tcp:127.0.0.1:4444,forever,interval=2
