@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use ctrlc;
 use log::info;
 use std::{
     process::Command,

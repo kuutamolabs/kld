@@ -2,11 +2,9 @@
 , lib
 , clippy
 , openssl
-, bitcoind
-, cockroachdb
-, teos
 , pkg-config
 , self
+, nix
 }:
 let
   paths = [ "deploy" ];
@@ -16,13 +14,15 @@ let
   };
   buildInputs = [ openssl ];
   nativeBuildInputs = [ pkg-config ];
+  checkInputs = [ nix ];
+
   cargoExtraArgs = "--workspace --all-features";
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src buildInputs nativeBuildInputs cargoExtraArgs;
   };
 in
 craneLib.buildPackage {
-  name = "kld";
+  name = "kld-deploy";
   inherit src cargoArtifacts buildInputs nativeBuildInputs;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
@@ -33,7 +33,7 @@ craneLib.buildPackage {
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoArtifacts buildInputs cargoExtraArgs;
-      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb teos ];
+      nativeBuildInputs = nativeBuildInputs ++ checkInputs;
     };
   };
 

@@ -10,8 +10,6 @@ use std::fs;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
-use toml;
-
 use super::secrets::Secrets;
 use super::NixosFlake;
 
@@ -437,7 +435,7 @@ ipv6_address = "2605:9880:400::4"
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    let config = parse_config(config_str, None)?;
+    parse_config(config_str, None)?;
 
     Ok(())
 }
