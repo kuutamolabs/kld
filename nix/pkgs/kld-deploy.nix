@@ -9,20 +9,9 @@
 , self
 }:
 let
-  paths = [
-    "Cargo.toml"
-    "Cargo.lock"
-    "src"
-    "api"
-    "benches"
-    "database"
-    "logger"
-    "settings"
-    "tests"
-    "test-utils"
-  ];
+  paths = [ "deploy" ];
   src = lib.cleanSourceWith {
-    src = self;
+    src = self + "/deploy";
     filter = path: _type: lib.any (p: lib.hasPrefix "${self}/${p}" path) paths;
   };
   buildInputs = [ openssl ];
@@ -40,10 +29,6 @@ craneLib.buildPackage {
     clippy = craneLib.cargoClippy {
       inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
       cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
-    };
-    benches = craneLib.mkCargoDerivation {
-      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
-      buildPhaseCargoCommand = "cargo bench --no-run";
     };
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
