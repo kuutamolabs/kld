@@ -64,16 +64,16 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
 
             let modules = nixos_modules
                 .iter()
-                .map(|m| format!("      near-staking-knd.nixosModules.\"{m}\""))
+                .map(|m| format!("      lightning-knd.nixosModules.\"{m}\""))
                 .collect::<Vec<_>>()
                 .join("\n");
 
             format!(
-                r#"  nixosConfigurations."{name}" = near-staking-knd.inputs.nixpkgs.lib.nixosSystem {{
+                r#"  nixosConfigurations."{name}" = lightning-knd.inputs.nixpkgs.lib.nixosSystem {{
     system = "x86_64-linux";
     modules = [
 {modules}
-      {{ kuutamo.deployConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "validator.toml"; path = ./{name}.toml; }})); }}
+      {{ kuutamo.deployConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "node.toml"; path = ./{name}.toml; }})); }}
     ];
   }};"#
             )
@@ -84,7 +84,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
     let mut configuration_file =
         File::create(configuration_path).context("could not create configurations.nix")?;
     let configuration_content = format!(
-        r#"{{ near-staking-knd, ... }}: {{
+        r#"{{ lightning-knd, ... }}: {{
 {configurations}
 }}
 "#
@@ -94,7 +94,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         .context("could not write configurations.nix")?;
     let flake_content = format!(
         r#"{{
-  inputs.near-staking-knd.url = "{nixos_flake}";
+  inputs.lightning-knd.url = "{nixos_flake}";
 
   nixConfig.extra-substituters = [
     "https://cache.garnix.io"
@@ -124,7 +124,7 @@ pub fn test_nixos_flake() -> Result<()> {
     let config = parse_config(
         r#"
 [global]
-flake = "github:myfork/near-staking-knd"
+flake = "github:myfork/lightning-knd"
 
 [host_defaults]
 public_ssh_keys = [
@@ -136,16 +136,21 @@ ipv4_gateway = "199.127.64.1"
 ipv6_gateway = "2605:9880:400::1"
 
 [hosts]
-[hosts.validator-00]
+[hosts.kld-00]
+nixos_module = "kld-node"
 ipv4_address = "199.127.64.2"
 ipv6_address = "2605:9880:400::2"
 ipv6_cidr = 48
-validator_key_file = "validator_key.json"
-validator_node_key_file = "node_key.json"
 
-[hosts.validator-01]
+[hosts.db-00]
+nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.3"
 ipv6_address = "2605:9880:400::3"
+
+[hosts.db-01]
+nixos_module = "cockroachdb-node"
+ipv4_address = "199.127.64.4"
+ipv6_address = "2605:9880:400::4"
 "#,
         None,
     )?;
@@ -161,7 +166,8 @@ ipv6_address = "2605:9880:400::3"
     ];
     let status = Command::new("nix-instantiate").args(args).status()?;
     assert_eq!(status.code(), Some(0));
-    assert!(flake_path.join("validator-00.toml").exists());
-    assert!(flake_path.join("validator-01.toml").exists());
+    assert!(flake_path.join("kld-00.toml").exists());
+    assert!(flake_path.join("db-00.toml").exists());
+    assert!(flake_path.join("db-01.toml").exists());
     Ok(())
 }

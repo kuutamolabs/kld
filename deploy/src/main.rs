@@ -49,16 +49,6 @@ struct UpdateArgs {
     /// Comma-separated lists of hosts to perform the update
     #[clap(long, default_value = "")]
     hosts: String,
-
-    /// Immediately update without finding maintenance windows
-    #[clap(long)]
-    immediately: bool,
-
-    /// If not immediately, please specify time in blocks to copy the binary files for updating.
-    /// It takes 1~2 seconds for a near block.
-    /// If 0 or not provided, kuutamo will try to update in the longest maintenance window in the current epoch,
-    /// but it can not guarantee the  maintenance window is enough.
-    required_time_in_blocks: Option<u64>,
 }
 
 /// Subcommand to run

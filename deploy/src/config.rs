@@ -186,7 +186,7 @@ pub struct Global {
 }
 
 fn validate_global(global_config: &GlobalConfig) -> Result<Global> {
-    let default_flake = "github:kuutamolabs/near-staking-knd";
+    let default_flake = "github:kuutamolabs/lightning-knd";
     let flake = global_config
         .flake
         .as_deref()
@@ -244,12 +244,10 @@ fn validate_host(
         bail!("ipv4_cidr for hosts.{name} is not between 0 and 32: {ipv4_cidr}")
     }
 
-    let default_module = "single-node-validator-mainnet";
     let nixos_module = host
         .nixos_module
         .as_deref()
-        .or(default.nixos_module.as_deref())
-        .unwrap_or(default_module)
+        .with_context(|| format!("no nixos_module provided for hosts.{name}"))?
         .to_string();
 
     let mut extra_nixos_modules = vec![];
@@ -398,40 +396,46 @@ ipv4_gateway = "199.127.64.1"
 ipv6_gateway = "2605:9880:400::1"
 
 [hosts]
-[hosts.validator-00]
+[hosts.kld-00]
+nixos_module = "kld-node"
 ipv4_address = "199.127.64.2"
 ipv6_address = "2605:9880:400::2"
 ipv6_cidr = 48
 
-[hosts.validator-01]
+[hosts.db-00]
+nixos_module = "kld-node"
 ipv4_address = "199.127.64.3"
 ipv6_address = "2605:9880:400::3"
+
+[hosts.db-01]
+nixos_module = "cockroachdb-node"
+ipv4_address = "199.127.64.4"
+ipv6_address = "2605:9880:400::4"
 "#;
 
     let config = parse_config(config_str, None)?;
     assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
 
     let hosts = &config.hosts;
-    assert_eq!(hosts.len(), 2);
+    assert_eq!(hosts.len(), 3);
     assert_eq!(
-        hosts["validator-00"].ipv4_address,
+        hosts["kld-00"].ipv4_address,
         IpAddr::from_str("199.127.64.2").unwrap()
     );
-    assert_eq!(hosts["validator-00"].ipv4_cidr, 24);
+    assert_eq!(hosts["kld-00"].ipv4_cidr, 24);
     assert_eq!(
-        hosts["validator-00"].ipv4_gateway,
+        hosts["db-00"].ipv4_gateway,
         IpAddr::from_str("199.127.64.1").unwrap()
     );
     assert_eq!(
-        hosts["validator-00"].ipv6_address,
-        IpAddr::from_str("2605:9880:400::2").ok()
+        hosts["db-00"].ipv6_address,
+        IpAddr::from_str("2605:9880:400::3").ok()
     );
-    assert_eq!(hosts["validator-00"].ipv6_cidr, Some(48));
+    assert_eq!(hosts["kld-00"].ipv6_cidr, Some(48));
     assert_eq!(
-        hosts["validator-00"].ipv6_gateway,
+        hosts["kld-00"].ipv6_gateway,
         IpAddr::from_str("2605:9880:400::1").ok()
     );
-    let k = hosts["validator-00"].validator_keys.as_ref().unwrap();
 
     let config = parse_config(config_str, None)?;
 
@@ -464,6 +468,7 @@ fn test_invalid_string_for_ipv6() {
 fn test_validate_host() {
     let mut config = HostConfig {
         ipv4_address: Some("192.168.0.1".parse::<IpAddr>().unwrap()),
+        nixos_module: Some("kld-node".to_string()),
         ipv4_cidr: Some(0),
         ipv4_gateway: Some("192.168.255.255".parse::<IpAddr>().unwrap()),
         ipv6_address: None,
@@ -476,7 +481,7 @@ fn test_validate_host() {
         validate_host("ipv4-only", &config, &HostConfig::default(), None).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
-            nixos_module: "single-node-validator-mainnet".to_string(),
+            nixos_module: "kld-node".to_string(),
             extra_nixos_modules: Vec::new(),
             mac_address: None,
             ipv4_address: "192.168.0.1".parse::<IpAddr>().unwrap(),
@@ -489,7 +494,6 @@ fn test_validate_host() {
             ssh_hostname: "192.168.0.1".to_string(),
             public_ssh_keys: vec!["".to_string()],
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
-            validator_keys: None,
         }
     );
 
