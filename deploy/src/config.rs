@@ -1,8 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 
 use log::warn;
-use nix::libc::STDIN_FILENO;
-use nix::sys::termios;
 use regex::Regex;
 use serde::Serialize;
 use serde_derive::Deserialize;
@@ -16,38 +14,6 @@ use toml;
 
 use super::secrets::Secrets;
 use super::NixosFlake;
-
-struct DisableTerminalEcho {
-    flags: Option<termios::Termios>,
-}
-
-impl DisableTerminalEcho {
-    fn new() -> Self {
-        let old_flags = match termios::tcgetattr(STDIN_FILENO) {
-            Ok(flags) => flags,
-            Err(_) => {
-                // Not a terminal, just make this a NOOP
-                return DisableTerminalEcho { flags: None };
-            }
-        };
-        let mut new_flags = old_flags.clone();
-        new_flags.local_flags &= !termios::LocalFlags::ECHO;
-        match termios::tcsetattr(STDIN_FILENO, termios::SetArg::TCSANOW, &new_flags) {
-            Ok(_) => DisableTerminalEcho {
-                flags: Some(old_flags),
-            },
-            Err(_) => DisableTerminalEcho { flags: None },
-        }
-    }
-}
-
-impl Drop for DisableTerminalEcho {
-    fn drop(&mut self) {
-        if let Some(ref flags) = self.flags {
-            let _ = termios::tcsetattr(STDIN_FILENO, termios::SetArg::TCSANOW, flags);
-        }
-    }
-}
 
 /// IpV6String allows prefix only address format and normal ipv6 address
 ///
