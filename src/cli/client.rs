@@ -8,11 +8,12 @@ use api::{
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
-    blocking::{Client, ClientBuilder, RequestBuilder},
+    blocking::{Client, ClientBuilder, RequestBuilder, Response},
     header::{HeaderValue, CONTENT_TYPE},
     Certificate, Method,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::to_string_pretty;
 
 pub struct Api {
     host: String,
@@ -38,19 +39,24 @@ impl Api {
         })
     }
 
-    pub fn get_info(&self) -> Result<GetInfo> {
-        send(self.request(Method::GET, routes::GET_INFO))
+    pub fn get_info(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::GET_INFO).send()?;
+        deserialize::<GetInfo>(response)
     }
 
-    pub fn get_balance(&self) -> Result<WalletBalance> {
-        send(self.request(Method::GET, routes::GET_BALANCE))
+    pub fn get_balance(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::GET_BALANCE).send()?;
+        deserialize::<WalletBalance>(response)
     }
 
-    pub fn new_address(&self) -> Result<NewAddressResponse> {
-        send(self.request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default()))
+    pub fn new_address(&self) -> Result<String> {
+        let response = self
+            .request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default())
+            .send()?;
+        deserialize::<NewAddressResponse>(response)
     }
 
-    pub fn withdraw(&self, address: String, satoshis: String) -> Result<WalletTransferResponse> {
+    pub fn withdraw(&self, address: String, satoshis: String) -> Result<String> {
         let wallet_transfer = WalletTransfer {
             address,
             satoshis,
@@ -58,23 +64,34 @@ impl Api {
             min_conf: None,
             utxos: vec![],
         };
-        send(self.request_with_body(Method::POST, routes::WITHDRAW, wallet_transfer))
+        let response = self
+            .request_with_body(Method::POST, routes::WITHDRAW, wallet_transfer)
+            .send()?;
+        deserialize::<WalletTransferResponse>(response)
     }
 
-    pub fn list_channels(&self) -> Result<Vec<Channel>> {
-        send(self.request(Method::GET, routes::LIST_CHANNELS))
+    pub fn list_channels(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::LIST_CHANNELS).send()?;
+        deserialize::<Vec<Channel>>(response)
     }
 
-    pub fn list_peers(&self) -> Result<Vec<Peer>> {
-        send(self.request(Method::GET, routes::LIST_PEERS))
+    pub fn list_peers(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::LIST_PEERS).send()?;
+        deserialize::<Vec<Peer>>(response)
     }
 
-    pub fn connect_peer(&self, id: String) -> Result<PublicKey> {
-        send(self.request_with_body(Method::POST, routes::CONNECT_PEER, id))
+    pub fn connect_peer(&self, id: String) -> Result<String> {
+        let response = self
+            .request_with_body(Method::POST, routes::CONNECT_PEER, id)
+            .send()?;
+        deserialize::<PublicKey>(response)
     }
 
-    pub fn disconnect_peer(&self, id: String) -> Result<()> {
-        send(self.request(Method::DELETE, &routes::DISCONNECT_PEER.replace(":id", &id)))
+    pub fn disconnect_peer(&self, id: String) -> Result<String> {
+        let response = self
+            .request(Method::DELETE, &routes::DISCONNECT_PEER.replace(":id", &id))
+            .send()?;
+        deserialize::<()>(response)
     }
 
     pub fn open_channel(
@@ -82,7 +99,7 @@ impl Api {
         id: String,
         satoshis: String,
         push_msat: Option<String>,
-    ) -> Result<FundChannelResponse> {
+    ) -> Result<String> {
         let open_channel = FundChannel {
             id,
             satoshis,
@@ -95,7 +112,10 @@ impl Api {
             request_amt: None,
             compact_lease: None,
         };
-        send(self.request_with_body(Method::POST, routes::OPEN_CHANNEL, open_channel))
+        let response = self
+            .request_with_body(Method::POST, routes::OPEN_CHANNEL, open_channel)
+            .send()?;
+        deserialize::<FundChannelResponse>(response)
     }
 
     pub fn set_channel_fee(
@@ -103,21 +123,29 @@ impl Api {
         id: String,
         base: Option<u32>,
         ppm: Option<u32>,
-    ) -> Result<SetChannelFeeResponse> {
+    ) -> Result<String> {
         let fee_request = ChannelFee { id, base, ppm };
-        send(self.request_with_body(Method::POST, routes::SET_CHANNEL_FEE, fee_request))
+        let response = self
+            .request_with_body(Method::POST, routes::SET_CHANNEL_FEE, fee_request)
+            .send()?;
+        deserialize::<SetChannelFeeResponse>(response)
     }
 
-    pub fn close_channel(&self, id: String) -> Result<()> {
-        send(self.request(Method::DELETE, &routes::CLOSE_CHANNEL.replace(":id", &id)))
+    pub fn close_channel(&self, id: String) -> Result<String> {
+        let response = self
+            .request(Method::DELETE, &routes::CLOSE_CHANNEL.replace(":id", &id))
+            .send()?;
+        deserialize::<()>(response)
     }
 
-    pub fn list_nodes(&self, id: Option<String>) -> Result<Vec<Node>> {
-        if let Some(id) = id {
-            send(self.request(Method::GET, &routes::LIST_NODE.replace(":id", &id)))
+    pub fn list_nodes(&self, id: Option<String>) -> Result<String> {
+        let response = if let Some(id) = id {
+            self.request(Method::GET, &routes::LIST_NODE.replace(":id", &id))
+                .send()?
         } else {
-            send(self.request(Method::GET, routes::LIST_NODES))
-        }
+            self.request(Method::GET, routes::LIST_NODES).send()?
+        };
+        deserialize::<Vec<Node>>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
@@ -142,12 +170,12 @@ impl Api {
     }
 }
 
-fn send<T: DeserializeOwned>(builder: RequestBuilder) -> Result<T> {
-    let response = builder.send()?;
-    if !response.status().is_success() {
-        return Err(anyhow!("{}: {}", response.status(), response.text()?));
+fn deserialize<T: DeserializeOwned + Serialize>(response: Response) -> Result<String> {
+    if response.status().is_success() {
+        Ok(to_string_pretty(&response.json::<T>()?)?)
+    } else {
+        Ok(to_string_pretty(&response.json::<api::Error>()?)?)
     }
-    Ok(response.json()?)
 }
 
 fn read_file(path: &str) -> Result<Vec<u8>> {

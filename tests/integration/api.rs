@@ -473,14 +473,16 @@ async fn test_disconnect_peer_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_disconnect_peer_admin_malformed_key() -> Result<()> {
     let settings = create_api_server().await?;
-    let response = admin_request(
+    let response: api::Error = admin_request(
         &settings,
         Method::DELETE,
         &routes::DISCONNECT_PEER.replace(":id", "abcd"),
     )?
     .send()
+    .await?
+    .json()
     .await?;
-    assert!(response.status().is_client_error());
+    assert_eq!(response.status, StatusCode::BAD_REQUEST.to_string());
     Ok(())
 }
 

@@ -138,7 +138,7 @@ impl EventHandler {
                 reason,
                 user_channel_id,
             } => {
-                info!("EVENT: Channel {:?} closed due to: {reason}.", channel_id);
+                info!("EVENT: Channel {:?}: {reason}.", channel_id);
                 self.async_api_requests
                     .channel_opens
                     .send(

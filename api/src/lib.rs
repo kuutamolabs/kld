@@ -43,6 +43,12 @@ pub mod routes {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct Error {
+    pub status: String,
+    pub detail: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct GetInfo {
     pub id: String,
     pub alias: String,
