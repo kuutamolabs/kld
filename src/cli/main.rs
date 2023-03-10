@@ -3,8 +3,6 @@ mod client;
 use crate::client::Api;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use serde::Serialize;
-use serde_json::to_string_pretty;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -103,44 +101,33 @@ fn main() {
     }
 }
 
-fn print<T>(result: Result<T>) -> Result<()>
-where
-    T: Sized + Serialize,
-{
-    let output = match result {
-        Ok(json) => to_string_pretty(&json)?,
-        Err(e) => e.to_string(),
-    };
-    if output != "null" {
-        println!("{output}");
-    }
-    Ok(())
-}
-
 fn run_command(args: Args) -> Result<()> {
     let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
-    match args.command {
-        Command::GetInfo => print(api.get_info())?,
-        Command::GetBalance => print(api.get_balance())?,
-        Command::NewAddress => print(api.new_address())?,
-        Command::Withdraw { address, satoshis } => print(api.withdraw(address, satoshis))?,
-        Command::ListChannels => print(api.list_channels())?,
-        Command::ListPeers => print(api.list_peers())?,
-        Command::ConnectPeer { public_key } => print(api.connect_peer(public_key))?,
-        Command::DisconnectPeer { public_key } => print(api.disconnect_peer(public_key))?,
+    let output = match args.command {
+        Command::GetInfo => api.get_info()?,
+        Command::GetBalance => api.get_balance()?,
+        Command::NewAddress => api.new_address()?,
+        Command::Withdraw { address, satoshis } => api.withdraw(address, satoshis)?,
+        Command::ListChannels => api.list_channels()?,
+        Command::ListPeers => api.list_peers()?,
+        Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
+        Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
         Command::OpenChannel {
             public_key,
             sats: satoshis,
             push_msat,
-        } => print(api.open_channel(public_key, satoshis, push_msat))?,
+        } => api.open_channel(public_key, satoshis, push_msat)?,
         Command::SetChannelFee {
             id,
             base_fee,
             ppm_fee,
-        } => print(api.set_channel_fee(id, base_fee, ppm_fee))?,
-        Command::CloseChannel { id } => print(api.close_channel(id))?,
-        Command::ListNodes { id } => print(api.list_nodes(id))?,
+        } => api.set_channel_fee(id, base_fee, ppm_fee)?,
+        Command::CloseChannel { id } => api.close_channel(id)?,
+        Command::ListNodes { id } => api.list_nodes(id)?,
     };
+    if output != "null" {
+        println!("{output}");
+    }
     Ok(())
 }

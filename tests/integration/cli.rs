@@ -6,7 +6,7 @@ use api::{
     WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
-use hyper::StatusCode;
+
 use serde::de;
 
 use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
@@ -69,8 +69,7 @@ async fn test_cli_connect_peer() -> Result<()> {
 #[tokio::test]
 async fn test_cli_connect_peer_malformed_id() -> Result<()> {
     let output = run_cli("connect-peer", &["--public-key", "abc@1.2"]).await?;
-    let s = String::from_utf8_lossy(&output.stdout);
-    assert!(s.starts_with(&StatusCode::BAD_REQUEST.to_string()));
+    let _: api::Error = deserialize(&output.stdout)?;
     Ok(())
 }
 

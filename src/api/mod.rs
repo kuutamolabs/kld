@@ -10,6 +10,7 @@ mod ws;
 
 pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
+use serde_json::json;
 pub use wallet_interface::WalletInterface;
 
 use self::methods::get_info;
@@ -26,7 +27,7 @@ use axum::{
     extract::Extension,
     response::{IntoResponse, Response},
     routing::{delete, get, post},
-    Router,
+    Json, Router,
 };
 use axum_server::{
     tls_rustls::{RustlsAcceptor, RustlsConfig},
@@ -135,13 +136,32 @@ pub enum ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         match self {
-            ApiError::Unauthorized => (StatusCode::UNAUTHORIZED).into_response(),
-            ApiError::NotFound(s) => (StatusCode::NOT_FOUND, s).into_response(),
-            ApiError::BadRequest(e) => (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+            ApiError::Unauthorized => build_api_error(
+                StatusCode::UNAUTHORIZED,
+                "Failed to verify macaroon".to_string(),
+            ),
+            ApiError::NotFound(s) => build_api_error(StatusCode::NOT_FOUND, s),
+            ApiError::BadRequest(e) => build_api_error(StatusCode::BAD_REQUEST, e.to_string()),
             ApiError::InternalServerError(e) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+                build_api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
         }
+    }
+}
+
+fn build_api_error(status_code: StatusCode, detail: String) -> Response {
+    let error = api::Error {
+        status: status_code.to_string(),
+        detail,
+    };
+    if let Ok(value) = serde_json::to_value(error) {
+        (status_code, Json(value)).into_response()
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"status": StatusCode::INTERNAL_SERVER_ERROR.to_string()})),
+        )
+            .into_response()
     }
 }
 
