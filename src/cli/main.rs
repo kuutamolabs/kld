@@ -65,6 +65,9 @@ enum Command {
         /// The number of satoshis to push to the other node side of the channel.
         #[arg(long)]
         push_msat: Option<String>,
+        /// Whether to announce the channel to the rest of the network (public - default) or not (private).
+        #[arg(long)]
+        announce: Option<bool>,
     },
     /// Set channel fees.
     SetChannelFee {
@@ -117,7 +120,8 @@ fn run_command(args: Args) -> Result<()> {
             public_key,
             sats: satoshis,
             push_msat,
-        } => api.open_channel(public_key, satoshis, push_msat)?,
+            announce,
+        } => api.open_channel(public_key, satoshis, push_msat, announce)?,
         Command::SetChannelFee {
             id,
             base_fee,

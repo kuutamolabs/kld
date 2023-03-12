@@ -289,9 +289,9 @@ async fn test_list_channels_readonly() -> Result<()> {
         channel.funding_txid
     );
     assert_eq!("false", channel.private);
-    assert_eq!("", channel.msatoshi_to_us);
+    assert_eq!("100000", channel.msatoshi_to_us);
     assert_eq!("1000000", channel.msatoshi_total);
-    assert_eq!("", channel.msatoshi_to_them);
+    assert_eq!("200000", channel.msatoshi_to_them);
     assert_eq!("5000", channel.their_channel_reserve_satoshis);
     assert_eq!("10000", channel.our_channel_reserve_satoshis);
     assert_eq!("100000", channel.spendable_msatoshi);
@@ -539,7 +539,7 @@ fn fund_channel_request() -> FundChannel {
         id: TEST_PUBLIC_KEY.to_string() + "@1.2.3.4:1234",
         satoshis: "21000000".to_string(),
         fee_rate: Some("4".to_string()),
-        announce: Some("true".to_string()),
+        announce: Some(false),
         push_msat: Some("10000".to_string()),
         close_to: None,
         request_amt: None,

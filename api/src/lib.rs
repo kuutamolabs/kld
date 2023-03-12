@@ -1,3 +1,4 @@
+use bitcoin::Transaction;
 use serde::{Deserialize, Serialize};
 
 pub mod routes {
@@ -161,9 +162,8 @@ pub struct FundChannel {
     /// urgent/normal/slow/<sats>perkw/<sats>perkb
     #[serde(rename = "feeRate")]
     pub fee_rate: Option<String>,
-    /// Flag to announce the channel (true, false)
-    /// Default: 'true'
-    pub announce: Option<String>,
+    /// Flag to announce the channel
+    pub announce: Option<bool>,
     /// Minimum number of confirmations that used outputs should have
     #[serde(rename = "minConf")]
     pub min_conf: Option<u8>,
@@ -182,7 +182,7 @@ pub struct FundChannel {
 #[derive(Serialize, Deserialize)]
 pub struct FundChannelResponse {
     /// Transaction
-    pub tx: String,
+    pub tx: Transaction,
     /// Transaction ID
     pub txid: String,
     /// channel_id of the newly created channel (hex)

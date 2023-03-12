@@ -72,6 +72,8 @@ pub trait LightningInterface {
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 
     fn nodes(&self) -> IndexedMap<NodeId, NodeInfo>;
+
+    fn user_config(&self) -> UserConfig;
 }
 
 pub struct Peer {
@@ -81,10 +83,16 @@ pub struct Peer {
     pub alias: String,
 }
 
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum PeerStatus {
     Connected,
     Disconnected,
+}
+
+impl Default for PeerStatus {
+    fn default() -> Self {
+        PeerStatus::Disconnected
+    }
 }
 
 impl ToString for PeerStatus {

@@ -1,9 +1,9 @@
 mod channels;
 mod lightning_interface;
 mod macaroon_auth;
-mod methods;
 mod network;
 mod peers;
+mod utility;
 mod wallet;
 mod wallet_interface;
 mod ws;
@@ -13,7 +13,7 @@ pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
 use serde_json::json;
 pub use wallet_interface::WalletInterface;
 
-use self::methods::get_info;
+use self::utility::get_info;
 use crate::api::{
     channels::{close_channel, list_channels, open_channel, set_channel_fee},
     network::{get_node, list_nodes},

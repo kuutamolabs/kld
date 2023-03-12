@@ -230,4 +230,8 @@ impl LightningInterface for MockLightning {
         nodes.insert(node_id, self.get_node(&node_id).unwrap());
         nodes
     }
+
+    fn user_config(&self) -> UserConfig {
+        UserConfig::default()
+    }
 }

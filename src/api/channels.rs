@@ -24,6 +24,7 @@ use super::ApiError;
 use super::KldMacaroon;
 use super::LightningInterface;
 use super::MacaroonAuth;
+use super::PeerStatus;
 
 pub(crate) async fn list_channels(
     macaroon: KldMacaroon,
@@ -34,12 +35,22 @@ pub(crate) async fn list_channels(
         .verify_readonly_macaroon(&macaroon.0)
         .map_err(unauthorized)?;
 
+    let peers = lightning_interface
+        .list_peers()
+        .await
+        .map_err(internal_server)?;
+
     let channels: Vec<Channel> = lightning_interface
         .list_channels()
         .iter()
         .map(|c| Channel {
             id: c.counterparty.node_id.to_string(),
-            connected: c.is_usable.to_string(),
+            connected: peers
+                .iter()
+                .find(|p| p.public_key == c.counterparty.node_id)
+                .map(|p| p.status == PeerStatus::Connected)
+                .unwrap_or_default()
+                .to_string(),
             state: (if c.is_usable {
                 "usable"
             } else if c.is_channel_ready {
@@ -52,9 +63,9 @@ pub(crate) async fn list_channels(
             channel_id: c.channel_id.encode_hex(),
             funding_txid: to_string_empty!(c.funding_txo.map(|x| x.txid)),
             private: (!c.is_public).to_string(),
-            msatoshi_to_us: "".to_string(),
+            msatoshi_to_us: c.outbound_capacity_msat.to_string(),
             msatoshi_total: c.channel_value_satoshis.to_string(),
-            msatoshi_to_them: "".to_string(),
+            msatoshi_to_them: c.inbound_capacity_msat.to_string(),
             their_channel_reserve_satoshis: c
                 .counterparty
                 .unspendable_punishment_reserve
@@ -102,14 +113,18 @@ pub(crate) async fn open_channel(
         .transpose()
         .map_err(bad_request)?;
 
+    let mut user_config = lightning_interface.user_config();
+    if let Some(announce) = fund_channel.announce {
+        user_config.channel_handshake_config.announced_channel = announce;
+    }
+
     let result = lightning_interface
         .open_channel(public_key, value, push_msat, None)
         .await
         .map_err(internal_server)?;
 
-    let transaction = serde_json::to_string(&result.transaction).map_err(internal_server)?;
     let response = FundChannelResponse {
-        tx: transaction,
+        tx: result.transaction,
         txid: result.txid.to_string(),
         channel_id: result.channel_id.encode_hex(),
     };
