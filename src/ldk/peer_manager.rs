@@ -8,10 +8,7 @@ use log::{error, info};
 use settings::Settings;
 use tokio::task::JoinHandle;
 
-use crate::{
-    controller::{ChannelManager, LdkPeerManager},
-    net_utils::PeerAddress,
-};
+use super::{net_utils::PeerAddress, ChannelManager, LdkPeerManager};
 
 pub struct PeerManager {
     ldk_peer_manager: Arc<LdkPeerManager>,

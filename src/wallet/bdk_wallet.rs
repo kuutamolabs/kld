@@ -26,7 +26,9 @@ use log::{error, info};
 use settings::Network;
 use settings::Settings;
 
-use crate::{api::WalletInterface, bitcoind::BitcoindClient};
+use crate::bitcoind::BitcoindClient;
+
+use super::WalletInterface;
 
 pub struct Wallet {
     // bdk::Wallet uses a RefCell to hold the database which is not thread safe so we use a mutex here.

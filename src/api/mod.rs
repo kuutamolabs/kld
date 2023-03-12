@@ -1,25 +1,25 @@
 mod channels;
-mod lightning_interface;
 mod macaroon_auth;
 mod network;
 mod peers;
 mod utility;
 mod wallet;
-mod wallet_interface;
 mod ws;
 
-pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
 use serde_json::json;
-pub use wallet_interface::WalletInterface;
 
 use self::utility::get_info;
-use crate::api::{
-    channels::{close_channel, list_channels, open_channel, set_channel_fee},
-    network::{get_node, list_nodes},
-    peers::{connect_peer, disconnect_peer, list_peers},
-    wallet::{get_balance, new_address, transfer},
-    ws::ws_handler,
+use crate::{
+    api::{
+        channels::{close_channel, list_channels, open_channel, set_channel_fee},
+        network::{get_node, list_nodes},
+        peers::{connect_peer, disconnect_peer, list_peers},
+        wallet::{get_balance, new_address, transfer},
+        ws::ws_handler,
+    },
+    ldk::LightningInterface,
+    wallet::WalletInterface,
 };
 use anyhow::{Context, Result};
 use api::routes;

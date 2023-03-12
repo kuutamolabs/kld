@@ -16,11 +16,13 @@ use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
-use crate::api::WalletInterface;
 use crate::bitcoind::BitcoindClient;
-use crate::controller::{AsyncAPIRequests, ChannelManager, NetworkGraph};
-use crate::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo, PaymentInfoStorage};
-use crate::wallet::Wallet;
+use crate::ldk::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo};
+use crate::wallet::{Wallet, WalletInterface};
+
+use super::controller::AsyncAPIRequests;
+use super::payment_info::PaymentInfoStorage;
+use super::{ChannelManager, NetworkGraph};
 
 pub(crate) struct EventHandler {
     channel_manager: Arc<ChannelManager>,

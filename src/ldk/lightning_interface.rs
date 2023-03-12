@@ -7,7 +7,7 @@ use lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
-use crate::net_utils::PeerAddress;
+use super::net_utils::PeerAddress;
 
 #[async_trait]
 pub trait LightningInterface {

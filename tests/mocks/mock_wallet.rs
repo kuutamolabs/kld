@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bdk::{wallet::AddressInfo, Balance, FeeRate, KeychainKind};
 use bitcoin::{consensus::deserialize, hashes::hex::FromHex, Address, OutPoint, Transaction};
-use kld::api::WalletInterface;
+use kld::wallet::WalletInterface;
 
 use super::{TEST_ADDRESS, TEST_TX};
 

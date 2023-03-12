@@ -1,30 +1,20 @@
-use crate::api::{LightningInterface, OpenChannelResult, Peer, PeerStatus, WalletInterface};
-use crate::bitcoind::BitcoindClient;
-use crate::event_handler::EventHandler;
-use crate::key_generator::KeyGenerator;
-use crate::net_utils::PeerAddress;
-use crate::payment_info::PaymentInfoStorage;
-use crate::peer_manager::PeerManager;
-use crate::utxo_lookup::BitcoindUtxoLookup;
-use crate::wallet::Wallet;
+use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::wallet::{Wallet, WalletInterface};
 use crate::VERSION;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::Transaction;
 use database::ldk_database::LdkDatabase;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
+use lightning::chain::keysinterface::KeysManager;
+use lightning::chain::BestBlock;
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{chainmonitor, Watch};
-use lightning::chain::{BestBlock, Filter};
 use lightning::ln::channelmanager::{self, ChannelDetails};
-use lightning::ln::channelmanager::{
-    ChainParameters, ChannelManagerReadArgs, SimpleArcChannelManager,
-};
+use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
-use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler, SimpleArcPeerManager};
-use lightning::onion_message::SimpleArcOnionMessenger;
-use lightning::routing::gossip::{self, NodeId, NodeInfo, P2PGossipSync};
+use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
+use lightning::routing::gossip::{NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
@@ -35,7 +25,6 @@ use lightning_block_sync::init;
 use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
-use lightning_net_tokio::SocketDescriptor;
 use log::{error, info, warn};
 use logger::KldLogger;
 use rand::random;
@@ -48,6 +37,15 @@ use std::time::{Duration, SystemTime};
 use tokio::runtime::Handle;
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::RwLock;
+
+use super::event_handler::EventHandler;
+use super::net_utils::PeerAddress;
+use super::payment_info::PaymentInfoStorage;
+use super::peer_manager::PeerManager;
+use super::{
+    ChainMonitor, ChannelManager, LdkPeerManager, LightningInterface, NetworkGraph, OnionMessenger,
+    OpenChannelResult, Peer, PeerStatus,
+};
 
 #[async_trait]
 impl LightningInterface for Controller {
@@ -285,7 +283,7 @@ impl LightningInterface for Controller {
     }
 }
 
-pub struct AsyncAPIRequests {
+pub(crate) struct AsyncAPIRequests {
     pub channel_opens: AsyncSenders<u128, Result<Transaction>>,
 }
 
@@ -297,7 +295,7 @@ impl AsyncAPIRequests {
     }
 }
 
-pub struct AsyncSenders<K, V> {
+pub(crate) struct AsyncSenders<K, V> {
     senders: RwLock<HashMap<K, Sender<V>>>,
 }
 
@@ -365,7 +363,7 @@ impl Controller {
         database: Arc<LdkDatabase>,
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet>,
-        key_generator: Arc<KeyGenerator>,
+        seed: &[u8; 32],
     ) -> Result<(Controller, BackgroundProcessor)> {
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
@@ -392,11 +390,7 @@ impl Controller {
         let cur = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
-        let keys_manager = Arc::new(KeysManager::new(
-            &key_generator.lightning_seed(),
-            cur.as_secs(),
-            cur.subsec_nanos(),
-        ));
+        let keys_manager = Arc::new(KeysManager::new(seed, cur.as_secs(), cur.subsec_nanos()));
 
         let network_graph = Arc::new(
             database
@@ -661,28 +655,3 @@ impl Controller {
         ))
     }
 }
-
-pub type LdkPeerManager = SimpleArcPeerManager<
-    SocketDescriptor,
-    ChainMonitor,
-    BitcoindClient,
-    BitcoindClient,
-    BitcoindUtxoLookup,
-    KldLogger,
->;
-
-pub type ChainMonitor = chainmonitor::ChainMonitor<
-    InMemorySigner,
-    Arc<dyn Filter + Send + Sync>,
-    Arc<BitcoindClient>,
-    Arc<BitcoindClient>,
-    Arc<KldLogger>,
-    Arc<LdkDatabase>,
->;
-
-pub(crate) type ChannelManager =
-    SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>;
-
-pub(crate) type NetworkGraph = gossip::NetworkGraph<Arc<KldLogger>>;
-
-type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;

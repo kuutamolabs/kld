@@ -9,13 +9,14 @@ use bitcoin::Address;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::wallet::WalletInterface;
+
 use super::bad_request;
 use super::internal_server;
 use super::unauthorized;
 use super::ApiError;
 use super::KldMacaroon;
 use super::MacaroonAuth;
-use super::WalletInterface;
 
 pub(crate) async fn get_balance(
     macaroon: KldMacaroon,

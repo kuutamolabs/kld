@@ -15,16 +15,16 @@ use hex::ToHex;
 use lightning::ln::channelmanager::ChannelDetails;
 
 use crate::api::bad_request;
-use crate::net_utils::PeerAddress;
+use crate::ldk::net_utils::PeerAddress;
+use crate::ldk::LightningInterface;
+use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
 use super::internal_server;
 use super::unauthorized;
 use super::ApiError;
 use super::KldMacaroon;
-use super::LightningInterface;
 use super::MacaroonAuth;
-use super::PeerStatus;
 
 pub(crate) async fn list_channels(
     macaroon: KldMacaroon,
