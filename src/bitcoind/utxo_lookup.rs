@@ -10,11 +10,12 @@ use log::warn;
 use logger::KldLogger;
 use settings::Settings;
 
-use crate::{
-    bitcoind::BitcoindClient,
+use crate::ldk::{
     channel_utils::{block_from_scid, tx_index_from_scid, vout_from_scid},
-    controller::NetworkGraph,
+    NetworkGraph,
 };
+
+use super::BitcoindClient;
 
 pub struct BitcoindUtxoLookup {
     bitcoind: Arc<BitcoindClient>,

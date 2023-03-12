@@ -5,8 +5,10 @@ use axum::{response::IntoResponse, Extension};
 use bitcoin::Network;
 use std::sync::Arc;
 
+use crate::ldk::LightningInterface;
+
 use super::MacaroonAuth;
-use super::{internal_server, unauthorized, LightningInterface};
+use super::{internal_server, unauthorized};
 use super::{ApiError, KldMacaroon};
 
 pub(crate) async fn get_info(

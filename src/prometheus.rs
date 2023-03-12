@@ -13,7 +13,7 @@ use log::info;
 use once_cell::sync::{Lazy, OnceCell};
 use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
 
-use crate::api::LightningInterface;
+use crate::ldk::LightningInterface;
 
 static START: OnceCell<Instant> = OnceCell::new();
 

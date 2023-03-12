@@ -12,7 +12,9 @@ use std::{
     sync::Arc,
 };
 
-use super::{bad_request, unauthorized, ApiError, KldMacaroon, LightningInterface, MacaroonAuth};
+use crate::ldk::LightningInterface;
+
+use super::{bad_request, unauthorized, ApiError, KldMacaroon, MacaroonAuth};
 
 pub(crate) async fn list_nodes(
     macaroon: KldMacaroon,

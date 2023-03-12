@@ -4,10 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{consensus::deserialize, hashes::Hash, secp256k1::PublicKey, Network, Txid};
 use hex::FromHex;
-use kld::{
-    api::{LightningInterface, OpenChannelResult, Peer, PeerStatus},
-    net_utils::PeerAddress,
-};
+use kld::ldk::{net_utils::PeerAddress, LightningInterface, OpenChannelResult, Peer, PeerStatus};
 use lightning::{
     chain::transaction::OutPoint,
     ln::{

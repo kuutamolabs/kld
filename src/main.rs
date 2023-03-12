@@ -5,8 +5,8 @@ use database::wallet_database::WalletDatabase;
 use futures::FutureExt;
 use kld::api::{bind_api_server, MacaroonAuth};
 use kld::bitcoind::BitcoindClient;
-use kld::controller::Controller;
 use kld::key_generator::KeyGenerator;
+use kld::ldk::Controller;
 use kld::prometheus::start_prometheus_exporter;
 use kld::quit_signal;
 use kld::wallet::Wallet;
@@ -67,7 +67,7 @@ pub fn main() -> Result<()> {
             database,
             bitcoind_client,
             wallet.clone(),
-            key_generator.clone(),
+            &key_generator.lightning_seed(),
         ))
         .context("Failed to start ldk controller")?;
     let controller = Arc::new(controller);

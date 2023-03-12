@@ -1,14 +1,15 @@
 use std::{str::FromStr, sync::Arc};
 
-use crate::api::{bad_request, network::to_api_address, PeerStatus};
+use crate::{
+    api::{bad_request, network::to_api_address},
+    ldk::{LightningInterface, PeerStatus},
+};
 use anyhow::Result;
 use api::Peer;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 
-use super::{
-    internal_server, unauthorized, ApiError, KldMacaroon, LightningInterface, MacaroonAuth,
-};
+use super::{internal_server, unauthorized, ApiError, KldMacaroon, MacaroonAuth};
 
 pub(crate) async fn list_peers(
     macaroon: KldMacaroon,
