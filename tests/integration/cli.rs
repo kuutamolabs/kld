@@ -85,7 +85,14 @@ async fn test_cli_disconnect_peer() -> Result<()> {
 async fn test_cli_open_channel() -> Result<()> {
     let output = run_cli(
         "open-channel",
-        &["--public-key", TEST_PUBLIC_KEY, "--sats", "1000"],
+        &[
+            "--public-key",
+            TEST_PUBLIC_KEY,
+            "--sats",
+            "1000",
+            "--announce",
+            "false",
+        ],
     )
     .await?;
     let _: FundChannelResponse = deserialize(&output.stdout)?;

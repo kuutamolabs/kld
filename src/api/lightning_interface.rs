@@ -72,6 +72,8 @@ pub trait LightningInterface {
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 
     fn nodes(&self) -> IndexedMap<NodeId, NodeInfo>;
+
+    fn user_config(&self) -> UserConfig;
 }
 
 pub struct Peer {

@@ -539,7 +539,7 @@ fn fund_channel_request() -> FundChannel {
         id: TEST_PUBLIC_KEY.to_string() + "@1.2.3.4:1234",
         satoshis: "21000000".to_string(),
         fee_rate: Some("4".to_string()),
-        announce: Some("true".to_string()),
+        announce: Some(false),
         push_msat: Some("10000".to_string()),
         close_to: None,
         request_amt: None,

@@ -99,12 +99,13 @@ impl Api {
         id: String,
         satoshis: String,
         push_msat: Option<String>,
+        announce: Option<bool>,
     ) -> Result<String> {
         let open_channel = FundChannel {
             id,
             satoshis,
             fee_rate: None,
-            announce: None,
+            announce,
             min_conf: None,
             utxos: vec![],
             push_msat,

@@ -18,13 +18,13 @@ use crate::api::bad_request;
 use crate::net_utils::PeerAddress;
 use crate::to_string_empty;
 
-use super::PeerStatus;
 use super::internal_server;
 use super::unauthorized;
 use super::ApiError;
 use super::KldMacaroon;
 use super::LightningInterface;
 use super::MacaroonAuth;
+use super::PeerStatus;
 
 pub(crate) async fn list_channels(
     macaroon: KldMacaroon,
@@ -112,6 +112,11 @@ pub(crate) async fn open_channel(
         .map(|x| x.parse::<u64>())
         .transpose()
         .map_err(bad_request)?;
+
+    let mut user_config = lightning_interface.user_config();
+    if let Some(announce) = fund_channel.announce {
+        user_config.channel_handshake_config.announced_channel = announce;
+    }
 
     let result = lightning_interface
         .open_channel(public_key, value, push_msat, None)

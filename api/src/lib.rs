@@ -162,9 +162,8 @@ pub struct FundChannel {
     /// urgent/normal/slow/<sats>perkw/<sats>perkb
     #[serde(rename = "feeRate")]
     pub fee_rate: Option<String>,
-    /// Flag to announce the channel (true, false)
-    /// Default: 'true'
-    pub announce: Option<String>,
+    /// Flag to announce the channel
+    pub announce: Option<bool>,
     /// Minimum number of confirmations that used outputs should have
     #[serde(rename = "minConf")]
     pub min_conf: Option<u8>,

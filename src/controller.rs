@@ -160,7 +160,7 @@ impl LightningInterface for Controller {
         forwarding_fee_proportional_millionths: Option<u32>,
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)> {
-        let mut channel_config = &mut self.user_config.channel_config.clone();
+        let mut channel_config = self.user_config().channel_config;
         if let Some(fee) = forwarding_fee_proportional_millionths {
             channel_config.forwarding_fee_proportional_millionths = fee;
         }
@@ -168,7 +168,7 @@ impl LightningInterface for Controller {
             channel_config.forwarding_fee_base_msat = fee;
         }
         self.channel_manager
-            .update_channel_config(counterparty_node_id, channel_ids, channel_config)
+            .update_channel_config(counterparty_node_id, channel_ids, &channel_config)
             .map_err(api_error)?;
         Ok((
             channel_config.forwarding_fee_base_msat,
@@ -278,6 +278,11 @@ impl LightningInterface for Controller {
     fn nodes(&self) -> IndexedMap<NodeId, NodeInfo> {
         self.network_graph.read_only().nodes().clone()
     }
+
+    // Use this to override the default/startup config.
+    fn user_config(&self) -> UserConfig {
+        *self.channel_manager.get_current_default_configuration()
+    }
 }
 
 pub struct AsyncAPIRequests {
@@ -346,7 +351,6 @@ pub struct Controller {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
     async_api_requests: Arc<AsyncAPIRequests>,
-    user_config: UserConfig,
 }
 
 impl Controller {
@@ -434,6 +438,8 @@ impl Controller {
         user_config
             .channel_handshake_limits
             .force_announced_channel_preference = false;
+        user_config.channel_handshake_config.announced_channel = true;
+
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
                 let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
@@ -480,7 +486,6 @@ impl Controller {
                     .context("failed to query channel manager from database")?
             }
         };
-
         // Sync ChannelMonitors and ChannelManager to chain tip
         let mut chain_listener_channel_monitors = Vec::new();
         let mut cache = UnboundedCache::new();
@@ -651,7 +656,6 @@ impl Controller {
                 network_graph,
                 wallet,
                 async_api_requests,
-                user_config,
             },
             background_processor,
         ))
