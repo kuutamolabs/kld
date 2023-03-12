@@ -96,7 +96,7 @@ pub async fn test_channel_monitors() -> Result<()> {
             .await?;
         assert_eq!(persisted_chan_data_0.len(), 0);
         let mut persisted_chan_data_1 = database_1
-            .fetch_channel_monitors(nodes[0].keys_manager, nodes[0].keys_manager)
+            .fetch_channel_monitors(nodes[1].keys_manager, nodes[1].keys_manager)
             .await?;
         assert_eq!(persisted_chan_data_1.len(), 0);
 

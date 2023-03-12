@@ -195,7 +195,7 @@ where
 
             let (txid_bytes, index_bytes) = out_point.split_at(32);
             let txid = Txid::from_slice(txid_bytes).unwrap();
-            let index = u16::from_le_bytes(index_bytes.try_into().unwrap());
+            let index = u16::from_be_bytes(index_bytes.try_into().unwrap());
 
             let monitor: Vec<u8> = row.get("monitor");
             let mut buffer = Cursor::new(&monitor);
