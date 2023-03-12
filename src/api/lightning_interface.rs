@@ -81,10 +81,16 @@ pub struct Peer {
     pub alias: String,
 }
 
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum PeerStatus {
     Connected,
     Disconnected,
+}
+
+impl Default for PeerStatus {
+    fn default() -> Self {
+        PeerStatus::Disconnected
+    }
 }
 
 impl ToString for PeerStatus {

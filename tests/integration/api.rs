@@ -289,9 +289,9 @@ async fn test_list_channels_readonly() -> Result<()> {
         channel.funding_txid
     );
     assert_eq!("false", channel.private);
-    assert_eq!("", channel.msatoshi_to_us);
+    assert_eq!("100000", channel.msatoshi_to_us);
     assert_eq!("1000000", channel.msatoshi_total);
-    assert_eq!("", channel.msatoshi_to_them);
+    assert_eq!("200000", channel.msatoshi_to_them);
     assert_eq!("5000", channel.their_channel_reserve_satoshis);
     assert_eq!("10000", channel.our_channel_reserve_satoshis);
     assert_eq!("100000", channel.spendable_msatoshi);

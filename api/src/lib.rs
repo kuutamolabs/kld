@@ -1,3 +1,4 @@
+use bitcoin::Transaction;
 use serde::{Deserialize, Serialize};
 
 pub mod routes {
@@ -182,7 +183,7 @@ pub struct FundChannel {
 #[derive(Serialize, Deserialize)]
 pub struct FundChannelResponse {
     /// Transaction
-    pub tx: String,
+    pub tx: Transaction,
     /// Transaction ID
     pub txid: String,
     /// channel_id of the newly created channel (hex)
