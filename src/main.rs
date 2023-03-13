@@ -10,45 +10,57 @@ use kld::ldk::Controller;
 use kld::prometheus::start_prometheus_exporter;
 use kld::quit_signal;
 use kld::wallet::Wallet;
-use log::info;
+use log::{error, info};
 use settings::Settings;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 pub fn main() -> Result<()> {
     let settings = Arc::new(Settings::load());
-    logger::KldLogger::init(&settings.node_id, settings.log_level.parse().unwrap());
+    logger::KldLogger::init(
+        &settings.node_id,
+        settings.log_level.parse().context("Invalid log level")?,
+    );
 
-    info!("Starting Lightning Kuutamo Node Distribution");
+    info!("Starting Kuutamo Lightning Daemon");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .enable_time()
         .build()?;
 
-    let _g = runtime.enter();
+    if let Err(e) = runtime.block_on(run_kld(settings)) {
+        error!("Fatal error running KND: {}", e);
+    }
 
-    let shutdown_flag = Arc::new(AtomicBool::new(false));
+    info!("Shutting down");
+    runtime.shutdown_timeout(Duration::from_secs(30));
+    info!("Stopped all threads. Process finished.");
+    Ok(())
+}
+
+async fn run_kld(settings: Arc<Settings>) -> Result<()> {
     let quit_signal = quit_signal().shared();
 
-    runtime.block_on(migrate_database(&settings))?;
+    migrate_database(&settings).await?;
 
     let key_generator = Arc::new(
         KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
     );
 
     let database = Arc::new(
-        runtime
-            .block_on(LdkDatabase::new(&settings))
+        LdkDatabase::new(&settings)
+            .await
             .context("cannot connect to ldk database")?,
     );
-    let wallet_database = runtime
-        .block_on(WalletDatabase::new(&settings))
+    let wallet_database = WalletDatabase::new(&settings)
+        .await
         .context("cannot connect to wallet database")?;
 
-    let bitcoind_client = Arc::new(runtime.block_on(BitcoindClient::new(settings.as_ref()))?);
-    runtime.block_on(bitcoind_client.wait_for_blockchain_synchronisation())?;
+    let bitcoind_client = Arc::new(BitcoindClient::new(&settings).await?);
+    bitcoind_client
+        .wait_for_blockchain_synchronisation()
+        .await?;
     bitcoind_client.poll_for_fee_estimates();
 
     let wallet = Arc::new(
@@ -61,15 +73,15 @@ pub fn main() -> Result<()> {
         .context("Cannot create wallet")?,
     );
 
-    let (controller, background_processor) = runtime
-        .block_on(Controller::start_ldk(
-            settings.clone(),
-            database,
-            bitcoind_client,
-            wallet.clone(),
-            &key_generator.lightning_seed(),
-        ))
-        .context("Failed to start ldk controller")?;
+    let controller = Controller::start_ldk(
+        settings.clone(),
+        database,
+        bitcoind_client,
+        wallet.clone(),
+        &key_generator.lightning_seed(),
+    )
+    .await
+    .context("Failed to start ldk controller")?;
     let controller = Arc::new(controller);
 
     let macaroon_auth = Arc::new(MacaroonAuth::init(
@@ -77,31 +89,22 @@ pub fn main() -> Result<()> {
         &settings.data_dir,
     )?);
 
-    runtime.block_on(async {
-        let server = bind_api_server(settings.rest_api_address.clone(), settings.certs_dir.clone()).await?;
+    let server = bind_api_server(
+        settings.rest_api_address.clone(),
+        settings.certs_dir.clone(),
+    )
+    .await?;
 
-        tokio::select!(
-            _ = quit_signal.clone() => {
-                info!("Received quit signal.");
-                Ok(())
-            },
-            result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
-                result.context("Prometheus exporter failed")
-            },
-            result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
-                result.context("REST API failed")
-            }
-        )
-    })?;
-
-    info!("Shutting down");
-    shutdown_flag.store(true, Ordering::Release);
-    let res = background_processor
-        .stop()
-        .context("could not stop background processor");
-    controller.stop();
-    res?;
-    runtime.shutdown_timeout(Duration::from_secs(30));
-    info!("Stopped all threads. Process finished.");
-    Ok(())
+    tokio::select!(
+        _ = quit_signal.clone() => {
+            info!("Received quit signal.");
+            Ok(())
+        },
+        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
+            result.context("Prometheus exporter failed")
+        },
+        result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
+            result.context("REST API failed")
+        }
+    )
 }
