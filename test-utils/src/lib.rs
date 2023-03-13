@@ -3,7 +3,6 @@ pub mod cockroach_manager;
 pub mod kld_manager;
 mod manager;
 pub mod ports;
-pub mod teos_manager;
 
 use std::{
     fs::{self, File},
