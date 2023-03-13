@@ -33,38 +33,38 @@ use crate::quit_signal;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_unauthorized() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::GET, routes::ROOT)
+        unauthorized_request(&context, Method::GET, routes::ROOT)
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::GET, routes::GET_INFO)
+        unauthorized_request(&context, Method::GET, routes::GET_INFO)
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::GET, routes::GET_BALANCE)
+        unauthorized_request(&context, Method::GET, routes::GET_BALANCE)
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::GET, routes::LIST_CHANNELS)
+        unauthorized_request(&context, Method::GET, routes::LIST_CHANNELS)
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::POST, routes::OPEN_CHANNEL)
+        unauthorized_request(&context, Method::POST, routes::OPEN_CHANNEL)
             .send()
             .await?
             .status()
@@ -72,7 +72,7 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         readonly_request_with_body(
-            &settings,
+            &context,
             Method::POST,
             routes::OPEN_CHANNEL,
             fund_channel_request
@@ -83,7 +83,7 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::POST, routes::SET_CHANNEL_FEE,)
+        unauthorized_request(&context, Method::POST, routes::SET_CHANNEL_FEE,)
             .send()
             .await?
             .status()
@@ -91,7 +91,7 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         readonly_request_with_body(
-            &settings,
+            &context,
             Method::POST,
             routes::SET_CHANNEL_FEE,
             set_channel_fee_request
@@ -102,7 +102,7 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::DELETE, routes::CLOSE_CHANNEL,)
+        unauthorized_request(&context, Method::DELETE, routes::CLOSE_CHANNEL,)
             .send()
             .await?
             .status()
@@ -110,7 +110,7 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         readonly_request(
-            &settings,
+            &context,
             Method::DELETE,
             &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
         )?
@@ -120,59 +120,49 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::POST, routes::WITHDRAW)
+        unauthorized_request(&context, Method::POST, routes::WITHDRAW)
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&settings, Method::POST, routes::WITHDRAW, withdraw_request)?
+        readonly_request_with_body(&context, Method::POST, routes::WITHDRAW, withdraw_request)?
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(
-            &settings,
-            Method::GET,
-            routes::NEW_ADDR,
-            NewAddress::default
-        )?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(
-            &settings,
-            Method::GET,
-            routes::NEW_ADDR,
-            NewAddress::default
-        )?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::GET, routes::LIST_PEERS)
+        readonly_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::POST, routes::CONNECT_PEER)
+        readonly_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&settings, Method::POST, routes::CONNECT_PEER, || {
+        unauthorized_request(&context, Method::GET, routes::LIST_PEERS)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::POST, routes::CONNECT_PEER)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        readonly_request_with_body(&context, Method::POST, routes::CONNECT_PEER, || {
             TEST_ADDRESS
         })?
         .send()
@@ -181,7 +171,7 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::DELETE, routes::DISCONNECT_PEER)
+        unauthorized_request(&context, Method::DELETE, routes::DISCONNECT_PEER)
             .send()
             .await?
             .status()
@@ -189,7 +179,7 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         readonly_request(
-            &settings,
+            &context,
             Method::DELETE,
             &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
         )?
@@ -199,7 +189,7 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&settings, Method::GET, routes::LIST_NODES)
+        unauthorized_request(&context, Method::GET, routes::LIST_NODES)
             .send()
             .await?
             .status()
@@ -209,10 +199,10 @@ pub async fn test_unauthorized() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_not_found() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     assert_eq!(
         StatusCode::NOT_FOUND,
-        admin_request(&settings, Method::GET, "/x")?
+        admin_request(&context, Method::GET, "/x")?
             .send()
             .await?
             .status()
@@ -222,8 +212,8 @@ async fn test_not_found() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_root_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
-    assert!(readonly_request(&settings, Method::GET, routes::ROOT)?
+    let context = create_api_server().await?;
+    assert!(readonly_request(&context, Method::GET, routes::ROOT)?
         .send()
         .await?
         .status()
@@ -233,8 +223,8 @@ async fn test_root_readonly() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_root_admin() -> Result<()> {
-    let settings = create_api_server().await?;
-    assert!(admin_request(&settings, Method::GET, routes::ROOT)?
+    let context = create_api_server().await?;
+    assert!(admin_request(&context, Method::GET, routes::ROOT)?
         .send()
         .await?
         .status()
@@ -244,8 +234,8 @@ async fn test_root_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_info_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
-    let info: GetInfo = readonly_request(&settings, Method::GET, routes::GET_INFO)?
+    let context = create_api_server().await?;
+    let info: GetInfo = readonly_request(&context, Method::GET, routes::GET_INFO)?
         .send()
         .await?
         .json()
@@ -256,8 +246,8 @@ async fn test_get_info_readonly() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_balance_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
-    let balance: WalletBalance = readonly_request(&settings, Method::GET, routes::GET_BALANCE)?
+    let context = create_api_server().await?;
+    let balance: WalletBalance = readonly_request(&context, Method::GET, routes::GET_BALANCE)?
         .send()
         .await?
         .json()
@@ -270,8 +260,8 @@ async fn test_get_balance_readonly() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_channels_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
-    let channels: Vec<Channel> = readonly_request(&settings, Method::GET, routes::LIST_CHANNELS)?
+    let context = create_api_server().await?;
+    let channels: Vec<Channel> = readonly_request(&context, Method::GET, routes::LIST_CHANNELS)?
         .send()
         .await?
         .json()
@@ -302,9 +292,9 @@ async fn test_list_channels_readonly() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_open_channel_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let response: FundChannelResponse = admin_request_with_body(
-        &settings,
+        &context,
         Method::POST,
         routes::OPEN_CHANNEL,
         fund_channel_request,
@@ -326,9 +316,9 @@ async fn test_open_channel_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_set_channel_fee_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let response: SetChannelFeeResponse = admin_request_with_body(
-        &settings,
+        &context,
         Method::POST,
         routes::SET_CHANNEL_FEE,
         set_channel_fee_request,
@@ -348,14 +338,14 @@ async fn test_set_channel_fee_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_set_all_channel_fees_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let request = ChannelFee {
         id: "all".to_string(),
         base: Some(32500),
         ppm: Some(1200),
     };
     let response: SetChannelFeeResponse =
-        admin_request_with_body(&settings, Method::POST, routes::SET_CHANNEL_FEE, || {
+        admin_request_with_body(&context, Method::POST, routes::SET_CHANNEL_FEE, || {
             request.clone()
         })?
         .send()
@@ -373,9 +363,9 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_close_channel_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let result = admin_request(
-        &settings,
+        &context,
         Method::DELETE,
         &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
     )?
@@ -387,9 +377,9 @@ async fn test_close_channel_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_withdraw_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let response: WalletTransferResponse =
-        admin_request_with_body(&settings, Method::POST, routes::WITHDRAW, withdraw_request)?
+        admin_request_with_body(&context, Method::POST, routes::WITHDRAW, withdraw_request)?
             .send()
             .await?
             .json()
@@ -404,25 +394,21 @@ async fn test_withdraw_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_new_address_admin() -> Result<()> {
-    let settings = create_api_server().await?;
-    let response: NewAddressResponse = admin_request_with_body(
-        &settings,
-        Method::GET,
-        routes::NEW_ADDR,
-        NewAddress::default,
-    )?
-    .send()
-    .await?
-    .json()
-    .await?;
+    let context = create_api_server().await?;
+    let response: NewAddressResponse =
+        admin_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
+            .send()
+            .await?
+            .json()
+            .await?;
     assert_eq!(TEST_ADDRESS.to_string(), response.address);
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_peers_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
-    let response: Vec<Peer> = readonly_request(&settings, Method::GET, routes::LIST_PEERS)?
+    let context = create_api_server().await?;
+    let response: Vec<Peer> = readonly_request(&context, Method::GET, routes::LIST_PEERS)?
         .send()
         .await?
         .json()
@@ -443,9 +429,9 @@ async fn test_list_peers_readonly() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_connect_peer_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let response: String =
-        admin_request_with_body(&settings, Method::POST, routes::CONNECT_PEER, || {
+        admin_request_with_body(&context, Method::POST, routes::CONNECT_PEER, || {
             TEST_PUBLIC_KEY
         })?
         .send()
@@ -458,9 +444,9 @@ async fn test_connect_peer_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_disconnect_peer_admin() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let response = admin_request(
-        &settings,
+        &context,
         Method::DELETE,
         &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
     )?
@@ -472,9 +458,9 @@ async fn test_disconnect_peer_admin() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_disconnect_peer_admin_malformed_key() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let response: api::Error = admin_request(
-        &settings,
+        &context,
         Method::DELETE,
         &routes::DISCONNECT_PEER.replace(":id", "abcd"),
     )?
@@ -488,9 +474,9 @@ async fn test_disconnect_peer_admin_malformed_key() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_node_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
     let nodes: Vec<Node> = readonly_request(
-        &settings,
+        &context,
         Method::GET,
         &routes::LIST_NODE.replace(":id", TEST_PUBLIC_KEY),
     )?
@@ -514,8 +500,8 @@ async fn test_get_node_readonly() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_nodes_readonly() -> Result<()> {
-    let settings = create_api_server().await?;
-    let nodes: Vec<Node> = readonly_request(&settings, Method::GET, routes::LIST_NODES)?
+    let context = create_api_server().await?;
+    let nodes: Vec<Node> = readonly_request(&context, Method::GET, routes::LIST_NODES)?
         .send()
         .await?
         .json()
@@ -559,25 +545,34 @@ fn set_channel_fee_request() -> ChannelFee {
 
 static API_RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-static API_SETTINGS: Lazy<RwLock<Option<Settings>>> = Lazy::new(|| RwLock::new(None));
+static TEST_CONTEXT: Lazy<RwLock<Option<Arc<TestContext>>>> = Lazy::new(|| RwLock::new(None));
 
-pub async fn create_api_server() -> Result<Settings> {
-    let mut settings = API_SETTINGS.write().await;
-    if settings.is_some() {
-        drop(settings); // release lock
-        return Ok(API_SETTINGS.read().await.as_ref().unwrap().clone());
+pub struct TestContext {
+    pub settings: Settings,
+    admin_macaroon: Vec<u8>,
+    readonly_macaroon: Vec<u8>,
+}
+
+pub async fn create_api_server() -> Result<Arc<TestContext>> {
+    let mut context = TEST_CONTEXT.write().await;
+    if context.is_some() {
+        drop(context); // release lock
+        return Ok(TEST_CONTEXT.read().await.as_ref().unwrap().clone());
     }
     KldLogger::init("test", log::LevelFilter::Info);
     let rest_api_port = get_available_port().context("no port available")?;
     let rest_api_address = format!("127.0.0.1:{rest_api_port}");
-    let s = TestSettingsBuilder::new()
+    let settings = TestSettingsBuilder::new()
         .with_data_dir(&format!("{}/test_api", env!("CARGO_TARGET_TMPDIR")))
         .with_rest_api_address(rest_api_address.clone())
         .build();
-    let certs_dir = s.certs_dir.clone();
+    let certs_dir = settings.certs_dir.clone();
     let macaroon_auth = Arc::new(
-        MacaroonAuth::init(&[0u8; 32], &s.data_dir).context("cannot initialize macaroon auth")?,
+        MacaroonAuth::init(&[0u8; 32], &settings.data_dir)
+            .context("cannot initialize macaroon auth")?,
     );
+    let admin_macaroon = admin_macaroon(&settings)?;
+    let readonly_macaroon = readonly_macaroon(&settings)?;
 
     // Run the API with its own runtime in its own thread.
     spawn(move || {
@@ -596,7 +591,13 @@ pub async fn create_api_server() -> Result<Settings> {
             .unwrap()
     });
 
-    while !readonly_request(&s, Method::GET, routes::ROOT)?
+    let new_context = TestContext {
+        settings,
+        admin_macaroon,
+        readonly_macaroon,
+    };
+
+    while !readonly_request(&new_context, Method::GET, routes::ROOT)?
         .send()
         .await?
         .status()
@@ -604,56 +605,57 @@ pub async fn create_api_server() -> Result<Settings> {
     {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    *settings = Some(s);
-    drop(settings); // release lock
-    Ok(API_SETTINGS.read().await.as_ref().unwrap().clone())
+
+    *context = Some(Arc::new(new_context));
+    drop(context); // release lock
+    Ok(TEST_CONTEXT.read().await.as_ref().unwrap().clone())
 }
 
-// TODO: those should be read only once when parsing settings...
-pub fn admin_macaroon(settings: &Settings) -> Result<Vec<u8>> {
+fn admin_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     let path = format!("{}/macaroons/admin.macaroon", settings.data_dir);
     fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
 
-pub fn readonly_macaroon(settings: &Settings) -> Result<Vec<u8>> {
+fn readonly_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     let path = format!("{}/macaroons/readonly.macaroon", settings.data_dir);
     fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
 
 static LIGHTNING: Lazy<Arc<MockLightning>> = Lazy::new(|| Arc::new(MockLightning::default()));
 
-fn unauthorized_request(settings: &Settings, method: Method, route: &str) -> RequestBuilder {
-    let address = &settings.rest_api_address;
+fn unauthorized_request(context: &TestContext, method: Method, route: &str) -> RequestBuilder {
+    let address = &context.settings.rest_api_address;
     https_client()
         .request(method, format!("https://{address}{route}"))
         .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
 }
 
-fn admin_request(settings: &Settings, method: Method, route: &str) -> Result<RequestBuilder> {
-    Ok(unauthorized_request(settings, method, route).header("macaroon", admin_macaroon(settings)?))
+fn admin_request(context: &TestContext, method: Method, route: &str) -> Result<RequestBuilder> {
+    Ok(unauthorized_request(context, method, route)
+        .header("macaroon", context.admin_macaroon.clone()))
 }
 
 fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
-    settings: &Settings,
+    context: &TestContext,
     method: Method,
     route: &str,
     f: F,
 ) -> Result<RequestBuilder> {
     let body = serde_json::to_string(&f()).unwrap();
-    Ok(admin_request(settings, method, route)?.body(body))
+    Ok(admin_request(context, method, route)?.body(body))
 }
 
-fn readonly_request(settings: &Settings, method: Method, route: &str) -> Result<RequestBuilder> {
-    Ok(unauthorized_request(settings, method, route)
-        .header("macaroon", readonly_macaroon(settings)?))
+fn readonly_request(context: &TestContext, method: Method, route: &str) -> Result<RequestBuilder> {
+    Ok(unauthorized_request(context, method, route)
+        .header("macaroon", context.readonly_macaroon.clone()))
 }
 
 fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(
-    settings: &Settings,
+    context: &TestContext,
     method: Method,
     route: &str,
     f: F,
 ) -> Result<RequestBuilder> {
     let body = serde_json::to_string(&f()).unwrap();
-    Ok(readonly_request(settings, method, route)?.body(body))
+    Ok(readonly_request(context, method, route)?.body(body))
 }

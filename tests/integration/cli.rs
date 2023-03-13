@@ -169,16 +169,16 @@ where
 }
 
 async fn run_cli(command: &str, extra_args: &[&str]) -> Result<Output> {
-    let settings = create_api_server().await?;
+    let context = create_api_server().await?;
 
     let output = Command::new(env!("CARGO_BIN_EXE_kld-cli"))
         .args([
             "--target",
-            &settings.rest_api_address,
+            &context.settings.rest_api_address,
             "--cert-path",
-            &format!("{}/kld.crt", settings.certs_dir),
+            &format!("{}/kld.crt", context.settings.certs_dir),
             "--macaroon-path",
-            &format!("{}/macaroons/admin.macaroon", settings.data_dir),
+            &format!("{}/macaroons/admin.macaroon", context.settings.data_dir),
             command,
         ])
         .args(extra_args)
