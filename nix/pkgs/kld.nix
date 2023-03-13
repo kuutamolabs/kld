@@ -4,7 +4,6 @@
 , openssl
 , bitcoind
 , cockroachdb
-, teos
 , pkg-config
 , self
 }:
@@ -48,7 +47,7 @@ craneLib.buildPackage {
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoArtifacts buildInputs cargoExtraArgs;
-      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb teos ];
+      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
     };
   };
 

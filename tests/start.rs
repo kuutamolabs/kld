@@ -4,9 +4,7 @@ use anyhow::Result;
 use api::{routes, GetInfo};
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
-use test_utils::{
-    bitcoin, bitcoin_manager::BitcoinManager, cockroach, kld, teos, TestSettingsBuilder,
-};
+use test_utils::{bitcoin, bitcoin_manager::BitcoinManager, cockroach, kld, TestSettingsBuilder};
 use tokio::time::{sleep_until, Instant};
 
 // This test is run separately (in its own process) from the other threads.
@@ -19,9 +17,6 @@ pub async fn test_start() -> Result<()> {
     bitcoin.start().await?;
     let n_blocks = 6;
     generate_blocks(&bitcoin, n_blocks).await?;
-
-    let mut teos = teos!(&bitcoin);
-    teos.start().await?;
 
     let mut kld = kld!(&bitcoin, &cockroach);
     kld.start().await?;

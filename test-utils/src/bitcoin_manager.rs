@@ -14,7 +14,6 @@ const NETWORK: &str = "regtest";
 
 pub struct BitcoinManager {
     manager: Manager,
-    rpc_auth: String,
     pub p2p_port: u16,
     pub rpc_port: u16,
     pub network: String,
@@ -29,7 +28,6 @@ impl BitcoinManager {
             &format!("-datadir={}", &self.manager.storage_dir),
             &format!("-port={}", &self.p2p_port.to_string()),
             &format!("-rpcport={}", &self.rpc_port.to_string()),
-            &format!("-rpcauth={}", &self.rpc_auth),
         ];
         self.manager.start("bitcoind", args).await
     }
@@ -41,8 +39,6 @@ impl BitcoinManager {
     pub fn test_bitcoin(output_dir: &str, node_index: u16) -> BitcoinManager {
         let p2p_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
-        // user:password just used by TEOS at the moment.
-        let rpc_auth = "user:bcae5b9986aa90ef40565c2b5d5e685c$8d81897118da8bc7489619853f68e1fc161b3e4cb904071ea123965136468b81".to_string();
 
         let manager = Manager::new(
             Box::new(BitcoinApi {
@@ -57,7 +53,6 @@ impl BitcoinManager {
             manager,
             p2p_port,
             rpc_port,
-            rpc_auth,
             network: NETWORK.to_string(),
         }
     }
