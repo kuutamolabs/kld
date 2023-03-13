@@ -349,6 +349,7 @@ pub struct Controller {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet>,
     async_api_requests: Arc<AsyncAPIRequests>,
+    background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
 }
 
 impl Controller {
@@ -356,6 +357,10 @@ impl Controller {
         // Disconnect our peers and stop accepting new connections. This ensures we don't continue
         // updating our channel data after we've stopped the background processor.
         self.peer_manager.disconnect_all_peers();
+        if let Some(bgp) = self.background_processor.lock().unwrap().take() {
+            bgp.stop()
+                .expect("Background processor did not stop cleanly");
+        }
     }
 
     pub async fn start_ldk(
@@ -364,7 +369,7 @@ impl Controller {
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet>,
         seed: &[u8; 32],
-    ) -> Result<(Controller, BackgroundProcessor)> {
+    ) -> Result<Controller> {
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
 
@@ -640,18 +645,22 @@ impl Controller {
         peer_manager.keep_channel_peers_connected();
         peer_manager.regularly_broadcast_node_announcement()?;
 
-        Ok((
-            Controller {
-                settings,
-                database,
-                bitcoind_client,
-                channel_manager,
-                peer_manager,
-                network_graph,
-                wallet,
-                async_api_requests,
-            },
-            background_processor,
-        ))
+        Ok(Controller {
+            settings,
+            database,
+            bitcoind_client,
+            channel_manager,
+            peer_manager,
+            network_graph,
+            wallet,
+            async_api_requests,
+            background_processor: Arc::new(Mutex::new(Some(background_processor))),
+        })
+    }
+}
+
+impl Drop for Controller {
+    fn drop(&mut self) {
+        self.stop()
     }
 }
