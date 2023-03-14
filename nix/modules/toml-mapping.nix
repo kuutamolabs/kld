@@ -8,7 +8,7 @@ in
 {
   options.kuutamo.deployConfig = lib.mkOption {
     default = { };
-    description = lib.mdDoc "toml configuration from kld-deploy cli";
+    description = lib.mdDoc "toml configuration from kld-mgr cli";
     inherit (settingsFormat) type;
   };
   # deployConfig is optional

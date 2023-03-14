@@ -10,6 +10,7 @@ disks = [ "/dev/vdb", "/dev/vdc" ]
 extra_nixos_modules = [ "qemu-test-profile" ]
 
 [hosts.kld-00]
+nixos_module = "kld-node"
 # nixos tests have predictable mac addresses and our `installed` machine has the index 01 in vlan 01
 mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
@@ -21,6 +22,7 @@ ipv6_cidr = 48
 ipv6_gateway = "2605:9880:400::1"
 
 [hosts.db-00]
+nixos_module = "cockroachdb-node"
 # nixos tests have predictable mac addresses and our `installed` machine has the index 01 in vlan 01
 mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
@@ -32,6 +34,7 @@ ipv6_cidr = 48
 ipv6_gateway = "2605:9880:400::1"
 
 [hosts.db-01]
+nixos_module = "cockroachdb-node"
 # nixos tests have predictable mac addresses and our `installed` machine has the index 01 in vlan 01
 mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"

@@ -6,7 +6,7 @@
         craneLib = inputs.crane.lib.${system};
         inherit (config.packages) cockroachdb;
       };
-      kld-deploy = pkgs.callPackage ./kld-deploy.nix {
+      kld-mgr = pkgs.callPackage ./kld-mgr.nix {
         inherit self;
         craneLib = inputs.crane.lib.${system};
       };

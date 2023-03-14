@@ -5,9 +5,9 @@ status = [
   "check kld [x86_64-linux]",
   "check kld-benches [x86_64-linux]",
   "check kld-clippy [x86_64-linux]",
-  "check kld-deploy [x86_64-linux]",
-  "check kld-deploy-clippy [x86_64-linux]",
-  "check kld-deploy-tests [x86_64-linux]",
+  "check kld-mgr [x86_64-linux]",
+  "check kld-mgr-clippy [x86_64-linux]",
+  "check kld-mgr-tests [x86_64-linux]",
   "check kld-tests [x86_64-linux]",
   "check treefmt [x86_64-linux]",
   "devShell default [x86_64-linux]",
@@ -18,6 +18,6 @@ status = [
   "package cockroachdb [x86_64-linux]",
   "package default [x86_64-linux]",
   "package kld [x86_64-linux]",
-  "package kld-deploy [x86_64-linux]",
+  "package kld-mgr [x86_64-linux]",
   "package remote-pdb [x86_64-linux]"
 ]

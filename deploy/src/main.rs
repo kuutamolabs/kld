@@ -1,4 +1,4 @@
-//! kld-deploy - a cli for deploying kld clusters
+//! kld-mgr - a cli for deploying kld clusters
 
 #![deny(missing_docs)]
 

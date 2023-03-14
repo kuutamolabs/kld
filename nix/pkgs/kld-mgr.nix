@@ -22,7 +22,7 @@ let
   };
 in
 craneLib.buildPackage {
-  name = "kld-deploy";
+  name = "kld-mgr";
   inherit src cargoArtifacts buildInputs nativeBuildInputs;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
@@ -45,5 +45,6 @@ craneLib.buildPackage {
     homepage = "https://github.com/kuutamolabs/kld";
     license = licenses.asl20;
     platforms = platforms.unix;
+    mainProgram = "kld-mgr";
   };
 }
