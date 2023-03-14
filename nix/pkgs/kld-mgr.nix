@@ -22,23 +22,26 @@ let
   checkInputs = [ nix ];
 
   cargoExtraArgs = "--workspace --all-features";
+  outputHashes = {
+    "https://github.com/AlexanderThaller/format_serde_error" = "sha256-R4zD1dAfB8OmlfYUDsDjevMkjfIWGtwLRRYGGRvZ8F4=";
+  };
   cargoArtifacts = craneLib.buildDepsOnly {
-    inherit src buildInputs nativeBuildInputs cargoExtraArgs;
+    inherit src buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
   };
   craneLib = self.inputs.crane.lib.${hostPlatform.system};
 in
 craneLib.buildPackage {
   name = "kld-mgr";
-  inherit src cargoArtifacts buildInputs nativeBuildInputs;
+  inherit src cargoArtifacts buildInputs nativeBuildInputs outputHashes;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
     clippy = craneLib.cargoClippy {
-      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
       cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
     };
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
-      inherit src cargoArtifacts buildInputs cargoExtraArgs;
+      inherit src cargoArtifacts buildInputs cargoExtraArgs outputHashes;
       nativeBuildInputs = nativeBuildInputs ++ checkInputs;
     };
   };

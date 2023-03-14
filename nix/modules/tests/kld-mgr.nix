@@ -98,8 +98,7 @@ in
       installer.succeed("cp -r ${self} /root/near-staking-knd")
 
       installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} generate-config /tmp/config")
-      installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00")
-      import sys; sys.exit(0)
+      installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00 >&2")
 
       installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes install --debug --no-reboot --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
       installer.succeed("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@192.168.42.2 -- reboot >&2")

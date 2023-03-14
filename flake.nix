@@ -14,7 +14,9 @@
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
     rust-overlay.inputs.flake-utils.follows = "flake-utils";
 
-    crane.url = "github:ipetkov/crane";
+    # allow offline evaluation for git dependencies, see https://github.com/ipetkov/crane/pull/266
+    #crane.url = "github:ipetkov/crane";
+    crane.url = "github:Mic92/crane/allow-output-hashes";
     crane.inputs.nixpkgs.follows = "nixpkgs";
     crane.inputs.flake-utils.follows = "flake-utils";
     crane.inputs.rust-overlay.follows = "rust-overlay";

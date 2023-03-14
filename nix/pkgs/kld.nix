@@ -27,28 +27,32 @@ let
   buildInputs = [ openssl ];
   nativeBuildInputs = [ pkg-config ];
   cargoExtraArgs = "--workspace --all-features";
+  outputHashes = {
+    "https://github.com/Mic92/bdk?branch=backport-begin-batch-result" = "sha256-6DrNnzy2jYpkxiNReAkUl22Iz6au0+kmePmTXQxUsug=";
+  };
   cargoArtifacts = craneLib.buildDepsOnly {
-    inherit src buildInputs nativeBuildInputs cargoExtraArgs;
+    inherit src buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
   };
 in
 craneLib.buildPackage {
   name = "kld";
-  inherit src cargoArtifacts buildInputs nativeBuildInputs;
+  inherit src cargoArtifacts buildInputs nativeBuildInputs outputHashes;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
     clippy = craneLib.cargoClippy {
-      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
       cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
     };
     benches = craneLib.mkCargoDerivation {
-      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs;
+      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
       buildPhaseCargoCommand = "cargo bench --no-run";
     };
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
-      inherit src cargoArtifacts buildInputs cargoExtraArgs;
+      inherit src cargoArtifacts buildInputs cargoExtraArgs outputHashes;
       nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
     };
+    inherit cargoArtifacts;
   };
 
   # we run tests in a seperate package
