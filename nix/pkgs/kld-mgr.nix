@@ -1,10 +1,15 @@
-{ craneLib
-, lib
+{ lib
 , clippy
 , openssl
 , pkg-config
 , self
 , nix
+, nixos-rebuild
+, rsync
+, git
+, openssh
+, hostPlatform
+, makeWrapper
 }:
 let
   paths = [ "deploy" ];
@@ -13,13 +18,14 @@ let
     filter = path: _type: lib.any (p: lib.hasPrefix "${self}/${p}" path) paths;
   };
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [ pkg-config makeWrapper ];
   checkInputs = [ nix ];
 
   cargoExtraArgs = "--workspace --all-features";
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src buildInputs nativeBuildInputs cargoExtraArgs;
   };
+  craneLib = self.inputs.crane.lib.${hostPlatform.system};
 in
 craneLib.buildPackage {
   name = "kld-mgr";
@@ -36,6 +42,19 @@ craneLib.buildPackage {
       nativeBuildInputs = nativeBuildInputs ++ checkInputs;
     };
   };
+
+  # openssh is suffixed so we use the host's openssh to avoid this
+  # https://github.com/numtide/nixos-anywhere/issues/62 from happening
+  postInstall = ''
+    wrapProgram $out/bin/kld-mgr \
+      --prefix PATH : ${lib.makeBinPath [
+          self.inputs.nixos-anywhere.packages.${hostPlatform.system}.nixos-anywhere
+          self.packages.${hostPlatform.system}.cockroachdb
+
+          nixos-rebuild nix git rsync openssl
+      ]} \
+      --suffix PATH : ${lib.makeBinPath [ openssh ]}
+  '';
 
   # we run tests in a seperate package
   doCheck = false;
