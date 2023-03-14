@@ -1,5 +1,5 @@
-name = "validator-00"
-nixos_module = "single-node-validator-mainnet"
+name = "db-01"
+nixos_module = "cockroachdb-node"
 extra_nixos_modules = ["qemu-test-profile"]
 mac_address = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"

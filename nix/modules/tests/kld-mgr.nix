@@ -100,7 +100,7 @@ in
       installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} generate-config /tmp/config")
       installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00 >&2")
 
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes install --debug --no-reboot --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes install --hosts kld-00 --debug --no-reboot --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
       installer.succeed("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@192.168.42.2 -- reboot >&2")
       installed.shutdown()
 
@@ -116,13 +116,13 @@ in
       new_machine.succeed("rm /var/lib/secrets/validator_key.json")
       new_machine.wait_for_unit("consul.service")
 
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes dry-update >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes dry-update --hosts kld-00 >&2")
       # redeploying uploads the key
       new_machine.succeed("test -f /var/lib/secrets/validator_key.json")
 
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes update --immediately >&2")
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes update --immediately >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes update --hosts kld-00 --immediately >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes update --hosts kld-00 --immediately >&2")
       # XXX find out how we can make persist more than one profile in our test
-      #installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes rollback --immediately >&2")
+      #installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes rollback --hosts kld-00 --immediately >&2")
     '';
 })

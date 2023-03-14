@@ -1,5 +1,5 @@
 {
-  inputs.lightning-knd.url = "/root/lightning-knd";
+  inputs.lightning-knd.url = "/root/near-staking-knd";
 
   nixConfig.extra-substituters = [
     "https://cache.garnix.io"
