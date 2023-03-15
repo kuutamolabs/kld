@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use futures::FutureExt;
 use std::sync::Arc;
-use test_utils::test_settings;
+use test_utils::{test_settings, poll};
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
 use kld::prometheus::start_prometheus_exporter;
@@ -17,6 +17,7 @@ pub async fn test_prometheus() -> Result<()> {
         metrics.clone(),
         quit_signal().shared(),
     ));
+    poll!(3, call_exporter(&address, "health").await.is_ok());
 
     let health = call_exporter(&address, "health").await?;
     assert_eq!(health, "OK");
