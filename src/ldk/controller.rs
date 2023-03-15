@@ -91,15 +91,27 @@ impl LightningInterface for Controller {
     }
 
     fn num_active_channels(&self) -> usize {
-        0
+        self.channel_manager
+            .list_channels()
+            .iter()
+            .filter(|c| c.is_usable)
+            .count()
     }
 
     fn num_inactive_channels(&self) -> usize {
-        0
+        self.channel_manager
+            .list_channels()
+            .iter()
+            .filter(|c| c.is_channel_ready && !c.is_usable)
+            .count()
     }
 
     fn num_pending_channels(&self) -> usize {
-        0
+        self.channel_manager
+            .list_channels()
+            .iter()
+            .filter(|c| !c.is_channel_ready)
+            .count()
     }
 
     fn list_channels(&self) -> Vec<ChannelDetails> {
