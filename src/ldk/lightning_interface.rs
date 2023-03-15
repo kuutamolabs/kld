@@ -33,8 +33,6 @@ pub trait LightningInterface {
 
     fn wallet_balance(&self) -> u64;
 
-    fn version(&self) -> String;
-
     fn list_channels(&self) -> Vec<ChannelDetails>;
 
     fn set_channel_fee(

@@ -1,6 +1,8 @@
 use bitcoin::Transaction;
 use serde::{Deserialize, Serialize};
 
+pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod routes {
     /// --- General ---
     /// NO-OP
@@ -65,6 +67,7 @@ pub struct GetInfo {
     pub chains: Vec<Chain>,
     pub version: String,
     pub api_version: String,
+    pub commit_sha: String,
     pub network: String,
     pub address: Vec<Address>,
 }
