@@ -6,9 +6,8 @@
         craneLib = inputs.crane.lib.${system};
         inherit (config.packages) cockroachdb;
       };
-      kld-deploy = pkgs.callPackage ./kld-deploy.nix {
+      kld-mgr = pkgs.callPackage ./kld-mgr.nix {
         inherit self;
-        craneLib = inputs.crane.lib.${system};
       };
       remote-pdb = pkgs.python3.pkgs.callPackage ./remote-pdb.nix { };
       bitcoind = pkgs.bitcoind.override { withGui = false; };

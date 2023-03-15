@@ -1,41 +1,37 @@
-{ craneLib
-, lib
+{ lib
 , clippy
 , openssl
-, bitcoind
-, cockroachdb
 , pkg-config
 , self
+, nix
+, nixos-rebuild
+, rsync
+, git
+, openssh
+, hostPlatform
+, makeWrapper
 }:
 let
-  paths = [
-    "Cargo.toml"
-    "Cargo.lock"
-    "src"
-    "api"
-    "benches"
-    "database"
-    "logger"
-    "settings"
-    "tests"
-    "test-utils"
-  ];
+  paths = [ "deploy" ];
   src = lib.cleanSourceWith {
-    src = self;
+    src = self + "/deploy";
     filter = path: _type: lib.any (p: lib.hasPrefix "${self}/${p}" path) paths;
   };
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [ pkg-config makeWrapper ];
+  checkInputs = [ nix ];
+
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
-    "https://github.com/Mic92/bdk?branch=backport-begin-batch-result" = "sha256-6DrNnzy2jYpkxiNReAkUl22Iz6au0+kmePmTXQxUsug=";
+    "https://github.com/AlexanderThaller/format_serde_error" = "sha256-R4zD1dAfB8OmlfYUDsDjevMkjfIWGtwLRRYGGRvZ8F4=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
   };
+  craneLib = self.inputs.crane.lib.${hostPlatform.system};
 in
 craneLib.buildPackage {
-  name = "kld";
+  name = "kld-mgr";
   inherit src cargoArtifacts buildInputs nativeBuildInputs outputHashes;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
@@ -43,17 +39,25 @@ craneLib.buildPackage {
       inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
       cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
     };
-    benches = craneLib.mkCargoDerivation {
-      inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
-      buildPhaseCargoCommand = "cargo bench --no-run";
-    };
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoArtifacts buildInputs cargoExtraArgs outputHashes;
-      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
+      nativeBuildInputs = nativeBuildInputs ++ checkInputs;
     };
-    inherit cargoArtifacts;
   };
+
+  # openssh is suffixed so we use the host's openssh to avoid this
+  # https://github.com/numtide/nixos-anywhere/issues/62 from happening
+  postInstall = ''
+    wrapProgram $out/bin/kld-mgr \
+      --prefix PATH : ${lib.makeBinPath [
+          self.inputs.nixos-anywhere.packages.${hostPlatform.system}.nixos-anywhere
+          self.packages.${hostPlatform.system}.cockroachdb
+
+          nixos-rebuild nix git rsync openssl
+      ]} \
+      --suffix PATH : ${lib.makeBinPath [ openssh ]}
+  '';
 
   # we run tests in a seperate package
   doCheck = false;
@@ -63,5 +67,6 @@ craneLib.buildPackage {
     homepage = "https://github.com/kuutamolabs/kld";
     license = licenses.asl20;
     platforms = platforms.unix;
+    mainProgram = "kld-mgr";
   };
 }
