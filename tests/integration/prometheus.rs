@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use futures::FutureExt;
 use std::sync::Arc;
-use test_utils::{test_settings, poll};
+use test_utils::{poll, test_settings};
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
 use kld::prometheus::start_prometheus_exporter;
