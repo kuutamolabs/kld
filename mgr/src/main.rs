@@ -4,7 +4,7 @@
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use deploy::{generate_nixos_flake, Config, Host, NixosFlake};
+use mgr::{generate_nixos_flake, Config, Host, NixosFlake};
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 use std::path::PathBuf;
@@ -130,7 +130,7 @@ fn install(
         ) {
         return Ok(());
     }
-    deploy::install(
+    mgr::install(
         &hosts,
         &install_args.kexec_url,
         flake,
@@ -144,7 +144,7 @@ fn generate_config(
     _config: &Config,
     flake: &NixosFlake,
 ) -> Result<()> {
-    deploy::generate_config(&config_args.directory, flake)
+    mgr::generate_config(&config_args.directory, flake)
 }
 
 fn dry_update(
@@ -154,7 +154,7 @@ fn dry_update(
     flake: &NixosFlake,
 ) -> Result<()> {
     let hosts = filter_hosts(&dry_update_args.hosts, &config.hosts)?;
-    deploy::dry_update(&hosts, flake)
+    mgr::dry_update(&hosts, flake)
 }
 
 fn update(
@@ -164,7 +164,7 @@ fn update(
     flake: &NixosFlake,
 ) -> Result<()> {
     let hosts = filter_hosts(&update_args.hosts, &config.hosts)?;
-    deploy::update(&hosts, flake)
+    mgr::update(&hosts, flake)
 }
 
 fn rollback(
@@ -174,13 +174,13 @@ fn rollback(
     flake: &NixosFlake,
 ) -> Result<()> {
     let hosts = filter_hosts(&rollback_args.hosts, &config.hosts)?;
-    deploy::rollback(&hosts, flake)
+    mgr::rollback(&hosts, flake)
 }
 
 /// The kuutamo program entry point
 pub fn main() -> Result<()> {
     let args = Args::parse();
-    let config = deploy::load_configuration(&args.config).with_context(|| {
+    let config = mgr::load_configuration(&args.config).with_context(|| {
         format!(
             "failed to parse configuration file: {}",
             &args.config.display()

@@ -12,9 +12,9 @@
 , makeWrapper
 }:
 let
-  paths = [ "deploy" ];
+  paths = [ "mgr" ];
   src = lib.cleanSourceWith {
-    src = self + "/deploy";
+    src = self + "/mgr";
     filter = path: _type: lib.any (p: lib.hasPrefix "${self}/${p}" path) paths;
   };
   buildInputs = [ openssl ];
