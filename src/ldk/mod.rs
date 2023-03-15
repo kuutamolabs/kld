@@ -14,6 +14,7 @@ use lightning::{
     ln::{channelmanager::SimpleArcChannelManager, peer_handler::SimpleArcPeerManager},
     onion_message::SimpleArcOnionMessenger,
     routing::gossip,
+    util::errors::APIError,
 };
 use lightning_net_tokio::SocketDescriptor;
 use logger::KldLogger;
@@ -47,3 +48,22 @@ pub(crate) type ChannelManager =
     SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>;
 
 pub(crate) type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;
+
+pub fn ldk_error(error: APIError) -> anyhow::Error {
+    anyhow::Error::msg(match error {
+        APIError::APIMisuseError { ref err } => format!("Misuse error: {err}"),
+        APIError::FeeRateTooHigh {
+            ref err,
+            ref feerate,
+        } => format!("{err} feerate: {feerate}"),
+        APIError::InvalidRoute { ref err } => format!("Invalid route provided: {err}"),
+        APIError::ChannelUnavailable { ref err } => format!("Channel unavailable: {err}"),
+        APIError::MonitorUpdateInProgress => {
+            "Client indicated a channel monitor update is in progress but not yet complete"
+                .to_string()
+        }
+        APIError::IncompatibleShutdownScript { ref script } => {
+            format!("Provided a scriptpubkey format not accepted by peer: {script}")
+        }
+    })
+}

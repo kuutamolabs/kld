@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 use bitcoin_bech32::WitnessProgram;
@@ -17,6 +17,7 @@ use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
 use crate::bitcoind::BitcoindClient;
+use crate::ldk::ldk_error;
 use crate::ldk::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo};
 use crate::wallet::{Wallet, WalletInterface};
 
@@ -85,9 +86,8 @@ impl EventHandler {
                 output_script,
                 user_channel_id,
             } => {
-                // Construct the raw transaction with one output, that is paid the amount of the
-                // channel.
-                let addr = WitnessProgram::from_scriptpubkey(
+                // Construct the raw transaction with one output, that is paid the amount of the channel.
+                let addr = match WitnessProgram::from_scriptpubkey(
                     &output_script[..],
                     match self.network {
                         Network::Bitcoin => bitcoin_bech32::constants::Network::Bitcoin,
@@ -96,27 +96,50 @@ impl EventHandler {
                         Network::Signet => bitcoin_bech32::constants::Network::Signet,
                     },
                 )
-                .expect("Lightning funding tx should always be to a SegWit output")
-                .to_address();
+                .context("Lightning funding tx should always be to a SegWit output")
+                {
+                    Ok(wp) => wp.to_address(),
+                    Err(e) => {
+                        error!("{}", e);
+                        self.async_api_requests
+                            .channel_opens
+                            .send(user_channel_id, Err(e))
+                            .await;
+                        return;
+                    }
+                };
                 let mut outputs = vec![HashMap::with_capacity(1)];
                 outputs[0].insert(addr, channel_value_satoshis as f64 / 100_000_000.0);
 
-                let funding_tx = self
-                    .wallet
-                    .fund_tx(&output_script, &channel_value_satoshis)
-                    .unwrap();
+                let funding_tx = match self.wallet.fund_tx(&output_script, &channel_value_satoshis)
+                {
+                    Ok(tx) => tx,
+                    Err(e) => {
+                        error!("{}", e);
+                        self.async_api_requests
+                            .channel_opens
+                            .send(user_channel_id, Err(e))
+                            .await;
+                        return;
+                    }
+                };
 
                 // Give the funding transaction back to LDK for opening the channel.
-                if self
+                if let Err(e) = self
                     .channel_manager
                     .funding_transaction_generated(
                         &temporary_channel_id,
                         &counterparty_node_id,
                         funding_tx.clone(),
                     )
-                    .is_err()
+                    .map_err(ldk_error)
                 {
-                    error!("Channel went away before we could fund it. The peer disconnected or refused the channel.");
+                    error!("{}", e);
+                    self.async_api_requests
+                        .channel_opens
+                        .send(user_channel_id, Err(e))
+                        .await;
+                    return;
                 }
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
                 self.async_api_requests
@@ -175,7 +198,9 @@ impl EventHandler {
                     } => payment_preimage,
                     PaymentPurpose::SpontaneousPayment(preimage) => Some(preimage),
                 };
-                self.channel_manager.claim_funds(payment_preimage.unwrap());
+                if let Some(payment_preimage) = payment_preimage {
+                    self.channel_manager.claim_funds(payment_preimage);
+                }
             }
             Event::PaymentClaimed {
                 payment_hash,
@@ -249,8 +274,7 @@ impl EventHandler {
 			);
 
                 let mut payments = self.outbound_payments.lock().unwrap();
-                if payments.contains_key(&payment_hash) {
-                    let payment = payments.get_mut(&payment_hash).unwrap();
+                if let Some(payment) = payments.get_mut(&payment_hash) {
                     payment.status = HTLCStatus::Failed;
                 }
             }
@@ -326,22 +350,29 @@ impl EventHandler {
                 });
             }
             Event::SpendableOutputs { outputs } => {
-                let destination_address = self.wallet.new_address().unwrap();
+                let destination_address = match self.wallet.new_address() {
+                    Ok(a) => a,
+                    Err(e) => {
+                        error!("{}", e);
+                        return;
+                    }
+                };
                 let output_descriptors = &outputs.iter().collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
-                let spending_tx = self
-                    .keys_manager
-                    .spend_spendable_outputs(
-                        output_descriptors,
-                        Vec::new(),
-                        destination_address.script_pubkey(),
-                        tx_feerate,
-                        &Secp256k1::new(),
-                    )
-                    .unwrap();
-                self.bitcoind_client.broadcast_transaction(&spending_tx);
+                match self.keys_manager.spend_spendable_outputs(
+                    output_descriptors,
+                    Vec::new(),
+                    destination_address.script_pubkey(),
+                    tx_feerate,
+                    &Secp256k1::new(),
+                ) {
+                    Ok(spending_tx) => self.bitcoind_client.broadcast_transaction(&spending_tx),
+                    Err(_) => {
+                        error!("Failed to build spending transaction");
+                    }
+                };
             }
             Event::HTLCIntercepted {
                 intercept_id: _,
