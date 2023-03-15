@@ -18,7 +18,7 @@ use lightning::routing::gossip::{NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
-use lightning::util::errors::APIError;
+
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::init;
@@ -43,8 +43,8 @@ use super::net_utils::PeerAddress;
 use super::payment_info::PaymentInfoStorage;
 use super::peer_manager::PeerManager;
 use super::{
-    ChainMonitor, ChannelManager, LdkPeerManager, LightningInterface, NetworkGraph, OnionMessenger,
-    OpenChannelResult, Peer, PeerStatus,
+    ldk_error, ChainMonitor, ChannelManager, LdkPeerManager, LightningInterface, NetworkGraph,
+    OnionMessenger, OpenChannelResult, Peer, PeerStatus,
 };
 
 #[async_trait]
@@ -138,7 +138,7 @@ impl LightningInterface for Controller {
                 user_channel_id,
                 override_config,
             )
-            .map_err(api_error)?;
+            .map_err(ldk_error)?;
         let receiver = self
             .async_api_requests
             .channel_opens
@@ -156,7 +156,7 @@ impl LightningInterface for Controller {
     fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()> {
         self.channel_manager
             .close_channel(channel_id, counterparty_node_id)
-            .map_err(api_error)
+            .map_err(ldk_error)
     }
 
     fn set_channel_fee(
@@ -175,7 +175,7 @@ impl LightningInterface for Controller {
         }
         self.channel_manager
             .update_channel_config(counterparty_node_id, channel_ids, &channel_config)
-            .map_err(api_error)?;
+            .map_err(ldk_error)?;
         Ok((
             channel_config.forwarding_fee_base_msat,
             channel_config.forwarding_fee_proportional_millionths,
@@ -327,25 +327,6 @@ impl<K: Eq + Hash, V> AsyncSenders<K, V> {
             }
         }
     }
-}
-
-fn api_error(error: APIError) -> anyhow::Error {
-    anyhow::Error::msg(match error {
-        APIError::APIMisuseError { ref err } => format!("Misuse error: {err}"),
-        APIError::FeeRateTooHigh {
-            ref err,
-            ref feerate,
-        } => format!("{err} feerate: {feerate}"),
-        APIError::InvalidRoute { ref err } => format!("Invalid route provided: {err}"),
-        APIError::ChannelUnavailable { ref err } => format!("Channel unavailable: {err}"),
-        APIError::MonitorUpdateInProgress => {
-            "Client indicated a channel monitor update is in progress but not yet complete"
-                .to_string()
-        }
-        APIError::IncompatibleShutdownScript { ref script } => {
-            format!("Provided a scriptpubkey format not accepted by peer: {script}")
-        }
-    })
 }
 
 pub struct Controller {
