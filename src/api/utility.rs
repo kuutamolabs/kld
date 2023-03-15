@@ -1,4 +1,4 @@
-use api::Address;
+use api::{Address, API_VERSION};
 use api::{Chain, GetInfo};
 use axum::Json;
 use axum::{response::IntoResponse, Extension};
@@ -6,6 +6,7 @@ use bitcoin::Network;
 use std::sync::Arc;
 
 use crate::ldk::LightningInterface;
+use crate::VERSION;
 
 use super::MacaroonAuth;
 use super::{internal_server, unauthorized};
@@ -36,9 +37,10 @@ pub(crate) async fn get_info(
             chain: "bitcoin".to_string(),
             network: lightning_interface.network().to_string(),
         }],
-        version: lightning_interface.version(),
+        version: VERSION.to_string(),
+        api_version: API_VERSION.to_string(),
+        commit_sha: option_env!("GITHUB_SHA").unwrap_or_default().to_string(),
         color: "".to_string(),
-        api_version: "0.9.0".to_string(),
         network: lightning_interface.network().to_string(),
         address: lightning_interface
             .addresses()

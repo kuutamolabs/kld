@@ -126,10 +126,6 @@ impl LightningInterface for MockLightning {
         self.wallet_balance
     }
 
-    fn version(&self) -> String {
-        "v0.1".to_string()
-    }
-
     fn list_channels(&self) -> Vec<ChannelDetails> {
         self.channels.clone()
     }

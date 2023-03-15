@@ -8,8 +8,8 @@ use kld::bitcoind::BitcoindClient;
 use kld::key_generator::KeyGenerator;
 use kld::ldk::Controller;
 use kld::prometheus::start_prometheus_exporter;
-use kld::quit_signal;
 use kld::wallet::Wallet;
+use kld::{quit_signal, VERSION};
 use log::{error, info};
 use settings::Settings;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ pub fn main() -> Result<()> {
         settings.log_level.parse().context("Invalid log level")?,
     );
 
-    info!("Starting Kuutamo Lightning Daemon");
+    info!("Starting {VERSION}");
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()

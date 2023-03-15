@@ -1,6 +1,6 @@
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::wallet::{Wallet, WalletInterface};
-use crate::VERSION;
+
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
@@ -73,10 +73,6 @@ impl LightningInterface for Controller {
                 0
             }
         }
-    }
-
-    fn version(&self) -> String {
-        VERSION.to_string()
     }
 
     fn alias(&self) -> String {
