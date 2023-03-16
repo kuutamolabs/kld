@@ -56,7 +56,7 @@ impl AsIpAddr for IpV6String {
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
     #[serde(default)]
-    global: GlobalConfig,
+    global: Global,
 
     #[serde(default)]
     host_defaults: HostConfig,
@@ -73,6 +73,14 @@ pub struct NearKeyFile {
     // neard add private_key as an alias to this field so either will work.
     #[serde(alias = "private_key")]
     pub secret_key: String,
+}
+
+fn default_secret_directory() -> PathBuf {
+    PathBuf::from("secrets")
+}
+
+fn default_flake() -> String {
+    "github:kuutamolabs/lightning-knd".to_string()
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -108,13 +116,6 @@ struct HostConfig {
 
     #[serde(default)]
     pub disks: Option<Vec<PathBuf>>,
-}
-
-/// Global configuration affecting all hosts
-#[derive(Debug, Default, Deserialize)]
-pub struct GlobalConfig {
-    #[serde(default)]
-    flake: Option<String>,
 }
 
 /// NixOS host configuration
@@ -176,21 +177,15 @@ impl Host {
 }
 
 /// Global configuration affecting all hosts
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default)]
 pub struct Global {
     /// Flake url where the nixos configuration is
-    #[serde(default)]
+    #[serde(default = "default_flake")]
     pub flake: String,
-}
 
-fn validate_global(global_config: &GlobalConfig) -> Result<Global> {
-    let default_flake = "github:kuutamolabs/lightning-knd";
-    let flake = global_config
-        .flake
-        .as_deref()
-        .unwrap_or(default_flake)
-        .to_string();
-    Ok(Global { flake })
+    /// Directory where the secrets are stored i.e. certificates
+    #[serde(default = "default_secret_directory")]
+    pub secret_directory: PathBuf,
 }
 
 fn validate_host(
@@ -365,8 +360,7 @@ pub fn parse_config(content: &str, working_directory: Option<&Path>) -> Result<C
         })
         .collect::<Result<_>>()?;
 
-    let global = validate_global(&config.global)?;
-    Ok(Config { hosts, global })
+    Ok(Config { hosts, global: config.global.clone() })
 }
 
 /// Load configuration from path
