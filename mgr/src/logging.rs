@@ -3,8 +3,10 @@
 use log::{LevelFilter, Log, Metadata, Record, SetLoggerError};
 
 #[derive(Default)]
-/// A logger instance for logfmt format (https://www.brandur.org/logfmt)
-pub struct LogFmtLogger {}
+/// A logger instance
+pub struct Logger {}
+
+static LOGGER: Logger = Logger {};
 
 /// Sets global logger.
 ///
@@ -13,11 +15,10 @@ pub struct LogFmtLogger {}
 /// An error is returned if a logger has already been set.
 ///
 pub fn init() -> Result<(), SetLoggerError> {
-    let logger = Box::new(LogFmtLogger {});
-    log::set_boxed_logger(logger).map(|()| log::set_max_level(LevelFilter::Info))
+    log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Info))
 }
 
-impl Log for LogFmtLogger {
+impl Log for Logger {
     fn enabled(&self, _metadata: &Metadata) -> bool {
         true
     }

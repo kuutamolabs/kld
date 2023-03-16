@@ -4,7 +4,8 @@
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use mgr::{generate_nixos_flake, Config, Host, NixosFlake};
+use mgr::lightning_certs::{create_or_update_lightning_certs, RenewPolicy};
+use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 use std::path::PathBuf;
@@ -179,6 +180,7 @@ fn rollback(
 
 /// The kuutamo program entry point
 pub fn main() -> Result<()> {
+    logging::init().context("failed to initialize logging")?;
     let args = Args::parse();
     let config = mgr::load_configuration(&args.config).with_context(|| {
         format!(
