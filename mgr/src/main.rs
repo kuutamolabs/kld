@@ -188,6 +188,12 @@ pub fn main() -> Result<()> {
             &args.config.display()
         )
     })?;
+    create_or_update_lightning_certs(
+        &config.global.secret_directory,
+        &config.hosts,
+        RenewPolicy::default(),
+    )?;
+
     let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
 
     if let Err(e) = match args.action {

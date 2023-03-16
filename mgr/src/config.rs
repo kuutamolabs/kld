@@ -360,7 +360,10 @@ pub fn parse_config(content: &str, working_directory: Option<&Path>) -> Result<C
         })
         .collect::<Result<_>>()?;
 
-    Ok(Config { hosts, global: config.global.clone() })
+    Ok(Config {
+        hosts,
+        global: config.global.clone(),
+    })
 }
 
 /// Load configuration from path

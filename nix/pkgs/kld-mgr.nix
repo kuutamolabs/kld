@@ -19,7 +19,7 @@ let
   };
   buildInputs = [ openssl ];
   nativeBuildInputs = [ pkg-config makeWrapper ];
-  checkInputs = [ nix ];
+  checkInputs = [ nix openssl ];
 
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {

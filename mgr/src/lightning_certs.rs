@@ -243,7 +243,12 @@ impl Default for RenewPolicy {
     }
 }
 
-pub(crate) fn create_or_update_lightning_certs(cert_dir: &Path, hosts: &[&Host], renew_policy: RenewPolicy) -> Result<()> {
+/// Create or update certificates for lightning nodes in given directory.
+pub fn create_or_update_lightning_certs(
+    cert_dir: &Path,
+    hosts: &HashMap<String, Host>,
+    renew_policy: RenewPolicy,
+) -> Result<()> {
     std::fs::create_dir_all(cert_dir).with_context(|| {
         format!(
             "Failed to create directory for lightning certificates: {}",
@@ -269,7 +274,7 @@ pub(crate) fn create_or_update_lightning_certs(cert_dir: &Path, hosts: &[&Host],
             )
         })?;
 
-    for h in hosts {
+    for h in hosts.values() {
         let key_path = cert_dir.join(format!("{}.key", h.name));
         let cert_path = cert_dir.join(format!("{}.pem", h.name));
         if !key_path.exists() {
