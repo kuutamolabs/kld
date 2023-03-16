@@ -30,7 +30,8 @@ pub fn main() -> Result<()> {
         .build()?;
 
     if let Err(e) = runtime.block_on(run_kld(settings)) {
-        error!("Fatal error running KND: {}", e);
+        error!("Fatal error encountered");
+        return Err(e);
     }
 
     info!("Shutting down");
