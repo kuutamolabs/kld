@@ -17,9 +17,12 @@ let
     src = self + "/mgr";
     filter = path: _type: lib.any (p: lib.hasPrefix "${self}/${p}" path) paths;
   };
+  inherit (self.packages.${hostPlatform.system}) cockroachdb;
+  inherit (self.inputs.nixos-anywhere.packages.${hostPlatform.system}) nixos-anywhere;
+
   buildInputs = [ openssl ];
   nativeBuildInputs = [ pkg-config makeWrapper ];
-  checkInputs = [ nix openssl ];
+  checkInputs = [ nix openssl cockroachdb ];
 
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
@@ -51,10 +54,7 @@ craneLib.buildPackage {
   postInstall = ''
     wrapProgram $out/bin/kld-mgr \
       --prefix PATH : ${lib.makeBinPath [
-          self.inputs.nixos-anywhere.packages.${hostPlatform.system}.nixos-anywhere
-          self.packages.${hostPlatform.system}.cockroachdb
-
-          nixos-rebuild nix git rsync openssl
+          nixos-anywhere cockroachdb nixos-rebuild nix git rsync openssl
       ]} \
       --suffix PATH : ${lib.makeBinPath [ openssh ]}
   '';
