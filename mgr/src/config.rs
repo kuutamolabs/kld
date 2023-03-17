@@ -162,8 +162,34 @@ pub struct Host {
 
 impl Host {
     /// Returns prepared secrets directory for host
-    pub fn secrets(&self) -> Result<Secrets> {
+    pub fn secrets(&self, secrets_dir: &Path) -> Result<Secrets> {
         let secret_files = vec![];
+
+        let lightning = secrets_dir.join("lightning");
+        let cockroachdb = secrets_dir.join("cockroachdb");
+
+        secret_files.push((
+            PathBuf::from("/var/lib/secrets/kld/ca.pem"),
+            lightning.join("ca.pem").read_to_string()?,
+        ));
+        secret_files.push((
+            PathBuf::from("/var/lib/secrets/kld/kld.pem"),
+            lightning.join(format!("{}.pem", self.name)).read_to_string()?,
+        ));
+        secret_files.push((
+            PathBuf::from("/var/lib/secrets/kld/kld.key"),
+            lightning.join(format!("{}.key", self.name)).read_to_string()?,
+        ));
+
+        secret_files.push((
+            PathBuf::from("/var/lib/secrets/kld/client.kld.crt"),
+            cockroachdb.join("client.kld.crt").read_to_string()?,
+        ));
+        secret_files.push((
+            PathBuf::from("/var/lib/secrets/kld/client.kld.key"),
+            cockroachdb.join("client.kld.key").read_to_string()?,
+        ));
+
         Secrets::new(secret_files.iter()).context("failed to prepare uploading secrets")
     }
     /// The hostname to which we will deploy
