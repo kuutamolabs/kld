@@ -233,12 +233,15 @@ pub struct Global {
     pub secret_directory: PathBuf,
 }
 
-fn validate_host(
-    name: &str,
-    host: &HostConfig,
-    default: &HostConfig,
-    _working_directory: Option<&Path>,
-) -> Result<Host> {
+fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> {
+    let mut global = global.clone();
+    if global.secret_directory.is_relative() {
+        global.secret_directory = working_directory.join(global.secret_directory);
+    };
+    Ok(global)
+}
+
+fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
     let name = name.to_string();
 
     if name.is_empty() || name.len() > 63 {
@@ -392,7 +395,7 @@ pub struct Config {
 }
 
 /// Parse toml configuration
-pub fn parse_config(content: &str, working_directory: Option<&Path>) -> Result<Config> {
+pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
     let mut config: ConfigFile = toml::from_str(content)?;
     let hosts = config
         .hosts
@@ -400,21 +403,25 @@ pub fn parse_config(content: &str, working_directory: Option<&Path>) -> Result<C
         .map(|(name, host)| {
             Ok((
                 name.clone(),
-                validate_host(name, host, &config.host_defaults, working_directory)?,
+                validate_host(name, host, &config.host_defaults)?,
             ))
         })
         .collect::<Result<_>>()?;
 
-    Ok(Config {
-        hosts,
-        global: config.global.clone(),
-    })
+    let global = validate_global(&config.global, working_directory)?;
+
+    Ok(Config { hosts, global })
 }
 
 /// Load configuration from path
 pub fn load_configuration(path: &Path) -> Result<Config> {
     let content = fs::read_to_string(path).context("Cannot read file")?;
-    let working_directory = path.parent();
+    let working_directory = path.parent().with_context(|| {
+        format!(
+            "Cannot determine working directory from path: {}",
+            path.display()
+        )
+    })?;
     parse_config(&content, working_directory)
 }
 
@@ -454,7 +461,7 @@ ipv6_address = "2605:9880:400::4"
 pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
-    let config = parse_config(TEST_CONFIG, None)?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"))?;
     assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
 
     let hosts = &config.hosts;
@@ -478,7 +485,7 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, None)?;
+    parse_config(TEST_CONFIG, Path::new("/"))?;
 
     Ok(())
 }
@@ -519,7 +526,7 @@ fn test_validate_host() {
         ..Default::default()
     };
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default(), None).unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default()).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -541,16 +548,16 @@ fn test_validate_host() {
     // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), None).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), None).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), None).is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_ok());
 }

@@ -258,7 +258,7 @@ nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.4"
 ipv6_address = "2605:9880:400::4"
 "#;
-        let config = parse_config(config_str, None).context("Failed to parse config")?;
+        let config = parse_config(config_str, Path::new("/")).context("Failed to parse config")?;
 
         create_or_update_lightning_certs(&cert_dir, &config.hosts, &CertRenewPolicy::default())
             .context("Failed to create lightning certificates")?;
