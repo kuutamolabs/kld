@@ -9,13 +9,13 @@ pub use nixos_rebuild::nixos_rebuild;
 pub use rollback::rollback;
 pub use update::update;
 
+pub mod certs;
 mod command;
 mod config;
 mod dry_update;
 mod flake;
 mod generate_config;
 mod install;
-pub mod lightning_certs;
 pub mod logging;
 mod nixos_rebuild;
 mod rollback;

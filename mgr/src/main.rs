@@ -4,7 +4,9 @@
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use mgr::lightning_certs::{create_or_update_lightning_certs, RenewPolicy};
+use mgr::certs::{
+    create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
+};
 use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::HashMap;
 use std::io::{self, BufRead};
@@ -189,9 +191,14 @@ pub fn main() -> Result<()> {
         )
     })?;
     create_or_update_lightning_certs(
-        &config.global.secret_directory,
+        &config.global.secret_directory.join("lightning"),
         &config.hosts,
-        RenewPolicy::default(),
+        &CertRenewPolicy::default(),
+    )?;
+    create_or_update_cockroachdb_certs(
+        &config.global.secret_directory.join("cockroachdb"),
+        &config.hosts,
+        &CertRenewPolicy::default(),
     )?;
 
     let flake = generate_nixos_flake(&config).context("failed to generate flake")?;

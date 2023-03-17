@@ -373,11 +373,8 @@ pub fn load_configuration(path: &Path) -> Result<Config> {
     parse_config(&content, working_directory)
 }
 
-#[test]
-pub fn test_parse_config() -> Result<()> {
-    use std::str::FromStr;
-
-    let config_str = r#"
+#[cfg(test)]
+pub(crate) const TEST_CONFIG: &str = r#"
 [global]
 flake = "github:myfork/near-staking-knd"
 
@@ -408,7 +405,11 @@ ipv4_address = "199.127.64.4"
 ipv6_address = "2605:9880:400::4"
 "#;
 
-    let config = parse_config(config_str, None)?;
+#[test]
+pub fn test_parse_config() -> Result<()> {
+    use std::str::FromStr;
+
+    let config = parse_config(TEST_CONFIG, None)?;
     assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
 
     let hosts = &config.hosts;
@@ -432,7 +433,7 @@ ipv6_address = "2605:9880:400::4"
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(config_str, None)?;
+    parse_config(TEST_CONFIG, None)?;
 
     Ok(())
 }
