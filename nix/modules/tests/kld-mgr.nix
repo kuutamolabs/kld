@@ -95,7 +95,7 @@ in
       installer.wait_for_unit("network.target")
       installer.succeed("ping -c1 192.168.42.2")
       # our test config will read from here
-      installer.succeed("cp -r ${self} /root/near-staking-knd")
+      installer.succeed("cp -r ${self} /root/lightning-knd")
 
       installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} generate-config /tmp/config")
       installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00 >&2")

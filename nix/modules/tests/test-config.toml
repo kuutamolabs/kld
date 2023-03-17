@@ -1,6 +1,6 @@
 [global]
 # we provide this path in our nixos test
-flake = "/root/near-staking-knd"
+flake = "/root/lightning-knd"
 
 [host_defaults]
 public_ssh_keys = [
