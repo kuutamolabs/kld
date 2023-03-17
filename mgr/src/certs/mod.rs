@@ -3,7 +3,7 @@
 use crate::command::status_to_pretty_err;
 use anyhow::Result;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 pub use cockroachdb::create_or_update_cockroachdb_certs;
 pub use lightning::create_or_update_lightning_certs;
@@ -29,7 +29,10 @@ pub fn cert_is_atleast_valid_for(cert_path: &Path, seconds: u64) -> bool {
         &seconds.to_string(),
         "-noout",
     ];
-    let status = Command::new("openssl").args(args).status();
+    let status = Command::new("openssl")
+        .args(args)
+        .stdout(Stdio::null())
+        .status();
     if let Ok(status) = status {
         status.success()
     } else {
