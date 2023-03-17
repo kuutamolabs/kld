@@ -137,6 +137,7 @@ fn install(
         &hosts,
         &install_args.kexec_url,
         flake,
+        &config.global.secret_directory,
         install_args.debug,
         install_args.no_reboot,
     )
@@ -157,7 +158,7 @@ fn dry_update(
     flake: &NixosFlake,
 ) -> Result<()> {
     let hosts = filter_hosts(&dry_update_args.hosts, &config.hosts)?;
-    mgr::dry_update(&hosts, flake)
+    mgr::dry_update(&hosts, flake, &config.global.secret_directory)
 }
 
 fn update(
@@ -167,7 +168,7 @@ fn update(
     flake: &NixosFlake,
 ) -> Result<()> {
     let hosts = filter_hosts(&update_args.hosts, &config.hosts)?;
-    mgr::update(&hosts, flake)
+    mgr::update(&hosts, flake, &config.global.secret_directory)
 }
 
 fn rollback(
@@ -177,7 +178,7 @@ fn rollback(
     flake: &NixosFlake,
 ) -> Result<()> {
     let hosts = filter_hosts(&rollback_args.hosts, &config.hosts)?;
-    mgr::rollback(&hosts, flake)
+    mgr::rollback(&hosts, flake, &config.global.secret_directory)
 }
 
 /// The kuutamo program entry point
@@ -194,12 +195,14 @@ pub fn main() -> Result<()> {
         &config.global.secret_directory.join("lightning"),
         &config.hosts,
         &CertRenewPolicy::default(),
-    )?;
+    )
+    .context("failed to create or update lightning certificates")?;
     create_or_update_cockroachdb_certs(
         &config.global.secret_directory.join("cockroachdb"),
         &config.hosts,
         &CertRenewPolicy::default(),
-    )?;
+    )
+    .context("failed to create or update cockroachdb certificates")?;
 
     let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
 

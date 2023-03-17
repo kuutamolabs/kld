@@ -1,25 +1,18 @@
 let
   makeNode = nodeName:
     { self, lib, config, ... }:
-    let
-      cfg = config.kuutamo.cockroachdb;
-    in
     {
       imports = [ self.nixosModules.cockroachdb ];
-      system.activationScripts.cockroachdb = lib.stringAfter [ "specialfs" "users" "groups" ] ''
-        install -D -m444 ${./cockroach-certs/ca.crt} "${cfg.certsDir}/ca.crt"
-        install -D -m400 -o cockroachdb ${./cockroach-certs + "/${nodeName}.crt"} "${cfg.certsDir}/node.crt"
-        install -D -m400 -o cockroachdb ${./cockroach-certs + "/${nodeName}.key"} "${cfg.certsDir}/node.key"
-        ${lib.optionalString (config.networking.hostName == "node1") ''
-          install -D -m400 ${./cockroach-certs/client.root.crt} "${cfg.certsDir}/client.root.crt"
-          install -D -m400 ${./cockroach-certs/client.root.key} "${cfg.certsDir}/client.root.key"
-        ''}
-      '';
-
       # Bank/TPC-C benchmarks take some memory to complete
       virtualisation.memorySize = 2048;
 
       kuutamo.cockroachdb.nodeName = nodeName;
+      kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
+      kuutamo.cockroachdb.nodeCertPath = ./cockroach-certs + "/${nodeName}.crt";
+      kuutamo.cockroachdb.nodeKeyPath = ./cockroach-certs + "/${nodeName}.key";
+
+      kuutamo.cockroachdb.rootClientCertPath = lib.mkIf (config.networking.hostName == "node1") ./cockroach-certs/client.root.crt;
+      kuutamo.cockroachdb.rootClientKeyPath = lib.mkIf (config.networking.hostName == "node1") ./cockroach-certs/client.root.key;
 
       networking.extraHosts = ''
         192.168.1.1 db1
@@ -51,7 +44,10 @@ import ./lib.nix (_: {
         node.wait_for_unit("cockroachdb")
 
     node1.wait_until_succeeds("cockroach-sql sql -e 'SHOW ALL CLUSTER SETTINGS' >&2")
+
     certsdir = "/var/lib/cockroachdb-certs"
+    node1.wait_until_succeeds(f"ls -la {certsdir} >&2")
+
     url = f"postgres://localhost:5432?sslmode=verify-full&sslrootcert={certsdir}/ca.crt&sslcert={certsdir}/client.root.crt&sslkey={certsdir}/client.root.key"
     node1.succeed(
         f"cockroach-sql workload init bank '{url}' >&2",

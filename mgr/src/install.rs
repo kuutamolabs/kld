@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use log::info;
+use std::path::Path;
 use std::{
     process::Command,
     sync::mpsc::{channel, RecvTimeoutError},
@@ -15,6 +16,7 @@ pub fn install(
     hosts: &[Host],
     kexec_url: &str,
     flake: &NixosFlake,
+    secrets_dir: &Path,
     debug: bool,
     no_reboot: bool,
 ) -> Result<()> {
@@ -29,7 +31,7 @@ pub fn install(
                 format!("{}@{}", host.install_ssh_user, host.ssh_hostname)
             };
 
-            let secrets = host.secrets()?;
+            let secrets = host.secrets(secrets_dir)?;
             let flake_uri = format!("{}#{}", flake.path().display(), host.name);
             let extra_files = format!("{}", secrets.path().display());
             let mut args = vec![

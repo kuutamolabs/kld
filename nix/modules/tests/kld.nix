@@ -5,6 +5,10 @@
     node1 = { self, ... }: {
       imports = [ self.nixosModules.kld ];
       kuutamo.cockroachdb.nodeName = "kld-00";
+
+      kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
+      kuutamo.cockroachdb.nodeCertPath = ./cockroach-certs + "/db1.crt";
+      kuutamo.cockroachdb.nodeKeyPath = ./cockroach-certs + "/db1.key";
     };
   };
 

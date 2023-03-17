@@ -47,6 +47,13 @@
       kld-node.imports = [
         self.nixosModules.common-node
         self.nixosModules.kld
+        {
+          kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
+          kuutamo.kld.certPath = "/var/lib/secrets/kld/kld.pem";
+          kuutamo.kld.keyPath = "/var/lib/secrets/kld/kld.key";
+          kuutamo.kld.cockroachdb.clientCertPath = "/var/lib/secrets/kld/client.kld.crt";
+          kuutamo.kld.cockroachdb.clientKeyPath = "/var/lib/secrets/kld/client.kld.key";
+        }
       ];
     };
   };
