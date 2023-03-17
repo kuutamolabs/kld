@@ -206,7 +206,7 @@ pub fn main() -> Result<()> {
 
     let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
 
-    if let Err(e) = match args.action {
+    let res = match args.action {
         Command::GenerateConfig(ref config_args) => {
             generate_config(&args, config_args, &config, &flake)
         }
@@ -216,8 +216,6 @@ pub fn main() -> Result<()> {
         }
         Command::Update(ref update_args) => update(&args, update_args, &config, &flake),
         Command::Rollback(ref rollback_args) => rollback(&args, rollback_args, &config, &flake),
-    } {
-        bail!("kuutamo failed doing {:?}: {e}", args.action);
-    }
-    Ok(())
+    };
+    res.with_context(|| format!("kuutamo failed doing: {:?}", args.action))
 }
