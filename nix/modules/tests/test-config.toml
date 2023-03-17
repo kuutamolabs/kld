@@ -8,6 +8,8 @@ public_ssh_keys = [
 ]
 disks = [ "/dev/vdb", "/dev/vdc" ]
 extra_nixos_modules = [ "qemu-test-profile" ]
+ipv6_cidr = 32
+ipv6_gateway = "2001:DB8::"
 
 [hosts.kld-00]
 nixos_module = "kld-node"
@@ -17,9 +19,7 @@ ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
 
-ipv6_address = "2605:9880:400:700:8:b10c:1932:3224"
-ipv6_cidr = 48
-ipv6_gateway = "2605:9880:400::1"
+ipv6_address = "2001:DB8::1"
 
 [hosts.db-00]
 nixos_module = "cockroachdb-node"
@@ -29,9 +29,8 @@ ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
 
-ipv6_address = "2605:9880:400:700:8:b10c:1932:3224"
-ipv6_cidr = 48
-ipv6_gateway = "2605:9880:400::1"
+# example address
+ipv6_address = "2001:DB8::2"
 
 [hosts.db-01]
 nixos_module = "cockroachdb-node"
@@ -41,6 +40,4 @@ ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
 
-ipv6_address = "2605:9880:400:700:8:b10c:1932:3224"
-ipv6_cidr = 48
-ipv6_gateway = "2605:9880:400::1"
+ipv6_address = "2001:DB8::3"
