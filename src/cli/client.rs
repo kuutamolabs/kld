@@ -2,7 +2,7 @@ use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
 use api::{
-    routes, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo, NewAddress,
     NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
@@ -56,11 +56,16 @@ impl Api {
         deserialize::<NewAddressResponse>(response)
     }
 
-    pub fn withdraw(&self, address: String, satoshis: String) -> Result<String> {
+    pub fn withdraw(
+        &self,
+        address: String,
+        satoshis: String,
+        fee_rate: Option<FeeRate>,
+    ) -> Result<String> {
         let wallet_transfer = WalletTransfer {
             address,
             satoshis,
-            fee_rate: None,
+            fee_rate,
             min_conf: None,
             utxos: vec![],
         };
@@ -100,11 +105,12 @@ impl Api {
         satoshis: String,
         push_msat: Option<String>,
         announce: Option<bool>,
+        fee_rate: Option<FeeRate>,
     ) -> Result<String> {
         let open_channel = FundChannel {
             id,
             satoshis,
-            fee_rate: None,
+            fee_rate,
             announce,
             min_conf: None,
             utxos: vec![],

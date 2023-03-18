@@ -19,9 +19,9 @@ use test_utils::ports::get_available_port;
 use test_utils::{https_client, TestSettingsBuilder};
 
 use api::{
-    routes, Address, Channel, ChannelFee, FundChannel, FundChannelResponse, GetInfo, NewAddress,
-    NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
-    WalletTransferResponse,
+    routes, Address, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
+    NewAddress, NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance,
+    WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -514,7 +514,7 @@ fn withdraw_request() -> WalletTransfer {
     WalletTransfer {
         address: TEST_ADDRESS.to_string(),
         satoshis: "all".to_string(),
-        fee_rate: None,
+        fee_rate: Some(FeeRate::PerKw(4000)),
         min_conf: Some("3".to_string()),
         utxos: vec![],
     }
@@ -523,8 +523,8 @@ fn withdraw_request() -> WalletTransfer {
 fn fund_channel_request() -> FundChannel {
     FundChannel {
         id: TEST_PUBLIC_KEY.to_string() + "@1.2.3.4:1234",
-        satoshis: "21000000".to_string(),
-        fee_rate: Some("4".to_string()),
+        satoshis: "2100000".to_string(),
+        fee_rate: Some(api::FeeRate::Urgent),
         announce: Some(false),
         push_msat: Some("10000".to_string()),
         close_to: None,

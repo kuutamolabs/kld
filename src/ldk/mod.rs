@@ -24,6 +24,9 @@ pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerS
 
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 
+/// The minimum feerate we are allowed to send, as specify by LDK (sats/kwu).
+pub static MIN_FEERATE: u32 = 253;
+
 pub type NetworkGraph = gossip::NetworkGraph<Arc<KldLogger>>;
 
 pub(crate) type LdkPeerManager = SimpleArcPeerManager<

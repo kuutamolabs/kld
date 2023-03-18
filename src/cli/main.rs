@@ -2,6 +2,7 @@ mod client;
 
 use crate::client::Api;
 use anyhow::Result;
+use api::FeeRate;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -37,6 +38,9 @@ enum Command {
         /// The amount to withdraw (in Satoshis). The string "all" will empty the wallet.
         #[arg(long)]
         satoshis: String,
+        /// Fee rate [urgent/normal/slow/<sats>perkw/<sats>perkb]
+        #[arg(long)]
+        fee_rate: Option<FeeRate>,
     },
     /// Fetch a list of this nodes peers.
     ListPeers,
@@ -68,6 +72,9 @@ enum Command {
         /// Whether to announce the channel to the rest of the network (public - default) or not (private).
         #[arg(long)]
         announce: Option<bool>,
+        /// Fee rate [urgent/normal/slow/<sats>perkw/<sats>perkb]
+        #[arg(long)]
+        fee_rate: Option<FeeRate>,
     },
     /// Set channel fees.
     SetChannelFee {
@@ -111,7 +118,11 @@ fn run_command(args: Args) -> Result<()> {
         Command::GetInfo => api.get_info()?,
         Command::GetBalance => api.get_balance()?,
         Command::NewAddress => api.new_address()?,
-        Command::Withdraw { address, satoshis } => api.withdraw(address, satoshis)?,
+        Command::Withdraw {
+            address,
+            satoshis,
+            fee_rate,
+        } => api.withdraw(address, satoshis, fee_rate)?,
         Command::ListChannels => api.list_channels()?,
         Command::ListPeers => api.list_peers()?,
         Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
@@ -121,7 +132,8 @@ fn run_command(args: Args) -> Result<()> {
             sats: satoshis,
             push_msat,
             announce,
-        } => api.open_channel(public_key, satoshis, push_msat, announce)?,
+            fee_rate,
+        } => api.open_channel(public_key, satoshis, push_msat, announce, fee_rate)?,
         Command::SetChannelFee {
             id,
             base_fee,

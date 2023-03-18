@@ -1,5 +1,7 @@
+use std::{fmt::Display, str::FromStr};
+
 use bitcoin::Transaction;
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -52,6 +54,7 @@ pub struct Error {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetInfo {
     pub id: String,
     pub alias: String,
@@ -87,26 +90,23 @@ pub struct Chain {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WalletBalance {
-    #[serde(rename = "totalBalance")]
     pub total_balance: u64,
-    #[serde(rename = "confBlance")]
     pub conf_balance: u64,
-    #[serde(rename = "unconfBalance")]
     pub unconf_balance: u64,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WalletTransfer {
     /// Any Bitcoin accepted type, including bech32
     pub address: String,
     /// Amount to be withdrawn. The string "all" can be used to specify withdrawal of all available funds
     pub satoshis: String,
     /// urgent, normal or slow
-    #[serde(rename = "feeRate")]
-    pub fee_rate: Option<String>,
+    pub fee_rate: Option<FeeRate>,
     /// minimum number of confirmations that used outputs should have
-    #[serde(rename = "minConf")]
     pub min_conf: Option<String>,
     /// Specifies the utxos to be used to fund the channel, as an array of "txid:vout"
     pub utxos: Vec<String>,
@@ -121,6 +121,7 @@ pub struct WalletTransferResponse {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Channel {
     /// Pub key
     pub id: String,
@@ -157,18 +158,17 @@ pub struct Channel {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FundChannel {
     /// Pub key of the peer
     pub id: String,
     /// Amount in satoshis
     pub satoshis: String,
     /// urgent/normal/slow/<sats>perkw/<sats>perkb
-    #[serde(rename = "feeRate")]
-    pub fee_rate: Option<String>,
+    pub fee_rate: Option<FeeRate>,
     /// Flag to announce the channel
     pub announce: Option<bool>,
     /// Minimum number of confirmations that used outputs should have
-    #[serde(rename = "minConf")]
     pub min_conf: Option<u8>,
     /// Specifies the utxos to be used to fund the channel, as an array of "txid:vout"
     pub utxos: Vec<String>,
@@ -182,7 +182,107 @@ pub struct FundChannel {
     pub compact_lease: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum FeeRate {
+    Urgent,
+    Normal,
+    Slow,
+    PerKw(u32),
+    PerKb(u32),
+}
+
+impl Serialize for FeeRate {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            FeeRate::Urgent => serializer.serialize_str("urgent"),
+            FeeRate::Normal => serializer.serialize_str("normal"),
+            FeeRate::Slow => serializer.serialize_str("slow"),
+            FeeRate::PerKw(x) => serializer.serialize_str(&format!("{x}perkw")),
+            FeeRate::PerKb(x) => serializer.serialize_str(&format!("{x}perkb")),
+        }
+    }
+}
+
+struct FeeRateVisitor;
+
+impl<'de> Visitor<'de> for FeeRateVisitor {
+    type Value = FeeRate;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("urgent/normal/slow/<sats>perkw/<sats>perkb")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        v.parse()
+            .map_err(|e: ParseFeeRateError| serde::de::Error::custom(e.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for FeeRate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FeeRateVisitor)
+    }
+}
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseFeeRateError(String);
+impl Display for ParseFeeRateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ParseFeeRateError: {}", self.0)
+    }
+}
+
+impl std::error::Error for ParseFeeRateError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+
+impl FromStr for FeeRate {
+    type Err = ParseFeeRateError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "urgent" => Ok(FeeRate::Urgent),
+            "normal" => Ok(FeeRate::Normal),
+            "slow" => Ok(FeeRate::Slow),
+            _ => {
+                if s.ends_with("perkw") {
+                    Ok(FeeRate::PerKw(
+                        s.trim_end_matches("perkw")
+                            .parse::<u32>()
+                            .map_err(|_| ParseFeeRateError("expected u32 for perkw".to_string()))?,
+                    ))
+                } else if s.ends_with("perkb") {
+                    Ok(FeeRate::PerKb(
+                        s.trim_end_matches("perkb")
+                            .parse::<u32>()
+                            .map_err(|_| ParseFeeRateError("expected u32 for perkb".to_string()))?,
+                    ))
+                } else {
+                    Err(ParseFeeRateError("unknown fee rate. Expecting one of urgent/normal/slow/<sats>perkw/<sats>perkb".to_string()))
+                }
+            }
+        }
+    }
+}
+
+impl Default for FeeRate {
+    fn default() -> Self {
+        FeeRate::Normal
+    }
+}
+
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FundChannelResponse {
     /// Transaction
     pub tx: Transaction,
@@ -203,6 +303,7 @@ pub struct ChannelFee {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SetChannelFee {
     // Base fee in msats.
     pub base: u32,
@@ -220,6 +321,7 @@ pub struct SetChannelFee {
 pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
 
 #[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct NewAddress {
     /// Address type (bech32 only)
     pub address_type: Option<String>,
@@ -240,6 +342,7 @@ pub struct Peer {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Node {
     #[serde(rename = "nodeid")]
     pub node_id: String,
@@ -248,4 +351,23 @@ pub struct Node {
     pub last_timestamp: u32,
     pub features: String,
     pub addresses: Vec<Address>,
+}
+
+#[test]
+fn test_fee_rate() -> Result<(), ParseFeeRateError> {
+    let urgent_fee_rate = FeeRate::from_str("urgent")?;
+    assert_eq!(urgent_fee_rate, FeeRate::Urgent);
+
+    let normal_fee_rate = FeeRate::from_str("normal")?;
+    assert_eq!(normal_fee_rate, FeeRate::Normal);
+
+    let slow_fee_rate = FeeRate::from_str("slow")?;
+    assert_eq!(slow_fee_rate, FeeRate::Slow);
+
+    let pkb_fee_rate = FeeRate::from_str("50perkb")?;
+    assert_eq!(pkb_fee_rate, FeeRate::PerKb(50));
+
+    let pkw_fee_rate = FeeRate::from_str("37perkw")?;
+    assert_eq!(pkw_fee_rate, FeeRate::PerKw(37));
+    Ok(())
 }

@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
+use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{consensus::deserialize, hashes::Hash, secp256k1::PublicKey, Network, Txid};
 use hex::FromHex;
@@ -159,6 +160,7 @@ impl LightningInterface for MockLightning {
         _their_network_key: PublicKey,
         _channel_value_satoshis: u64,
         _push_msat: Option<u64>,
+        _fee_rate: Option<FeeRate>,
         _override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
         let transaction =

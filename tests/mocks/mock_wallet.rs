@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use bdk::{wallet::AddressInfo, Balance, FeeRate, KeychainKind};
+use bdk::{wallet::AddressInfo, Balance, KeychainKind};
 use bitcoin::{consensus::deserialize, hashes::hex::FromHex, Address, OutPoint, Transaction};
 use kld::wallet::WalletInterface;
 
@@ -14,7 +14,7 @@ pub struct MockWallet {
 
 #[async_trait]
 impl WalletInterface for MockWallet {
-    fn balance(&self) -> Result<bdk::Balance> {
+    fn balance(&self) -> Result<Balance> {
         Ok(self.balance.clone())
     }
 
@@ -22,7 +22,7 @@ impl WalletInterface for MockWallet {
         &self,
         _address: Address,
         _amount: u64,
-        _fee_rate: Option<FeeRate>,
+        _fee_rate: Option<api::FeeRate>,
         _min_conf: Option<u8>,
         _utxos: Vec<OutPoint>,
     ) -> Result<Transaction> {
