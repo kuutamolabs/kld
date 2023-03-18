@@ -22,10 +22,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use settings::Settings;
 
-use crate::quit_signal;
-
-/// The minimum feerate we are allowed to send, as specify by LDK.
-static MIN_FEERATE: u32 = 232;
+use crate::{ldk::MIN_FEERATE, quit_signal};
 
 pub struct BitcoindClient {
     client: Arc<RpcClient>,
@@ -162,7 +159,8 @@ impl BitcoindClient {
             .map(|r| serde_json::from_str::<EstimateSmartFeeResult>(&r.0))
         {
             Ok(Ok(result)) => {
-                // This is fee rate in sats. So divide by 4 to convert virtual-bytes into weight units.
+                // Bitcoind returns fee in BTC/kB.
+                // So convert to sats and divide by 4 to get sats per 1000 weight units.
                 let fee = ((result
                     .fee_rate
                     .map(|amount| amount.to_sat())
@@ -228,7 +226,7 @@ impl BroadcasterInterface for BitcoindClient {
     }
 }
 
-impl BlockSource for &BitcoindClient {
+impl BlockSource for BitcoindClient {
     fn get_header<'a>(
         &'a self,
         header_hash: &'a BlockHash,
@@ -250,6 +248,7 @@ impl BlockSource for &BitcoindClient {
 }
 
 struct Priority {
+    // sats per weight unit
     fee_rate: AtomicU32,
     default_fee_rate: u32,
     n_blocks: u16,

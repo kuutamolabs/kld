@@ -2,10 +2,12 @@ use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::wallet::{Wallet, WalletInterface};
 
 use anyhow::{anyhow, Context, Result};
+use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::Transaction;
 use database::ldk_database::LdkDatabase;
+use database::wallet_database::WalletDatabase;
 use lightning::chain::keysinterface::KeysManager;
 use lightning::chain::BestBlock;
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
@@ -31,7 +33,6 @@ use rand::random;
 use settings::Settings;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use tokio::runtime::Handle;
@@ -123,6 +124,7 @@ impl LightningInterface for Controller {
         their_network_key: PublicKey,
         channel_value_satoshis: u64,
         push_msat: Option<u64>,
+        fee_rate: Option<FeeRate>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
         if !self.peer_manager.is_connected(&their_network_key) {
@@ -141,8 +143,8 @@ impl LightningInterface for Controller {
             .map_err(ldk_error)?;
         let receiver = self
             .async_api_requests
-            .channel_opens
-            .insert(user_channel_id)
+            .funding_transactions
+            .insert(user_channel_id, fee_rate.unwrap_or_default())
             .await;
         let transaction = receiver.await??;
         let txid = transaction.txid();
@@ -292,37 +294,49 @@ impl LightningInterface for Controller {
 }
 
 pub(crate) struct AsyncAPIRequests {
-    pub channel_opens: AsyncSenders<u128, Result<Transaction>>,
+    pub funding_transactions: AsyncSenders<u128, FeeRate, Result<Transaction>>,
 }
 
 impl AsyncAPIRequests {
     fn new() -> AsyncAPIRequests {
         AsyncAPIRequests {
-            channel_opens: AsyncSenders::new(),
+            funding_transactions: AsyncSenders::new(),
         }
     }
 }
 
-pub(crate) struct AsyncSenders<K, V> {
-    senders: RwLock<HashMap<K, Sender<V>>>,
+pub(crate) struct AsyncSenders<K, V, RV> {
+    senders: RwLock<HashMap<K, (V, Sender<RV>)>>,
 }
 
-impl<K: Eq + Hash, V> AsyncSenders<K, V> {
-    fn new() -> AsyncSenders<K, V> {
+impl<K: Eq + Hash, V: Clone, RV> AsyncSenders<K, V, RV> {
+    fn new() -> AsyncSenders<K, V, RV> {
         AsyncSenders {
             senders: RwLock::new(HashMap::new()),
         }
     }
 
-    async fn insert(&self, k: K) -> Receiver<V> {
-        let (tx, rx) = oneshot::channel::<V>();
-        self.senders.write().await.insert(k, tx);
+    async fn insert(&self, k: K, v: V) -> Receiver<RV> {
+        let (tx, rx) = oneshot::channel::<RV>();
+        self.senders.write().await.insert(k, (v, tx));
         rx
     }
 
-    pub async fn send(&self, k: K, v: V) {
-        if let Some(tx) = self.senders.write().await.remove(&k) {
-            if tx.send(v).is_err() {
+    pub async fn get(&self, k: &K) -> Option<(V, impl FnOnce(RV))> {
+        if let Some((v, tx)) = self.senders.write().await.remove(k) {
+            let respond = |rv: RV| {
+                if tx.send(rv).is_err() {
+                    warn!("Receiver dropped");
+                }
+            };
+            return Some((v, respond));
+        }
+        None
+    }
+
+    pub async fn respond(&self, k: &K, rv: RV) {
+        if let Some((_, tx)) = self.senders.write().await.remove(k) {
+            if tx.send(rv).is_err() {
                 warn!("Receiver dropped");
             }
         }
@@ -336,7 +350,7 @@ pub struct Controller {
     channel_manager: Arc<ChannelManager>,
     peer_manager: PeerManager,
     network_graph: Arc<NetworkGraph>,
-    wallet: Arc<Wallet>,
+    wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
 }
@@ -356,7 +370,7 @@ impl Controller {
         settings: Arc<Settings>,
         database: Arc<LdkDatabase>,
         bitcoind_client: Arc<BitcoindClient>,
-        wallet: Arc<Wallet>,
+        wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         seed: &[u8; 32],
     ) -> Result<Controller> {
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
@@ -506,7 +520,7 @@ impl Controller {
             }
             chain_tip = Some(
                 init::synchronize_listeners(
-                    &mut bitcoind_client.deref(),
+                    bitcoind_client.clone(),
                     settings.bitcoin_network.into(),
                     &mut cache,
                     chain_listeners,
@@ -575,7 +589,7 @@ impl Controller {
         // Connect and Disconnect Blocks
         if chain_tip.is_none() {
             chain_tip = Some(
-                init::validate_best_block_header(&mut bitcoind_client.deref())
+                init::validate_best_block_header(bitcoind_client.clone())
                     .await
                     .unwrap(),
             );
@@ -585,8 +599,7 @@ impl Controller {
         let bitcoind_block_source = bitcoind_client.clone();
         let network = settings.bitcoin_network;
         tokio::spawn(async move {
-            let mut derefed = bitcoind_block_source.deref();
-            let chain_poller = poll::ChainPoller::new(&mut derefed, network.into());
+            let chain_poller = poll::ChainPoller::new(bitcoind_block_source, network.into());
             let chain_listener = (chain_monitor_listener, channel_manager_listener);
             let mut spv_client = SpvClient::new(
                 chain_tip.unwrap(),
@@ -611,7 +624,6 @@ impl Controller {
             keys_manager.clone(),
             inbound_payments,
             outbound_payments,
-            settings.bitcoin_network.into(),
             network_graph.clone(),
             wallet.clone(),
             async_api_requests.clone(),

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 use lightning::{
@@ -62,6 +63,7 @@ pub trait LightningInterface {
         their_network_key: PublicKey,
         channel_value_satoshis: u64,
         push_msat: Option<u64>,
+        fee_rate: Option<FeeRate>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
 

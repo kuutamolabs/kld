@@ -119,7 +119,13 @@ pub(crate) async fn open_channel(
     }
 
     let result = lightning_interface
-        .open_channel(public_key, value, push_msat, None)
+        .open_channel(
+            public_key,
+            value,
+            push_msat,
+            fund_channel.fee_rate,
+            Some(user_config),
+        )
         .await
         .map_err(internal_server)?;
 

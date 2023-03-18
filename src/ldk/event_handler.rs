@@ -1,12 +1,13 @@
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use bitcoin::network::constants::Network;
+use anyhow::anyhow;
+
 use bitcoin::secp256k1::Secp256k1;
-use bitcoin_bech32::WitnessProgram;
+
+use database::wallet_database::WalletDatabase;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::keysinterface::KeysManager;
@@ -31,9 +32,8 @@ pub(crate) struct EventHandler {
     keys_manager: Arc<KeysManager>,
     inbound_payments: PaymentInfoStorage,
     outbound_payments: PaymentInfoStorage,
-    network: Network,
     network_graph: Arc<NetworkGraph>,
-    wallet: Arc<Wallet>,
+    wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     runtime_handle: Handle,
 }
@@ -47,9 +47,8 @@ impl EventHandler {
         keys_manager: Arc<KeysManager>,
         inbound_payments: PaymentInfoStorage,
         outbound_payments: PaymentInfoStorage,
-        network: Network,
         network_graph: Arc<NetworkGraph>,
-        wallet: Arc<Wallet>,
+        wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         async_api_requests: Arc<AsyncAPIRequests>,
         runtime_handle: Handle,
     ) -> EventHandler {
@@ -59,7 +58,6 @@ impl EventHandler {
             keys_manager,
             inbound_payments,
             outbound_payments,
-            network,
             network_graph,
             wallet,
             async_api_requests,
@@ -86,43 +84,32 @@ impl EventHandler {
                 output_script,
                 user_channel_id,
             } => {
-                // Construct the raw transaction with one output, that is paid the amount of the channel.
-                let addr = match WitnessProgram::from_scriptpubkey(
-                    &output_script[..],
-                    match self.network {
-                        Network::Bitcoin => bitcoin_bech32::constants::Network::Bitcoin,
-                        Network::Testnet => bitcoin_bech32::constants::Network::Testnet,
-                        Network::Regtest => bitcoin_bech32::constants::Network::Regtest,
-                        Network::Signet => bitcoin_bech32::constants::Network::Signet,
-                    },
-                )
-                .context("Lightning funding tx should always be to a SegWit output")
+                let (fee_rate, respond) = match self
+                    .async_api_requests
+                    .funding_transactions
+                    .get(&user_channel_id)
+                    .await
                 {
-                    Ok(wp) => wp.to_address(),
-                    Err(e) => {
-                        error!("{}", e);
-                        self.async_api_requests
-                            .channel_opens
-                            .send(user_channel_id, Err(e))
-                            .await;
+                    Some(fee_rate) => fee_rate,
+                    None => {
+                        error!(
+                            "Can't find funding transaction for user_channel_id {user_channel_id}"
+                        );
                         return;
                     }
                 };
-                let mut outputs = vec![HashMap::with_capacity(1)];
-                outputs[0].insert(addr, channel_value_satoshis as f64 / 100_000_000.0);
-
-                let funding_tx = match self.wallet.fund_tx(&output_script, &channel_value_satoshis)
-                {
-                    Ok(tx) => tx,
-                    Err(e) => {
-                        error!("{}", e);
-                        self.async_api_requests
-                            .channel_opens
-                            .send(user_channel_id, Err(e))
-                            .await;
-                        return;
-                    }
-                };
+                let funding_tx =
+                    match self
+                        .wallet
+                        .fund_tx(&output_script, &channel_value_satoshis, fee_rate)
+                    {
+                        Ok(tx) => tx,
+                        Err(e) => {
+                            error!("Event::FundingGenerationReady: {e}");
+                            respond(Err(e));
+                            return;
+                        }
+                    };
 
                 // Give the funding transaction back to LDK for opening the channel.
                 if let Err(e) = self
@@ -134,18 +121,12 @@ impl EventHandler {
                     )
                     .map_err(ldk_error)
                 {
-                    error!("{}", e);
-                    self.async_api_requests
-                        .channel_opens
-                        .send(user_channel_id, Err(e))
-                        .await;
+                    error!("Event::FundingGenerationReady: {e}");
+                    respond(Err(e));
                     return;
                 }
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
-                self.async_api_requests
-                    .channel_opens
-                    .send(user_channel_id, Ok(funding_tx))
-                    .await;
+                respond(Ok(funding_tx))
             }
             Event::ChannelReady {
                 channel_id,
@@ -165,9 +146,9 @@ impl EventHandler {
             } => {
                 info!("EVENT: Channel {:?}: {reason}.", channel_id);
                 self.async_api_requests
-                    .channel_opens
-                    .send(
-                        user_channel_id,
+                    .funding_transactions
+                    .respond(
+                        &user_channel_id,
                         Err(anyhow!("Channel closed due to {reason}")),
                     )
                     .await;

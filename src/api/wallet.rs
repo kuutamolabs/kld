@@ -77,7 +77,7 @@ pub(crate) async fn transfer(
         u64::from_str(&wallet_transfer.satoshis).map_err(bad_request)?
     };
     let tx = wallet
-        .transfer(address, amount, None, None, vec![])
+        .transfer(address, amount, wallet_transfer.fee_rate, None, vec![])
         .await
         .map_err(internal_server)?;
     let tx_str = serde_json::to_string(&tx).map_err(internal_server)?;

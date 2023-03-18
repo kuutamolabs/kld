@@ -38,7 +38,14 @@ async fn test_cli_new_address() -> Result<()> {
 async fn test_cli_withdraw() -> Result<()> {
     let output = run_cli(
         "withdraw",
-        &["--address", TEST_ADDRESS, "--satoshis", "1000"],
+        &[
+            "--address",
+            TEST_ADDRESS,
+            "--satoshis",
+            "1000",
+            "--fee-rate",
+            "3000perkw",
+        ],
     )
     .await?;
     let _: WalletTransferResponse = deserialize(&output.stdout)?;
@@ -92,6 +99,8 @@ async fn test_cli_open_channel() -> Result<()> {
             "1000",
             "--announce",
             "false",
+            "--fee-rate",
+            "urgent",
         ],
     )
     .await?;

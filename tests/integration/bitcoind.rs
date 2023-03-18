@@ -48,7 +48,7 @@ pub async fn test_bitcoind_client() -> Result<()> {
         .map_err(|e| anyhow!(e.into_inner()))?;
 
     assert_eq!(
-        232,
+        253,
         client.get_est_sat_per_1000_weight(ConfirmationTarget::Background)
     );
     assert_eq!(
