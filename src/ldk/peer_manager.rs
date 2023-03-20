@@ -121,19 +121,17 @@ impl PeerManager {
         let mut alias = [0; 32];
         alias[..self.settings.node_name.len()].copy_from_slice(self.settings.node_name.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
-        if !self.settings.listen_addresses.is_empty() {
-            let mut addresses = vec![];
-            for address in self.settings.listen_addresses.clone() {
-                addresses.push(address.parse::<PeerAddress>()?.0);
-            }
-            tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(60));
-                loop {
-                    interval.tick().await;
-                    peer_manager.broadcast_node_announcement([0; 3], alias, addresses.clone());
-                }
-            });
+        let mut addresses = vec![];
+        for address in self.settings.listen_addresses.clone() {
+            addresses.push(address.parse::<PeerAddress>()?.0);
         }
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                peer_manager.broadcast_node_announcement([0; 3], alias, addresses.clone());
+            }
+        });
         Ok(())
     }
 
