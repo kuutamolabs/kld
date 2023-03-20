@@ -17,7 +17,7 @@ postgres-openssl = "0.5.0"
 openssl = "0.10.45"
 tokio = { version = "1", features = [ "full" ] }
 clap = { version = "4.1.6", features = ["derive", "env"] }
-async-trait = "0.1.64"
+async-trait = "0.1.67"
 
 [lib]
 doctest = false
