@@ -122,25 +122,27 @@ impl BitcoindClient {
         let client = self.client.clone();
         let priorities = self.priorities.clone();
         tokio::spawn(async move {
-            BitcoindClient::estimate_fee(
-                priorities.clone(),
-                client.clone(),
-                ConfirmationTarget::Background,
-            )
-            .await;
-            BitcoindClient::estimate_fee(
-                priorities.clone(),
-                client.clone(),
-                ConfirmationTarget::Normal,
-            )
-            .await;
-            BitcoindClient::estimate_fee(
-                priorities.clone(),
-                client.clone(),
-                ConfirmationTarget::HighPriority,
-            )
-            .await;
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            loop {
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::Background,
+                )
+                .await;
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::Normal,
+                )
+                .await;
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::HighPriority,
+                )
+                .await;
+                tokio::time::sleep(Duration::from_secs(60)).await;
+            }
         });
     }
 
@@ -248,7 +250,7 @@ impl BlockSource for BitcoindClient {
 }
 
 struct Priority {
-    // sats per weight unit
+    // sats per 1000 weight unit
     fee_rate: AtomicU32,
     default_fee_rate: u32,
     n_blocks: u16,
