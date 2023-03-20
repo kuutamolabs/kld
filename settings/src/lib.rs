@@ -38,7 +38,7 @@ pub struct Settings {
     /// The port to listen to new peer connections on.
     #[clap(long, default_value = "9234", env = "KLD_PEER_PORT")]
     pub peer_port: u16,
-    /// The node alias on the lighning network.
+    /// The node alias on the lightning network.
     #[clap(long, default_value = "testnode", env = "KLD_NODE_NAME")]
     pub node_name: String,
     /// Listen addresses to broadcast to the lightning network.
