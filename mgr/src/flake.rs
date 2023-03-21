@@ -152,7 +152,7 @@ nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.4"
 ipv6_address = "2605:9880:400::4"
 "#,
-        None,
+        Path::new("/"),
     )?;
     let flake = generate_nixos_flake(&config)?;
     let flake_path = flake.path();

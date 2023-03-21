@@ -23,6 +23,43 @@ in
         Node ID used in logs
       '';
     };
+
+    caPath = lib.mkOption {
+      type = lib.types.path;
+      description = ''
+        Path to the CA certificate used to sign the TLS certificate
+      '';
+    };
+
+    certPath = lib.mkOption {
+      type = lib.types.path;
+      description = ''
+        Path to the TLS certificate
+      '';
+    };
+
+    keyPath = lib.mkOption {
+      type = lib.types.path;
+      description = ''
+        Path to the TLS private key
+      '';
+    };
+
+    cockroachdb = {
+      clientCertPath = lib.mkOption {
+        type = lib.types.path;
+        description = ''
+          Path to the client certificate
+        '';
+      };
+      clientKeyPath = lib.mkOption {
+        type = lib.types.path;
+        description = ''
+          Path to the client certificate
+        '';
+      };
+    };
+
     package = lib.mkOption {
       type = lib.types.package;
       description = lib.mdDoc ''
@@ -136,9 +173,9 @@ in
         KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.sql.port);
         KLD_DATABASE_USER = lib.mkDefault "kld";
         KLD_DATABASE_NAME = lib.mkDefault "kld";
-        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/ca.crt'';
-        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/client.kld.crt'';
-        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/client.kld.key'';
+        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''/var/lib/cockroachdb-certs/ca.crt'';
+        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
+        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
@@ -167,7 +204,13 @@ in
               -rpcconnect=127.0.0.1 \
               -rpcport=${toString bitcoinCfg.rpc.port} \
               -rpcwait getblockchaininfo
-          install -m755 ${bitcoinCfg.dataDir}/.cookie /var/lib/kld/.cookie
+          install -m400 -o kld ${bitcoinCfg.dataDir}/.cookie /var/lib/kld/.cookie
+
+          install -m400 -o kld ${cfg.certPath} /var/lib/kld/certs/kld.pem
+          install -m400 -o kld ${cfg.keyPath} /var/lib/kld/certs/kld-key.pem
+          install -m400 -o kld ${cfg.caPath} /var/lib/kld/certs/ca.pem
+          install -m400 -o kld ${cfg.cockroachdb.clientCertPath} /var/lib/kld/certs/client.kld.crt
+          install -m400 -o kld ${cfg.cockroachdb.clientKeyPath} /var/lib/kld/certs/client.kld.key
         ''}";
         User = "kld";
         Group = "kld";

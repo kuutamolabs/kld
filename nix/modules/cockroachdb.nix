@@ -4,13 +4,15 @@ let
   cfg = config.kuutamo.cockroachdb;
   crdb = cfg.package;
 
+  certsDir = "/var/lib/cockroachdb-certs";
+
   cockroach-cli = pkgs.runCommand "cockroach-wrapper" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach-rpc \
-      --set COCKROACH_CERTS_DIR "${cfg.certsDir}" \
+      --set COCKROACH_CERTS_DIR "${certsDir}" \
       --set COCKROACH_HOST "${cfg.nodeName}" \
 
     makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach-sql \
-      --set COCKROACH_CERTS_DIR "${cfg.certsDir}" \
+      --set COCKROACH_CERTS_DIR "${certsDir}" \
       --set COCKROACH_URL "postgresql://root@localhost:${toString cfg.sql.port}"
   '';
 
@@ -61,7 +63,7 @@ let
       "--max-sql-memory=${cfg.maxSqlMemory}"
 
       # Certificate/security settings.
-      "--certs-dir=${cfg.certsDir}"
+      "--certs-dir=${certsDir}"
     ]
     ++ lib.optional (cfg.join != [ ]) "--join=${lib.concatStringsSep "," cfg.join}"
     ++ cfg.extraArgs);
@@ -80,6 +82,31 @@ in
           default = 26257;
           description = lib.mdDoc "Port to bind to for listen";
         };
+      };
+      caCertPath = lib.mkOption {
+        type = lib.types.path;
+        description = lib.mdDoc "CA certificate";
+      };
+
+      rootClientCertPath = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = lib.mdDoc "Root client certificate";
+      };
+
+      rootClientKeyPath = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = lib.mdDoc "Root client key";
+      };
+
+      nodeCertPath = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        description = lib.mdDoc "Node certificate";
+      };
+      nodeKeyPath = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        description = lib.mdDoc "Node key";
       };
 
       sql = {
@@ -117,12 +144,6 @@ in
         type = lib.types.listOf lib.types.str;
         default = [ ];
         description = lib.mdDoc "The addresses for connecting the node to a cluster.";
-      };
-
-      certsDir = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = "/var/lib/cockroachdb-certs";
-        description = lib.mdDoc "The path to the certificate directory.";
       };
 
       user = lib.mkOption {
@@ -310,7 +331,10 @@ in
             ExecStart = startupCommand;
             Type = "notify";
             User = cfg.user;
-            StateDirectory = "cockroachdb";
+            StateDirectory = [
+              "cockroachdb"
+              "cockroachdb-certs"
+            ];
             StateDirectoryMode = "0700";
             RuntimeDirectory = "cockroachdb";
             WorkingDirectory = "/var/lib/cockroachdb";
@@ -318,21 +342,30 @@ in
 
             Restart = "always";
 
+            ExecStartPre = "+${pkgs.writeShellScript "pre-start" ''
+              set -x -eu -o pipefail
+
+              install -m 0444 -D ${cfg.caCertPath} ${certsDir}/ca.crt
+              ${lib.optionalString (cfg.rootClientCertPath != null) ''
+                install -m 0400 -D ${cfg.rootClientCertPath} ${certsDir}/client.root.crt
+                install -m 0400 -D ${cfg.rootClientKeyPath} ${certsDir}/client.root.key
+              ''}
+              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeCertPath} ${certsDir}/node.crt
+              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeKeyPath} ${certsDir}/node.key
+            ''}";
+
             # we need to run this as root since do not have a password yet.
-            ExecStartPost = "+${pkgs.writeShellScript "setup" ''
+            ExecStartPost = "+${pkgs.writeShellScript "start-post" ''
               set -x -eu -o pipefail
               export PATH=$PATH:${cfg.package}/bin
 
-              # check if this is the primary database node
-              if [[ -f /var/lib/cockroachdb-certs/client.root.crt ]]; then
-
+              ${lib.optionalString (cfg.rootClientCertPath != null) ''
                 if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
                   cockroach-rpc init
                   touch /var/lib/cockroachdb/.cluster-init
                 fi
-                ${pkgs.iproute2}/bin/ss -tlpn
                 ${csql initialSql}
-              fi
+              ''}
             ''}";
 
             # A conservative-ish timeout is alright here, because for Type=notify

@@ -69,11 +69,6 @@ in
     };
   };
   testScript = { nodes, ... }:
-    let
-      tomlConfig = "${pkgs.runCommand "config" {} ''
-        install -D ${./test-config.toml} $out/test-config.toml
-      ''}/test-config.toml";
-    in
     ''
       def create_test_machine(oldmachine=None, args={}): # taken from <nixpkgs/nixos/tests/installer.nix>
           machine = create_machine({
@@ -95,12 +90,13 @@ in
       installer.wait_for_unit("network.target")
       installer.succeed("ping -c1 192.168.42.2")
       # our test config will read from here
-      installer.succeed("cp -r ${self} /root/near-staking-knd")
+      installer.succeed("cp -r ${self} /root/lightning-knd")
+      installer.succeed("install ${./test-config.toml} /root/test-config.toml")
 
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} generate-config /tmp/config")
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml generate-config /tmp/config")
       installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00 >&2")
 
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes install --hosts kld-00 --debug --no-reboot --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes install --hosts kld-00 --debug --no-reboot --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
       installer.succeed("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@192.168.42.2 -- reboot >&2")
       installed.shutdown()
 
@@ -114,12 +110,12 @@ in
       new_machine.wait_for_unit("sshd.service")
       # TODO test actual service here
 
-      installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes dry-update --hosts kld-00 >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes dry-update --hosts kld-00 >&2")
 
       # requires proper setup of certificates...
-      #installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes update --hosts kld-00 >&2")
-      #installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes update --hosts kld-00 >&2")
+      #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
+      #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
       # XXX find out how we can make persist more than one profile in our test
-      #installer.succeed("${lib.getExe kld-mgr} --config ${tomlConfig} --yes rollback --hosts kld-00 >&2")
+      #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes rollback --hosts kld-00 >&2")
     '';
 })

@@ -5,6 +5,16 @@
     node1 = { self, ... }: {
       imports = [ self.nixosModules.kld ];
       kuutamo.cockroachdb.nodeName = "kld-00";
+
+      kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
+      kuutamo.cockroachdb.nodeCertPath = ./cockroach-certs + "/db1.crt";
+      kuutamo.cockroachdb.nodeKeyPath = ./cockroach-certs + "/db1.key";
+      kuutamo.kld.cockroachdb.clientCertPath = ./cockroach-certs + "/client.root.crt";
+      kuutamo.kld.cockroachdb.clientKeyPath = ./cockroach-certs + "/client.root.key";
+
+      kuutamo.kld.caPath = ./kld-certs/ca.pem;
+      kuutamo.kld.certPath = ./kld-certs/kld.pem;
+      kuutamo.kld.keyPath = ./kld-certs/kld.key;
     };
   };
 

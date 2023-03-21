@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::Command;
 
 use crate::command;
@@ -11,9 +12,10 @@ pub fn nixos_rebuild(
     action: &str,
     host: &Host,
     flake: &NixosFlake,
+    secrets_dir: &Path,
     collect_garbage: bool,
 ) -> Result<()> {
-    let secrets = host.secrets()?;
+    let secrets = host.secrets(secrets_dir)?;
     let target = host.deploy_ssh_target();
     secrets
         .upload(&target)

@@ -29,5 +29,11 @@ in
     kuutamo.network.ipv6.address = cfg.ipv6_address or null;
     kuutamo.network.ipv6.gateway = cfg.ipv6_gateway or null;
     kuutamo.network.ipv6.cidr = cfg.ipv6_cidr or 128;
+
+    kuutamo.cockroachdb.caCertPath = "/var/lib/secrets/cockroachdb/ca.crt";
+    kuutamo.cockroachdb.rootClientCertPath = "/var/lib/secrets/cockroachdb/client.root.crt";
+    kuutamo.cockroachdb.rootClientKeyPath = "/var/lib/secrets/cockroachdb/client.root.key";
+    kuutamo.cockroachdb.nodeCertPath = "/var/lib/secrets/cockroachdb/node.crt";
+    kuutamo.cockroachdb.nodeKeyPath = "/var/lib/secrets/cockroachdb/node.key";
   };
 }
