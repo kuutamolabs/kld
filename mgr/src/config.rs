@@ -167,6 +167,7 @@ impl Host {
         let cockroachdb = secrets_dir.join("cockroachdb");
 
         let secret_files = vec![
+            // for kld
             (
                 PathBuf::from("/var/lib/secrets/kld/ca.pem"),
                 fs::read_to_string(lightning.join("ca.pem")).context("failed to read ca.pem")?,
@@ -191,6 +192,7 @@ impl Host {
                 fs::read_to_string(cockroachdb.join("client.kld.key"))
                     .context("failed to read client.kld.key")?,
             ),
+            // for cockroachdb
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/ca.crt"),
                 fs::read_to_string(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,

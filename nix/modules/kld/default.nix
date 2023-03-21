@@ -206,11 +206,11 @@ in
               -rpcwait getblockchaininfo
           install -m400 -o kld ${bitcoinCfg.dataDir}/.cookie /var/lib/kld/.cookie
 
-          install -m400 -o kld ${cfg.certPath} /var/lib/kld/certs/kld.pem
-          install -m400 -o kld ${cfg.keyPath} /var/lib/kld/certs/kld-key.pem
-          install -m400 -o kld ${cfg.caPath} /var/lib/kld/certs/ca.pem
-          install -m400 -o kld ${cfg.cockroachdb.clientCertPath} /var/lib/kld/certs/client.kld.crt
-          install -m400 -o kld ${cfg.cockroachdb.clientKeyPath} /var/lib/kld/certs/client.kld.key
+          install -D -m400 -o kld ${cfg.certPath} /var/lib/kld/certs/kld.pem
+          install -D -m400 -o kld ${cfg.keyPath} /var/lib/kld/certs/kld-key.pem
+          install -D -m400 -o kld ${cfg.caPath} /var/lib/kld/certs/ca.pem
+          install -D -m400 -o kld ${cfg.cockroachdb.clientCertPath} /var/lib/kld/certs/client.kld.crt
+          install -D -m400 -o kld ${cfg.cockroachdb.clientKeyPath} /var/lib/kld/certs/client.kld.key
         ''}";
         User = "kld";
         Group = "kld";
