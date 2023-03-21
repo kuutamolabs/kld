@@ -169,43 +169,51 @@ impl Host {
         let secret_files = vec![
             (
                 PathBuf::from("/var/lib/secrets/kld/ca.pem"),
-                fs::read_to_string(lightning.join("ca.pem"))?,
+                fs::read_to_string(lightning.join("ca.pem")).context("failed to read ca.pem")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.pem"),
-                fs::read_to_string(lightning.join(format!("{}.pem", self.name)))?,
+                fs::read_to_string(lightning.join(format!("{}.pem", self.name)))
+                    .context("failed to read kld.pem")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.key"),
-                fs::read_to_string(lightning.join(format!("{}.key", self.name)))?,
+                fs::read_to_string(lightning.join(format!("{}.key", self.name)))
+                    .context("failed to read kld.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.crt"),
-                fs::read_to_string(cockroachdb.join("client.kld.crt"))?,
+                fs::read_to_string(cockroachdb.join("client.kld.crt"))
+                    .context("failed to read client.kld.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.key"),
-                fs::read_to_string(cockroachdb.join("client.kld.key"))?,
+                fs::read_to_string(cockroachdb.join("client.kld.key"))
+                    .context("failed to read client.kld.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/ca.crt"),
-                fs::read_to_string(cockroachdb.join("ca.crt"))?,
+                fs::read_to_string(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.crt"),
-                fs::read_to_string(cockroachdb.join("client.root.crt"))?,
+                fs::read_to_string(cockroachdb.join("client.root.crt"))
+                    .context("failed to read client.root.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.key"),
-                fs::read_to_string(cockroachdb.join("client.root.key"))?,
+                fs::read_to_string(cockroachdb.join("client.root.key"))
+                    .context("failed to read client.root.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.crt"),
-                fs::read_to_string(cockroachdb.join("node.crt"))?,
+                fs::read_to_string(cockroachdb.join(format!("{}.node.crt", self.name)))
+                    .context("failed to read node.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.key"),
-                fs::read_to_string(cockroachdb.join("node.key"))?,
+                fs::read_to_string(cockroachdb.join(format!("{}.node.key", self.name)))
+                    .context("failed to read node.key")?,
             ),
         ];
 
