@@ -1,7 +1,7 @@
 use super::{cert_is_atleast_valid_for, openssl, CertRenewPolicy};
 use crate::Host;
 use anyhow::{Context, Result};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 fn create_tls_key(ca_key_path: &Path) -> Result<()> {
@@ -169,7 +169,7 @@ IP.2 = ::1
 /// Create or update certificates for lightning nodes in given directory.
 pub fn create_or_update_lightning_certs(
     cert_dir: &Path,
-    hosts: &HashMap<String, Host>,
+    hosts: &BTreeMap<String, Host>,
     renew_policy: &CertRenewPolicy,
 ) -> Result<()> {
     std::fs::create_dir_all(cert_dir).with_context(|| {
@@ -220,7 +220,7 @@ pub fn create_or_update_lightning_certs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::parse_config;
+    use crate::config::{parse_config, TEST_CONFIG};
     use std::fs;
     use tempfile::tempdir;
 
@@ -228,37 +228,8 @@ mod tests {
     fn test_create_or_update_lightning_certs() -> Result<()> {
         let dir = tempdir().context("Failed to create temporary directory")?;
         let cert_dir = dir.path().join("certs");
-        let config_str = r#"
-[global]
-flake = "github:myfork/near-staking-knd"
 
-[host_defaults]
-public_ssh_keys = [
-  '''ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA foobar'''
-]
-ipv4_cidr = 24
-ipv6_cidr = 48
-ipv4_gateway = "199.127.64.1"
-ipv6_gateway = "2605:9880:400::1"
-
-[hosts]
-[hosts.kld-00]
-nixos_module = "kld-node"
-ipv4_address = "199.127.64.2"
-ipv6_address = "2605:9880:400::2"
-ipv6_cidr = 48
-
-[hosts.db-00]
-nixos_module = "kld-node"
-ipv4_address = "199.127.64.3"
-ipv6_address = "2605:9880:400::3"
-
-[hosts.db-01]
-nixos_module = "cockroachdb-node"
-ipv4_address = "199.127.64.4"
-ipv6_address = "2605:9880:400::4"
-"#;
-        let config = parse_config(config_str, Path::new("/")).context("Failed to parse config")?;
+        let config = parse_config(TEST_CONFIG, Path::new("/")).context("Failed to parse config")?;
 
         create_or_update_lightning_certs(&cert_dir, &config.hosts, &CertRenewPolicy::default())
             .context("Failed to create lightning certificates")?;

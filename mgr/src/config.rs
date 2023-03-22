@@ -4,6 +4,7 @@ use log::warn;
 use regex::Regex;
 use serde::Serialize;
 use serde_derive::Deserialize;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
 
@@ -410,7 +411,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
 /// Validated configuration
 pub struct Config {
     /// Hosts as defined in the configuration
-    pub hosts: HashMap<String, Host>,
+    pub hosts: BTreeMap<String, Host>,
     /// Configuration affecting all hosts
     pub global: Global,
 }
@@ -427,7 +428,7 @@ pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
                 validate_host(name, host, &config.host_defaults)?,
             ))
         })
-        .collect::<Result<HashMap<_, _>>>()?;
+        .collect::<Result<BTreeMap<_, _>>>()?;
     let cockroach_peers = hosts
         .iter()
         .map(|(name, host)| CockroachPeer {
