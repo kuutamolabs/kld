@@ -83,6 +83,13 @@ fn default_flake() -> String {
     "github:kuutamolabs/lightning-knd".to_string()
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub struct CockroachPeer {
+    pub name: String,
+    pub ipv4_address: IpAddr,
+    pub ipv6_address: Option<IpAddr>,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct HostConfig {
     #[serde(default)]
@@ -158,6 +165,9 @@ pub struct Host {
 
     /// Block device paths to use for installing
     pub disks: Vec<PathBuf>,
+
+    /// CockroachDB nodes to connect to
+    pub cockroach_peers: Vec<CockroachPeer>,
 }
 
 impl Host {
@@ -393,6 +403,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         ipv6_gateway,
         public_ssh_keys,
         disks,
+        cockroach_peers: vec![],
     })
 }
 
@@ -406,17 +417,45 @@ pub struct Config {
 
 /// Parse toml configuration
 pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
-    let mut config: ConfigFile = toml::from_str(content)?;
-    let hosts = config
+    let config: ConfigFile = toml::from_str(content)?;
+    let mut hosts = config
         .hosts
-        .iter_mut()
+        .iter()
         .map(|(name, host)| {
             Ok((
-                name.clone(),
+                name.to_string(),
                 validate_host(name, host, &config.host_defaults)?,
             ))
         })
-        .collect::<Result<_>>()?;
+        .collect::<Result<HashMap<_, _>>>()?;
+    let cockroach_peers = hosts
+        .iter()
+        .map(|(name, host)| CockroachPeer {
+            name: name.to_string(),
+            ipv4_address: host.ipv4_address,
+            ipv6_address: host.ipv6_address,
+        })
+        .collect::<Vec<_>>();
+    for host in hosts.values_mut() {
+        host.cockroach_peers = cockroach_peers.clone();
+    }
+    let kld_nodes = hosts
+        .iter()
+        .filter(|(_, host)| host.nixos_module == "kld-node")
+        .count();
+    if kld_nodes != 1 {
+        bail!("Exactly one kld-node is required, found {}", kld_nodes);
+    }
+    let cockroach_nodes = hosts
+        .iter()
+        .filter(|(_, host)| host.nixos_module == "cockroachdb-node")
+        .count();
+    if cockroach_nodes < 2 {
+        bail!(
+            "At least two cockroach-nodes are required, found {}",
+            cockroach_nodes
+        );
+    }
 
     let global = validate_global(&config.global, working_directory)?;
 
@@ -457,7 +496,7 @@ ipv6_address = "2605:9880:400::2"
 ipv6_cidr = 48
 
 [hosts.db-00]
-nixos_module = "kld-node"
+nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.3"
 ipv6_address = "2605:9880:400::3"
 
@@ -552,6 +591,7 @@ fn test_validate_host() {
             ssh_hostname: "192.168.0.1".to_string(),
             public_ssh_keys: vec!["".to_string()],
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
+            cockroach_peers: vec![]
         }
     );
 

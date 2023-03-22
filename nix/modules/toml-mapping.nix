@@ -35,5 +35,14 @@ in
     kuutamo.cockroachdb.rootClientKeyPath = "/var/lib/secrets/cockroachdb/client.root.key";
     kuutamo.cockroachdb.nodeCertPath = "/var/lib/secrets/cockroachdb/node.crt";
     kuutamo.cockroachdb.nodeKeyPath = "/var/lib/secrets/cockroachdb/node.key";
+
+    networking.extraHosts = lib.concatMapStringsSep "\n"
+      (_peer: ''
+        {peer.ipv4_address} {peer.name}
+        {peer.ipv6_address} {peer.name}
+      '')
+      cfg.cockroach_peers;
+
+    kuutamo.cockroachdb.join = builtins.map (peer: peer.name) cfg.cockroach_peers;
   };
 }

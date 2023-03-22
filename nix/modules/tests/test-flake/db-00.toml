@@ -12,3 +12,18 @@ install_ssh_user = "root"
 ssh_hostname = "192.168.42.2"
 public_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF"]
 disks = ["/dev/vdb", "/dev/vdc"]
+
+[[cockroach_peers]]
+name = "db-01"
+ipv4_address = "192.168.42.2"
+ipv6_address = "2001:db8::3"
+
+[[cockroach_peers]]
+name = "kld-00"
+ipv4_address = "192.168.42.2"
+ipv6_address = "2001:db8::1"
+
+[[cockroach_peers]]
+name = "db-00"
+ipv4_address = "192.168.42.2"
+ipv6_address = "2001:db8::2"
