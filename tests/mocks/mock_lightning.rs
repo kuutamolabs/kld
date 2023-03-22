@@ -148,7 +148,7 @@ impl LightningInterface for MockLightning {
         Some(TEST_ALIAS.to_string())
     }
 
-    fn addresses(&self) -> Vec<String> {
+    fn public_addresses(&self) -> Vec<String> {
         vec![
             "127.0.0.1:2324".to_string(),
             "194.454.23.2:2020".to_string(),

@@ -103,7 +103,7 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = lib.mDoc ''
-        Comma-seperated list of ip addresses on which the lightning is *directly* reachable.
+        Comma-seperated list of ip addresses on which the lightning node is *directly* reachable.
       '';
     };
     exporterAddress = lib.mkOption {
@@ -176,6 +176,7 @@ in
         KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''/var/lib/cockroachdb-certs/ca.crt'';
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
+        KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses;
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";

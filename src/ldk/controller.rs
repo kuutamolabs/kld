@@ -246,11 +246,7 @@ impl LightningInterface for Controller {
             let addresses: Vec<PeerAddress> = self
                 .network_graph
                 .read_only()
-                .node(&NodeId::from_pubkey(&public_key))
-                .context("Node not found in network graph")?
-                .announcement_info
-                .as_ref()
-                .map(|announcement| announcement.addresses.clone())
+                .get_addresses(&public_key)
                 .context("No addresses found for node")?
                 .into_iter()
                 .filter(|a| matches!(a, NetAddress::IPv4 { addr: _, port: _ }))
@@ -275,8 +271,8 @@ impl LightningInterface for Controller {
         self.peer_manager.disconnect_by_node_id(public_key).await
     }
 
-    fn addresses(&self) -> Vec<String> {
-        self.settings.listen_addresses.clone()
+    fn public_addresses(&self) -> Vec<String> {
+        self.settings.public_addresses.clone()
     }
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {

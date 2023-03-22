@@ -122,7 +122,7 @@ impl PeerManager {
         alias[..self.settings.node_name.len()].copy_from_slice(self.settings.node_name.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
         let mut addresses = vec![];
-        for address in self.settings.listen_addresses.clone() {
+        for address in &self.settings.public_addresses {
             addresses.push(address.parse::<PeerAddress>()?.0);
         }
         tokio::spawn(async move {
