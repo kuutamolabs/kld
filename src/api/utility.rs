@@ -43,7 +43,7 @@ pub(crate) async fn get_info(
         color: "".to_string(),
         network: lightning_interface.network().to_string(),
         address: lightning_interface
-            .addresses()
+            .public_addresses()
             .iter()
             .filter_map(|a| a.split_once(':'))
             .map(|a| Address {

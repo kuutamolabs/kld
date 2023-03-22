@@ -46,7 +46,7 @@ pub trait LightningInterface {
 
     fn alias_of(&self, node_id: &PublicKey) -> Option<String>;
 
-    fn addresses(&self) -> Vec<String>;
+    fn public_addresses(&self) -> Vec<String>;
 
     async fn list_peers(&self) -> Result<Vec<Peer>>;
 

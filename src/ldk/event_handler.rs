@@ -334,7 +334,7 @@ impl EventHandler {
                 let destination_address = match self.wallet.new_address() {
                     Ok(a) => a,
                     Err(e) => {
-                        error!("{}", e);
+                        error!("Could not get new address: {}", e);
                         return;
                     }
                 };
@@ -349,7 +349,13 @@ impl EventHandler {
                     tx_feerate,
                     &Secp256k1::new(),
                 ) {
-                    Ok(spending_tx) => self.bitcoind_client.broadcast_transaction(&spending_tx),
+                    Ok(spending_tx) => {
+                        info!(
+                            "EVENT: Sending spendable output to {}",
+                            destination_address.address
+                        );
+                        self.bitcoind_client.broadcast_transaction(&spending_tx)
+                    }
                     Err(_) => {
                         error!("Failed to build spending transaction");
                     }
