@@ -60,12 +60,13 @@ struct UpdateArgs {
 enum Command {
     /// Generate NixOS configuration
     GenerateConfig(GenerateConfigArgs),
-    /// Install Validator on a given machine. This will remove all data of the current system!
+    /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
     /// Upload update to host and show which actions would be performed on an update
     DryUpdate(DryUpdateArgs),
-    /// Update validator
+    /// Update hosts
     Update(UpdateArgs),
+    /// Rollback hosts to previous generation
     Rollback(RollbackArgs),
 }
 
