@@ -31,6 +31,7 @@ pub fn main() -> Result<()> {
 
     if let Err(e) = runtime.block_on(run_kld(settings)) {
         error!("Fatal error encountered");
+        runtime.shutdown_background();
         return Err(e);
     }
 
