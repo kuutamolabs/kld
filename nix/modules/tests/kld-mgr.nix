@@ -110,11 +110,30 @@ in
       new_machine.wait_for_unit("sshd.service")
       # TODO test actual service here
 
+      # check tls certificates
+      certs = [
+        "/var/lib/secrets/cockroachdb/ca.crt",
+        "/var/lib/secrets/cockroachdb/client.root.crt",
+        "/var/lib/secrets/cockroachdb/client.root.key",
+        "/var/lib/secrets/cockroachdb/node.crt",
+        "/var/lib/secrets/cockroachdb/node.key",
+        "/var/lib/secrets/kld/ca.pem",
+        "/var/lib/secrets/kld/kld.pem",
+        "/var/lib/secrets/kld/kld.key",
+        "/var/lib/secrets/kld/client.kld.crt",
+        "/var/lib/secrets/kld/client.kld.key",
+      ]
+      for cert in certs:
+          new_machine.succeed(f"test -f {cert} || (echo {cert} does not exist >&2 && exit 1)")
+          new_machine.succeed(f"test $(stat -c %a {cert}) == 600 || (echo {cert} has wrong permissions >&2 && exit 1)")
+          new_machine.succeed(f"test $(stat -c %U {cert}) == root || (echo {cert} does not belong to root >&2 && exit 1)")
+
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes dry-update --hosts kld-00 >&2")
 
       # requires proper setup of certificates...
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
+
       # XXX find out how we can make persist more than one profile in our test
       #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes rollback --hosts kld-00 >&2")
     '';
