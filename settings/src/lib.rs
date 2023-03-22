@@ -75,7 +75,11 @@ impl Settings {
 type Addresses = Vec<String>;
 
 fn addresses_parser(env: &str) -> Result<Addresses, std::io::Error> {
-    Ok(env.split(',').map(|s| s.to_string()).collect())
+    if env.is_empty() {
+        Ok(vec![])
+    } else {
+        Ok(env.split(',').map(|s| s.to_string()).collect())
+    }
 }
 
 #[cfg(test)]
@@ -86,7 +90,12 @@ mod test {
 
     #[test]
     pub fn test_parse_settings() {
-        set_var("KLD_PUBLIC_ADDRESSES", "[127.0.0.1:2312, 1.2.3.4:4321]");
+        set_var("KLD_PUBLIC_ADDRESSES", "");
+        let settings = Settings::load();
+
+        assert_eq!(settings.public_addresses.len(), 0);
+
+        set_var("KLD_PUBLIC_ADDRESSES", "127.0.0.1:2312,1.2.3.4:4321");
         let settings = Settings::load();
 
         assert_eq!(settings.public_addresses.len(), 2);
