@@ -113,8 +113,8 @@ in
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes dry-update --hosts kld-00 >&2")
 
       # requires proper setup of certificates...
-      #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
-      #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
       # XXX find out how we can make persist more than one profile in our test
       #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes rollback --hosts kld-00 >&2")
     '';

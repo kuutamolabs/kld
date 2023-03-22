@@ -3,7 +3,7 @@ use super::CertRenewPolicy;
 use crate::command::status_to_pretty_err;
 use crate::Host;
 use anyhow::{Context, Result};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -125,7 +125,7 @@ fn create_or_update_node_cert(
 
 pub fn create_or_update_cockroachdb_certs(
     certs_dir: &Path,
-    hosts: &HashMap<String, Host>,
+    hosts: &BTreeMap<String, Host>,
     policy: &CertRenewPolicy,
 ) -> Result<()> {
     create_or_update_ca(certs_dir, policy)?;
@@ -181,7 +181,7 @@ fn test_create_or_update_cockroachdb_certs() -> Result<()> {
                 .context("Failed to get file modification time")?;
             Ok((f.clone(), modified))
         })
-        .collect::<Result<HashMap<_, _>>>()?;
+        .collect::<Result<BTreeMap<_, _>>>()?;
 
     create_or_update_cockroachdb_certs(dir.path(), &config.hosts, &CertRenewPolicy::default())
         .context("Failed to create certs")?;

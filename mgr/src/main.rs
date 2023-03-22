@@ -8,7 +8,7 @@ use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
 use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io::{self, BufRead};
 use std::path::PathBuf;
 
@@ -103,7 +103,7 @@ fn ask_yes_no(prompt_text: &str) -> bool {
     matches!(normalized.as_str(), "y" | "yes")
 }
 
-fn filter_hosts(host_spec: &str, hosts: &HashMap<String, Host>) -> Result<Vec<Host>> {
+fn filter_hosts(host_spec: &str, hosts: &BTreeMap<String, Host>) -> Result<Vec<Host>> {
     if host_spec.is_empty() {
         return Ok(hosts.values().map(Clone::clone).collect::<Vec<_>>());
     }
