@@ -2,11 +2,11 @@
 name = "kld"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [workspace]
 members = [
     ".",
-    "api",
     "database",
     "logger",
     "settings",

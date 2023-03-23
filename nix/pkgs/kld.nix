@@ -53,6 +53,7 @@ craneLib.buildPackage {
       nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
     };
     inherit cargoArtifacts;
+    COMMIT_SHA = lib.mkIf (self ? rev) self.rev;
   };
 
   # we run tests in a seperate package
