@@ -135,8 +135,9 @@ impl EventHandler {
                 channel_type: _,
             } => {
                 info!(
-                    "EVENT: Channel {:?} - {user_channel_id} with counterparty {} is ready to use.",
-                    channel_id, counterparty_node_id
+                    "EVENT: Channel {} - {user_channel_id} with counterparty {} is ready to use.",
+                    channel_id.encode_hex::<String>(),
+                    counterparty_node_id
                 );
             }
             Event::ChannelClosed {
@@ -144,7 +145,10 @@ impl EventHandler {
                 reason,
                 user_channel_id,
             } => {
-                info!("EVENT: Channel {:?}: {reason}.", channel_id);
+                info!(
+                    "EVENT: Channel {}: {reason}.",
+                    channel_id.encode_hex::<String>()
+                );
                 self.async_api_requests
                     .funding_transactions
                     .respond(
@@ -153,9 +157,15 @@ impl EventHandler {
                     )
                     .await;
             }
-            Event::DiscardFunding { .. } => {
-                // A "real" node should probably "lock" the UTXOs spent in funding transactions until
-                // the funding transaction either confirms, or this event is generated.
+            Event::DiscardFunding {
+                channel_id,
+                transaction,
+            } => {
+                info!(
+                    "EVENT: Funding discarded for channel: {}, txid: {}",
+                    channel_id.encode_hex::<String>(),
+                    transaction.txid()
+                )
             }
             Event::OpenChannelRequest { .. } => {
                 // Unreachable, we don't set manually_accept_inbound_channels
@@ -232,7 +242,7 @@ impl EventHandler {
                     payment.status = HTLCStatus::Succeeded;
                     info!(
                         "EVENT: successfully sent payment of {} millisatoshis{} from \
-								 payment hash {:?} with preimage {:?}",
+								 payment hash {} with preimage {}",
                         payment.amt_msat,
                         if let Some(fee) = fee_paid_msat {
                             format!(" (fee {fee} msat)")
@@ -250,7 +260,7 @@ impl EventHandler {
             Event::ProbeFailed { .. } => {}
             Event::PaymentFailed { payment_hash, .. } => {
                 info!(
-				"EVENT: Failed to send payment to payment hash {:?}: exhausted payment retry attempts",
+				"EVENT: Failed to send payment to payment hash {}: exhausted payment retry attempts",
 				payment_hash.0.encode_hex::<String>()
 			);
 
@@ -289,7 +299,9 @@ impl EventHandler {
                 };
                 let channel_str = |channel_id: &Option<[u8; 32]>| {
                     channel_id
-                        .map(|channel_id| format!(" with channel {channel_id:?}"))
+                        .map(|channel_id| {
+                            format!(" with channel {}", channel_id.encode_hex::<String>())
+                        })
                         .unwrap_or_default()
                 };
                 let from_prev_str = format!(
@@ -320,7 +332,16 @@ impl EventHandler {
                     );
                 }
             }
-            Event::HTLCHandlingFailed { .. } => {}
+            Event::HTLCHandlingFailed {
+                prev_channel_id,
+                failed_next_destination,
+            } => {
+                error!(
+                    "EVENT: Failed handling HTLC from channel {} to {:?}",
+                    prev_channel_id.encode_hex::<String>(),
+                    failed_next_destination
+                );
+            }
             Event::PendingHTLCsForwardable { time_forwardable } => {
                 let forwarding_channel_manager = self.channel_manager.clone();
                 let min = time_forwardable.as_millis() as u64;
