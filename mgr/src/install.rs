@@ -72,19 +72,6 @@ pub fn install(
             })
             .context("Error setting ctrl-C handler")?;
 
-            // wait for the machine to go down
-            loop {
-                if !timeout_ssh(host, &["exit", "0"], false)?.status.success() {
-                    break;
-                }
-                if !matches!(
-                    ctrlc_rx.recv_timeout(Duration::from_millis(500)),
-                    Err(RecvTimeoutError::Timeout)
-                ) {
-                    break;
-                }
-            }
-
             // remove potential old ssh keys before adding new ones...
             let _ = Command::new("ssh-keygen")
                 .args(["-R", &host.ssh_hostname])
