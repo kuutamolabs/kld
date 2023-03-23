@@ -15,6 +15,10 @@ let
   '';
 in
 {
+
+  imports = [
+    ../bitcoind-disks.nix
+  ];
   options.kuutamo.kld = {
     nodeId = lib.mkOption {
       type = lib.types.str;
@@ -156,6 +160,8 @@ in
       group = "kld";
     };
     users.groups.kld = { };
+
+    kuutamo.disko.bitcoindDataDir = bitcoinCfg.dataDir;
 
     # fix me, we need to wait for the database to start first
     systemd.services.kld = {

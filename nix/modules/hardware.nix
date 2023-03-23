@@ -5,7 +5,10 @@
     default = [ "/dev/nvme0n1" "/dev/nvme1n1" ];
     description = lib.mdDoc "Disks formatted by disko";
   };
-  imports = [ ./raid-config.nix ];
+  imports = [
+    ./raid-config.nix
+    ./bitcoind-disks.nix
+  ];
 
   config = {
     boot.initrd.availableKernelModules = [

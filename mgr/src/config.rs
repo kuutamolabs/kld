@@ -124,6 +124,9 @@ struct HostConfig {
 
     #[serde(default)]
     pub disks: Option<Vec<PathBuf>>,
+
+    #[serde(default)]
+    pub bitcoind_disks: Option<Vec<PathBuf>>,
 }
 
 /// NixOS host configuration
@@ -166,6 +169,9 @@ pub struct Host {
 
     /// Block device paths to use for installing
     pub disks: Vec<PathBuf>,
+
+    /// Block device paths to use for bitcoind's blockchain state
+    pub bitcoind_disks: Vec<PathBuf>,
 
     /// CockroachDB nodes to connect to
     pub cockroach_peers: Vec<CockroachPeer>,
@@ -389,6 +395,15 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         bail!("no disks specified for hosts.{name}");
     }
 
+    let default_bitcoind_disks = vec![];
+
+    let bitcoind_disks = host
+        .bitcoind_disks
+        .as_ref()
+        .or(default.bitcoind_disks.as_ref())
+        .unwrap_or(&default_bitcoind_disks)
+        .to_vec();
+
     Ok(Host {
         name,
         nixos_module,
@@ -404,6 +419,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         ipv6_gateway,
         public_ssh_keys,
         disks,
+        bitcoind_disks,
         cockroach_peers: vec![],
     })
 }
@@ -592,7 +608,8 @@ fn test_validate_host() {
             ssh_hostname: "192.168.0.1".to_string(),
             public_ssh_keys: vec!["".to_string()],
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
-            cockroach_peers: vec![]
+            cockroach_peers: vec![],
+            bitcoind_disks: vec![],
         }
     );
 
