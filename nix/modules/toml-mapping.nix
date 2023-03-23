@@ -17,6 +17,7 @@ in
     kuutamo.cockroachdb.nodeName = cfg.name;
 
     kuutamo.disko.disks = cfg.disks;
+    kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
 
     users.extraUsers.root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
 

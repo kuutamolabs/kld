@@ -12,6 +12,7 @@ install_ssh_user = "root"
 ssh_hostname = "192.168.42.2"
 public_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF"]
 disks = ["/dev/vdb", "/dev/vdc"]
+bitcoind_disks = []
 
 [[cockroach_peers]]
 name = "db-00"
