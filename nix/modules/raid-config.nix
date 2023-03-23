@@ -34,17 +34,6 @@ let
       name = "root";
     };
   };
-  bitcoindRaidPart = {
-    type = "partition";
-    name = "bitcoind-root";
-    start = "500MB";
-    end = "100%";
-    bootable = true;
-    content = {
-      type = "mdraid";
-      name = "root";
-    };
-  };
 in
 {
   disko.devices = {
@@ -61,18 +50,14 @@ in
             raidPart
           ];
         };
-      }) // lib.genAttrs config.kuutamo.disko.bitcoindDisks
-      (disk: {
-        type = "disk";
-        device = disk;
-        content = {
-          type = "table";
-          format = "gpt";
-          partitions = [
-            bitcoindRaidPart
-          ];
-        };
-      });
+      }) // lib.genAttrs config.kuutamo.disko.bitcoindDisks (disk: {
+      type = "disk";
+      device = disk;
+      content = {
+        type = "mdraid";
+        name = "bitcoind";
+      };
+    });
 
     mdadm = {
       boot = {
