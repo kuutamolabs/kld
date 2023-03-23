@@ -36,9 +36,9 @@ in
     kuutamo.cockroachdb.nodeKeyPath = "/var/lib/secrets/cockroachdb/node.key";
 
     networking.extraHosts = lib.concatMapStringsSep "\n"
-      (_peer: ''
-        {peer.ipv4_address} {peer.name}
-        {peer.ipv6_address} {peer.name}
+      (peer: ''
+        ${peer.ipv4_address} ${peer.name}
+        ${peer.ipv6_address} ${peer.name}
       '')
       cfg.cockroach_peers;
 
