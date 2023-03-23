@@ -333,7 +333,6 @@ in
             User = cfg.user;
             StateDirectory = [
               "cockroachdb"
-              "cockroachdb-certs"
             ];
             StateDirectoryMode = "0700";
             RuntimeDirectory = "cockroachdb";
@@ -344,6 +343,8 @@ in
 
             ExecStartPre = "+${pkgs.writeShellScript "pre-start" ''
               set -x -eu -o pipefail
+
+              install -d -m555 ${certsDir}
 
               install -m 0444 -D ${cfg.caCertPath} ${certsDir}/ca.crt
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
