@@ -2,9 +2,9 @@ use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
 use api::{
-    routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo, NewAddress,
-    NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance, WalletTransfer,
-    WalletTransferResponse,
+    routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
+    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
+    WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
@@ -145,14 +145,29 @@ impl Api {
         deserialize::<()>(response)
     }
 
-    pub fn list_nodes(&self, id: Option<String>) -> Result<String> {
+    pub fn list_network_nodes(&self, id: Option<String>) -> Result<String> {
         let response = if let Some(id) = id {
-            self.request(Method::GET, &routes::LIST_NODE.replace(":id", &id))
+            self.request(Method::GET, &routes::LIST_NETWORK_NODE.replace(":id", &id))
                 .send()?
         } else {
-            self.request(Method::GET, routes::LIST_NODES).send()?
+            self.request(Method::GET, routes::LIST_NETWORK_NODES)
+                .send()?
         };
-        deserialize::<Vec<Node>>(response)
+        deserialize::<Vec<NetworkNode>>(response)
+    }
+
+    pub fn list_network_channels(&self, id: Option<String>) -> Result<String> {
+        let response = if let Some(id) = id {
+            self.request(
+                Method::GET,
+                &routes::LIST_NETWORK_CHANNEL.replace(":id", &id),
+            )
+            .send()?
+        } else {
+            self.request(Method::GET, routes::LIST_NETWORK_CHANNELS)
+                .send()?
+        };
+        deserialize::<Vec<NetworkChannel>>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

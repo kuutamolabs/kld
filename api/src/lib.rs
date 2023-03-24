@@ -34,9 +34,13 @@ pub mod routes {
 
     /// --- Network ---
     /// Look up a node on the network.
-    pub const LIST_NODE: &str = "/v1/network/listnode/:id";
+    pub const LIST_NETWORK_NODE: &str = "/v1/network/listnode/:id";
     /// Return list of all nodes on the network
-    pub const LIST_NODES: &str = "/v1/network/listnodes";
+    pub const LIST_NETWORK_NODES: &str = "/v1/network/listnode";
+    /// Look up a channel on the network
+    pub const LIST_NETWORK_CHANNEL: &str = "/v1/network/listchannel/:id";
+    /// Return list of all channels on the network
+    pub const LIST_NETWORK_CHANNELS: &str = "/v1/network/listchannel";
 
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.
@@ -87,6 +91,27 @@ pub struct Address {
 pub struct Chain {
     pub chain: String,
     pub network: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkChannel {
+    pub source: String,
+    pub destination: String,
+    pub short_channel_id: u64,
+    pub public: bool,
+    pub satoshis: u64,
+    pub amount_msat: u64,
+    pub message_flags: u8,
+    pub channel_flags: u8,
+    pub description: String,
+    pub active: bool,
+    pub last_update: u32,
+    pub base_fee_millisatoshi: u32,
+    pub fee_per_millionth: u32,
+    pub delay: u16,
+    pub htlc_minimum_msat: u64,
+    pub htlc_maximum_msat: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -343,7 +368,7 @@ pub struct Peer {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Node {
+pub struct NetworkNode {
     #[serde(rename = "nodeid")]
     pub node_id: String,
     pub alias: String,

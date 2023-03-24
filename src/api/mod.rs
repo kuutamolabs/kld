@@ -13,7 +13,9 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{close_channel, list_channels, open_channel, set_channel_fee},
-        network::{get_node, list_nodes},
+        network::{
+            get_network_channel, get_network_node, list_network_channels, list_network_nodes,
+        },
         peers::{connect_peer, disconnect_peer, list_peers},
         wallet::{get_balance, new_address, transfer},
         ws::ws_handler,
@@ -78,8 +80,10 @@ impl RestApi {
             .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::CONNECT_PEER, post(connect_peer))
             .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
-            .route(routes::LIST_NODES, get(list_nodes))
-            .route(routes::LIST_NODE, get(get_node))
+            .route(routes::LIST_NETWORK_NODE, get(get_network_node))
+            .route(routes::LIST_NETWORK_NODES, get(list_network_nodes))
+            .route(routes::LIST_NETWORK_CHANNEL, get(get_network_channel))
+            .route(routes::LIST_NETWORK_CHANNELS, get(list_network_channels))
             .route(routes::WEBSOCKET, get(ws_handler))
             .fallback(handler_404)
             .layer(cors)
