@@ -1,15 +1,29 @@
 use anyhow::{Context, Result};
+use lazy_static::lazy_static;
 use log::info;
 use std::path::Path;
+use std::sync::Mutex;
 use std::{
     process::Command,
-    sync::mpsc::{channel, RecvTimeoutError},
+    sync::mpsc::{channel, Receiver, RecvTimeoutError},
     time::Duration,
 };
 
 use crate::{command::status_to_pretty_err, utils::timeout_ssh};
 
 use super::{Host, NixosFlake};
+
+lazy_static! {
+    static ref CTRL_WAS_PRESSED: Mutex<Receiver<()>> = {
+        let (ctrlc_tx, ctrlc_rx) = channel();
+        ctrlc::set_handler(move || {
+            info!("received ctrl-c!. Stopping program...");
+            let _ = ctrlc_tx.send(());
+        })
+        .expect("Error setting ctrl-C handler");
+        Mutex::new(ctrlc_rx)
+    };
+}
 
 /// Install a Validator on a given machine
 pub fn install(
@@ -65,13 +79,6 @@ pub fn install(
                 host.name
             );
 
-            let (ctrlc_tx, ctrlc_rx) = channel();
-            ctrlc::set_handler(move || {
-                info!("received ctrl-c!. Stopping program...");
-                let _ = ctrlc_tx.send(());
-            })
-            .context("Error setting ctrl-C handler")?;
-
             // remove potential old ssh keys before adding new ones...
             let _ = Command::new("ssh-keygen")
                 .args(["-R", &host.ssh_hostname])
@@ -83,11 +90,13 @@ pub fn install(
                 if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
                     break;
                 }
-                if !matches!(
-                    ctrlc_rx.recv_timeout(Duration::from_millis(500)),
-                    Err(RecvTimeoutError::Timeout)
-                ) {
-                    break;
+                if let Ok(chan) = CTRL_WAS_PRESSED.lock() {
+                    if !matches!(
+                        chan.recv_timeout(Duration::from_millis(500)),
+                        Err(RecvTimeoutError::Timeout)
+                    ) {
+                        break;
+                    }
                 }
             }
 
