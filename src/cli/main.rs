@@ -95,8 +95,14 @@ enum Command {
         id: String,
     },
     /// Get node information from the network graph.
-    ListNodes {
+    NetworkNodes {
         /// Provide Node ID to get info about a single node.
+        #[arg(long)]
+        id: Option<String>,
+    },
+    /// Get channel information from the network graph.
+    NetworkChannels {
+        /// Provide short channel ID to get info about a single channel.
         #[arg(long)]
         id: Option<String>,
     },
@@ -140,7 +146,8 @@ fn run_command(args: Args) -> Result<()> {
             ppm_fee,
         } => api.set_channel_fee(id, base_fee, ppm_fee)?,
         Command::CloseChannel { id } => api.close_channel(id)?,
-        Command::ListNodes { id } => api.list_nodes(id)?,
+        Command::NetworkNodes { id } => api.list_network_nodes(id)?,
+        Command::NetworkChannels { id } => api.list_network_channels(id)?,
     };
     if output != "null" {
         println!("{output}");

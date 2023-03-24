@@ -16,7 +16,7 @@ use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
-use lightning::routing::gossip::{NodeId, NodeInfo, P2PGossipSync};
+use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
@@ -281,6 +281,14 @@ impl LightningInterface for Controller {
 
     fn nodes(&self) -> IndexedMap<NodeId, NodeInfo> {
         self.network_graph.read_only().nodes().clone()
+    }
+
+    fn get_channel(&self, channel_id: u64) -> Option<ChannelInfo> {
+        self.network_graph.read_only().channel(channel_id).cloned()
+    }
+
+    fn channels(&self) -> IndexedMap<u64, ChannelInfo> {
+        self.network_graph.read_only().channels().clone()
     }
 
     // Use this to override the default/startup config.

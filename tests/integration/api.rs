@@ -20,8 +20,8 @@ use test_utils::{https_client, TestSettingsBuilder};
 
 use api::{
     routes, Address, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
-    NewAddress, NewAddressResponse, Node, Peer, SetChannelFeeResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
+    WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -189,7 +189,28 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_NODES)
+        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_NODE)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_NODES)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_CHANNEL)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_CHANNELS)
             .send()
             .await?
             .status()
@@ -473,12 +494,12 @@ async fn test_disconnect_peer_admin_malformed_key() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_get_node_readonly() -> Result<()> {
+async fn test_list_network_node_readonly() -> Result<()> {
     let context = create_api_server().await?;
-    let nodes: Vec<Node> = readonly_request(
+    let nodes: Vec<NetworkNode> = readonly_request(
         &context,
         Method::GET,
-        &routes::LIST_NODE.replace(":id", TEST_PUBLIC_KEY),
+        &routes::LIST_NETWORK_NODE.replace(":id", TEST_PUBLIC_KEY),
     )?
     .send()
     .await?
@@ -499,14 +520,41 @@ async fn test_get_node_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_list_nodes_readonly() -> Result<()> {
+async fn test_list_network_nodes_readonly() -> Result<()> {
     let context = create_api_server().await?;
-    let nodes: Vec<Node> = readonly_request(&context, Method::GET, routes::LIST_NODES)?
-        .send()
-        .await?
-        .json()
-        .await?;
+    let nodes: Vec<NetworkNode> =
+        readonly_request(&context, Method::GET, routes::LIST_NETWORK_NODES)?
+            .send()
+            .await?
+            .json()
+            .await?;
     assert_eq!(TEST_PUBLIC_KEY, nodes.get(0).context("bad result")?.node_id);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_network_channel_readonly() -> Result<()> {
+    let context = create_api_server().await?;
+    let response = readonly_request(
+        &context,
+        Method::GET,
+        &routes::LIST_NETWORK_CHANNEL.replace(":id", "123456789"),
+    )?
+    .send()
+    .await?;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_network_channels_readonly() -> Result<()> {
+    let context = create_api_server().await?;
+    let _channels: Vec<NetworkChannel> =
+        readonly_request(&context, Method::GET, routes::LIST_NETWORK_CHANNELS)?
+            .send()
+            .await?
+            .json()
+            .await?;
     Ok(())
 }
 

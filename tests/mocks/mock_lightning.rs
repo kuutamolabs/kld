@@ -13,7 +13,7 @@ use lightning::{
         features::{Features, InitFeatures},
         msgs::NetAddress,
     },
-    routing::gossip::{NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
+    routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
@@ -224,6 +224,14 @@ impl LightningInterface for MockLightning {
         let node_id = NodeId::from_pubkey(&self.public_key);
         nodes.insert(node_id, self.get_node(&node_id).unwrap());
         nodes
+    }
+
+    fn get_channel(&self, _channel_id: u64) -> Option<ChannelInfo> {
+        None
+    }
+
+    fn channels(&self) -> IndexedMap<u64, ChannelInfo> {
+        IndexedMap::new()
     }
 
     fn user_config(&self) -> UserConfig {

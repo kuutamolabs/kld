@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 use lightning::{
     ln::{channelmanager::ChannelDetails, msgs::NetAddress},
-    routing::gossip::{NodeId, NodeInfo},
+    routing::gossip::{ChannelInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
@@ -72,6 +72,10 @@ pub trait LightningInterface {
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 
     fn nodes(&self) -> IndexedMap<NodeId, NodeInfo>;
+
+    fn get_channel(&self, channel_id: u64) -> Option<ChannelInfo>;
+
+    fn channels(&self) -> IndexedMap<u64, ChannelInfo>;
 
     fn user_config(&self) -> UserConfig;
 }

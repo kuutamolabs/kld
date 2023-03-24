@@ -2,8 +2,8 @@ use std::process::{Command, Output};
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FundChannelResponse, GetInfo, NewAddressResponse, Node, Peer, SetChannelFeeResponse,
-    WalletBalance, WalletTransferResponse,
+    Channel, FundChannelResponse, GetInfo, NetworkChannel, NetworkNode, NewAddressResponse, Peer,
+    SetChannelFeeResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 
@@ -149,18 +149,34 @@ async fn test_cli_close_channel() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_cli_get_node() -> Result<()> {
-    let output = run_cli("list-nodes", &["--id", TEST_PUBLIC_KEY]).await?;
-    let nodes: Vec<Node> = deserialize(&output.stdout)?;
+async fn test_cli_get_network_node() -> Result<()> {
+    let output = run_cli("network-nodes", &["--id", TEST_PUBLIC_KEY]).await?;
+    let nodes: Vec<NetworkNode> = deserialize(&output.stdout)?;
     assert!(!nodes.is_empty());
     Ok(())
 }
 
 #[tokio::test]
-async fn test_cli_list_nodes() -> Result<()> {
-    let output = run_cli("list-nodes", &[]).await?;
-    let nodes: Vec<Node> = deserialize(&output.stdout)?;
+async fn test_cli_list_network_nodes() -> Result<()> {
+    let output = run_cli("network-nodes", &[]).await?;
+    let nodes: Vec<NetworkNode> = deserialize(&output.stdout)?;
     assert!(!nodes.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_get_network_channel() -> Result<()> {
+    let output = run_cli("network-channels", &["--id", "1234"]).await?;
+    let result = String::from_utf8(output.stdout)?;
+    assert!(result.contains("404"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_list_network_channels() -> Result<()> {
+    let output = run_cli("network-channels", &[]).await?;
+    let channels: Vec<NetworkChannel> = deserialize(&output.stdout)?;
+    assert!(channels.is_empty());
     Ok(())
 }
 
