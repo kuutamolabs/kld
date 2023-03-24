@@ -274,6 +274,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "format_serde_error",
+ "lazy_static",
  "log",
  "nix",
  "regex",

@@ -338,7 +338,6 @@ in
             RuntimeDirectory = "cockroachdb";
             WorkingDirectory = "/var/lib/cockroachdb";
 
-
             Restart = "always";
 
             ExecStartPre = "+${pkgs.writeShellScript "pre-start" ''
