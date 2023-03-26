@@ -1,25 +1,25 @@
-use async_trait::async_trait;
-
 use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::CockroachManager;
 use crate::https_client;
-use crate::manager::{Manager, Starts};
+use crate::manager::{Check, Manager};
 use crate::ports::get_available_port;
 use anyhow::Result;
+use async_trait::async_trait;
+use settings::Settings;
 use std::env::set_var;
 use std::fs;
 
 pub struct KldManager {
     manager: Manager,
     bin_path: String,
-    exporter_address: String,
-    rest_api_address: String,
+    pub exporter_address: String,
+    pub rest_api_address: String,
     rest_client: reqwest::Client,
 }
 
 impl KldManager {
-    pub async fn start(&mut self) -> Result<()> {
-        self.manager.start(&self.bin_path, &[]).await
+    pub async fn start(&mut self, check: impl Check) -> Result<()> {
+        self.manager.start(&self.bin_path, &[], check).await
     }
 
     pub fn pid(&self) -> Option<u32> {
@@ -52,9 +52,9 @@ impl KldManager {
     pub fn test_kld(
         output_dir: &str,
         bin_path: &str,
-        node_index: u16,
         bitcoin: &BitcoinManager,
         cockroach: &CockroachManager,
+        instance: &str,
     ) -> KldManager {
         let exporter_address = format!(
             "127.0.0.1:{}",
@@ -64,12 +64,7 @@ impl KldManager {
             "127.0.0.1:{}",
             get_available_port().expect("Cannot find free port")
         );
-        let manager = Manager::new(
-            Box::new(KldApi(exporter_address.clone())),
-            output_dir,
-            "kld",
-            node_index,
-        );
+        let manager = Manager::new(output_dir, "kld", instance);
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
@@ -112,12 +107,12 @@ impl KldManager {
     }
 }
 
-pub struct KldApi(String);
+pub struct KldCheck(pub Settings);
 
 #[async_trait]
-impl Starts for KldApi {
-    async fn has_started(&self, _manager: &Manager) -> bool {
-        reqwest::get(format!("http://{}/health", self.0))
+impl Check for KldCheck {
+    async fn check(&self) -> bool {
+        reqwest::get(format!("http://{}/health", self.0.exporter_address))
             .await
             .is_ok()
     }
@@ -125,22 +120,18 @@ impl Starts for KldApi {
 
 #[macro_export]
 macro_rules! kld {
-    ($bitcoin:expr, $cockroach:expr) => {
-        test_utils::kld_manager::KldManager::test_kld(
+    ($bitcoin:expr, $cockroach:expr, $settings:expr) => {{
+        let mut kld = test_utils::kld_manager::KldManager::test_kld(
             env!("CARGO_TARGET_TMPDIR"),
             env!("CARGO_BIN_EXE_kld"),
-            0,
             $bitcoin,
             $cockroach,
-        )
-    };
-    ($n:literal, $bitcoin:expr, $cockroach:expr) => {
-        test_utils::kld_manager::KldManager::test_kld(
-            env!("CARGO_TARGET_TMPDIR"),
-            env!("CARGO_BIN_EXE_kld"),
-            $n,
-            $bitcoin,
-            $cockroach,
-        )
-    };
+            &$settings.node_id,
+        );
+        $settings.rest_api_address = kld.rest_api_address.clone();
+        $settings.exporter_address = kld.exporter_address.clone();
+        kld.start(test_utils::kld_manager::KldCheck($settings.clone()))
+            .await?;
+        kld
+    }};
 }

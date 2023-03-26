@@ -13,17 +13,11 @@ pub struct Manager {
     pub process: Option<Child>,
     pub storage_dir: String,
     instance_name: String,
-    starts: Box<dyn Starts + Send + Sync>,
 }
 
 impl Manager {
-    pub fn new(
-        starts: Box<dyn Starts + Send + Sync>,
-        output_dir: &str,
-        name: &str,
-        node_index: u16,
-    ) -> Self {
-        let instance_name = format!("{name}_{node_index}");
+    pub fn new(output_dir: &str, name: &str, instance: &str) -> Self {
+        let instance_name = format!("{name}_{instance}");
         let storage_dir = format!("{output_dir}/{instance_name}");
         // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
         let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
@@ -33,11 +27,10 @@ impl Manager {
             process: None,
             storage_dir,
             instance_name,
-            starts,
         }
     }
 
-    pub async fn start(&mut self, command: &str, args: &[&str]) -> Result<()> {
+    pub async fn start(&mut self, command: &str, args: &[&str], check: impl Check) -> Result<()> {
         if self.process.is_none() {
             let path = format!("{}/test.log", self.storage_dir);
             let log_file = File::create(&path).unwrap();
@@ -56,7 +49,7 @@ impl Manager {
 
             let i = Instant::now();
             let started = loop {
-                if self.starts.has_started(self).await {
+                if check.check().await {
                     break true;
                 };
                 if i.elapsed() >= Duration::from_secs(60) {
@@ -105,8 +98,8 @@ impl Manager {
 }
 
 #[async_trait]
-pub trait Starts {
-    async fn has_started(&self, manager: &Manager) -> bool;
+pub trait Check {
+    async fn check(&self) -> bool;
 }
 
 impl Drop for Manager {

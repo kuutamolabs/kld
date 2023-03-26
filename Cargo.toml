@@ -1,77 +1,8 @@
-[package]
-name = "kld"
-version = "0.1.0"
-edition = "2021"
-
 [workspace]
 members = [
-    ".",
     "api",
-    "database",
-    "logger",
+    "kld",
     "settings",
     "test-utils"
 ]
-
-[[bin]]
-name = "kld"
-path = "src/main.rs"
-
-[[bin]]
-name = "kld-cli"
-path = "src/cli/main.rs"
-
-[lib]
-doctest = false
-
-[[bench]]
-name = "kld_bench"
-harness = false
-
-[dependencies]
-api = { path = "api" }
-logger = { path = "logger" }
-settings = { path = "settings" }
-database = { path = "database" }
-lightning = { version = "0.0.114", features = ["max_level_trace"] }
-lightning-block-sync = { version = "0.0.114", features = [ "rpc-client" ] }
-lightning-invoice = { version = "0.22" }
-lightning-net-tokio = { version = "0.0.114" }
-lightning-background-processor = { version = "0.0.114", features = [ "futures" ] }
-lightning-rapid-gossip-sync = { version = "0.0.114" }
-
-macaroon = "0.3.0"
-bitcoin = "0.29.2"
-bitcoin-bech32 = "0.12"
-bitcoincore-rpc-json = "0.16.0"
-rust-bip39 = "1.0.0"
-bech32 = "0.9"
-hex = "0.4"
-base64 = "0.21.0"
-# see https://github.com/bitcoindevkit/bdk/pull/850, rebased to 0.26.0 release
-#bdk = { version = "0.26.0", features = [ "rpc" ] }
-bdk = { git = "https://github.com/Mic92/bdk", branch = "backport-begin-batch-result", features = [ "rpc" ] }
-anyhow = { version = "1.0.69", features = [ "backtrace" ] }
-futures = "0.3"
-chrono = "0.4"
-rand = "0.8.5"
-log = { version = "0.4", features = ["std"] }
-tokio = { version = "1", features = [ "full" ] }
-prometheus = "0.13.2"
-once_cell = "1.17.1"
-hyper = { version = "0.14.25", features = [ "full" ] }
-serde = "1.0"
-serde_json = "1.0"
-axum = { version = "0.6.11", features = ["ws", "headers"] }
-axum-server = { version = "0.4", features = ["tls-rustls"] }
-tower-http = { version = "0.4.0", features = [ "cors" ] }
-async-trait = "0.1.67"
-clap = { version = "4.1.11", features = ["derive"] }
-reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json" ] }
-
-[dev-dependencies]
-test-utils = { path = "./test-utils" }
-criterion = { version = "0.4.0", features = ["async_tokio"] }
-
-
 

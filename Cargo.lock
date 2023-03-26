@@ -673,30 +673,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "database"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bdk",
- "bitcoin",
- "bitvec",
- "futures",
- "lightning",
- "log",
- "logger",
- "once_cell",
- "openssl",
- "postgres-openssl",
- "refinery",
- "serde_json",
- "settings",
- "test-utils",
- "tokio",
- "tokio-postgres",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1257,10 +1233,10 @@ dependencies = [
  "bitcoin",
  "bitcoin-bech32",
  "bitcoincore-rpc-json",
+ "bitvec",
  "chrono",
  "clap 4.1.11",
  "criterion",
- "database",
  "futures",
  "hex",
  "hyper",
@@ -1271,11 +1247,13 @@ dependencies = [
  "lightning-net-tokio",
  "lightning-rapid-gossip-sync",
  "log",
- "logger",
  "macaroon",
  "once_cell",
+ "openssl",
+ "postgres-openssl",
  "prometheus",
  "rand",
+ "refinery",
  "reqwest",
  "rust-bip39",
  "serde",
@@ -1283,6 +1261,7 @@ dependencies = [
  "settings",
  "test-utils",
  "tokio",
+ "tokio-postgres",
  "tower-http",
 ]
 
@@ -1413,16 +1392,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "logger"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "lightning",
- "log",
- "once_cell",
 ]
 
 [[package]]
@@ -2474,7 +2443,6 @@ dependencies = [
  "async-trait",
  "base64 0.21.0",
  "bitcoin",
- "clap 4.1.11",
  "lightning",
  "lightning-block-sync",
  "openssl",
