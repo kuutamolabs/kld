@@ -1,13 +1,14 @@
 use std::str::FromStr;
 
-use crate::with_cockroach;
 use anyhow::Result;
 use bdk::database::{BatchDatabase, BatchOperations, Database, SyncTime};
 use bdk::{BlockTime, KeychainKind, LocalUtxo, TransactionDetails};
 use bitcoin::consensus::encode::deserialize;
 use bitcoin::hashes::hex::*;
 use bitcoin::*;
-use database::wallet_database::WalletDatabase;
+use kld::database::WalletDatabase;
+
+use super::with_cockroach;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_script_pubkey() -> Result<()> {

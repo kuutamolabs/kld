@@ -1,13 +1,17 @@
-pub mod ldk_database;
+mod ldk_database;
 pub mod peer;
-pub mod wallet_database;
+mod wallet_database;
+
+pub use ldk_database::LdkDatabase;
+pub use wallet_database::WalletDatabase;
 
 use anyhow::{Context, Result};
 use log::{error, info};
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
+use tokio_postgres::Client;
+
 use settings::Settings;
-pub use tokio_postgres::{Client, NoTls, Transaction};
 
 #[macro_export]
 macro_rules! to_i64 {
@@ -57,7 +61,7 @@ pub async fn connection(settings: &Settings) -> Result<Client> {
 
 mod embedded {
     use refinery::embed_migrations;
-    embed_migrations!("sql");
+    embed_migrations!("src/database/sql");
 }
 
 pub async fn migrate_database(settings: &Settings) -> Result<()> {

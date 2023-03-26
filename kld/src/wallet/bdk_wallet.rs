@@ -24,8 +24,7 @@ use bitcoin::{
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
 use log::{error, info};
-use settings::Network;
-use settings::Settings;
+use settings::{Network, Settings};
 
 use super::WalletInterface;
 
@@ -256,7 +255,7 @@ mod test {
 
     use anyhow::Result;
     use bdk::{database::MemoryDatabase, Balance};
-    use test_utils::TestSettingsBuilder;
+    use settings::Settings;
 
     use crate::{bitcoind::MockBitcoindClient, wallet::WalletInterface};
 
@@ -266,7 +265,7 @@ mod test {
     fn test_fee_rate() -> Result<()> {
         let wallet = Wallet::new(
             &[0u8; 32],
-            Arc::new(TestSettingsBuilder::new().build()),
+            Arc::new(Settings::default()),
             Arc::new(MockBitcoindClient::default()),
             MemoryDatabase::new(),
         )?;

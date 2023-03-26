@@ -1,15 +1,15 @@
 use anyhow::{Context, Result};
 use futures::FutureExt;
 use std::sync::Arc;
-use test_utils::{poll, test_settings};
+use test_utils::{poll, ports::get_available_port};
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
 use kld::prometheus::start_prometheus_exporter;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
-    let address = test_settings().exporter_address.clone();
-    println!("ADDRESS: {address}");
+    let port = get_available_port().context("no port")?;
+    let address = format!("127.0.0.1:{port}");
 
     let metrics = Arc::new(MockLightning::default());
     tokio::spawn(start_prometheus_exporter(

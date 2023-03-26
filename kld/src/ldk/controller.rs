@@ -1,13 +1,12 @@
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::wallet::{Wallet, WalletInterface};
 
+use crate::database::{LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, Context, Result};
 use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::Transaction;
-use database::ldk_database::LdkDatabase;
-use database::wallet_database::WalletDatabase;
 use lightning::chain::keysinterface::KeysManager;
 use lightning::chain::BestBlock;
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
@@ -21,6 +20,7 @@ use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
 
+use crate::logger::KldLogger;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::init;
@@ -28,7 +28,6 @@ use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use log::{error, info, warn};
-use logger::KldLogger;
 use rand::random;
 use settings::Settings;
 use std::collections::{HashMap, HashSet};

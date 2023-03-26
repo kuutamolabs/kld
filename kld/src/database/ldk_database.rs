@@ -1,4 +1,7 @@
-use crate::{connection, to_i64, Client};
+use crate::logger::KldLogger;
+use crate::to_i64;
+
+use super::{connection, Client};
 use anyhow::{anyhow, bail, Result};
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
@@ -23,7 +26,6 @@ use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
 use log::{debug, info};
-use logger::KldLogger;
 use settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -34,7 +36,7 @@ use std::{fs, io};
 use tokio::runtime::Handle;
 use tokio::sync::RwLock;
 
-use crate::peer::Peer;
+use super::peer::Peer;
 
 // This gets called from a background thread in LDK so need a handle to the runtime.
 macro_rules! block_in_place {

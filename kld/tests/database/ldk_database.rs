@@ -5,9 +5,10 @@ use anyhow::Result;
 use bitcoin::blockdata::block::{Block, BlockHeader};
 use bitcoin::hashes::Hash;
 use bitcoin::{Network, TxMerkleNode};
-use database::ldk_database::LdkDatabase;
-use database::peer::Peer;
+use kld::database::peer::Peer;
+use kld::database::LdkDatabase;
 
+use kld::logger::KldLogger;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
@@ -21,10 +22,9 @@ use lightning::util::events::{ClosureReason, MessageSendEventsProvider};
 use lightning::util::persist::Persister;
 use lightning::util::test_utils as ln_utils;
 use lightning::{check_added_monitors, check_closed_broadcast, check_closed_event};
-use logger::KldLogger;
 use test_utils::random_public_key;
 
-use crate::{create_database, with_cockroach};
+use super::{create_database, with_cockroach};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() -> Result<()> {

@@ -1,12 +1,13 @@
-use anyhow::Result;
 use std::{fs::File, io::Read};
 
+use anyhow::Result;
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use lightning_block_sync::{http::HttpEndpoint, rpc::RpcClient, BlockSource};
+use settings::Settings;
 
 use crate::{
-    manager::{Manager, Starts},
+    manager::{Check, Manager},
     ports::get_available_port,
 };
 
@@ -20,7 +21,7 @@ pub struct BitcoinManager {
 }
 
 impl BitcoinManager {
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self, check: impl Check) -> Result<()> {
         let args = &[
             "-server",
             "-noconnect",
@@ -29,26 +30,18 @@ impl BitcoinManager {
             &format!("-port={}", &self.p2p_port.to_string()),
             &format!("-rpcport={}", &self.rpc_port.to_string()),
         ];
-        self.manager.start("bitcoind", args).await
+        self.manager.start("bitcoind", args, check).await
     }
 
     pub fn cookie_path(&self) -> String {
         cookie_path(&self.manager)
     }
 
-    pub fn test_bitcoin(output_dir: &str, node_index: u16) -> BitcoinManager {
+    pub fn test_bitcoin(output_dir: &str, instance: &str) -> BitcoinManager {
         let p2p_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
 
-        let manager = Manager::new(
-            Box::new(BitcoinApi {
-                host: "127.0.0.1".to_string(),
-                rpc_port,
-            }),
-            output_dir,
-            "bitcoind",
-            node_index,
-        );
+        let manager = Manager::new(output_dir, "bitcoind", instance);
         BitcoinManager {
             manager,
             p2p_port,
@@ -67,19 +60,17 @@ fn cookie_path(manager: &Manager) -> String {
     format!("{dir}/.cookie")
 }
 
-pub struct BitcoinApi {
-    host: String,
-    rpc_port: u16,
-}
+pub struct BitcoindCheck(pub Settings);
 
 #[async_trait]
-impl Starts for BitcoinApi {
-    async fn has_started(&self, manager: &Manager) -> bool {
-        if let Ok(mut file) = File::open(cookie_path(manager)) {
+impl Check for BitcoindCheck {
+    async fn check(&self) -> bool {
+        if let Ok(mut file) = File::open(&self.0.bitcoin_cookie_path) {
             let mut cookie = String::new();
             file.read_to_string(&mut cookie).unwrap();
             let credentials = general_purpose::STANDARD.encode(cookie.as_bytes());
-            let http_endpoint = HttpEndpoint::for_host(self.host.clone()).with_port(self.rpc_port);
+            let http_endpoint = HttpEndpoint::for_host(self.0.bitcoind_rpc_host.clone())
+                .with_port(self.0.bitcoind_rpc_port);
             let client = RpcClient::new(&credentials, http_endpoint).unwrap();
             client.get_best_block().await.is_ok()
         } else {
@@ -90,10 +81,20 @@ impl Starts for BitcoinApi {
 
 #[macro_export]
 macro_rules! bitcoin {
-    () => {
-        test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(env!("CARGO_TARGET_TMPDIR"), 0)
-    };
-    ($n:literal) => {
-        test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(env!("CARGO_TARGET_TMPDIR"), $n)
-    };
+    ($settings:expr) => {{
+        let mut bitcoind = test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(
+            env!("CARGO_TARGET_TMPDIR"),
+            &$settings.node_id,
+        );
+        $settings.bitcoin_network =
+            settings::Network::from_str(&bitcoind.network).map_err(|e| anyhow::anyhow!(e))?;
+        $settings.bitcoind_rpc_port = bitcoind.rpc_port;
+        $settings.bitcoin_cookie_path = bitcoind.cookie_path();
+        bitcoind
+            .start(test_utils::bitcoin_manager::BitcoindCheck(
+                $settings.clone(),
+            ))
+            .await?;
+        bitcoind
+    }};
 }

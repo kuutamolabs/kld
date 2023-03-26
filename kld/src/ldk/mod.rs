@@ -8,7 +8,8 @@ mod peer_manager;
 
 use std::sync::Arc;
 
-use database::ldk_database::LdkDatabase;
+use crate::database::LdkDatabase;
+use crate::logger::KldLogger;
 use lightning::{
     chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
     ln::{channelmanager::SimpleArcChannelManager, peer_handler::SimpleArcPeerManager},
@@ -17,7 +18,6 @@ use lightning::{
     util::errors::APIError,
 };
 use lightning_net_tokio::SocketDescriptor;
-use logger::KldLogger;
 
 pub use controller::Controller;
 pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};

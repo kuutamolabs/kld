@@ -9,14 +9,14 @@ use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::MacaroonAuth;
-use logger::KldLogger;
+use kld::logger::KldLogger;
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use serde::Serialize;
 use settings::Settings;
+use test_utils::https_client;
 use test_utils::ports::get_available_port;
-use test_utils::{https_client, TestSettingsBuilder};
 
 use api::{
     routes, Address, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
@@ -29,7 +29,7 @@ use tokio::sync::RwLock;
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
 use crate::mocks::{TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
-use crate::quit_signal;
+use crate::{quit_signal, test_settings};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_unauthorized() -> Result<()> {
@@ -610,10 +610,8 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
     KldLogger::init("test", log::LevelFilter::Info);
     let rest_api_port = get_available_port().context("no port available")?;
     let rest_api_address = format!("127.0.0.1:{rest_api_port}");
-    let settings = TestSettingsBuilder::new()
-        .with_data_dir(&format!("{}/test_api", env!("CARGO_TARGET_TMPDIR")))
-        .with_rest_api_address(rest_api_address.clone())
-        .build();
+    let mut settings = test_settings("api");
+    settings.rest_api_address = rest_api_address.clone();
     let certs_dir = settings.certs_dir.clone();
     let macaroon_auth = Arc::new(
         MacaroonAuth::init(&[0u8; 32], &settings.data_dir)

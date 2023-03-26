@@ -1,12 +1,11 @@
 use anyhow::{Context, Result};
-use database::ldk_database::LdkDatabase;
-use database::migrate_database;
-use database::wallet_database::WalletDatabase;
 use futures::FutureExt;
 use kld::api::{bind_api_server, MacaroonAuth};
 use kld::bitcoind::BitcoindClient;
+use kld::database::{migrate_database, LdkDatabase, WalletDatabase};
 use kld::key_generator::KeyGenerator;
 use kld::ldk::Controller;
+use kld::logger::KldLogger;
 use kld::prometheus::start_prometheus_exporter;
 use kld::wallet::Wallet;
 use kld::{quit_signal, VERSION};
@@ -17,7 +16,7 @@ use std::time::Duration;
 
 pub fn main() -> Result<()> {
     let settings = Arc::new(Settings::load());
-    logger::KldLogger::init(
+    KldLogger::init(
         &settings.node_id,
         settings.log_level.parse().context("Invalid log level")?,
     );

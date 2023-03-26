@@ -1,7 +1,7 @@
 mod bitcoin_network;
 
 pub use crate::bitcoin_network::Network;
-use clap::Parser;
+use clap::{builder::OsStr, Parser};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -69,6 +69,12 @@ pub struct Settings {
 impl Settings {
     pub fn load() -> Settings {
         Settings::parse()
+    }
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings::parse_from::<Vec<OsStr>, OsStr>(vec![])
     }
 }
 

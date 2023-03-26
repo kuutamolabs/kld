@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::{connection, to_i64, Client};
+use super::{connection, Client};
+use crate::to_i64;
 use anyhow::Result;
 use bdk::{
     database::{BatchDatabase, BatchOperations, Database, SyncTime},

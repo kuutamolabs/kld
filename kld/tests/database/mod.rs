@@ -3,18 +3,17 @@ use std::sync::atomic::AtomicU16;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
-use anyhow::{Context, Result};
-use database::connection;
-use database::migrate_database;
+use anyhow::Result;
 use futures::Future;
 use futures::FutureExt;
-use logger::KldLogger;
+use kld::database::{connection, migrate_database};
+use kld::logger::KldLogger;
 use once_cell::sync::OnceCell;
 use settings::Settings;
-use test_utils::cockroach;
-use test_utils::CockroachManager;
-use test_utils::TestSettingsBuilder;
+use test_utils::{cockroach, CockroachManager};
 use tokio::runtime::Handle;
+
+use crate::test_settings;
 
 pub mod ldk_database;
 pub mod wallet_database;
@@ -44,15 +43,8 @@ async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
         KldLogger::init("test", log::LevelFilter::Debug);
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
-                let mut cockroach = cockroach!();
-                cockroach
-                    .start()
-                    .await
-                    .context("could not start cockroach")?;
-                let settings = TestSettingsBuilder::new()
-                    .with_database_port(cockroach.sql_port)
-                    .with_data_dir(&format!("{}/test_database", env!("CARGO_TARGET_TMPDIR")))
-                    .build();
+                let mut settings = test_settings("integration");
+                let cockroach = cockroach!(settings);
                 migrate_database(&settings).await.unwrap();
                 Ok((settings, Mutex::new(cockroach)))
             })

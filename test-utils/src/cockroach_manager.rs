@@ -1,13 +1,15 @@
 use std::{fs, os::unix::prelude::PermissionsExt};
 
 use crate::{
-    connection,
-    manager::{Manager, Starts},
+    manager::{Check, Manager},
     ports::get_available_port,
-    TestSettingsBuilder,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
+use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
+use postgres_openssl::MakeTlsConnector;
+use settings::Settings;
+use tokio_postgres::Client;
 
 pub struct CockroachManager {
     manager: Manager,
@@ -18,7 +20,7 @@ pub struct CockroachManager {
 }
 
 impl CockroachManager {
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self, check: impl Check) -> Result<()> {
         // Cockroach requires certs to be only read/writable by user in secure mode. Git does not track this.
         for file in fs::read_dir(&self.certs_dir)? {
             let file = file?;
@@ -34,22 +36,17 @@ impl CockroachManager {
             &format!("--store={}", self.manager.storage_dir),
             &format!("--certs-dir={}", self.certs_dir),
         ];
-        self.manager.start("cockroach", args).await
+        self.manager.start("cockroach", args, check).await
     }
 
-    pub fn test_cockroach(output_dir: &str, node_index: u16) -> CockroachManager {
+    pub fn test_cockroach(output_dir: &str, instance: &str) -> CockroachManager {
         let port = get_available_port().expect("Cannot find free node port for cockroach");
         let http_port = get_available_port().expect("Cannot find free http port for cockroach");
         let sql_port = get_available_port().expect("Cannot find free sql port for cockroach");
         let http_address = format!("127.0.0.1:{http_port}");
         let certs_dir = format!("{}/certs/cockroach", env!("CARGO_MANIFEST_DIR"));
 
-        let manager = Manager::new(
-            Box::new(CockroachApi(sql_port)),
-            output_dir,
-            "cockroach",
-            node_index,
-        );
+        let manager = Manager::new(output_dir, "cockroach", instance);
         CockroachManager {
             manager,
             port,
@@ -64,30 +61,50 @@ impl CockroachManager {
     }
 }
 
-pub struct CockroachApi(u16);
+pub struct CockroachCheck(pub Settings);
 
 #[async_trait]
-impl Starts for CockroachApi {
-    async fn has_started(&self, _manager: &Manager) -> bool {
-        let settings = TestSettingsBuilder::new()
-            .with_database_port(self.0)
-            .build();
-        connection(&settings).await.is_ok()
+impl Check for CockroachCheck {
+    async fn check(&self) -> bool {
+        connection(&self.0).await.is_ok()
     }
+}
+
+pub async fn connection(settings: &Settings) -> Result<Client> {
+    let log_safe_params = format!(
+        "host={} port={} user={} dbname={}",
+        settings.database_host,
+        settings.database_port,
+        settings.database_user,
+        settings.database_name
+    );
+    let mut builder = SslConnector::builder(SslMethod::tls())?;
+    builder.set_ca_file(&settings.database_ca_cert_path)?;
+    builder.set_certificate_file(&settings.database_client_cert_path, SslFiletype::PEM)?;
+    builder.set_private_key_file(&settings.database_client_key_path, SslFiletype::PEM)?;
+    let connector = MakeTlsConnector::new(builder.build());
+    let (client, connection) = tokio_postgres::connect(&log_safe_params, connector)
+        .await
+        .with_context(|| format!("could not connect to database ({log_safe_params})"))?;
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+    Ok(client)
 }
 
 #[macro_export]
 macro_rules! cockroach {
-    () => {
-        test_utils::cockroach_manager::CockroachManager::test_cockroach(
+    ($settings:expr) => {{
+        let mut cockroach = test_utils::cockroach_manager::CockroachManager::test_cockroach(
             env!("CARGO_TARGET_TMPDIR"),
-            0,
-        )
-    };
-    ($n:literal) => {
-        test_utils::cockroach_manager::CockroachManager::test_cockroach(
-            env!("CARGO_TARGET_TMPDIR"),
-            $n,
-        )
-    };
+            &$settings.node_id,
+        );
+        $settings.database_port = cockroach.sql_port.to_string();
+        cockroach
+            .start(test_utils::cockroach_manager::CockroachCheck(
+                $settings.clone(),
+            ))
+            .await?;
+        cockroach
+    }};
 }

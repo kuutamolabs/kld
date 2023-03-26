@@ -1,8 +1,8 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use crate::database::{peer::Peer, LdkDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
-use database::ldk_database::LdkDatabase;
 use lightning::ln::msgs::NetAddress;
 use log::{error, info};
 use settings::Settings;
@@ -168,7 +168,7 @@ async fn connect_peer(
             .await
             .context("Could not connect to peer {public_key}@{peer_addr}")?;
     database
-        .persist_peer(&database::peer::Peer {
+        .persist_peer(&Peer {
             public_key,
             net_address: peer_address.0,
         })

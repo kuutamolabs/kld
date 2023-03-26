@@ -7,7 +7,7 @@ use anyhow::anyhow;
 
 use bitcoin::secp256k1::Secp256k1;
 
-use database::wallet_database::WalletDatabase;
+use crate::database::WalletDatabase;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::keysinterface::KeysManager;

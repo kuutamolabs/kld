@@ -1,8 +1,7 @@
 extern crate criterion;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use criterion::{criterion_group, criterion_main, Criterion};
-use database::ldk_database::LdkDatabase;
-use database::migrate_database;
+use kld::database::{migrate_database, LdkDatabase};
 
 use lightning::ln::functional_test_utils::{
     create_announced_chan_between_nodes, create_chanmon_cfgs, create_network, create_node_cfgs,
@@ -10,7 +9,7 @@ use lightning::ln::functional_test_utils::{
 };
 use lightning::util::logger::Level::Warn;
 use lightning::util::test_utils::TestChainMonitor;
-use test_utils::{cockroach, TestSettingsBuilder};
+use test_utils::{cockroach, test_settings, CockroachManager};
 
 criterion_group! {
     name = benches;
@@ -32,21 +31,22 @@ pub fn send_payment_two_nodes(c: &mut Criterion) -> Result<()> {
         .enable_time()
         .build()?;
 
-    let mut cockroach_0 = cockroach!();
-    runtime.block_on(cockroach_0.start())?;
-    let settings_0 = TestSettingsBuilder::new()
-        .with_database_port(cockroach_0.sql_port)
-        .build();
-    runtime.block_on(migrate_database(&settings_0))?;
-    let db_0 = runtime.block_on(LdkDatabase::new(&settings_0))?;
-
-    let mut cockroach_1 = cockroach!(1);
-    runtime.block_on(cockroach_1.start())?;
-    let settings_1 = TestSettingsBuilder::new()
-        .with_database_port(cockroach_1.sql_port)
-        .build();
-    runtime.block_on(migrate_database(&settings_1))?;
-    let db_1 = runtime.block_on(LdkDatabase::new(&settings_1))?;
+    let (_cockroach_0, db_0, _cockroach_1, db_1) = runtime.block_on(async {
+        let mut settings_0 = test_settings(env!("CARGO_TARGET_TMPDIR"), "bench_1");
+        let cockroach_0 = cockroach!(settings_0);
+        let db_0 = LdkDatabase::new(&settings_0).await?;
+        migrate_database(&settings_0).await?;
+        let mut settings_1 = test_settings(env!("CARGO_TARGET_TMPDIR"), "bench_2");
+        let cockroach_1 = cockroach!(settings_1);
+        migrate_database(&settings_1).await?;
+        let db_1 = LdkDatabase::new(&settings_1).await?;
+        Ok::<(CockroachManager, LdkDatabase, CockroachManager, LdkDatabase), Error>((
+            cockroach_0,
+            db_0,
+            cockroach_1,
+            db_1,
+        ))
+    })?;
 
     let mut chanmon_cfgs = create_chanmon_cfgs(2);
     chanmon_cfgs[0].logger.enable(Warn);

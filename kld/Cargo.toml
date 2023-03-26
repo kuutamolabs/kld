@@ -20,10 +20,8 @@ harness = false
 
 [dependencies]
 api = { path = "../api" }
-logger = { path = "../logger" }
 settings = { path = "../settings" }
-database = { path = "../database" }
-lightning = { version = "0.0.114", features = ["max_level_trace"] }
+lightning = { version = "0.0.114", features = ["max_level_trace", "_test_utils"] }
 lightning-block-sync = { version = "0.0.114", features = [ "rpc-client" ] }
 lightning-invoice = { version = "0.22" }
 lightning-net-tokio = { version = "0.0.114" }
@@ -56,8 +54,14 @@ axum = { version = "0.6.11", features = ["ws", "headers"] }
 axum-server = { version = "0.4", features = ["tls-rustls"] }
 tower-http = { version = "0.4.0", features = [ "cors" ] }
 async-trait = "0.1.67"
-clap = { version = "4.1.11", features = ["derive"] }
+clap = { version = "4.1.11", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json" ] }
+
+bitvec = "1.0.1"
+tokio-postgres = { version = "0.7.7", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
+postgres-openssl = "0.5.0"
+openssl = "0.10.47"
+refinery = { version = "0.8.7", features = [ "tokio-postgres" ] }
 
 [dev-dependencies]
 test-utils = { path = "../test-utils" }

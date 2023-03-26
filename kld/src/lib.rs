@@ -2,8 +2,10 @@ use tokio::signal::unix::SignalKind;
 
 pub mod api;
 pub mod bitcoind;
+pub mod database;
 pub mod key_generator;
 pub mod ldk;
+pub mod logger;
 pub mod prometheus;
 pub mod wallet;
 
