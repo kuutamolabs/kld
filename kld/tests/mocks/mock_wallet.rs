@@ -6,7 +6,7 @@ use bdk::{wallet::AddressInfo, Balance, KeychainKind};
 use bitcoin::{consensus::deserialize, hashes::hex::FromHex, Address, OutPoint, Transaction};
 use kld::wallet::WalletInterface;
 
-use super::{TEST_ADDRESS, TEST_TX};
+use test_utils::{TEST_ADDRESS, TEST_TX};
 
 pub struct MockWallet {
     balance: Balance,

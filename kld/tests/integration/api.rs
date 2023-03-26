@@ -15,8 +15,8 @@ use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use serde::Serialize;
 use settings::Settings;
-use test_utils::https_client;
 use test_utils::ports::get_available_port;
+use test_utils::{https_client, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 use api::{
     routes, Address, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
@@ -28,7 +28,6 @@ use tokio::sync::RwLock;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
-use crate::mocks::{TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 use crate::{quit_signal, test_settings};
 
 #[tokio::test(flavor = "multi_thread")]

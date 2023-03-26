@@ -21,7 +21,7 @@ use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
     Address, OutPoint, Script, Transaction,
 };
-use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
+use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
 use log::{error, info};
 use settings::{Network, Settings};
@@ -38,7 +38,7 @@ pub struct Wallet<D: Database + BatchDatabase + BatchOperations, B: BlockSource 
 #[async_trait]
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator,
+        B: BlockSource + FeeEstimator + BroadcasterInterface,
     > WalletInterface for Wallet<D, B>
 {
     fn balance(&self) -> Result<Balance> {
@@ -66,14 +66,16 @@ impl<
         match self.wallet.try_lock() {
             Ok(wallet) => {
                 let mut tx_builder = wallet.build_tx();
-                if amount == u64::MAX {
+                let amount_str = if amount == u64::MAX {
                     tx_builder.drain_wallet().drain_to(address.script_pubkey());
+                    "all".to_string()
                 } else {
                     tx_builder
                         .add_recipient(address.script_pubkey(), amount)
                         .drain_wallet()
                         .add_utxos(&utxos)?;
-                }
+                    amount.to_string()
+                };
                 tx_builder.current_height(
                     min_conf.map_or_else(|| height, |min_conf| height - min_conf as u32),
                 );
@@ -81,6 +83,11 @@ impl<
                     tx_builder.fee_rate(self.to_bdk_fee_rate(fee_rate));
                 }
                 let tx = tx_builder.finish()?.0.extract_tx();
+                info!(
+                    "Transferring {amount_str} sats to {address} with txid {}",
+                    tx.txid()
+                );
+                self.bitcoind_client.broadcast_transaction(&tx);
                 Ok(tx)
             }
             Err(_) => bail!("Wallet is still syncing with chain"),
@@ -251,11 +258,16 @@ impl<
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use std::{
+        str::FromStr,
+        sync::{Arc, Mutex},
+    };
 
     use anyhow::Result;
-    use bdk::{database::MemoryDatabase, Balance};
+    use bdk::{database::MemoryDatabase, wallet::get_funded_wallet, Balance};
+    use bitcoin::Address;
     use settings::Settings;
+    use test_utils::{TEST_ADDRESS, TEST_WPKH};
 
     use crate::{bitcoind::MockBitcoindClient, wallet::WalletInterface};
 
@@ -286,6 +298,32 @@ mod test {
 
         let perkb_fee_rate = wallet.to_bdk_fee_rate(api::FeeRate::PerKb(1000));
         assert_eq!(1f32, perkb_fee_rate.as_sat_per_vb());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_transfer() -> Result<()> {
+        let (bdk_wallet, _, _) = get_funded_wallet(TEST_WPKH);
+        let bitcoind_client = Arc::new(MockBitcoindClient::default());
+        let wallet = Wallet {
+            settings: Arc::new(Settings::default()),
+            bitcoind_client: bitcoind_client.clone(),
+            wallet: Arc::new(Mutex::new(bdk_wallet)),
+        };
+
+        let tx = wallet
+            .transfer(
+                Address::from_str(TEST_ADDRESS)?,
+                u64::MAX,
+                None,
+                None,
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(bitcoind_client.has_broadcast(tx.txid()));
+
         Ok(())
     }
 }

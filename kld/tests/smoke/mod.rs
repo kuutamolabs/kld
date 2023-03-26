@@ -1,11 +1,13 @@
 use std::str::FromStr;
 
-use crate::{mocks::TEST_ADDRESS, test_settings};
+use crate::test_settings;
 use anyhow::Result;
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
 use settings::Settings;
-use test_utils::{bitcoin, cockroach, kld, BitcoinManager, CockroachManager, KldManager};
+use test_utils::{
+    bitcoin, cockroach, kld, BitcoinManager, CockroachManager, KldManager, TEST_ADDRESS,
+};
 
 mod start;
 
