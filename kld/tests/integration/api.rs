@@ -644,9 +644,9 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
 
     while !readonly_request(&new_context, Method::GET, routes::ROOT)?
         .send()
-        .await?
-        .status()
-        .is_success()
+        .await
+        .map(|r| r.status().is_success())
+        .unwrap_or_default()
     {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
