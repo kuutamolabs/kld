@@ -210,7 +210,9 @@ impl BroadcasterInterface for BitcoindClient {
         let tx_serialized = json!(encode::serialize_hex(tx));
         tokio::spawn(async move {
             match BitcoindClient::send_transaction_with_client(client, tx_serialized).await {
-                Ok(_) => {}
+                Ok(txid) => {
+                    info!("Broadcast transaction {txid}");
+                }
                 Err(e) => {
                     let err_str = e.to_string();
                     if !err_str.contains("Transaction already in block chain")

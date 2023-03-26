@@ -9,7 +9,7 @@ use bitcoin::secp256k1::PublicKey;
 
 use serde::de;
 
-use crate::mocks::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
+use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 use super::api::create_api_server;
 

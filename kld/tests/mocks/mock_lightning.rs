@@ -17,7 +17,7 @@ use lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
-use super::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
+use test_utils::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
 
 pub struct MockLightning {
     pub num_peers: usize,
