@@ -36,6 +36,7 @@ craneLib.buildPackage {
   name = "kld";
   inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs outputHashes;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
+  COMMIT_SHA = lib.mkIf (self ? rev) self.rev;
   passthru = {
     clippy = craneLib.cargoClippy {
       inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
@@ -51,7 +52,6 @@ craneLib.buildPackage {
       nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
     };
     inherit cargoArtifacts;
-    COMMIT_SHA = lib.mkIf (self ? rev) self.rev;
   };
 
   # we run tests in a seperate package
