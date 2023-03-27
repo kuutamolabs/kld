@@ -15,7 +15,7 @@ use bdk::{
     },
     database::{BatchDatabase, BatchOperations, Database},
     wallet::AddressInfo,
-    Balance, FeeRate, SignOptions, SyncOptions,
+    Balance, FeeRate, SignOptions, SyncOptions, TransactionDetails,
 };
 use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
@@ -55,7 +55,7 @@ impl<
         fee_rate: Option<api::FeeRate>,
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
-    ) -> Result<Transaction> {
+    ) -> Result<(Transaction, TransactionDetails)> {
         let height = match self.bitcoind_client.get_best_block().await {
             Ok((_, Some(height))) => height,
             _ => {
@@ -66,15 +66,13 @@ impl<
         match self.wallet.try_lock() {
             Ok(wallet) => {
                 let mut tx_builder = wallet.build_tx();
-                let amount_str = if amount == u64::MAX {
+                if amount == u64::MAX {
                     tx_builder.drain_wallet().drain_to(address.script_pubkey());
-                    "all".to_string()
                 } else {
                     tx_builder
                         .add_recipient(address.script_pubkey(), amount)
                         .drain_wallet()
                         .add_utxos(&utxos)?;
-                    amount.to_string()
                 };
                 tx_builder.current_height(
                     min_conf.map_or_else(|| height, |min_conf| height - min_conf as u32),
@@ -82,13 +80,16 @@ impl<
                 if let Some(fee_rate) = fee_rate {
                     tx_builder.fee_rate(self.to_bdk_fee_rate(fee_rate));
                 }
-                let tx = tx_builder.finish()?.0.extract_tx();
+                let (mut psbt, tx_details) = tx_builder.finish()?;
+                let _finalized = wallet.sign(&mut psbt, SignOptions::default())?;
+                let tx = psbt.extract_tx();
+
                 info!(
-                    "Transferring {amount_str} sats to {address} with txid {}",
-                    tx.txid()
+                    "Transferring {} sats to {address} with txid {}",
+                    tx_details.sent, tx_details.txid
                 );
                 self.bitcoind_client.broadcast_transaction(&tx);
-                Ok(tx)
+                Ok((tx, tx_details))
             }
             Err(_) => bail!("Wallet is still syncing with chain"),
         }
@@ -312,7 +313,7 @@ mod test {
             wallet: Arc::new(Mutex::new(bdk_wallet)),
         };
 
-        let tx = wallet
+        let (tx, tx_details) = wallet
             .transfer(
                 Address::from_str(TEST_ADDRESS)?,
                 u64::MAX,
@@ -322,7 +323,13 @@ mod test {
             )
             .await
             .unwrap();
-        assert!(bitcoind_client.has_broadcast(tx.txid()));
+
+        assert!(!tx.input.is_empty());
+        for input in &tx.input {
+            assert!(!input.witness.is_empty());
+        }
+        assert!(!tx.output.is_empty());
+        assert!(bitcoind_client.has_broadcast(tx_details.txid));
 
         Ok(())
     }

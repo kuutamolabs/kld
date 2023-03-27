@@ -5,6 +5,7 @@ use api::WalletBalance;
 use api::WalletTransfer;
 use api::WalletTransferResponse;
 use axum::{response::IntoResponse, Extension, Json};
+use bitcoin::consensus::encode;
 use bitcoin::Address;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -76,14 +77,14 @@ pub(crate) async fn transfer(
     } else {
         u64::from_str(&wallet_transfer.satoshis).map_err(bad_request)?
     };
-    let tx = wallet
+    let (tx, tx_details) = wallet
         .transfer(address, amount, wallet_transfer.fee_rate, None, vec![])
         .await
         .map_err(internal_server)?;
-    let tx_str = serde_json::to_string(&tx).map_err(internal_server)?;
+    let tx_hex = encode::serialize_hex(&tx);
     let response = WalletTransferResponse {
-        tx: tx_str,
-        txid: tx.txid().to_string(),
+        tx: tx_hex,
+        txid: tx_details.txid.to_string(),
     };
     Ok(Json(response))
 }

@@ -404,7 +404,7 @@ async fn test_withdraw_admin() -> Result<()> {
             .await?
             .json()
             .await?;
-    assert_eq!("{\"version\":2,\"lock_time\":0,\"input\":[{\"previous_output\":\"0f60fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2:1\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]},{\"previous_output\":\"0f60fdd185542f2c6ea19030b0796051e7772b6026dd5ddccd7a2f93b73e6fc2:0\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]},{\"previous_output\":\"0e53ec5dfb2cb8a71fec32dc9a634a35b7e24799295ddd5278217822e0b31f57:5\",\"script_sig\":\"\",\"sequence\":4294967295,\"witness\":[]}],\"output\":[{\"value\":1000,\"script_pubkey\":\"aaee\"},{\"value\":1000,\"script_pubkey\":\"aa\"},{\"value\":800,\"script_pubkey\":\"ff\"}]}", response.tx);
+    assert_eq!("0200000003c26f3eb7932f7acddc5ddd26602b77e7516079b03090a16e2c2f5485d1fd600f0100000000ffffffffc26f3eb7932f7acddc5ddd26602b77e7516079b03090a16e2c2f5485d1fd600f0000000000ffffffff571fb3e02278217852dd5d299947e2b7354a639adc32ec1fa7b82cfb5dec530e0500000000ffffffff03e80300000000000002aaeee80300000000000001aa200300000000000001ff00000000", response.tx);
     assert_eq!(
         "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
         response.txid
