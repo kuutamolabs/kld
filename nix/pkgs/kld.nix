@@ -36,7 +36,7 @@ craneLib.buildPackage {
   name = "kld";
   inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs outputHashes;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
-  COMMIT_SHA = lib.mkIf (self ? rev) self.rev;
+  COMMIT_SHA = self.rev or "dirty";
   passthru = {
     clippy = craneLib.cargoClippy {
       inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
