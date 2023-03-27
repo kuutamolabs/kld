@@ -16,7 +16,7 @@ tokio-postgres = { version = "0.7.7", features = ["runtime", "with-bit-vec-0_6",
 postgres-openssl = "0.5.0"
 openssl = "0.10.48"
 tokio = { version = "1", features = [ "full" ] }
-async-trait = "0.1.67"
+async-trait = "0.1.68"
 
 [lib]
 doctest = false
