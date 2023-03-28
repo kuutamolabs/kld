@@ -42,6 +42,6 @@ in
       '')
       cfg.cockroach_peers;
 
-    kuutamo.cockroachdb.join = builtins.map (peer: peer.name) cfg.cockroach_peers;
+    kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) builtins.map (peer: peer.name) cfg.cockroach_peers;
   };
 }

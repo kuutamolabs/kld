@@ -25,7 +25,7 @@
     start_all()
 
     # wait for our service to start
-    #node1.wait_for_unit("kld")
+    node1.wait_for_unit("cockroachdb.service")
 
     # useful for debugging
     def remote_shell(machine):

@@ -38,35 +38,6 @@ let
         (user: lib.mapAttrsToList (database: permission: ''GRANT ${permission} ON ${database} TO "${user.name}" '') user.ensurePermissions)
         cfg.ensureUsers));
 
-  startupCommand = utils.escapeSystemdExecArgs
-    ([
-      # Basic startup
-      "${crdb}/bin/cockroach"
-      "start"
-      "--store=/var/lib/cockroachdb"
-      "--socket-dir=/run/cockroachdb"
-      # disable file-based logging
-      "--log-config-file=${pkgs.writeText "cockroach-log-config.yaml" (builtins.toJSON logConfig)}"
-
-      # WebUI settings
-      "--http-addr=${cfg.http.address}:${toString cfg.http.port}"
-
-      # Cluster listen address
-      "--advertise-addr=${cfg.nodeName}"
-      "--listen-addr=${cfg.listen.address}:${toString cfg.listen.port}"
-
-      "--sql-addr=localhost"
-      "--sql-addr=${cfg.sql.address}:${toString cfg.sql.port}"
-
-      # Cache and memory settings.
-      "--cache=${cfg.cache}"
-      "--max-sql-memory=${cfg.maxSqlMemory}"
-
-      # Certificate/security settings.
-      "--certs-dir=${certsDir}"
-    ]
-    ++ lib.optional (cfg.join != [ ]) "--join=${lib.concatStringsSep "," cfg.join}"
-    ++ cfg.extraArgs);
 in
 {
   options = {
@@ -328,7 +299,6 @@ in
 
         serviceConfig =
           {
-            ExecStart = startupCommand;
             Type = "notify";
             User = cfg.user;
             StateDirectory = [
@@ -354,6 +324,35 @@ in
               install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeKeyPath} ${certsDir}/node.key
             ''}";
 
+            ExecStart = utils.escapeSystemdExecArgs ([
+              # Basic startup
+              "${crdb}/bin/cockroach"
+              (if cfg.join == [ ] then "start-single-node" else "start")
+              "--store=/var/lib/cockroachdb"
+              "--socket-dir=/run/cockroachdb"
+              # disable file-based logging
+              "--log-config-file=${pkgs.writeText "cockroach-log-config.yaml" (builtins.toJSON logConfig)}"
+
+              # WebUI settings
+              "--http-addr=${cfg.http.address}:${toString cfg.http.port}"
+
+              # Cluster listen address
+              "--advertise-addr=${cfg.nodeName}"
+              "--listen-addr=${cfg.listen.address}:${toString cfg.listen.port}"
+
+              "--sql-addr=localhost"
+              "--sql-addr=${cfg.sql.address}:${toString cfg.sql.port}"
+
+              # Cache and memory settings.
+              "--cache=${cfg.cache}"
+              "--max-sql-memory=${cfg.maxSqlMemory}"
+
+              # Certificate/security settings.
+              "--certs-dir=${certsDir}"
+            ]
+            ++ lib.optional (cfg.join != [ ]) "--join=${lib.concatStringsSep "," cfg.join}"
+            ++ cfg.extraArgs);
+
             # we need to run this as root since do not have a password yet.
             ExecStartPost = "+${pkgs.writeShellScript "start-post" ''
               set -x -eu -o pipefail
@@ -361,10 +360,10 @@ in
 
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
                 if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
-                  cockroach-rpc init
+                  ${lib.optionalString (cfg.join != []) "cockroach-rpc init"}
+                  ${csql initialSql}
                   touch /var/lib/cockroachdb/.cluster-init
                 fi
-                ${csql initialSql}
               ''}
             ''}";
 
