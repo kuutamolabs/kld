@@ -137,6 +137,9 @@ in
       hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
 
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml reboot --hosts kld-00 >&2")
+      new_machine.connected = False
+
       # XXX find out how we can make persist more than one profile in our test
       #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes rollback --hosts kld-00 >&2")
 
