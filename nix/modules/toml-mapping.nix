@@ -37,8 +37,8 @@ in
 
     networking.extraHosts = lib.concatMapStringsSep "\n"
       (peer: ''
-        ${lib.optionalString (peer.ipv4_address != null) "${peer.ipv4_address} ${peer.name}"}
-        ${lib.optionalString (peer.ipv6_address != null) "${peer.ipv6_address} ${peer.name}"}
+        ${lib.optionalString (peer ? ipv4_address && peer.ipv4_address != null) "${peer.ipv4_address} ${peer.name}"}
+        ${lib.optionalString (peer ? ipv6_address && peer.ipv6_address != null) "${peer.ipv6_address} ${peer.name}"}
       '')
       cfg.cockroach_peers;
 

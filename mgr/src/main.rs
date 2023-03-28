@@ -54,6 +54,23 @@ struct UpdateArgs {
     hosts: String,
 }
 
+#[derive(clap::Args, PartialEq, Debug, Clone)]
+struct SshArgs {
+    /// Host to ssh into
+    #[clap(long, default_value = "")]
+    hosts: String,
+
+    /// Additional arguments to pass to ssh
+    command: Option<Vec<String>>,
+}
+
+#[derive(clap::Args, PartialEq, Debug, Clone)]
+struct RebootArgs {
+    /// Comma-separated lists of hosts to perform the reboot
+    #[clap(long, default_value = "")]
+    hosts: String,
+}
+
 /// Subcommand to run
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(clap::Subcommand, PartialEq, Debug, Clone)]
@@ -68,6 +85,10 @@ enum Command {
     Update(UpdateArgs),
     /// Rollback hosts to previous generation
     Rollback(RollbackArgs),
+    /// SSH into a host
+    Ssh(SshArgs),
+    /// Reboot hosts
+    Reboot(RebootArgs),
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -182,6 +203,21 @@ fn rollback(
     mgr::rollback(&hosts, flake, &config.global.secret_directory)
 }
 
+fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
+    let hosts = filter_hosts(&ssh_args.hosts, &config.hosts)?;
+    let command = ssh_args
+        .command
+        .as_ref()
+        .map_or_else(|| [].as_slice(), |v| v.as_slice());
+    let command = command.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+    mgr::ssh(&hosts, command.as_slice())
+}
+
+fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()> {
+    let hosts = filter_hosts(&reboot_args.hosts, &config.hosts)?;
+    mgr::reboot(&hosts)
+}
+
 /// The kuutamo program entry point
 pub fn main() -> Result<()> {
     logging::init().context("failed to initialize logging")?;
@@ -217,6 +253,8 @@ pub fn main() -> Result<()> {
         }
         Command::Update(ref update_args) => update(&args, update_args, &config, &flake),
         Command::Rollback(ref rollback_args) => rollback(&args, rollback_args, &config, &flake),
+        Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
+        Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
     };
     res.with_context(|| format!("kuutamo failed doing: {:?}", args.action))
 }
