@@ -7,11 +7,31 @@ let
   cfg = config.kuutamo.kld;
   bitcoind-instance = "kld-${cfg.network}";
   bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
+  bitcoinCookieDir =
+    if cfg.network == "regtest" then
+      "${bitcoinCfg.dataDir}/regtest"
+    else if cfg.network == "testnet" then
+      "${bitcoinCfg.dataDir}/testnet3"
+    else bitcoinCfg.dataDir;
+
   cockroachCfg = config.kuutamo.cockroachdb;
 
   kld-cli = pkgs.runCommand "kld-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/kld-cli $out/bin/kld-cli \
       --add-flags "--target ${cfg.restApiAddress} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
+  '';
+
+  bitcoin-cli-flags = [
+    "-datadir=${bitcoinCfg.dataDir}"
+    "-rpccookiefile=${bitcoinCookieDir}/.cookie"
+    "-rpcconnect=127.0.0.1"
+    "-rpcport=${toString bitcoinCfg.rpc.port}"
+  ] ++ lib.optional (cfg.network == "regtest") "-regtest"
+  ++ lib.optional (cfg.network == "testnet") "-testnet";
+
+  bitcoin-cli = pkgs.runCommand "kld-bitcoin-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+    makeWrapper ${bitcoinCfg.package}/bin/bitcoin-cli $out/bin/kld-bitcoin-cli \
+      --add-flags "${toString bitcoin-cli-flags}"
   '';
 in
 {
@@ -85,7 +105,7 @@ in
       # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
       # We might however not need more than that.
       #type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
-      type = lib.types.enum [ "main" "testnet" ];
+      type = lib.types.enum [ "main" "testnet" "regtest" ];
       default = "main";
       description = lib.mdDoc "Bitcoin network to use.";
     };
@@ -136,7 +156,7 @@ in
 
   config = {
     # for cli
-    environment.systemPackages = [ kld-cli ];
+    environment.systemPackages = [ kld-cli bitcoin-cli ];
 
     kuutamo.cockroachdb.ensureDatabases = [ "kld" ];
     kuutamo.cockroachdb.ensureUsers = [{
@@ -151,6 +171,7 @@ in
       extraConfig = ''
         txindex=1
       '';
+      extraCmdlineOptions = lib.optional (cfg.network == "regtest") "-regtest";
     };
 
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ ];
@@ -192,7 +213,7 @@ in
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
       };
       path = [
-        bitcoinCfg.package # for cli
+        bitcoin-cli
         pkgs.util-linux # setpriv
       ];
       script = ''
@@ -205,13 +226,8 @@ in
                   --regid bitcoind-${bitcoind-instance} \
                   --clear-groups \
                   --inh-caps=-all -- \
-            bitcoin-cli \
-              -datadir=${bitcoinCfg.dataDir} \
-              -rpccookiefile=${bitcoinCfg.dataDir}/.cookie \
-              -rpcconnect=127.0.0.1 \
-              -rpcport=${toString bitcoinCfg.rpc.port} \
-              -rpcwait getblockchaininfo
-          install -m400 -o kld ${bitcoinCfg.dataDir}/.cookie /var/lib/kld/.cookie
+            kld-bitcoin-cli -rpcwait getblockchaininfo
+          install -m400 -o kld ${bitcoinCookieDir}/.cookie /var/lib/kld/.cookie
 
           install -D -m400 -o kld ${cfg.certPath} /var/lib/kld/certs/kld.pem
           install -D -m400 -o kld ${cfg.keyPath} /var/lib/kld/certs/kld-key.pem
