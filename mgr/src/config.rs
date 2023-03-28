@@ -87,7 +87,7 @@ fn default_flake() -> String {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct CockroachPeer {
     pub name: String,
-    pub ipv4_address: IpAddr,
+    pub ipv4_address: Option<IpAddr>,
     pub ipv6_address: Option<IpAddr>,
 }
 
@@ -145,11 +145,11 @@ pub struct Host {
     pub mac_address: Option<String>,
 
     /// Public ipv4 address of the host
-    pub ipv4_address: IpAddr,
+    pub ipv4_address: Option<IpAddr>,
     /// Cidr of the public ipv4 address
-    pub ipv4_cidr: u8,
+    pub ipv4_cidr: Option<u8>,
     /// Public ipv4 gateway ip address
-    pub ipv4_gateway: IpAddr,
+    pub ipv4_gateway: Option<IpAddr>,
 
     /// Public ipv6 address of the host
     pub ipv6_address: Option<IpAddr>,
@@ -291,26 +291,27 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         None
     };
 
-    let ipv4_address = host
-        .ipv4_address
-        .with_context(|| format!("no ipv4_address provided for host.{name}"))?;
-    let ipv4_cidr = host
-        .ipv4_cidr
-        .or(default.ipv4_cidr)
-        .with_context(|| format!("no ipv4_cidr provided for hosts.{name}"))?;
+    let ipv4_address = if let Some(address) = host.ipv4_address {
+        if !address.is_ipv4() {
+            bail!("ipv4_address provided for hosts.{name} is not an ipv4 address: {address}");
+        }
+        // FIXME: this is currently an unstable feature
+        //if address.is_global() {
+        //    warn!("ipv4_address provided for hosts.{} is not a public ipv4 address: {}. This might not work with near mainnet", name, address);
+        //}
+        Some(address)
+    } else {
+        None
+    };
 
-    if !ipv4_address.is_ipv4() {
-        format!("ipv4_address provided for hosts.{name} is not an ipv4 address: {ipv4_address}");
-    }
-
-    // FIXME: this is currently an unstable feature
-    //if ipv4_address.is_global() {
-    //    warn!("ipv4_address provided for hosts.{} is not a public ipv4 address: {}. This might not work with near mainnet", name, ipv4_address);
-    //}
-
-    if !(0..32_u8).contains(&ipv4_cidr) {
-        bail!("ipv4_cidr for hosts.{name} is not between 0 and 32: {ipv4_cidr}")
-    }
+    let ipv4_cidr = if let Some(cidr) = host.ipv4_cidr.or(default.ipv4_cidr) {
+        if !(0..32_u8).contains(&cidr) {
+            bail!("ipv4_cidr for hosts.{name} is not between 0 and 32: {cidr}")
+        }
+        Some(cidr)
+    } else {
+        None
+    };
 
     let nixos_module = host
         .nixos_module
@@ -322,10 +323,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
     extra_nixos_modules.extend_from_slice(&host.extra_nixos_modules);
     extra_nixos_modules.extend_from_slice(&default.extra_nixos_modules);
 
-    let ipv4_gateway = host
-        .ipv4_gateway
-        .or(default.ipv4_gateway)
-        .with_context(|| format!("no ipv4_gateway provided for hosts.{name}"))?;
+    let ipv4_gateway = host.ipv4_gateway.or(default.ipv4_gateway);
 
     let ipv6_cidr = host.ipv6_cidr.or(default.ipv6_cidr);
 
@@ -358,16 +356,23 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
 
         (Some(ipv6_address), mask)
     } else {
-        warn!("No ipv6_address provided");
         (None, None)
     };
+
+    let address = ipv4_address
+        .or(ipv6_address)
+        .with_context(|| format!("no ipv4_address or ipv6_address provided for hosts.{name}"))?;
+
+    if ipv4_gateway.is_none() && ipv6_gateway.is_none() {
+        bail!("no ipv4_gateway or ipv6_gateway provided for hosts.{name}");
+    }
 
     let ssh_hostname = host
         .ssh_hostname
         .as_ref()
         .or(default.ssh_hostname.as_ref())
         .cloned()
-        .unwrap_or_else(|| ipv4_address.to_string());
+        .unwrap_or_else(|| address.to_string());
 
     let install_ssh_user = host
         .install_ssh_user
@@ -533,12 +538,16 @@ pub fn test_parse_config() -> Result<()> {
     let hosts = &config.hosts;
     assert_eq!(hosts.len(), 3);
     assert_eq!(
-        hosts["kld-00"].ipv4_address,
+        hosts["kld-00"]
+            .ipv4_address
+            .context("missing ipv4_address")?,
         IpAddr::from_str("199.127.64.2").unwrap()
     );
-    assert_eq!(hosts["kld-00"].ipv4_cidr, 24);
+    assert_eq!(hosts["kld-00"].ipv4_cidr.context("missing ipv4_cidr")?, 24);
     assert_eq!(
-        hosts["db-00"].ipv4_gateway,
+        hosts["db-00"]
+            .ipv4_gateway
+            .context("missing ipv4_gateway")?,
         IpAddr::from_str("199.127.64.1").unwrap()
     );
     assert_eq!(
@@ -579,12 +588,20 @@ fn test_invalid_string_for_ipv6() {
 }
 
 #[test]
-fn test_validate_host() {
+fn test_validate_host() -> Result<()> {
     let mut config = HostConfig {
-        ipv4_address: Some("192.168.0.1".parse::<IpAddr>().unwrap()),
+        ipv4_address: Some(
+            "192.168.0.1"
+                .parse::<IpAddr>()
+                .context("Invalid IP address")?,
+        ),
         nixos_module: Some("kld-node".to_string()),
         ipv4_cidr: Some(0),
-        ipv4_gateway: Some("192.168.255.255".parse::<IpAddr>().unwrap()),
+        ipv4_gateway: Some(
+            "192.168.255.255"
+                .parse::<IpAddr>()
+                .context("Invalid IP address")?,
+        ),
         ipv6_address: None,
         ipv6_gateway: None,
         ipv6_cidr: None,
@@ -598,9 +615,17 @@ fn test_validate_host() {
             nixos_module: "kld-node".to_string(),
             extra_nixos_modules: Vec::new(),
             mac_address: None,
-            ipv4_address: "192.168.0.1".parse::<IpAddr>().unwrap(),
-            ipv4_cidr: 0,
-            ipv4_gateway: "192.168.255.255".parse::<IpAddr>().unwrap(),
+            ipv4_address: Some(
+                "192.168.0.1"
+                    .parse::<IpAddr>()
+                    .context("Invalid IP address")?
+            ),
+            ipv4_cidr: Some(0),
+            ipv4_gateway: Some(
+                "192.168.255.255"
+                    .parse::<IpAddr>()
+                    .context("Invalid IP address")?
+            ),
             ipv6_address: None,
             ipv6_cidr: None,
             ipv6_gateway: None,
@@ -628,4 +653,6 @@ fn test_validate_host() {
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
     assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_ok());
+
+    Ok(())
 }
