@@ -23,9 +23,9 @@ in
 
     kuutamo.network.macAddress = cfg.mac_address or null;
 
-    kuutamo.network.ipv4.address = cfg.ipv4_address;
-    kuutamo.network.ipv4.gateway = cfg.ipv4_gateway;
-    kuutamo.network.ipv4.cidr = cfg.ipv4_cidr;
+    kuutamo.network.ipv4.address = cfg.ipv4_address or null;
+    kuutamo.network.ipv4.gateway = cfg.ipv4_gateway or null;
+    kuutamo.network.ipv4.cidr = cfg.ipv4_cidr or 32;
 
     kuutamo.network.ipv6.address = cfg.ipv6_address or null;
     kuutamo.network.ipv6.gateway = cfg.ipv6_gateway or null;
@@ -37,8 +37,8 @@ in
 
     networking.extraHosts = lib.concatMapStringsSep "\n"
       (peer: ''
-        ${peer.ipv4_address} ${peer.name}
-        ${peer.ipv6_address} ${peer.name}
+        ${lib.optionalString (peer.ipv4_address != null) "${peer.ipv4_address} ${peer.name}"}
+        ${lib.optionalString (peer.ipv6_address != null) "${peer.ipv6_address} ${peer.name}"}
       '')
       cfg.cockroach_peers;
 
