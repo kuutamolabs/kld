@@ -122,12 +122,11 @@ async fn handler_404() -> impl IntoResponse {
 }
 
 async fn config(certs_dir: &str) -> Result<RustlsConfig> {
-    RustlsConfig::from_pem_file(
-        format!("{certs_dir}/kld.crt"),
-        format!("{certs_dir}/kld.key"),
-    )
-    .await
-    .context("failed to load certificates")
+    let cert = format!("{certs_dir}/kld.crt");
+    let key = format!("{certs_dir}/kld.key");
+    RustlsConfig::from_pem_file(&cert, &key)
+        .await
+        .with_context(|| format!("failed to load certificates ({cert}) and private key ({key})"))
 }
 
 pub enum ApiError {
