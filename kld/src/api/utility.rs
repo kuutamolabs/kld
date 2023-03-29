@@ -39,7 +39,6 @@ pub(crate) async fn get_info(
         }],
         version: VERSION.to_string(),
         api_version: API_VERSION.to_string(),
-        commit_sha: option_env!("COMMIT_SHA").unwrap_or("unknown").to_string(),
         color: "".to_string(),
         network: lightning_interface.network().to_string(),
         address: lightning_interface

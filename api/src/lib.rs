@@ -74,7 +74,6 @@ pub struct GetInfo {
     pub chains: Vec<Chain>,
     pub version: String,
     pub api_version: String,
-    pub commit_sha: String,
     pub network: String,
     pub address: Vec<Address>,
 }
