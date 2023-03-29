@@ -35,6 +35,7 @@ generate-cockroach-certs:
       mv cockroach-certs/{node.key,$node.key}
     done
     cockroach cert create-client --certs-dir=cockroach-certs --ca-key=cockroach-certs/ca.key root
+    cockroach cert create-client --certs-dir=cockroach-certs --ca-key=cockroach-certs/ca.key kld
 
 generate-kld-certs:
     #!/usr/bin/env bash
