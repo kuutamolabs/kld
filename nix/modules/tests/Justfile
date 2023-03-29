@@ -44,6 +44,25 @@ generate-kld-certs:
     mkdir -p kld-certs
     openssl ecparam -genkey -name secp384r1 -out kld-certs/ca.key
     openssl req -x509 -new -nodes -key kld-certs/ca.key -subj "/CN=kld-ca" -days 20000 -out kld-certs/ca.pem
-    openssl ecparam -genkey -name secp384r1 -out kld-certs/kld.key
-    openssl req -new -key kld-certs/kld.key -subj "/CN=localhost" -out kld-certs/kld.csr
-    openssl x509 -req -in kld-certs/kld.csr -CA kld-certs/ca.pem -CAkey kld-certs/ca.key -CAcreateserial -out kld-certs/kld.pem -days 20000
+    cat > kld-certs/kld.conf <<EOF
+    [req]
+    req_extensions = v3_req
+    distinguished_name = req_distinguished_name
+    prompt = no
+
+    [req_distinguished_name]
+    CN = localhost
+
+
+    [v3_req]
+    keyUsage = keyEncipherment, dataEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+
+    [alt_names]
+    DNS.1 = localhost
+    IP.1 = 127.0.0.1
+    EOF
+
+    openssl req -newkey rsa:4096 -keyout kld-certs/kld.key -out kld-certs/kld.csr -nodes -config kld-certs/kld.conf
+    openssl x509 -req -in kld-certs/kld.csr -CA kld-certs/ca.pem -CAkey kld-certs/ca.key -CAcreateserial -out kld-certs/kld.pem -days 20000 -extensions v3_req -extfile kld-certs/kld.conf
