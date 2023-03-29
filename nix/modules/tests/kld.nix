@@ -6,6 +6,8 @@
       imports = [ self.nixosModules.kld ];
       # use the same name as the cert
       kuutamo.cockroachdb.nodeName = "db1";
+      virtualisation.cores = 4;
+      virtualisation.memorySize = 4096;
 
       kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
       kuutamo.cockroachdb.nodeCertPath = ./cockroach-certs + "/db1.crt";
