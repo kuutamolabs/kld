@@ -111,9 +111,9 @@ enum Command {
 fn main() {
     let args = Args::parse();
 
-    match run_command(args) {
-        Ok(_) => (),
-        Err(e) => println!("Error executing command: {e}"),
+    if let Err(e) = run_command(args) {
+        eprintln!("Error executing command: {e}");
+        std::process::exit(1);
     }
 }
 

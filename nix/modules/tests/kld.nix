@@ -2,19 +2,26 @@
   name = "from-nixos";
   nodes = {
     # self here is set by using specialArgs in `lib.nix`
-    node1 = { self, ... }: {
+    db1 = { self, ... }: {
       imports = [ self.nixosModules.kld ];
-      kuutamo.cockroachdb.nodeName = "kld-00";
+      # use the same name as the cert
+      kuutamo.cockroachdb.nodeName = "db1";
+      virtualisation.cores = 4;
+      virtualisation.memorySize = 4096;
 
       kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
       kuutamo.cockroachdb.nodeCertPath = ./cockroach-certs + "/db1.crt";
       kuutamo.cockroachdb.nodeKeyPath = ./cockroach-certs + "/db1.key";
-      kuutamo.kld.cockroachdb.clientCertPath = ./cockroach-certs + "/client.root.crt";
-      kuutamo.kld.cockroachdb.clientKeyPath = ./cockroach-certs + "/client.root.key";
+      kuutamo.cockroachdb.rootClientCertPath = ./cockroach-certs + "/client.root.crt";
+      kuutamo.cockroachdb.rootClientKeyPath = ./cockroach-certs + "/client.root.key";
+
+      kuutamo.kld.cockroachdb.clientCertPath = ./cockroach-certs + "/client.kld.crt";
+      kuutamo.kld.cockroachdb.clientKeyPath = ./cockroach-certs + "/client.kld.key";
 
       kuutamo.kld.caPath = ./kld-certs/ca.pem;
       kuutamo.kld.certPath = ./kld-certs/kld.pem;
       kuutamo.kld.keyPath = ./kld-certs/kld.key;
+      kuutamo.kld.network = "regtest";
     };
   };
 
@@ -25,7 +32,13 @@
     start_all()
 
     # wait for our service to start
-    #node1.wait_for_unit("kld")
+    db1.wait_for_unit("cockroachdb.service")
+    db1.wait_for_unit("bitcoind-kld-regtest.service")
+    db1.wait_for_unit("kld.service")
+
+    db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")
+    db1.succeed("kld-bitcoin-cli -generate 6 1000")
+    db1.wait_until_succeeds("kld-cli get-info")
 
     # useful for debugging
     def remote_shell(machine):

@@ -472,9 +472,9 @@ pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
         .iter()
         .filter(|(_, host)| host.nixos_module == "cockroachdb-node")
         .count();
-    if cockroach_nodes < 2 {
+    if cockroach_nodes != 0 && cockroach_nodes < 2 {
         bail!(
-            "At least two cockroach-nodes are required, found {}",
+            "Either zero or two cockroach-nodes are required, found {}",
             cockroach_nodes
         );
     }
