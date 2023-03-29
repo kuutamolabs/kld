@@ -35,10 +35,8 @@
     db1.wait_for_unit("kld.service")
 
     db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")
-    address = db1.succeed("kld-bitcoin-cli getnewaddress").strip()
-    db1.succeed(f"kld-bitcoin-cli generatetoaddress 1 {address}")
-    # FIXME this block forever just now
-    #out = db1.wait_until_succeeds("kld-cli get-info")
+    db1.succeed("kld-bitcoin-cli -generate 6 1000")
+    db1.wait_until_succeeds("kld-cli get-info")
 
     # useful for debugging
     def remote_shell(machine):
