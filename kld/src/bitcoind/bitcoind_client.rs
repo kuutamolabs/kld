@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 
+use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use bitcoin::{consensus::encode, Address, BlockHash, Transaction, Txid};
 use bitcoincore_rpc_json::{EstimateMode, EstimateSmartFeeResult, GetBlockchainInfoResult};
@@ -23,6 +24,8 @@ use serde_json::{json, Value};
 use settings::Settings;
 
 use crate::{ldk::MIN_FEERATE, quit_signal};
+
+use super::Synchronised;
 
 pub struct BitcoindClient {
     client: Arc<RpcClient>,
@@ -54,28 +57,19 @@ impl BitcoindClient {
         Ok(bitcoind_client)
     }
 
-    pub async fn wait_for_blockchain_synchronisation(&self) -> Result<()> {
+    pub async fn wait_for_blockchain_synchronisation(&self) {
         info!("Waiting for blockchain synchronisation.");
-        let one_week = 60 * 60 * 24 * 7;
         let wait_for_shutdown = tokio::spawn(quit_signal());
         while !wait_for_shutdown.is_finished() {
-            let info = self.get_blockchain_info().await?;
-            let one_week_ago = SystemTime::now()
-                .checked_sub(Duration::from_secs(one_week))
-                .ok_or_else(|| anyhow!("wrong system time"))?
-                .duration_since(UNIX_EPOCH)?
-                .as_secs();
-
-            if info.blocks == info.headers
-                && info.median_time > one_week_ago
-                // Its rare to see 100% verification.
-                && info.verification_progress > 0.99
-            {
-                break;
-            }
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            match self.is_synchronised().await {
+                Ok(true) => return,
+                Ok(false) => (),
+                Err(e) => {
+                    error!("Could not determine blockchain sync status: {}", e);
+                }
+            };
+            tokio::time::sleep(Duration::from_secs(5)).await;
         }
-        Ok(())
     }
 
     pub async fn send_transaction(&self, tx: &Transaction) -> Result<Txid> {
@@ -174,6 +168,24 @@ impl BitcoindClient {
             Ok(Err(e)) => error!("Could not fetch fee estimate: {}", e),
             Err(e) => error!("Could not fetch fee estimate: {}", e),
         };
+    }
+}
+
+#[async_trait]
+impl Synchronised for BitcoindClient {
+    async fn is_synchronised(&self) -> Result<bool> {
+        let one_week = 60 * 60 * 24 * 7;
+        let one_week_ago = SystemTime::now()
+            .checked_sub(Duration::from_secs(one_week))
+            .expect("wrong system time")
+            .duration_since(UNIX_EPOCH)?
+            .as_secs();
+        let info = self.get_blockchain_info().await?;
+
+        Ok(info.blocks == info.headers
+            && info.median_time > one_week_ago
+            // Its rare to see 100% verification.
+            && info.verification_progress > 0.99)
     }
 }
 

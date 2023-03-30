@@ -194,7 +194,7 @@ impl LightningInterface for MockLightning {
         Ok(())
     }
 
-    fn close_channel(
+    async fn close_channel(
         &self,
         _channel_id: &[u8; 32],
         _counterparty_node_id: &PublicKey,

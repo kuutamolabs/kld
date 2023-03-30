@@ -20,7 +20,7 @@ pub async fn test_bitcoind_client() -> Result<()> {
         .generate_to_address(n_blocks, &Address::from_str(TEST_ADDRESS).unwrap())
         .await?;
 
-    client.wait_for_blockchain_synchronisation().await?;
+    client.wait_for_blockchain_synchronisation().await;
 
     let info = client.get_blockchain_info().await?;
     assert_eq!(n_blocks, info.blocks);

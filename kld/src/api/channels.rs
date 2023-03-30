@@ -215,6 +215,7 @@ pub(crate) async fn close_channel(
     }) {
         lightning_interface
             .close_channel(&channel.channel_id, &channel.counterparty.node_id)
+            .await
             .map_err(internal_server)?;
         Ok(Json(()))
     } else {

@@ -67,7 +67,11 @@ pub trait LightningInterface {
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
 
-    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()>;
+    async fn close_channel(
+        &self,
+        channel_id: &[u8; 32],
+        counterparty_node_id: &PublicKey,
+    ) -> Result<()>;
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 

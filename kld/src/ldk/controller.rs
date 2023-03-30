@@ -1,13 +1,14 @@
-use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup, Synchronised};
 use crate::wallet::{Wallet, WalletInterface};
 
 use crate::database::{LdkDatabase, WalletDatabase};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::Transaction;
-use lightning::chain::keysinterface::KeysManager;
+use bitcoin::{BlockHash, Network, Transaction};
+use lightning::chain::channelmonitor::ChannelMonitor;
+use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::chain::{chainmonitor, Watch};
@@ -23,10 +24,10 @@ use lightning::util::config::UserConfig;
 use crate::logger::KldLogger;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
-use lightning_block_sync::init;
 use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
+use lightning_block_sync::{init, BlockSourceResult};
 use log::{error, info, warn};
 use rand::random;
 use settings::Settings;
@@ -126,6 +127,9 @@ impl LightningInterface for Controller {
         fee_rate: Option<FeeRate>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
+        if !self.bitcoind_client.is_synchronised().await? {
+            bail!("Bitcoind is syncronising blockchain")
+        }
         if !self.peer_manager.is_connected(&their_network_key) {
             return Err(anyhow!("Peer not connected"));
         }
@@ -154,7 +158,14 @@ impl LightningInterface for Controller {
         })
     }
 
-    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()> {
+    async fn close_channel(
+        &self,
+        channel_id: &[u8; 32],
+        counterparty_node_id: &PublicKey,
+    ) -> Result<()> {
+        if !self.bitcoind_client.is_synchronised().await? {
+            bail!("Bitcoind is syncronising blockchain")
+        }
         self.channel_manager
             .close_channel(channel_id, counterparty_node_id)
             .map_err(ldk_error)
@@ -351,7 +362,7 @@ pub struct Controller {
     database: Arc<LdkDatabase>,
     bitcoind_client: Arc<BitcoindClient>,
     channel_manager: Arc<ChannelManager>,
-    peer_manager: PeerManager,
+    peer_manager: Arc<PeerManager>,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
@@ -382,6 +393,8 @@ impl Controller {
         // BitcoindClient implements the BroadcasterInterface trait, so it'll act as our transaction broadcaster.
         let broadcaster = bitcoind_client.clone();
 
+        let network = settings.bitcoin_network.into();
+
         // Initialize the ChainMonitor
         let chain_monitor: Arc<ChainMonitor> = Arc::new(chainmonitor::ChainMonitor::new(
             None,
@@ -408,9 +421,7 @@ impl Controller {
                 .fetch_graph()
                 .await
                 .context("Could not query network graph from database")?
-                .unwrap_or_else(|| {
-                    NetworkGraph::new(settings.bitcoin_network.into(), KldLogger::global())
-                }),
+                .unwrap_or_else(|| NetworkGraph::new(network, KldLogger::global())),
         );
         let scorer = Arc::new(Mutex::new(
             database
@@ -449,7 +460,7 @@ impl Controller {
             if is_first_start {
                 let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
                 let chain_params = ChainParameters {
-                    network: settings.bitcoin_network.into(),
+                    network,
                     best_block: BestBlock::new(
                         getinfo_resp.best_block_hash,
                         getinfo_resp.blocks as u32,
@@ -469,10 +480,8 @@ impl Controller {
                 );
                 (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
-                let mut channel_monitor_mut_references = Vec::new();
-                for (_, channel_monitor) in channelmonitors.iter_mut() {
-                    channel_monitor_mut_references.push(channel_monitor);
-                }
+                let channel_monitor_mut_refs =
+                    channelmonitors.iter_mut().map(|(_, cm)| cm).collect();
                 let read_args = ChannelManagerReadArgs::new(
                     keys_manager.clone(),
                     keys_manager.clone(),
@@ -483,7 +492,7 @@ impl Controller {
                     router,
                     KldLogger::global(),
                     user_config,
-                    channel_monitor_mut_references,
+                    channel_monitor_mut_refs,
                 );
                 database
                     .fetch_channel_manager(read_args)
@@ -491,57 +500,7 @@ impl Controller {
                     .context("failed to query channel manager from database")?
             }
         };
-        // Sync ChannelMonitors and ChannelManager to chain tip
-        let mut chain_listener_channel_monitors = Vec::new();
-        let mut cache = UnboundedCache::new();
-        let mut chain_tip: Option<poll::ValidatedBlockHeader> = None;
-        if !is_first_start {
-            let mut chain_listeners = vec![(
-                channel_manager_blockhash,
-                &channel_manager as &(dyn chain::Listen + Send + Sync),
-            )];
-
-            for (blockhash, channel_monitor) in channelmonitors.drain(..) {
-                let outpoint = channel_monitor.get_funding_txo().0;
-                chain_listener_channel_monitors.push((
-                    blockhash,
-                    (
-                        channel_monitor,
-                        broadcaster.clone(),
-                        fee_estimator.clone(),
-                        KldLogger::global(),
-                    ),
-                    outpoint,
-                ));
-            }
-
-            for monitor_listener_info in chain_listener_channel_monitors.iter_mut() {
-                chain_listeners.push((
-                    monitor_listener_info.0,
-                    &monitor_listener_info.1 as &(dyn chain::Listen + Send + Sync),
-                ));
-            }
-            chain_tip = Some(
-                init::synchronize_listeners(
-                    bitcoind_client.clone(),
-                    settings.bitcoin_network.into(),
-                    &mut cache,
-                    chain_listeners,
-                )
-                .await
-                .unwrap(),
-            );
-        }
-
-        // Give ChannelMonitors to ChainMonitor
-        for item in chain_listener_channel_monitors.drain(..) {
-            let channel_monitor = item.1 .0;
-            let funding_outpoint = item.2;
-            assert_eq!(
-                chain_monitor.watch_channel(funding_outpoint, channel_monitor),
-                ChannelMonitorUpdateStatus::Completed
-            );
-        }
+        let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
 
         let gossip_sync = Arc::new_cyclic(|u| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
@@ -557,7 +516,6 @@ impl Controller {
             )
         });
 
-        let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
         let onion_messenger: Arc<OnionMessenger> = Arc::new(OnionMessenger::new(
             keys_manager.clone(),
             keys_manager.clone(),
@@ -572,7 +530,7 @@ impl Controller {
         let lightning_msg_handler = MessageHandler {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
-            onion_message_handler: onion_messenger.clone(),
+            onion_message_handler: onion_messenger,
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
@@ -582,39 +540,12 @@ impl Controller {
             IgnoringMessageHandler {},
             keys_manager.clone(),
         ));
-        let peer_manager = PeerManager::new(
+        let peer_manager = Arc::new(PeerManager::new(
             ldk_peer_manager.clone(),
             channel_manager.clone(),
             database.clone(),
             settings.clone(),
-        )?;
-
-        // Connect and Disconnect Blocks
-        if chain_tip.is_none() {
-            chain_tip = Some(
-                init::validate_best_block_header(bitcoind_client.clone())
-                    .await
-                    .unwrap(),
-            );
-        }
-        let channel_manager_listener = channel_manager.clone();
-        let chain_monitor_listener = chain_monitor.clone();
-        let bitcoind_block_source = bitcoind_client.clone();
-        let network = settings.bitcoin_network;
-        tokio::spawn(async move {
-            let chain_poller = poll::ChainPoller::new(bitcoind_block_source, network.into());
-            let chain_listener = (chain_monitor_listener, channel_manager_listener);
-            let mut spv_client = SpvClient::new(
-                chain_tip.unwrap(),
-                chain_poller,
-                &mut cache,
-                &chain_listener,
-            );
-            loop {
-                spv_client.poll_best_tip().await.unwrap();
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        });
+        )?);
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
         // Handle LDK Events
@@ -639,15 +570,35 @@ impl Controller {
             event_handler,
             chain_monitor.clone(),
             channel_manager.clone(),
-            GossipSync::p2p(gossip_sync.clone()),
+            GossipSync::p2p(gossip_sync),
             ldk_peer_manager.clone(),
             KldLogger::global(),
             Some(scorer),
         );
 
-        peer_manager.listen().await?;
-        peer_manager.keep_channel_peers_connected();
-        peer_manager.regularly_broadcast_node_announcement()?;
+        let bitcoind_client_clone = bitcoind_client.clone();
+        let channel_manager_clone = channel_manager.clone();
+        let peer_manager_clone = peer_manager.clone();
+        tokio::spawn(async move {
+            bitcoind_client_clone
+                .wait_for_blockchain_synchronisation()
+                .await;
+            Controller::sync_to_chain_tip(
+                network,
+                bitcoind_client_clone.clone(),
+                chain_monitor.clone(),
+                channel_manager_blockhash,
+                channel_manager_clone.clone(),
+                is_first_start,
+                channelmonitors,
+            )
+            .await
+            .unwrap();
+
+            peer_manager_clone.listen().await;
+            peer_manager_clone.keep_channel_peers_connected();
+            peer_manager_clone.regularly_broadcast_node_announcement();
+        });
 
         Ok(Controller {
             settings,
@@ -660,6 +611,80 @@ impl Controller {
             async_api_requests,
             background_processor: Arc::new(Mutex::new(Some(background_processor))),
         })
+    }
+
+    async fn sync_to_chain_tip(
+        network: Network,
+        bitcoind_client: Arc<BitcoindClient>,
+        chain_monitor: Arc<ChainMonitor>,
+        channel_manager_blockhash: BlockHash,
+        channel_manager: Arc<ChannelManager>,
+        is_first_start: bool,
+        channelmonitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
+    ) -> BlockSourceResult<()> {
+        // Sync ChannelMonitors and ChannelManager to chain tip
+        let mut chain_listener_channel_monitors = Vec::new();
+        let mut cache = UnboundedCache::new();
+        let chain_tip = if is_first_start {
+            init::validate_best_block_header(bitcoind_client.clone()).await?
+        } else {
+            let mut chain_listeners = vec![(
+                channel_manager_blockhash,
+                channel_manager.as_ref() as &(dyn chain::Listen + Send + Sync),
+            )];
+
+            for (blockhash, channel_monitor) in channelmonitors {
+                let outpoint = channel_monitor.get_funding_txo().0;
+                chain_listener_channel_monitors.push((
+                    blockhash,
+                    (
+                        channel_monitor,
+                        bitcoind_client.clone(),
+                        bitcoind_client.clone(),
+                        KldLogger::global(),
+                    ),
+                    outpoint,
+                ));
+            }
+
+            for monitor_listener_info in chain_listener_channel_monitors.iter_mut() {
+                chain_listeners.push((
+                    monitor_listener_info.0,
+                    &monitor_listener_info.1 as &(dyn chain::Listen + Send + Sync),
+                ));
+            }
+            init::synchronize_listeners(
+                bitcoind_client.clone(),
+                network,
+                &mut cache,
+                chain_listeners,
+            )
+            .await?
+        };
+
+        // Give ChannelMonitors to ChainMonitor
+        for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
+            assert_eq!(
+                chain_monitor.watch_channel(funding_outpoint, channel_monitor),
+                ChannelMonitorUpdateStatus::Completed
+            );
+        }
+
+        // Connect and Disconnect Blocks
+        tokio::spawn(async move {
+            let chain_poller = poll::ChainPoller::new(bitcoind_client, network);
+            let chain_listener = (chain_monitor, channel_manager);
+            let mut spv_client =
+                SpvClient::new(chain_tip, chain_poller, &mut cache, &chain_listener);
+            loop {
+                if let Err(e) = spv_client.poll_best_tip().await {
+                    error!("{}", e.into_inner())
+                }
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        });
+
+        Ok(())
     }
 }
 
