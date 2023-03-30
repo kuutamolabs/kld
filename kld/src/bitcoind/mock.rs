@@ -1,17 +1,40 @@
 use std::{str::FromStr, sync::Mutex};
 
+use super::Synchronised;
+use anyhow::Result;
+use async_trait::async_trait;
 use bitcoin::{BlockHash, Transaction, Txid};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{AsyncBlockSourceResult, BlockData, BlockHeaderData, BlockSource};
 
-#[derive(Default)]
 pub struct MockBitcoindClient {
     broadcast_transactions: Mutex<Vec<Txid>>,
+    synchronised: bool,
+}
+
+impl Default for MockBitcoindClient {
+    fn default() -> Self {
+        Self {
+            broadcast_transactions: Default::default(),
+            synchronised: true,
+        }
+    }
+}
+
+#[async_trait]
+impl Synchronised for MockBitcoindClient {
+    async fn is_synchronised(&self) -> Result<bool> {
+        Ok(self.synchronised)
+    }
 }
 
 impl MockBitcoindClient {
     pub fn has_broadcast(&self, txid: Txid) -> bool {
         self.broadcast_transactions.lock().unwrap().contains(&txid)
+    }
+
+    pub fn set_syncronised(&mut self, syncronised: bool) {
+        self.synchronised = syncronised;
     }
 }
 

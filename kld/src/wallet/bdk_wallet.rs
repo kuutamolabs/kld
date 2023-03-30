@@ -26,9 +26,14 @@ use lightning_block_sync::BlockSource;
 use log::{error, info};
 use settings::{Network, Settings};
 
+use crate::bitcoind::Synchronised;
+
 use super::WalletInterface;
 
-pub struct Wallet<D: Database + BatchDatabase + BatchOperations, B: BlockSource + FeeEstimator> {
+pub struct Wallet<
+    D: Database + BatchDatabase + BatchOperations,
+    B: BlockSource + FeeEstimator + Synchronised,
+> {
     // bdk::Wallet uses a RefCell to hold the database which is not thread safe so we use a mutex here.
     wallet: Arc<Mutex<bdk::Wallet<D>>>,
     bitcoind_client: Arc<B>,
@@ -38,7 +43,7 @@ pub struct Wallet<D: Database + BatchDatabase + BatchOperations, B: BlockSource 
 #[async_trait]
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator + BroadcasterInterface,
+        B: BlockSource + FeeEstimator + BroadcasterInterface + Synchronised,
     > WalletInterface for Wallet<D, B>
 {
     fn balance(&self) -> Result<Balance> {
@@ -56,6 +61,9 @@ impl<
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)> {
+        if !self.bitcoind_client.is_synchronised().await? {
+            bail!("Bitcoind is syncronising the blockchain")
+        }
         let height = match self.bitcoind_client.get_best_block().await {
             Ok((_, Some(height))) => height,
             _ => {
@@ -107,7 +115,7 @@ impl<
 
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator,
+        B: BlockSource + FeeEstimator + Synchronised,
     > Wallet<D, B>
 {
     pub fn new(
@@ -304,9 +312,35 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_transfer() -> Result<()> {
+    async fn test_cannot_transfer_while_syncronising() -> Result<()> {
+        let mut bitcoind_client = MockBitcoindClient::default();
+        bitcoind_client.set_syncronised(false);
         let (bdk_wallet, _, _) = get_funded_wallet(TEST_WPKH);
-        let bitcoind_client = Arc::new(MockBitcoindClient::default());
+        let bitcoind_client = Arc::new(bitcoind_client);
+        let wallet = Wallet {
+            settings: Arc::new(Settings::default()),
+            bitcoind_client: bitcoind_client.clone(),
+            wallet: Arc::new(Mutex::new(bdk_wallet)),
+        };
+
+        let res = wallet
+            .transfer(
+                Address::from_str(TEST_ADDRESS)?,
+                u64::MAX,
+                None,
+                None,
+                vec![],
+            )
+            .await;
+        assert!(res.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_transfer() -> Result<()> {
+        let bitcoind_client = MockBitcoindClient::default();
+        let (bdk_wallet, _, _) = get_funded_wallet(TEST_WPKH);
+        let bitcoind_client = Arc::new(bitcoind_client);
         let wallet = Wallet {
             settings: Arc::new(Settings::default()),
             bitcoind_client: bitcoind_client.clone(),
@@ -321,8 +355,7 @@ mod test {
                 None,
                 vec![],
             )
-            .await
-            .unwrap();
+            .await?;
 
         assert!(!tx.input.is_empty());
         for input in &tx.input {

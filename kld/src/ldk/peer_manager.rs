@@ -15,6 +15,7 @@ pub struct PeerManager {
     channel_manager: Arc<ChannelManager>,
     database: Arc<LdkDatabase>,
     settings: Arc<Settings>,
+    addresses: Vec<PeerAddress>,
 }
 
 impl PeerManager {
@@ -27,19 +28,25 @@ impl PeerManager {
         if settings.node_name.len() > 32 {
             bail!("Node Alias can not be longer than 32 bytes");
         }
+        let mut addresses = vec![];
+        for address in &settings.public_addresses {
+            addresses.push(address.parse::<PeerAddress>().unwrap());
+        }
         Ok(PeerManager {
             ldk_peer_manager,
             channel_manager,
             database,
             settings,
+            addresses,
         })
     }
 
-    pub async fn listen(&self) -> Result<()> {
+    pub async fn listen(&self) {
         let listener =
             tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.settings.peer_port))
                 .await
-                .context("Failed to bind to listen port")?;
+                .context("Failed to bind to listen port")
+                .unwrap();
         let ldk_peer_manager = self.ldk_peer_manager.clone();
         tokio::spawn(async move {
             loop {
@@ -56,7 +63,6 @@ impl PeerManager {
                 });
             }
         });
-        Ok(())
     }
 
     pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: PeerAddress) -> Result<()> {
@@ -117,14 +123,11 @@ impl PeerManager {
     // some public channels, and is only useful if we have public listen address(es) to announce.
     // In a production environment, this should occur only after the announcement of new channels
     // to avoid churn in the global network graph.
-    pub fn regularly_broadcast_node_announcement(&self) -> Result<()> {
+    pub fn regularly_broadcast_node_announcement(&self) {
         let mut alias = [0; 32];
         alias[..self.settings.node_name.len()].copy_from_slice(self.settings.node_name.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
-        let mut addresses = vec![];
-        for address in &self.settings.public_addresses {
-            addresses.push(address.parse::<PeerAddress>()?.0);
-        }
+        let addresses: Vec<NetAddress> = self.addresses.iter().map(|a| a.0.clone()).collect();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(60));
             loop {
@@ -132,7 +135,6 @@ impl PeerManager {
                 peer_manager.broadcast_node_announcement([0; 3], alias, addresses.clone());
             }
         });
-        Ok(())
     }
 
     pub fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)> {

@@ -14,9 +14,11 @@ use super::net_utils::PeerAddress;
 pub trait LightningInterface {
     fn alias(&self) -> String;
 
-    fn block_height(&self) -> Result<u64>;
+    async fn block_height(&self) -> Result<u64>;
 
     fn identity_pubkey(&self) -> PublicKey;
+
+    async fn synced(&self) -> Result<bool>;
 
     fn network(&self) -> Network;
 
@@ -67,7 +69,11 @@ pub trait LightningInterface {
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult>;
 
-    fn close_channel(&self, channel_id: &[u8; 32], counterparty_node_id: &PublicKey) -> Result<()>;
+    async fn close_channel(
+        &self,
+        channel_id: &[u8; 32],
+        counterparty_node_id: &PublicKey,
+    ) -> Result<()>;
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 

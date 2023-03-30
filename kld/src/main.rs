@@ -59,9 +59,6 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         .context("cannot connect to wallet database")?;
 
     let bitcoind_client = Arc::new(BitcoindClient::new(&settings).await?);
-    bitcoind_client
-        .wait_for_blockchain_synchronisation()
-        .await?;
     bitcoind_client.poll_for_fee_estimates();
 
     let wallet = Arc::new(

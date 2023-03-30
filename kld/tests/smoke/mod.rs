@@ -30,6 +30,6 @@ async fn generate_blocks(settings: &Settings, n_blocks: u64) -> Result<()> {
     bitcoin_client
         .generate_to_address(n_blocks, &Address::from_str(TEST_ADDRESS)?)
         .await?;
-    bitcoin_client.wait_for_blockchain_synchronisation().await?;
+    bitcoin_client.wait_for_blockchain_synchronisation().await;
     Ok(())
 }
