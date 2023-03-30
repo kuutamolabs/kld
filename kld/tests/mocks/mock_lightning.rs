@@ -92,7 +92,9 @@ impl LightningInterface for MockLightning {
     fn identity_pubkey(&self) -> PublicKey {
         self.public_key
     }
-
+    async fn synced(&self) -> Result<bool> {
+        Ok(true)
+    }
     fn graph_num_nodes(&self) -> usize {
         self.num_nodes
     }
@@ -101,7 +103,7 @@ impl LightningInterface for MockLightning {
         self.num_channels
     }
 
-    fn block_height(&self) -> Result<u64> {
+    async fn block_height(&self) -> Result<u64> {
         Ok(50000)
     }
 

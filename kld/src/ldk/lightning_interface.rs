@@ -14,9 +14,11 @@ use super::net_utils::PeerAddress;
 pub trait LightningInterface {
     fn alias(&self) -> String;
 
-    fn block_height(&self) -> Result<u64>;
+    async fn block_height(&self) -> Result<u64>;
 
     fn identity_pubkey(&self) -> PublicKey;
+
+    async fn synced(&self) -> Result<bool>;
 
     fn network(&self) -> Network;
 

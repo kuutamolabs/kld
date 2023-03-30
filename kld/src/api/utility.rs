@@ -20,7 +20,10 @@ pub(crate) async fn get_info(
     macaroon_auth
         .verify_readonly_macaroon(&macaroon.0)
         .map_err(unauthorized)?;
-
+    let synced_to_chain = lightning_interface
+        .synced()
+        .await
+        .map_err(internal_server)?;
     let info = GetInfo {
         id: lightning_interface.identity_pubkey().to_string(),
         alias: lightning_interface.alias(),
@@ -30,8 +33,9 @@ pub(crate) async fn get_info(
         num_peers: lightning_interface.num_peers(),
         block_height: lightning_interface
             .block_height()
+            .await
             .map_err(internal_server)?,
-        synced_to_chain: true,
+        synced_to_chain,
         testnet: lightning_interface.network() != Network::Bitcoin,
         chains: vec![Chain {
             chain: "bitcoin".to_string(),

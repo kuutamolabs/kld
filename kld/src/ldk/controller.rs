@@ -24,10 +24,10 @@ use lightning::util::config::UserConfig;
 use crate::logger::KldLogger;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
-use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
+use lightning_block_sync::{poll, BlockSource};
 use log::{error, info, warn};
 use rand::random;
 use settings::Settings;
@@ -52,6 +52,17 @@ use super::{
 impl LightningInterface for Controller {
     fn identity_pubkey(&self) -> PublicKey {
         self.channel_manager.get_our_node_id()
+    }
+
+    async fn synced(&self) -> Result<bool> {
+        Ok(self.bitcoind_client.is_synchronised().await?
+            && self.channel_manager.current_best_block().block_hash()
+                == self
+                    .bitcoind_client
+                    .get_best_block()
+                    .await
+                    .map_err(|e| anyhow!(e.into_inner()))?
+                    .0)
     }
 
     fn graph_num_nodes(&self) -> usize {
@@ -80,11 +91,11 @@ impl LightningInterface for Controller {
         self.settings.node_name.clone()
     }
 
-    fn block_height(&self) -> Result<u64> {
-        let info = tokio::task::block_in_place(move || {
-            Handle::current().block_on(self.bitcoind_client.get_blockchain_info())
-        });
-        info.map(|i| i.blocks)
+    async fn block_height(&self) -> Result<u64> {
+        self.bitcoind_client
+            .get_blockchain_info()
+            .await
+            .map(|i| i.blocks)
     }
 
     fn network(&self) -> bitcoin::Network {
