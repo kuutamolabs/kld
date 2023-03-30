@@ -71,6 +71,7 @@ mod embedded {
 }
 
 pub async fn migrate_database(settings: &Settings) {
+    let delay = 5;
     loop {
         match connection(settings).await {
             Ok(mut client) => {
@@ -83,11 +84,11 @@ pub async fn migrate_database(settings: &Settings) {
             }
             Err(e) => {
                 warn!(
-                    "Cannot connect to database '{}': {e}",
+                    "Cannot connect to database '{}': {e}. Retrying in {delay}s...",
                     settings.database_name
                 );
             }
         }
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        tokio::time::sleep(Duration::from_secs(delay)).await;
     }
 }

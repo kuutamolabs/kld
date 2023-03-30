@@ -22,6 +22,7 @@ pub async fn test_start() -> Result<()> {
     let result = kld.call_rest_api(routes::GET_INFO).await.unwrap();
     let info: GetInfo = serde_json::from_str(&result).unwrap();
     assert_eq!(START_N_BLOCKS, info.block_height);
+    assert!(info.synced_to_chain);
 
     Ok(())
 }
