@@ -35,10 +35,10 @@ pub fn send_payment_two_nodes(c: &mut Criterion) -> Result<()> {
         let mut settings_0 = test_settings(env!("CARGO_TARGET_TMPDIR"), "bench_1");
         let cockroach_0 = cockroach!(settings_0);
         let db_0 = LdkDatabase::new(&settings_0).await?;
-        migrate_database(&settings_0).await?;
+        migrate_database(&settings_0).await;
         let mut settings_1 = test_settings(env!("CARGO_TARGET_TMPDIR"), "bench_2");
         let cockroach_1 = cockroach!(settings_1);
-        migrate_database(&settings_1).await?;
+        migrate_database(&settings_1).await;
         let db_1 = LdkDatabase::new(&settings_1).await?;
         Ok::<(CockroachManager, LdkDatabase, CockroachManager, LdkDatabase), Error>((
             cockroach_0,

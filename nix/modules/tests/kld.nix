@@ -36,8 +36,8 @@
     db1.wait_for_unit("bitcoind-kld-regtest.service")
     db1.wait_for_unit("kld.service")
 
-    db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")
-    db1.succeed("kld-bitcoin-cli -generate 6 1000")
+    # db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")
+    # db1.succeed("kld-bitcoin-cli -generate 6 1000")
     db1.wait_until_succeeds("kld-cli get-info")
 
     # useful for debugging

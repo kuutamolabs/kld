@@ -596,11 +596,10 @@ impl Controller {
                 .await;
             Controller::sync_to_chain_tip(
                 network,
-                bitcoind_client_clone.clone(),
-                chain_monitor.clone(),
+                bitcoind_client_clone,
+                chain_monitor,
                 channel_manager_blockhash,
-                channel_manager_clone.clone(),
-                is_first_start,
+                channel_manager_clone,
                 channelmonitors,
             )
             .await
@@ -630,48 +629,44 @@ impl Controller {
         chain_monitor: Arc<ChainMonitor>,
         channel_manager_blockhash: BlockHash,
         channel_manager: Arc<ChannelManager>,
-        is_first_start: bool,
         channelmonitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
     ) -> BlockSourceResult<()> {
         // Sync ChannelMonitors and ChannelManager to chain tip
         let mut chain_listener_channel_monitors = Vec::new();
         let mut cache = UnboundedCache::new();
-        let chain_tip = if is_first_start {
-            init::validate_best_block_header(bitcoind_client.clone()).await?
-        } else {
-            let mut chain_listeners = vec![(
-                channel_manager_blockhash,
-                channel_manager.as_ref() as &(dyn chain::Listen + Send + Sync),
-            )];
 
-            for (blockhash, channel_monitor) in channelmonitors {
-                let outpoint = channel_monitor.get_funding_txo().0;
-                chain_listener_channel_monitors.push((
-                    blockhash,
-                    (
-                        channel_monitor,
-                        bitcoind_client.clone(),
-                        bitcoind_client.clone(),
-                        KldLogger::global(),
-                    ),
-                    outpoint,
-                ));
-            }
+        let mut chain_listeners = vec![(
+            channel_manager_blockhash,
+            channel_manager.as_ref() as &(dyn chain::Listen + Send + Sync),
+        )];
 
-            for monitor_listener_info in chain_listener_channel_monitors.iter_mut() {
-                chain_listeners.push((
-                    monitor_listener_info.0,
-                    &monitor_listener_info.1 as &(dyn chain::Listen + Send + Sync),
-                ));
-            }
-            init::synchronize_listeners(
-                bitcoind_client.clone(),
-                network,
-                &mut cache,
-                chain_listeners,
-            )
-            .await?
-        };
+        for (blockhash, channel_monitor) in channelmonitors {
+            let outpoint = channel_monitor.get_funding_txo().0;
+            chain_listener_channel_monitors.push((
+                blockhash,
+                (
+                    channel_monitor,
+                    bitcoind_client.clone(),
+                    bitcoind_client.clone(),
+                    KldLogger::global(),
+                ),
+                outpoint,
+            ));
+        }
+
+        for monitor_listener_info in chain_listener_channel_monitors.iter_mut() {
+            chain_listeners.push((
+                monitor_listener_info.0,
+                &monitor_listener_info.1 as &(dyn chain::Listen + Send + Sync),
+            ));
+        }
+        let chain_tip = init::synchronize_listeners(
+            bitcoind_client.clone(),
+            network,
+            &mut cache,
+            chain_listeners,
+        )
+        .await?;
 
         // Give ChannelMonitors to ChainMonitor
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {

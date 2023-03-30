@@ -43,7 +43,7 @@ pub fn main() -> Result<()> {
 async fn run_kld(settings: Arc<Settings>) -> Result<()> {
     let quit_signal = quit_signal().shared();
 
-    migrate_database(&settings).await?;
+    migrate_database(&settings).await;
 
     let key_generator = Arc::new(
         KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
