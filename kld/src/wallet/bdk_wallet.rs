@@ -203,7 +203,7 @@ impl<
                                     .expect("Cannot obtain mutex for wallet")
                                     .sync(&blockchain, SyncOptions::default())
                                 {
-                                    error!("Walled sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
+                                    error!("Wallet sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
                                 } else {
                                     info!("Wallet is synchronised to blockchain");
                                 }

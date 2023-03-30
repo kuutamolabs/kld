@@ -45,7 +45,7 @@ async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
             Handle::current().block_on(async move {
                 let mut settings = test_settings("integration");
                 let cockroach = cockroach!(settings);
-                migrate_database(&settings).await.unwrap();
+                migrate_database(&settings).await;
                 Ok((settings, Mutex::new(cockroach)))
             })
         })
@@ -69,6 +69,6 @@ pub async fn create_database(settings: &Settings, name: &str) -> Settings {
         .unwrap();
     let mut new_settings = settings.clone();
     new_settings.database_name = name.to_string();
-    migrate_database(&new_settings).await.unwrap();
+    migrate_database(&new_settings).await;
     new_settings
 }
