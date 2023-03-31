@@ -313,15 +313,15 @@ in
             ExecStartPre = "+${pkgs.writeShellScript "pre-start" ''
               set -x -eu -o pipefail
 
-              install -d -m555 ${certsDir}
+#              install -d -m555 ${certsDir}
 
-              install -m 0444 -D ${cfg.caCertPath} ${certsDir}/ca.crt
-              ${lib.optionalString (cfg.rootClientCertPath != null) ''
-                install -m 0400 -D ${cfg.rootClientCertPath} ${certsDir}/client.root.crt
-                install -m 0400 -D ${cfg.rootClientKeyPath} ${certsDir}/client.root.key
-              ''}
-              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeCertPath} ${certsDir}/node.crt
-              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeKeyPath} ${certsDir}/node.key
+#              install -m 0444 -D ${cfg.caCertPath} ${certsDir}/ca.crt
+#              ${lib.optionalString (cfg.rootClientCertPath != null) ''
+#                install -m 0400 -D ${cfg.rootClientCertPath} ${certsDir}/client.root.crt
+#                install -m 0400 -D ${cfg.rootClientKeyPath} ${certsDir}/client.root.key
+#              ''}
+#              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeCertPath} ${certsDir}/node.crt
+#              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeKeyPath} ${certsDir}/node.key
             ''}";
 
             ExecStart = utils.escapeSystemdExecArgs ([
