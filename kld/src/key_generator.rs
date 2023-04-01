@@ -33,7 +33,7 @@ impl KeyGenerator {
     }
 
     pub fn wallet_seed(&self) -> [u8; 32] {
-        self.generate_key("wallet/0")
+        self.generate_key("")
     }
 
     pub fn lightning_seed(&self) -> [u8; 32] {
