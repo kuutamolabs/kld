@@ -1,5 +1,5 @@
 (import ./lib.nix) ({ self, pkgs, ... }: {
-  name = "from-nixos";
+  name = "kld";
   nodes = {
     # self here is set by using specialArgs in `lib.nix`
     db1 = { self, ... }: {
@@ -36,9 +36,11 @@
     db1.wait_for_unit("bitcoind-kld-regtest.service")
     db1.wait_for_unit("kld.service")
 
-    # db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")
-    # db1.succeed("kld-bitcoin-cli -generate 6 1000")
     db1.wait_until_succeeds("kld-cli get-info")
+
+    # test if we can interact with the bitcoin node
+    db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")
+    db1.succeed("kld-bitcoin-cli -rpcwallet=testwallet -generate 6 1000")
 
     # useful for debugging
     def remote_shell(machine):
