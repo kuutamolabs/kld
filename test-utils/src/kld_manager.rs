@@ -1,10 +1,14 @@
 use crate::bitcoin_manager::BitcoinManager;
-use crate::cockroach_manager::CockroachManager;
+use crate::cockroach_manager::{create_database, CockroachManager};
 use crate::https_client;
 use crate::manager::{Check, Manager};
 use crate::ports::get_available_port;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use bitcoin::secp256k1::serde::de::DeserializeOwned;
+use reqwest::header::{HeaderValue, CONTENT_TYPE};
+use reqwest::Method;
+use serde::Serialize;
 use settings::Settings;
 use std::env::set_var;
 use std::fs;
@@ -14,6 +18,7 @@ pub struct KldManager {
     bin_path: String,
     pub exporter_address: String,
     pub rest_api_address: String,
+    pub peer_port: u16,
     rest_client: reqwest::Client,
 }
 
@@ -33,28 +38,50 @@ impl KldManager {
             .await
     }
 
-    pub async fn call_rest_api(&self, method: &str) -> Result<String, reqwest::Error> {
+    pub async fn call_rest_api<T: DeserializeOwned, B: Serialize>(
+        &self,
+        method: Method,
+        route: &str,
+        body: B,
+    ) -> Result<T> {
         let macaroon = fs::read(format!(
             "{}/macaroons/admin.macaroon",
             self.manager.storage_dir
         ))
         .unwrap();
 
-        self.rest_client
-            .get(format!("https://{}{}", self.rest_api_address, method))
+        let res = self
+            .rest_client
+            .request(
+                method,
+                format!("https://{}{}", self.rest_api_address, route),
+            )
             .header("macaroon", macaroon)
+            .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
+            .body(serde_json::to_string(&body).unwrap())
             .send()
-            .await?
-            .text()
-            .await
+            .await?;
+        let status = res.status();
+        let text = res.text().await?;
+        match serde_json::from_str::<T>(&text) {
+            Ok(t) => {
+                println!("{text}");
+                Ok(t)
+            }
+            Err(e) => {
+                println!("Error from API: {status} {text}");
+                Err(anyhow!(e))
+            }
+        }
     }
 
-    pub fn test_kld(
+    pub async fn test_kld(
         output_dir: &str,
         bin_path: &str,
         bitcoin: &BitcoinManager,
         cockroach: &CockroachManager,
         instance: &str,
+        settings: &Settings,
     ) -> KldManager {
         let exporter_address = format!(
             "127.0.0.1:{}",
@@ -64,9 +91,13 @@ impl KldManager {
             "127.0.0.1:{}",
             get_available_port().expect("Cannot find free port")
         );
+        let peer_port = get_available_port().expect("Cannot find free port");
+
         let manager = Manager::new(output_dir, "kld", instance);
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
+
+        create_database(settings).await;
 
         set_var("KLD_DATA_DIR", &manager.storage_dir);
         set_var("KLD_CERTS_DIR", &certs_dir);
@@ -74,6 +105,8 @@ impl KldManager {
             "KLD_MNEMONIC_PATH",
             format!("{}/mnemonic", &manager.storage_dir),
         );
+        set_var("KLD_WALLET_NAME", format!("kld-wallet-{}", instance));
+        set_var("KLD_PEER_PORT", peer_port.to_string());
         set_var("KLD_EXPORTER_ADDRESS", &exporter_address);
         set_var("KLD_REST_API_ADDRESS", &rest_api_address);
         set_var("KLD_BITCOIN_NETWORK", &bitcoin.network);
@@ -81,6 +114,7 @@ impl KldManager {
         set_var("KLD_BITCOIN_RPC_HOST", "127.0.0.1");
         set_var("KLD_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
         set_var("KLD_DATABASE_PORT", cockroach.sql_port.to_string());
+        set_var("KLD_DATABASE_NAME", instance);
         set_var(
             "KLD_DATABASE_CA_CERT_PATH",
             format!("{certs_dir}/cockroach/ca.crt"),
@@ -93,7 +127,7 @@ impl KldManager {
             "KLD_DATABASE_CLIENT_CERT_PATH",
             format!("{certs_dir}/cockroach/client.root.crt"),
         );
-        set_var("KLD_LOG_LEVEL", "debug");
+        set_var("KLD_LOG_LEVEL", "info");
 
         let client = https_client();
 
@@ -102,6 +136,7 @@ impl KldManager {
             bin_path: bin_path.to_string(),
             exporter_address,
             rest_api_address,
+            peer_port,
             rest_client: client,
         }
     }
@@ -112,9 +147,16 @@ pub struct KldCheck(pub Settings);
 #[async_trait]
 impl Check for KldCheck {
     async fn check(&self) -> bool {
-        reqwest::get(format!("http://{}/health", self.0.exporter_address))
-            .await
-            .is_ok()
+        if let Ok(res) = reqwest::get(format!("http://{}/health", self.0.exporter_address)).await {
+            if let Ok(text) = res.text().await {
+                if text == "OK" {
+                    return true;
+                } else {
+                    println!("KLD {} health: {text}", self.0.node_id)
+                }
+            }
+        }
+        return false;
     }
 }
 
@@ -127,9 +169,12 @@ macro_rules! kld {
             $bitcoin,
             $cockroach,
             &$settings.node_id,
-        );
+            &$settings,
+        )
+        .await;
         $settings.rest_api_address = kld.rest_api_address.clone();
         $settings.exporter_address = kld.exporter_address.clone();
+        $settings.peer_port = kld.peer_port;
         kld.start(test_utils::kld_manager::KldCheck($settings.clone()))
             .await?;
         kld

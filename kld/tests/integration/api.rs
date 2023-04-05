@@ -19,9 +19,9 @@ use test_utils::ports::get_available_port;
 use test_utils::{https_client, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 use api::{
-    routes, Address, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
-    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
-    WalletBalance, WalletTransfer, WalletTransferResponse,
+    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FundChannel, FundChannelResponse,
+    GetInfo, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer,
+    SetChannelFeeResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -292,7 +292,7 @@ async fn test_list_channels_readonly() -> Result<()> {
         channel.id
     );
     assert_eq!("true", channel.connected);
-    assert_eq!("usable", channel.state);
+    assert_eq!(ChannelState::Usable, channel.state);
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
     assert_eq!(
         "0000000000000000000000000000000000000000000000000000000000000000",

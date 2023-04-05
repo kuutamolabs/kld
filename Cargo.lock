@@ -2487,6 +2487,8 @@ dependencies = [
  "postgres-openssl",
  "rand",
  "reqwest",
+ "serde",
+ "serde_json",
  "settings",
  "tokio",
  "tokio-postgres",

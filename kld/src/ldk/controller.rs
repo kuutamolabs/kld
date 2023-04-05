@@ -10,8 +10,8 @@ use bitcoin::{BlockHash, Network, Transaction};
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
+use lightning::chain::Watch;
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
-use lightning::chain::{chainmonitor, Watch};
 use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
@@ -62,7 +62,8 @@ impl LightningInterface for Controller {
                     .get_best_block()
                     .await
                     .map_err(|e| anyhow!(e.into_inner()))?
-                    .0)
+                    .0
+            && self.wallet.synced().await)
     }
 
     fn graph_num_nodes(&self) -> usize {
@@ -393,11 +394,16 @@ impl Controller {
 
     pub async fn start_ldk(
         settings: Arc<Settings>,
-        database: Arc<LdkDatabase>,
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         seed: &[u8; 32],
     ) -> Result<Controller> {
+        let database = Arc::new(
+            LdkDatabase::new(&settings)
+                .await
+                .context("LDK controller cannot connect to database")?,
+        );
+
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
 
@@ -406,14 +412,14 @@ impl Controller {
 
         let network = settings.bitcoin_network.into();
 
-        // Initialize the ChainMonitor
-        let chain_monitor: Arc<ChainMonitor> = Arc::new(chainmonitor::ChainMonitor::new(
+        let chain_monitor: Arc<ChainMonitor> = Arc::new(ChainMonitor::new(
             None,
             broadcaster.clone(),
             KldLogger::global(),
             fee_estimator.clone(),
             database.clone(),
         ));
+        database.set_chain_monitor(chain_monitor.clone());
 
         let is_first_start = database
             .is_first_start()
@@ -422,10 +428,14 @@ impl Controller {
         // Initialize the KeysManager
         // The key seed that we use to derive the node privkey (that corresponds to the node pubkey) and
         // other secret key material.
-        let cur = SystemTime::now()
+        let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
-        let keys_manager = Arc::new(KeysManager::new(seed, cur.as_secs(), cur.subsec_nanos()));
+        let keys_manager = Arc::new(KeysManager::new(
+            seed,
+            current_time.as_secs(),
+            current_time.subsec_nanos(),
+        ));
 
         let network_graph = Arc::new(
             database
@@ -513,12 +523,12 @@ impl Controller {
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
 
-        let gossip_sync = Arc::new_cyclic(|u| {
+        let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
                 bitcoind_client.clone(),
                 network_graph.clone(),
-                u.clone(),
+                gossip.clone(),
             ));
             P2PGossipSync::new(
                 network_graph.clone(),
@@ -534,10 +544,6 @@ impl Controller {
             IgnoringMessageHandler {},
         ));
         let ephemeral_bytes: [u8; 32] = random();
-        let current_time = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
         let lightning_msg_handler = MessageHandler {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
@@ -545,7 +551,7 @@ impl Controller {
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
-            current_time.try_into().unwrap(),
+            current_time.as_secs().try_into().unwrap(),
             &ephemeral_bytes,
             KldLogger::global(),
             IgnoringMessageHandler {},

@@ -49,7 +49,10 @@ impl<
     fn balance(&self) -> Result<Balance> {
         match self.wallet.try_lock() {
             Ok(wallet) => Ok(wallet.get_balance()?),
-            Err(_) => Ok(Balance::default()),
+            Err(_) => {
+                error!("Wallet was locked when trying to get balance");
+                Ok(Balance::default())
+            }
         }
     }
 
@@ -71,7 +74,7 @@ impl<
             }
         };
 
-        match self.wallet.try_lock() {
+        match self.wallet.lock() {
             Ok(wallet) => {
                 let mut tx_builder = wallet.build_tx();
                 if amount == u64::MAX {
@@ -106,7 +109,7 @@ impl<
     fn new_address(&self) -> Result<AddressInfo> {
         let address = self
             .wallet
-            .try_lock()
+            .lock()
             .unwrap()
             .get_address(bdk::wallet::AddressIndex::LastUnused)?;
         Ok(address)
@@ -157,6 +160,17 @@ impl<
         })
     }
 
+    pub async fn synced(&self) -> bool {
+        if let Ok((_hash, Some(height))) = self.bitcoind_client.get_best_block().await {
+            if let Ok(wallet) = self.wallet.try_lock() {
+                if let Ok(Some(sync_time)) = wallet.database().get_sync_time() {
+                    return sync_time.block_time.height >= height - 1;
+                }
+            }
+        }
+        false
+    }
+
     pub fn keep_sync_with_chain(&self) -> Result<()> {
         let url = format!(
             "http://{}:{}",
@@ -178,7 +192,7 @@ impl<
                 file: self.settings.bitcoin_cookie_path.clone().into(),
             },
             network: self.settings.bitcoin_network.into(),
-            wallet_name: "kld-wallet".to_string(),
+            wallet_name: self.settings.wallet_name.clone(),
             sync_params: Some(rpc_sync_params),
         };
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
@@ -198,14 +212,16 @@ impl<
                             }
                             _ => {
                                 // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
-                                if let Err(e) = wallet_clone
-                                    .lock()
-                                    .expect("Cannot obtain mutex for wallet")
-                                    .sync(&blockchain, SyncOptions::default())
-                                {
-                                    error!("Wallet sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
+                                if let Ok(guard) = wallet_clone.lock() {
+                                    info!("Starting wallet sync");
+                                    if let Err(e) = guard.sync(&blockchain, SyncOptions::default())
+                                    {
+                                        error!("Wallet sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
+                                    } else {
+                                        info!("Wallet is synchronised to blockchain");
+                                    }
                                 } else {
-                                    info!("Wallet is synchronised to blockchain");
+                                    error!("Cannot obtain mutex for wallet");
                                 }
                             }
                         }
@@ -214,7 +230,7 @@ impl<
                         error!("Could not get wallet info: {e}");
                     }
                 }
-                std::thread::sleep(Duration::from_secs(60));
+                std::thread::sleep(Duration::from_secs(10));
             }
         });
         Ok(())
@@ -226,7 +242,7 @@ impl<
         channel_value_satoshis: &u64,
         fee_rate: api::FeeRate,
     ) -> Result<Transaction> {
-        let wallet = self.wallet.try_lock().unwrap();
+        let wallet = self.wallet.lock().unwrap();
 
         let mut tx_builder = wallet.build_tx();
 

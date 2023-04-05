@@ -22,6 +22,7 @@ use log::{error, info};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use settings::Settings;
+use tokio::runtime::Handle;
 
 use crate::{ldk::MIN_FEERATE, quit_signal};
 
@@ -30,6 +31,7 @@ use super::Synchronised;
 pub struct BitcoindClient {
     client: Arc<RpcClient>,
     priorities: Arc<Priorities>,
+    handle: Handle,
 }
 
 impl BitcoindClient {
@@ -44,7 +46,11 @@ impl BitcoindClient {
         );
 
         let priorities = Arc::new(Priorities::new());
-        let bitcoind_client = BitcoindClient { client, priorities };
+        let bitcoind_client = BitcoindClient {
+            client,
+            priorities,
+            handle: tokio::runtime::Handle::current(),
+        };
 
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await?.chain;
@@ -220,7 +226,7 @@ impl BroadcasterInterface for BitcoindClient {
         // multiple times, but the error is safe to ignore.
         let client = self.client.clone();
         let tx_serialized = json!(encode::serialize_hex(tx));
-        tokio::spawn(async move {
+        self.handle.spawn(async move {
             match BitcoindClient::send_transaction_with_client(client, tx_serialized).await {
                 Ok(txid) => {
                     info!("Broadcast transaction {txid}");

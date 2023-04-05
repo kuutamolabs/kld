@@ -45,6 +45,7 @@ pub fn test_settings(tmp_dir: &str, name: &str) -> Settings {
         "{}/certs/cockroach/client.root.key",
         env!("CARGO_MANIFEST_DIR")
     );
+    settings.database_name = name.to_string();
     settings.node_id = name.to_string();
     settings.data_dir = format!("{tmp_dir}/test_{name}");
     settings.mnemonic_path = format!("{}/mnemonic", settings.data_dir);

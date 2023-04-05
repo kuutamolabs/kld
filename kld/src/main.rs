@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use futures::FutureExt;
 use kld::api::{bind_api_server, MacaroonAuth};
 use kld::bitcoind::BitcoindClient;
-use kld::database::{migrate_database, LdkDatabase, WalletDatabase};
+use kld::database::{migrate_database, WalletDatabase};
 use kld::key_generator::KeyGenerator;
 use kld::ldk::Controller;
 use kld::logger::KldLogger;
@@ -14,11 +14,11 @@ use settings::Settings;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub fn main() -> Result<()> {
+pub fn main() {
     let settings = Arc::new(Settings::load());
     KldLogger::init(
         &settings.node_id,
-        settings.log_level.parse().context("Invalid log level")?,
+        settings.log_level.parse().expect("Invalid log level"),
     );
 
     info!("Starting {VERSION}");
@@ -26,18 +26,24 @@ pub fn main() -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .enable_time()
-        .build()?;
+        .build()
+        .expect("could not create runtime");
 
-    if let Err(e) = runtime.block_on(run_kld(settings)) {
-        error!("Fatal error encountered");
-        runtime.shutdown_background();
-        return Err(e);
-    }
+    let exit_code = if let Err(e) = runtime.block_on(run_kld(settings)) {
+        error!("Fatal error encountered: {e}");
+        for cause in e.chain() {
+            error!("{}", cause);
+        }
+        error!("{}", e.backtrace());
+        1
+    } else {
+        0
+    };
 
     info!("Shutting down");
     runtime.shutdown_timeout(Duration::from_secs(30));
     info!("Stopped all threads. Process finished.");
-    Ok(())
+    std::process::exit(exit_code);
 }
 
 async fn run_kld(settings: Arc<Settings>) -> Result<()> {
@@ -49,11 +55,6 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
     );
 
-    let database = Arc::new(
-        LdkDatabase::new(&settings)
-            .await
-            .context("cannot connect to ldk database")?,
-    );
     let wallet_database = WalletDatabase::new(&settings)
         .await
         .context("cannot connect to wallet database")?;
@@ -74,7 +75,6 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
 
     let controller = Controller::start_ldk(
         settings.clone(),
-        database,
         bitcoind_client,
         wallet.clone(),
         &key_generator.lightning_seed(),

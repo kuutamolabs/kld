@@ -1,3 +1,4 @@
+use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::to_i64;
 
@@ -25,7 +26,8 @@ use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
-use log::{debug, info};
+use log::{debug, error, info};
+use once_cell::sync::OnceCell;
 use settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -61,6 +63,7 @@ pub struct LdkDatabase {
     settings: Settings,
     client: Arc<RwLock<Client>>,
     runtime: Handle,
+    chain_monitor: OnceCell<Arc<ChainMonitor>>,
 }
 
 impl LdkDatabase {
@@ -76,11 +79,11 @@ impl LdkDatabase {
             settings: settings.clone(),
             client,
             runtime: Handle::current(),
+            chain_monitor: OnceCell::new(),
         })
     }
 
     /// Try to reconnect to the database if the connection has been dropped.
-    /// If this is not possible one of the callers of this function should shut the node down.
     async fn client(&self) -> Result<Arc<RwLock<Client>>> {
         if self.client.read().await.is_closed() {
             let mut guard = self.client.write().await;
@@ -90,6 +93,13 @@ impl LdkDatabase {
             }
         }
         Ok(self.client.clone())
+    }
+
+    pub fn set_chain_monitor(&self, chain_monitor: Arc<ChainMonitor>) {
+        self.chain_monitor
+            .set(chain_monitor)
+            .map_err(|_| ())
+            .expect("Incorrect initialisation");
     }
 
     pub async fn is_first_start(&self) -> Result<bool> {
@@ -385,31 +395,47 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         &self,
         funding_txo: OutPoint,
         monitor: &ChannelMonitor<ChannelSigner>,
-        _update_id: MonitorUpdateId,
+        update_id: MonitorUpdateId,
     ) -> ChannelMonitorUpdateStatus {
-        debug!(
-            "Persisting new channel: {:?}:{}",
-            funding_txo,
-            monitor.get_latest_update_id()
-        );
-
         let mut out_point_buf = vec![];
         funding_txo.write(&mut out_point_buf).unwrap();
 
         let mut monitor_buf = vec![];
         monitor.write(&mut monitor_buf).unwrap();
+        let latest_update_id = monitor.get_latest_update_id();
 
-        block_in_place!(
-            "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
-            VALUES ($1, $2, $3)",
-            &[
-                &out_point_buf,
-                &monitor_buf,
-                &to_i64!(monitor.get_latest_update_id())
-            ],
-            self
-        );
-        ChannelMonitorUpdateStatus::Completed
+        let client = self.client.clone();
+        let chain_monitor = self
+            .chain_monitor
+            .get()
+            .expect("Incorrect initialisation")
+            .clone();
+        tokio::task::spawn(async move {
+            let result = client
+                .read()
+                .await
+                .execute(
+                    "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
+                VALUES ($1, $2, $3)",
+                    &[&out_point_buf, &monitor_buf, &to_i64!(latest_update_id)],
+                )
+                .await;
+            match result {
+                Ok(_) => {
+                    info!(
+                        "Stored channel: {}:{} with update id: {}",
+                        funding_txo.txid, funding_txo.index, latest_update_id
+                    );
+                    if let Err(e) = chain_monitor.channel_monitor_updated(funding_txo, update_id) {
+                        error!("Monitor update {}", ldk_error(e));
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to persist channel update: {e}");
+                }
+            };
+        });
+        ChannelMonitorUpdateStatus::InProgress
     }
 
     // Updates are applied to the monitor when fetched from database.
@@ -418,7 +444,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         funding_txo: OutPoint,
         _update: Option<&ChannelMonitorUpdate>,
         monitor: &ChannelMonitor<ChannelSigner>,
-        update_id: MonitorUpdateId, // only need this if persisting async.
+        update_id: MonitorUpdateId,
     ) -> ChannelMonitorUpdateStatus {
         debug!(
             "Updating persisted channel: {:?}:{}",

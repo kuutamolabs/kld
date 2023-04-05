@@ -6,17 +6,18 @@ use std::sync::Mutex;
 use anyhow::Result;
 use futures::Future;
 use futures::FutureExt;
-use kld::database::{connection, migrate_database};
+use kld::database::migrate_database;
 use kld::logger::KldLogger;
 use once_cell::sync::OnceCell;
 use settings::Settings;
+use test_utils::cockroach_manager::create_database;
 use test_utils::{cockroach, CockroachManager};
 use tokio::runtime::Handle;
 
 use crate::test_settings;
 
-pub mod ldk_database;
-pub mod wallet_database;
+mod ldk_database;
+mod wallet_database;
 
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
@@ -45,6 +46,7 @@ async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
             Handle::current().block_on(async move {
                 let mut settings = test_settings("integration");
                 let cockroach = cockroach!(settings);
+                create_database(&settings).await;
                 migrate_database(&settings).await;
                 Ok((settings, Mutex::new(cockroach)))
             })
@@ -59,16 +61,4 @@ pub async fn teardown() {
             lock.kill();
         }
     }
-}
-
-pub async fn create_database(settings: &Settings, name: &str) -> Settings {
-    let client = connection(settings).await.unwrap();
-    client
-        .execute(&format!("CREATE DATABASE IF NOT EXISTS {name}"), &[])
-        .await
-        .unwrap();
-    let mut new_settings = settings.clone();
-    new_settings.database_name = name.to_string();
-    migrate_database(&new_settings).await;
-    new_settings
 }

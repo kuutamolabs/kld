@@ -58,8 +58,8 @@ pub struct WalletDatabase {
 impl WalletDatabase {
     pub async fn new(settings: &Settings) -> Result<WalletDatabase> {
         info!(
-            "Connecting wallet to Cockroach database at {}:{}",
-            settings.database_host, settings.database_port
+            "Connecting wallet to Cockroach database {}@{}:{}",
+            settings.database_name, settings.database_host, settings.database_port
         );
         let client = connection(settings).await?;
         Ok(WalletDatabase {

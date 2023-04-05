@@ -44,7 +44,14 @@ async fn response_examples(
     req: Request<Body>,
 ) -> hyper::Result<Response<Body>> {
     match (req.method(), req.uri().path()) {
-        (&Method::GET, "/health") => Ok(Response::new(Body::from("OK"))),
+        (&Method::GET, "/health") => {
+            let health = match lightning_metrics.synced().await {
+                Ok(true) => "OK",
+                Ok(false) => "SYNCING",
+                Err(_) => "ERROR",
+            };
+            Ok(Response::new(Body::from(health)))
+        }
         (&Method::GET, "/pid") => Ok(Response::new(Body::from(process::id().to_string()))),
         (&Method::GET, "/metrics") => {
             UPTIME.set(START.get().unwrap().elapsed().as_millis() as f64);

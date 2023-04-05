@@ -75,7 +75,7 @@ pub async fn migrate_database(settings: &Settings) {
     loop {
         match connection(settings).await {
             Ok(mut client) => {
-                info!("Running database migrations");
+                info!("Running database migrations for {}", settings.database_name);
                 embedded::migrations::runner()
                     .run_async(&mut client)
                     .await

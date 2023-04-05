@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use api::Channel;
 use api::ChannelFee;
+use api::ChannelState;
 use api::FundChannel;
 use api::FundChannelResponse;
 use api::SetChannelFee;
@@ -51,14 +52,13 @@ pub(crate) async fn list_channels(
                 .map(|p| p.status == PeerStatus::Connected)
                 .unwrap_or_default()
                 .to_string(),
-            state: (if c.is_usable {
-                "usable"
+            state: if c.is_usable {
+                ChannelState::Usable
             } else if c.is_channel_ready {
-                "ready"
+                ChannelState::Ready
             } else {
-                "pending"
-            })
-            .to_string(),
+                ChannelState::Pending
+            },
             short_channel_id: to_string_empty!(c.short_channel_id),
             channel_id: c.channel_id.encode_hex(),
             funding_txid: to_string_empty!(c.funding_txo.map(|x| x.txid)),

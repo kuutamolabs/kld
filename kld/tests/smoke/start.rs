@@ -1,28 +1,98 @@
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
-use crate::smoke::{start_all, START_N_BLOCKS};
+use crate::{
+    smoke::{generate_blocks, START_N_BLOCKS},
+    test_settings,
+};
 use anyhow::Result;
-use api::{routes, GetInfo};
+use api::{
+    routes, Channel, ChannelState, FundChannel, FundChannelResponse, GetInfo, NewAddress,
+    NewAddressResponse, WalletBalance,
+};
+use bitcoin::Address;
+use hyper::Method;
+use test_utils::{bitcoin, cockroach, kld, poll, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
 
 // This test is run separately (in its own process) from the other threads.
 // As it starts all the services it might clash with other tests.
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_start() -> Result<()> {
-    let (_cockroach, _bitcoin, kld) = start_all("start").await?;
+    let mut settings_0 = test_settings("start");
+    let cockroach = cockroach!(settings_0);
+    let bitcoin = bitcoin!(settings_0);
+    generate_blocks(
+        &settings_0,
+        START_N_BLOCKS,
+        &Address::from_str(TEST_ADDRESS)?,
+        false,
+    )
+    .await?;
 
-    let health = kld.call_exporter("health").await.unwrap();
-    assert_eq!(health, "OK");
-    let pid = kld.call_exporter("pid").await.unwrap();
-    assert_eq!(pid, kld.pid().unwrap().to_string());
-    assert!(kld.call_exporter("metrics").await.is_ok());
+    settings_0.node_id = "start0".to_owned();
+    settings_0.database_name = "start0".to_owned();
+    let kld_0 = kld!(&bitcoin, &cockroach, settings_0);
 
-    assert!(kld.call_rest_api(routes::ROOT).await.is_ok());
+    let mut settings_1 = settings_0.clone();
+    settings_1.node_id = "start1".to_owned();
+    settings_1.database_name = "start1".to_owned();
+    let kld_1 = kld!(&bitcoin, &cockroach, settings_1);
 
-    let result = kld.call_rest_api(routes::GET_INFO).await.unwrap();
-    let info: GetInfo = serde_json::from_str(&result).unwrap();
-    assert_eq!(START_N_BLOCKS, info.block_height);
-    assert!(info.synced_to_chain);
+    let pid = kld_0.call_exporter("pid").await?;
+    assert_eq!(pid, kld_0.pid().unwrap().to_string());
+    assert!(kld_0.call_exporter("metrics").await.is_ok());
+
+    let address: NewAddressResponse = kld_0
+        .call_rest_api(Method::GET, routes::NEW_ADDR, NewAddress::default())
+        .await?;
+
+    generate_blocks(
+        &settings_0,
+        105,
+        &bitcoin::Address::from_str(&address.address)?,
+        false,
+    )
+    .await?;
+
+    poll!(
+        30,
+        kld_0
+            .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
+            .await?
+            .total_balance
+            > 0
+    );
+    let info_1: GetInfo = kld_1
+        .call_rest_api(Method::GET, routes::GET_INFO, ())
+        .await?;
+
+    let fund_channel = FundChannel {
+        id: format!("{}@127.0.0.1:{}", info_1.id, kld_1.peer_port),
+        satoshis: "1000000".to_string(),
+        ..Default::default()
+    };
+
+    let _open_channel_response: FundChannelResponse = kld_0
+        .call_rest_api(Method::POST, routes::OPEN_CHANNEL, fund_channel)
+        .await?;
+
+    generate_blocks(
+        &settings_0,
+        10,
+        &bitcoin::Address::from_str(&address.address)?,
+        true,
+    )
+    .await?;
+
+    poll!(
+        30,
+        kld_0
+            .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
+            .await?
+            .get(0)
+            .map(|c| &c.state)
+            == Some(&ChannelState::Usable)
+    );
 
     Ok(())
 }
@@ -30,7 +100,18 @@ pub async fn test_start() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Only run this for manual testing"]
 pub async fn test_manual() -> Result<()> {
-    start_all("maunal").await?;
+    let mut settings = test_settings("manual");
+    let cockroach = cockroach!(settings);
+    let bitcoin = bitcoin!(settings);
+
+    generate_blocks(
+        &settings,
+        START_N_BLOCKS,
+        &Address::from_str(TEST_ADDRESS)?,
+        false,
+    )
+    .await?;
+    let _kld = kld!(&bitcoin, &cockroach, settings);
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;
     Ok(())
