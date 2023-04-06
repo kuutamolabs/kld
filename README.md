@@ -1,4 +1,4 @@
-Our mission is to enable everyone to deploy and run resilient, secure and performant protocol infrastructure
+Our mission is to enable everyone to deploy and run resilient, secure and performant protocol infrastructure.
 
 kuutamo is an open, turn-key, end-to-end solution for running best-in-class self-hosted nodes, anywhere.
 
@@ -11,7 +11,7 @@ In the world of software, you usually need to decide between using a managed Saa
 - Server(s)/node(s): Any Linux OS
 - Workstation/development machine: Any Linux OS
 
-These are two different machines. The kld manager, `kld-mgr` will run on your workstation. It will talk over SSH to your server/node. During install the server(s)/node(s) will be wiped and fresh kuutamo near distribution(s) will be installed.
+These are two different machines. The kld manager, `kld-mgr` will run on your workstation. It will talk over SSH to your server/node. During install the server(s)/node(s) will be wiped and a fresh kuutamo lightning distribution will be installed.
 
 ## Server Setup
 
@@ -41,11 +41,15 @@ $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org
 ```bash
 $ printf 'alias kld-mgr="nix run --refresh github:kuutamolabs/lightning-knd --"' >> ~/.bashrc && source ~/.bashrc
 ```
-5. Test the kneard-mgr command:
+5. Test the `kld-mgr` command:
 
 ```bash
 $ kld-mgr --help
 ```
+
+Answer ‘y’ to the four questions asked.
+After some downloading you should see the help output.
+
 
 ## Pro 3 node cluster install (v0.0.0-alpha5)
 
