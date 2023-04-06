@@ -138,7 +138,7 @@ Options:
 In the folder:
 
 ```bash
-$ kneard-mgr update
+$ kld-mgr update
 ```
 
 ## Further Information
