@@ -2,7 +2,7 @@ Our mission is to enable everyone to deploy and run resilient, secure and perfor
 
 kuutamo is an open, turn-key, end-to-end solution for running best-in-class self-hosted nodes, anywhere.
 
-In the world of software, you usually need to decide between using a managed SaaS or running everything yourself in a self-hosted environment, which means handling all the operations to keep things running smoothly. At kuutamo we believe that there is a third way. A hybrid cloud first way. A next generation cloud. Our packaged services can be deployed anywhere, to any cloud, bare metal, and to our users own infrastructure. We aim to provide all the updates, monitoring and ops tooling needed, along with world-class SRE for protocol and infrastructure support services.
+In the world of software, you usually need to decide between using a managed SaaS or running everything yourself in a self-hosted environment, which means handling all the operations to keep things running smoothly. At kuutamo we believe that there is a better way. A hybrid cloud first way. A next generation cloud. Our packaged services can be deployed anywhere, to any cloud, bare metal, and to our users own infrastructure. We aim to provide all the updates, monitoring and ops tooling needed, along with world-class SRE for protocol and infrastructure support services.
 
 # Lighting Router Node using kld from kuutamo
 
