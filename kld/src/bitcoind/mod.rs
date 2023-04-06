@@ -13,5 +13,6 @@ pub use mock::MockBitcoindClient;
 
 #[async_trait]
 pub trait Synchronised {
+    async fn is_available(&self) -> bool;
     async fn is_synchronised(&self) -> Result<bool>;
 }

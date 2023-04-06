@@ -56,14 +56,14 @@ impl LightningInterface for Controller {
 
     async fn synced(&self) -> Result<bool> {
         Ok(self.bitcoind_client.is_synchronised().await?
+            && self.wallet.synced().await
             && self.channel_manager.current_best_block().block_hash()
                 == self
                     .bitcoind_client
                     .get_best_block()
                     .await
                     .map_err(|e| anyhow!(e.into_inner()))?
-                    .0
-            && self.wallet.synced().await)
+                    .0)
     }
 
     fn graph_num_nodes(&self) -> usize {

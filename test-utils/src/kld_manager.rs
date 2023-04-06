@@ -65,7 +65,7 @@ impl KldManager {
         let text = res.text().await?;
         match serde_json::from_str::<T>(&text) {
             Ok(t) => {
-                println!("{text}");
+                println!("API result: {text}");
                 Ok(t)
             }
             Err(e) => {

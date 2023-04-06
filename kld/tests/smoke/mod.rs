@@ -20,7 +20,7 @@ pub async fn generate_blocks(
     for _ in 0..n_blocks {
         bitcoin_client.generate_to_address(1, address).await?;
         bitcoin_client.wait_for_blockchain_synchronisation().await;
-        // Sometime a delay is needed to make the test more realistic which is expected by LDK.
+        // Sometimes a delay is needed to make the test more realistic which is expected by LDK.
         if delay {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }

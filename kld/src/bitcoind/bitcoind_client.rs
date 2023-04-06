@@ -68,7 +68,10 @@ impl BitcoindClient {
         let wait_for_shutdown = tokio::spawn(quit_signal());
         while !wait_for_shutdown.is_finished() {
             match self.is_synchronised().await {
-                Ok(true) => return,
+                Ok(true) => {
+                    info!("Blockchain is syncronised with network");
+                    return;
+                }
                 Ok(false) => (),
                 Err(e) => {
                     error!("Could not determine blockchain sync status: {}", e);
@@ -179,6 +182,10 @@ impl BitcoindClient {
 
 #[async_trait]
 impl Synchronised for BitcoindClient {
+    async fn is_available(&self) -> bool {
+        self.get_blockchain_info().await.is_ok()
+    }
+
     async fn is_synchronised(&self) -> Result<bool> {
         let one_week = 60 * 60 * 24 * 7;
         let one_week_ago = SystemTime::now()
@@ -187,7 +194,6 @@ impl Synchronised for BitcoindClient {
             .duration_since(UNIX_EPOCH)?
             .as_secs();
         let info = self.get_blockchain_info().await?;
-
         Ok(info.blocks == info.headers
             && info.median_time > one_week_ago
             // Its rare to see 100% verification.

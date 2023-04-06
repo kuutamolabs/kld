@@ -164,7 +164,7 @@ impl<
         if let Ok((_hash, Some(height))) = self.bitcoind_client.get_best_block().await {
             if let Ok(wallet) = self.wallet.try_lock() {
                 if let Ok(Some(sync_time)) = wallet.database().get_sync_time() {
-                    return sync_time.block_time.height >= height - 1;
+                    return sync_time.block_time.height == height;
                 }
             }
         }
@@ -198,40 +198,45 @@ impl<
         let blockchain = RpcBlockchain::from_config(&wallet_config)?;
 
         let wallet_clone = self.wallet.clone();
-        tokio::task::spawn_blocking(move || {
-            loop {
-                match blockchain.get_wallet_info() {
-                    Ok(wallet_info) => {
-                        match wallet_info.scanning {
-                            Some(ScanningDetails::Scanning { duration, progress }) => {
-                                info!(
+        tokio::task::spawn_blocking(move || loop {
+            match blockchain.get_wallet_info() {
+                Ok(wallet_info) => match wallet_info.scanning {
+                    Some(ScanningDetails::Scanning { duration, progress }) => {
+                        info!(
                                     "Wallet is synchronising with the blockchain. {}% progress after {} seconds.",
                                     (progress * 100_f32).round(),
                                     duration
                                 );
-                            }
-                            _ => {
-                                // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
-                                if let Ok(guard) = wallet_clone.lock() {
-                                    info!("Starting wallet sync");
-                                    if let Err(e) = guard.sync(&blockchain, SyncOptions::default())
-                                    {
-                                        error!("Wallet sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
-                                    } else {
-                                        info!("Wallet is synchronised to blockchain");
+                    }
+                    _ => {
+                        if let Ok(info) = blockchain.get_blockchain_info() {
+                            if let Ok(guard) = wallet_clone.try_lock() {
+                                let database = guard.database();
+                                if let Ok(synctime) = database.get_sync_time() {
+                                    let sync_height = synctime
+                                        .map(|time| time.block_time.height as u64)
+                                        .unwrap_or_default();
+                                    if sync_height < info.blocks {
+                                        drop(database);
+                                        info!("Starting wallet sync");
+                                        if let Err(e) =
+                                            guard.sync(&blockchain, SyncOptions::default())
+                                        {
+                                            error!("Wallet sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
+                                        } else {
+                                            info!("Wallet is synchronised to blockchain");
+                                        }
                                     }
-                                } else {
-                                    error!("Cannot obtain mutex for wallet");
                                 }
                             }
                         }
                     }
-                    Err(e) => {
-                        error!("Could not get wallet info: {e}");
-                    }
+                },
+                Err(e) => {
+                    error!("Could not get wallet info: {e}");
                 }
-                std::thread::sleep(Duration::from_secs(10));
             }
+            std::thread::sleep(Duration::from_secs(10));
         });
         Ok(())
     }

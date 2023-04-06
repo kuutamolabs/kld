@@ -23,6 +23,10 @@ impl Default for MockBitcoindClient {
 
 #[async_trait]
 impl Synchronised for MockBitcoindClient {
+    async fn is_available(&self) -> bool {
+        true
+    }
+
     async fn is_synchronised(&self) -> Result<bool> {
         Ok(self.synchronised)
     }
