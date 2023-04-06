@@ -50,6 +50,27 @@ $ kld-mgr --help
 Answer ‘y’ to the four questions asked.
 After some downloading you should see the help output.
 
+```bash
+Subcommand to run
+
+Usage: kld-mgr [OPTIONS] <COMMAND>
+
+Commands:
+  generate-config  Generate NixOS configuration
+  install          Install kld cluster on given hosts. This will remove all data of the current system!
+  dry-update       Upload update to host and show which actions would be performed on an update
+  update           Update hosts
+  rollback         Rollback hosts to previous generation
+  ssh              SSH into a host
+  reboot           Reboot hosts
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+      --config <CONFIG>  configuration file to load [env: KLD_CONFIG=] [default: kld.toml]
+      --yes              skip interactive dialogs by assuming the answer is yes
+  -h, --help             Print help
+  -V, --version          Print version
+```
 
 ## Pro 3 node cluster install (v0.0.0-alpha5)
 
