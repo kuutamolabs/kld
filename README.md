@@ -36,7 +36,7 @@ $ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes'
 $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
 ```
 
-4. Alias `kneard-mgr` and use [`nix run`](https://determinate.systems/posts/nix-run) command:
+4. Alias `kld-mgr` and use [`nix run`](https://determinate.systems/posts/nix-run) command:
 
 ```bash
 $ printf 'alias kld-mgr="nix run --refresh github:kuutamolabs/lightning-knd --"' >> ~/.bashrc && source ~/.bashrc
