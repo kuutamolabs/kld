@@ -71,7 +71,6 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         )
         .context("Cannot create wallet")?,
     );
-    wallet.keep_sync_with_chain()?;
 
     let controller = Controller::start_ldk(
         settings.clone(),

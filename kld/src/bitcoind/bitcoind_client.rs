@@ -69,7 +69,7 @@ impl BitcoindClient {
         while !wait_for_shutdown.is_finished() {
             match self.is_synchronised().await {
                 Ok(true) => {
-                    info!("Blockchain is syncronised with network");
+                    info!("Blockchain is synchronised with network");
                     return;
                 }
                 Ok(false) => (),
@@ -182,10 +182,6 @@ impl BitcoindClient {
 
 #[async_trait]
 impl Synchronised for BitcoindClient {
-    async fn is_available(&self) -> bool {
-        self.get_blockchain_info().await.is_ok()
-    }
-
     async fn is_synchronised(&self) -> Result<bool> {
         let one_week = 60 * 60 * 24 * 7;
         let one_week_ago = SystemTime::now()

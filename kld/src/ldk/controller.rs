@@ -596,6 +596,7 @@ impl Controller {
         let bitcoind_client_clone = bitcoind_client.clone();
         let channel_manager_clone = channel_manager.clone();
         let peer_manager_clone = peer_manager.clone();
+        let wallet_clone = wallet.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
@@ -611,6 +612,7 @@ impl Controller {
             .await
             .unwrap();
 
+            wallet_clone.keep_sync_with_chain();
             peer_manager_clone.listen().await;
             peer_manager_clone.keep_channel_peers_connected();
             peer_manager_clone.regularly_broadcast_node_announcement();
