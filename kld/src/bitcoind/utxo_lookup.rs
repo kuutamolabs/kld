@@ -9,6 +9,7 @@ use lightning::routing::{
 use lightning_block_sync::{BlockData, BlockSource};
 use log::warn;
 use settings::Settings;
+use tokio::runtime::Handle;
 
 use crate::ldk::{
     channel_utils::{block_from_scid, tx_index_from_scid, vout_from_scid},
@@ -22,6 +23,7 @@ pub struct BitcoindUtxoLookup {
     network_graph: Arc<NetworkGraph>,
     gossip_sync: Weak<P2PGossipSync<Arc<NetworkGraph>, Arc<BitcoindUtxoLookup>, Arc<KldLogger>>>,
     genesis: BlockHash,
+    runtime: Handle,
 }
 
 impl BitcoindUtxoLookup {
@@ -41,6 +43,7 @@ impl BitcoindUtxoLookup {
             network_graph,
             gossip_sync,
             genesis,
+            runtime: tokio::runtime::Handle::current(),
         }
     }
 }
@@ -55,7 +58,7 @@ impl UtxoLookup for BitcoindUtxoLookup {
         let network_graph = self.network_graph.clone();
         let bitcoind = self.bitcoind.clone();
         let gossip_sync = self.gossip_sync.clone();
-        tokio::spawn(async move {
+        self.runtime.spawn(async move {
             let resolve = |utxo| {
                 if let Some(gossip_sync) = gossip_sync.upgrade() {
                     result.resolve(&network_graph, gossip_sync, utxo);
