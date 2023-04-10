@@ -91,7 +91,7 @@ macro_rules! poll {
             ellapsed += 1;
         }
         if ellapsed == $secs {
-            panic!("Timed out polling for result");
+            anyhow::bail!("Timed out polling for result");
         }
     };
 }

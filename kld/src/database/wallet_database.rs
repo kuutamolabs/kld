@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{connection, Client};
+use super::DurableConnection;
 use crate::to_i64;
 use anyhow::Result;
 use bdk::{
@@ -9,19 +9,16 @@ use bdk::{
 };
 use bitcoin::consensus::encode::{deserialize, serialize};
 use bitcoin::{OutPoint, Script, Transaction, TxOut, Txid};
-use log::info;
 use settings::Settings;
-use tokio::{runtime::Handle, sync::RwLock};
+use tokio::runtime::Handle;
 
 macro_rules! execute_blocking {
     ($statement: literal, $params: expr, $self: expr) => {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 $self
-                    .client()
-                    .await
-                    .map_err(|e| Error::Generic(e.to_string()))?
-                    .read()
+                    .durable_connection
+                    .get()
                     .await
                     .execute($statement, $params)
                     .await
@@ -36,10 +33,8 @@ macro_rules! query_blocking {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 $self
-                    .client()
-                    .await
-                    .map_err(|e| Error::Generic(e.to_string()))?
-                    .read()
+                    .durable_connection
+                    .get()
                     .await
                     .query($statement, $params)
                     .await
@@ -51,34 +46,19 @@ macro_rules! query_blocking {
 
 #[derive(Clone)]
 pub struct WalletDatabase {
-    settings: Settings,
-    client: Arc<RwLock<Client>>,
+    settings: Arc<Settings>,
+    durable_connection: Arc<DurableConnection>,
 }
 
 impl WalletDatabase {
-    pub async fn new(settings: &Settings) -> Result<WalletDatabase> {
-        info!(
-            "Connecting wallet to Cockroach database {}@{}:{}",
-            settings.database_name, settings.database_host, settings.database_port
-        );
-        let client = connection(settings).await?;
-        Ok(WalletDatabase {
-            settings: settings.clone(),
-            client: Arc::new(RwLock::new(client)),
-        })
-    }
-
-    /// Try to reconnect to the database if the connection has been dropped.
-    /// If this is not possible one of the callers of this function should shut the node down.
-    async fn client(&self) -> Result<Arc<RwLock<Client>>> {
-        if self.client.read().await.is_closed() {
-            let mut guard = self.client.write().await;
-            if guard.is_closed() {
-                let client = connection(&self.settings).await?;
-                *guard = client;
-            }
+    pub fn new(
+        settings: Arc<Settings>,
+        durable_connection: Arc<DurableConnection>,
+    ) -> WalletDatabase {
+        WalletDatabase {
+            settings,
+            durable_connection,
         }
-        Ok(self.client.clone())
     }
 
     fn insert_script_pubkey(
@@ -893,16 +873,11 @@ impl BatchDatabase for WalletDatabase {
             Handle::current().block_on(async move {
                 let database = WalletDatabase {
                     settings: self.settings.clone(),
-                    client: self
-                        .client()
-                        .await
-                        .map_err(|e| Error::Generic(e.to_string()))?,
+                    durable_connection: self.durable_connection.clone(),
                 };
                 database
-                    .client()
-                    .await
-                    .map_err(|e| Error::Generic(e.to_string()))?
-                    .read()
+                    .durable_connection
+                    .get()
                     .await
                     .batch_execute("BEGIN")
                     .await
@@ -916,10 +891,8 @@ impl BatchDatabase for WalletDatabase {
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
                 batch
-                    .client()
-                    .await
-                    .map_err(|e| Error::Generic(e.to_string()))?
-                    .read()
+                    .durable_connection
+                    .get()
                     .await
                     .batch_execute("COMMIT")
                     .await

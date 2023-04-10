@@ -14,10 +14,6 @@ path = "src/cli/main.rs"
 [lib]
 doctest = false
 
-[[bench]]
-name = "kld_bench"
-harness = false
-
 [dependencies]
 api = { path = "../api" }
 settings = { path = "../settings" }

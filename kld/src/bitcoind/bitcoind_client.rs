@@ -24,9 +24,7 @@ use serde_json::{json, Value};
 use settings::Settings;
 use tokio::runtime::Handle;
 
-use crate::{ldk::MIN_FEERATE, quit_signal};
-
-use super::Synchronised;
+use crate::{ldk::MIN_FEERATE, quit_signal, Service};
 
 pub struct BitcoindClient {
     client: Arc<RpcClient>,
@@ -67,16 +65,10 @@ impl BitcoindClient {
         info!("Waiting for blockchain synchronisation.");
         let wait_for_shutdown = tokio::spawn(quit_signal());
         while !wait_for_shutdown.is_finished() {
-            match self.is_synchronised().await {
-                Ok(true) => {
-                    info!("Blockchain is synchronised with network");
-                    return;
-                }
-                Ok(false) => (),
-                Err(e) => {
-                    error!("Could not determine blockchain sync status: {}", e);
-                }
-            };
+            if self.is_synchronised().await {
+                info!("Blockchain is synchronised with network");
+                return;
+            }
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
@@ -181,19 +173,28 @@ impl BitcoindClient {
 }
 
 #[async_trait]
-impl Synchronised for BitcoindClient {
-    async fn is_synchronised(&self) -> Result<bool> {
+impl Service for BitcoindClient {
+    async fn is_connected(&self) -> bool {
+        self.get_best_block().await.is_ok()
+    }
+
+    async fn is_synchronised(&self) -> bool {
         let one_week = 60 * 60 * 24 * 7;
         let one_week_ago = SystemTime::now()
             .checked_sub(Duration::from_secs(one_week))
             .expect("wrong system time")
-            .duration_since(UNIX_EPOCH)?
+            .duration_since(UNIX_EPOCH)
+            .expect("Wrong system time")
             .as_secs();
-        let info = self.get_blockchain_info().await?;
-        Ok(info.blocks == info.headers
-            && info.median_time > one_week_ago
-            // Its rare to see 100% verification.
-            && info.verification_progress > 0.99)
+        match self.get_blockchain_info().await {
+            Ok(info) => {
+                info.blocks == info.headers
+                    && info.median_time > one_week_ago
+                    // Its rare to see 100% verification.
+                    && info.verification_progress > 0.99
+            }
+            Err(_) => false,
+        }
     }
 }
 

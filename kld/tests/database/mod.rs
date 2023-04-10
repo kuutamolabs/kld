@@ -1,18 +1,23 @@
 use std::panic;
 use std::sync::atomic::AtomicU16;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Result;
 use futures::Future;
 use futures::FutureExt;
-use kld::database::migrate_database;
+use kld::database::DurableConnection;
 use kld::logger::KldLogger;
+use kld::Service;
+use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 use settings::Settings;
 use test_utils::cockroach_manager::create_database;
+use test_utils::poll;
 use test_utils::{cockroach, CockroachManager};
 use tokio::runtime::Handle;
+use tokio::runtime::Runtime;
 
 use crate::test_settings;
 
@@ -21,13 +26,17 @@ mod wallet_database;
 
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
+static CONNECTION_RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
+
 pub async fn with_cockroach<F, Fut>(test: F) -> Result<()>
 where
-    F: FnOnce(&'static Settings) -> Fut,
+    F: FnOnce(Arc<Settings>, Arc<DurableConnection>) -> Fut,
     Fut: Future<Output = Result<()>>,
 {
-    let (settings, _cockroach) = cockroach().await?;
-    let result = panic::AssertUnwindSafe(test(settings)).catch_unwind().await;
+    let (settings, durable_connection, _cockroach) = cockroach().await?;
+    let result = panic::AssertUnwindSafe(test(settings.clone(), durable_connection.clone()))
+        .catch_unwind()
+        .await;
 
     teardown().await;
     match result {
@@ -37,9 +46,17 @@ where
 }
 
 // Need to call teardown function at the end of the test if using this.
-async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
+async fn cockroach() -> Result<&'static (
+    Arc<Settings>,
+    Arc<DurableConnection>,
+    Mutex<CockroachManager>,
+)> {
     COCKROACH_REF_COUNT.fetch_add(1, Ordering::AcqRel);
-    static INSTANCE: OnceCell<(Settings, Mutex<CockroachManager>)> = OnceCell::new();
+    static INSTANCE: OnceCell<(
+        Arc<Settings>,
+        Arc<DurableConnection>,
+        Mutex<CockroachManager>,
+    )> = OnceCell::new();
     INSTANCE.get_or_try_init(|| {
         KldLogger::init("test", log::LevelFilter::Debug);
         tokio::task::block_in_place(move || {
@@ -47,17 +64,25 @@ async fn cockroach() -> Result<&'static (Settings, Mutex<CockroachManager>)> {
                 let mut settings = test_settings("integration");
                 let cockroach = cockroach!(settings);
                 create_database(&settings).await;
-                migrate_database(&settings).await;
-                Ok((settings, Mutex::new(cockroach)))
+                let settings = Arc::new(settings);
+                let settings_clone = settings.clone();
+                let durable_connection = CONNECTION_RUNTIME
+                    .spawn(async { Arc::new(DurableConnection::new_migrate(settings_clone).await) })
+                    .await?;
+                poll!(3, durable_connection.is_connected().await);
+                Ok((settings, durable_connection, Mutex::new(cockroach)))
             })
         })
     })
 }
 
 pub async fn teardown() {
-    if COCKROACH_REF_COUNT.fetch_sub(1, Ordering::AcqRel) == 1 {
-        if let Ok(c) = cockroach().await {
-            let mut lock = c.1.lock().unwrap();
+    let count = COCKROACH_REF_COUNT.fetch_sub(1, Ordering::AcqRel);
+    println!("COUNT {count}");
+    if count == 1 {
+        if let Ok((_, connection, cockroach)) = cockroach().await {
+            connection.disconnect();
+            let mut lock = cockroach.lock().unwrap();
             lock.kill();
         }
     }

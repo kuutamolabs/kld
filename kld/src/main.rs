@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use futures::FutureExt;
 use kld::api::{bind_api_server, MacaroonAuth};
 use kld::bitcoind::BitcoindClient;
-use kld::database::{migrate_database, WalletDatabase};
+use kld::database::{DurableConnection, WalletDatabase};
 use kld::key_generator::KeyGenerator;
 use kld::ldk::Controller;
 use kld::logger::KldLogger;
@@ -49,15 +49,13 @@ pub fn main() {
 async fn run_kld(settings: Arc<Settings>) -> Result<()> {
     let quit_signal = quit_signal().shared();
 
-    migrate_database(&settings).await;
+    let durable_connection = Arc::new(DurableConnection::new_migrate(settings.clone()).await);
 
     let key_generator = Arc::new(
         KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
     );
 
-    let wallet_database = WalletDatabase::new(&settings)
-        .await
-        .context("cannot connect to wallet database")?;
+    let wallet_database = WalletDatabase::new(settings.clone(), durable_connection.clone());
 
     let bitcoind_client = Arc::new(BitcoindClient::new(&settings).await?);
     bitcoind_client.poll_for_fee_estimates();
@@ -74,7 +72,8 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
 
     let controller = Controller::start_ldk(
         settings.clone(),
-        bitcoind_client,
+        durable_connection.clone(),
+        bitcoind_client.clone(),
         wallet.clone(),
         &key_generator.lightning_seed(),
     )
@@ -98,7 +97,7 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
             info!("Received quit signal.");
             Ok(())
         },
-        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
+        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone()) => {
             result.context("Prometheus exporter failed")
         },
         result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {

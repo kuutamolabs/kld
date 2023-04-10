@@ -1,5 +1,4 @@
 use std::thread::spawn;
-use std::time::Duration;
 use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
@@ -16,7 +15,9 @@ use reqwest::StatusCode;
 use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
-use test_utils::{https_client, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
+use test_utils::{
+    https_client, poll, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID,
+};
 
 use api::{
     routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FundChannel, FundChannelResponse,
@@ -642,14 +643,14 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
         readonly_macaroon,
     };
 
-    while !readonly_request(&new_context, Method::GET, routes::ROOT)?
-        .send()
-        .await
-        .map(|r| r.status().is_success())
-        .unwrap_or_default()
-    {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
+    poll!(
+        3,
+        readonly_request(&new_context, Method::GET, routes::ROOT)?
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or_default()
+    );
 
     *context = Some(Arc::new(new_context));
     drop(context); // release lock

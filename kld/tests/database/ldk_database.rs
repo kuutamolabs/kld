@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bitcoin::Network;
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
@@ -15,14 +15,14 @@ use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::persist::Persister;
-use test_utils::random_public_key;
+use test_utils::{poll, random_public_key};
 
 use super::with_cockroach;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() -> Result<()> {
-    with_cockroach(|settings| async move {
-        let database = LdkDatabase::new(settings).await?;
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
 
         let peer = Peer {
             public_key: random_public_key(),
@@ -52,8 +52,8 @@ pub async fn test_peers() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_network_graph() -> Result<()> {
-    with_cockroach(|settings| async move {
-        let database = LdkDatabase::new(settings).await?;
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
 
         let network_graph = Arc::new(NetworkGraph::new(Network::Regtest, KldLogger::global()));
         // how to make this less verbose?
@@ -85,8 +85,8 @@ pub async fn test_network_graph() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_scorer() -> Result<()> {
-    with_cockroach(|settings| async move {
-        let database = LdkDatabase::new(settings).await?;
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
 
         let network_graph = Arc::new(NetworkGraph::new(Network::Regtest, KldLogger::global()));
         let scorer = Mutex::new(ProbabilisticScorer::new(
@@ -110,13 +110,25 @@ pub async fn test_scorer() -> Result<()> {
         };
 
         persist(&database, &scorer)?;
-        assert!(database
+        poll!(
+            3,
+            database
+                .fetch_scorer(
+                    ProbabilisticScoringParameters::default(),
+                    network_graph.clone()
+                )
+                .await?
+                .is_some()
+        );
+
+        let timestamp = database
             .fetch_scorer(
                 ProbabilisticScoringParameters::default(),
-                network_graph.clone()
+                network_graph.clone(),
             )
             .await?
-            .is_some());
+            .map(|s| s.1)
+            .ok_or(anyhow!("missing timestamp"))?;
 
         scorer
             .lock()
@@ -124,13 +136,18 @@ pub async fn test_scorer() -> Result<()> {
             .add_banned(&NodeId::from_pubkey(&random_public_key()));
 
         persist(&database, &scorer)?;
-        assert!(database
-            .fetch_scorer(
-                ProbabilisticScoringParameters::default(),
-                network_graph.clone()
-            )
-            .await?
-            .is_some());
+        poll!(
+            3,
+            database
+                .fetch_scorer(
+                    ProbabilisticScoringParameters::default(),
+                    network_graph.clone()
+                )
+                .await?
+                .map(|s| s.1)
+                .filter(|t| t > &timestamp)
+                .is_some()
+        );
         Ok(())
     })
     .await

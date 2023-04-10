@@ -2,7 +2,7 @@ use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::to_i64;
 
-use super::{connection, Client};
+use super::DurableConnection;
 use anyhow::{anyhow, bail, Result};
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
@@ -34,65 +34,28 @@ use std::convert::TryInto;
 use std::io::Cursor;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::SystemTime;
 use std::{fs, io};
 use tokio::runtime::Handle;
-use tokio::sync::RwLock;
 
 use super::peer::Peer;
 
-// This gets called from a background thread in LDK so need a handle to the runtime.
-macro_rules! block_in_place {
-    ($statement: literal, $params: expr, $self: expr) => {
-        tokio::task::block_in_place(move || {
-            $self.runtime.block_on(async move {
-                $self
-                    .client()
-                    .await
-                    .unwrap()
-                    .read()
-                    .await
-                    .execute($statement, $params)
-                    .await
-                    .unwrap()
-            })
-        })
-    };
-}
-
 pub struct LdkDatabase {
-    settings: Settings,
-    client: Arc<RwLock<Client>>,
+    settings: Arc<Settings>,
+    durable_connection: Arc<DurableConnection>,
+    // Persist graph/scorer gets called from a background thread in LDK so need a handle to the runtime.
     runtime: Handle,
     chain_monitor: OnceCell<Arc<ChainMonitor>>,
 }
 
 impl LdkDatabase {
-    pub async fn new(settings: &Settings) -> Result<LdkDatabase> {
-        info!(
-            "Connecting LDK to Cockroach database {} at {}:{}",
-            settings.database_name, settings.database_host, settings.database_port
-        );
-        let client = connection(settings).await?;
-        let client = Arc::new(RwLock::new(client));
-
-        Ok(LdkDatabase {
-            settings: settings.clone(),
-            client,
+    pub fn new(settings: Arc<Settings>, durable_connection: Arc<DurableConnection>) -> LdkDatabase {
+        LdkDatabase {
+            settings,
+            durable_connection,
             runtime: Handle::current(),
             chain_monitor: OnceCell::new(),
-        })
-    }
-
-    /// Try to reconnect to the database if the connection has been dropped.
-    async fn client(&self) -> Result<Arc<RwLock<Client>>> {
-        if self.client.read().await.is_closed() {
-            let mut guard = self.client.write().await;
-            if guard.is_closed() {
-                let client = connection(&self.settings).await?;
-                *guard = client;
-            }
         }
-        Ok(self.client.clone())
     }
 
     pub fn set_chain_monitor(&self, chain_monitor: Arc<ChainMonitor>) {
@@ -104,9 +67,8 @@ impl LdkDatabase {
 
     pub async fn is_first_start(&self) -> Result<bool> {
         Ok(self
-            .client()
-            .await?
-            .read()
+            .durable_connection
+            .get()
             .await
             .query_opt("SELECT true FROM channel_manager", &[])
             .await?
@@ -114,9 +76,8 @@ impl LdkDatabase {
     }
 
     pub async fn persist_peer(&self, peer: &Peer) -> Result<()> {
-        self.client()
-            .await?
-            .read()
+        self.durable_connection
+            .get()
             .await
             .execute(
                 "UPSERT INTO peers (public_key, address) \
@@ -129,9 +90,8 @@ impl LdkDatabase {
 
     pub async fn fetch_peer(&self, public_key: &PublicKey) -> Result<Option<Peer>> {
         debug!("Fetching peer from database");
-        self.client()
-            .await?
-            .read()
+        self.durable_connection
+            .get()
             .await
             .query_opt(
                 "SELECT * FROM peers WHERE public_key = $1",
@@ -150,9 +110,8 @@ impl LdkDatabase {
         debug!("Fetching peers from database");
         let mut peers = HashMap::new();
         for row in self
-            .client()
-            .await?
-            .read()
+            .durable_connection
+            .get()
             .await
             .query("SELECT * FROM peers", &[])
             .await?
@@ -167,9 +126,8 @@ impl LdkDatabase {
     }
 
     pub async fn delete_peer(&self, public_key: &PublicKey) -> Result<()> {
-        self.client()
-            .await?
-            .read()
+        self.durable_connection
+            .get()
             .await
             .execute(
                 "DELETE FROM peers \
@@ -191,9 +149,8 @@ where
         //		F::Target: FeeEstimator,
     {
         let rows = self
-            .client()
-            .await?
-            .read()
+            .durable_connection
+            .wait()
             .await
             .query(
                 "SELECT out_point, monitor \
@@ -281,9 +238,8 @@ where
         <L as Deref>::Target: Logger,
     {
         let row = self
-            .client()
-            .await?
-            .read()
+            .durable_connection
+            .get()
             .await
             .query_one(
                 "SELECT manager \
@@ -315,22 +271,27 @@ where
         &self,
         params: ProbabilisticScoringParameters,
         graph: Arc<NetworkGraph<Arc<KldLogger>>>,
-    ) -> Result<Option<ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>>>
-    {
+    ) -> Result<
+        Option<(
+            ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>,
+            SystemTime,
+        )>,
+    > {
         let scorer = self
-            .client()
-            .await?
-            .read()
+            .durable_connection
+            .wait()
             .await
-            .query_opt("SELECT scorer FROM scorer", &[])
+            .query_opt("SELECT scorer, timestamp FROM scorer", &[])
             .await?
             .map(|row| {
                 let bytes: Vec<u8> = row.get(0);
-                ProbabilisticScorer::read(
+                let timestamp: SystemTime = row.get(1);
+                let scorer = ProbabilisticScorer::read(
                     &mut Cursor::new(bytes),
                     (params.clone(), graph.clone(), KldLogger::global()),
                 )
-                .expect("Unable to deserialize scorer")
+                .expect("Unable to deserialize scorer");
+                (scorer, timestamp)
             });
         Ok(scorer)
     }
@@ -355,12 +316,21 @@ where
     ) -> Result<(), io::Error> {
         let mut buf = vec![];
         channel_manager.write(&mut buf)?;
-        block_in_place!(
-            "UPSERT INTO channel_manager (id, manager, timestamp) \
-            VALUES ('manager', $1, CURRENT_TIMESTAMP)",
-            &[&buf],
-            self
-        );
+        let durable_connection = self.durable_connection.clone();
+        self.runtime.spawn(async move {
+            if let Err(e) = durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPSERT INTO channel_manager (id, manager, timestamp) \
+                        VALUES ('manager', $1, CURRENT_TIMESTAMP)",
+                    &[&buf],
+                )
+                .await
+            {
+                error!("Failed to persist channel manager: {e}");
+            }
+        });
         Ok(())
     }
 
@@ -371,18 +341,30 @@ where
     ) -> Result<(), io::Error> {
         let mut buf = vec![];
         network_graph.write(&mut buf)?;
-        fs::write(format!("{}/network_graph", self.settings.data_dir), &buf)
+        if let Err(e) = fs::write(format!("{}/network_graph", self.settings.data_dir), &buf) {
+            error!("Failed to persist graph: {e}");
+        }
+        Ok(())
     }
 
     fn persist_scorer(&self, scorer: &S) -> Result<(), io::Error> {
         let mut buf = vec![];
         scorer.write(&mut buf)?;
-        block_in_place!(
-            "UPSERT INTO scorer (id, scorer, timestamp)
-            VALUES ('scorer', $1, CURRENT_TIMESTAMP)",
-            &[&buf],
-            self
-        );
+        let durable_connection = self.durable_connection.clone();
+        self.runtime.spawn(async move {
+            if let Err(e) = durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPSERT INTO scorer (id, scorer, timestamp)
+                        VALUES ('scorer', $1, CURRENT_TIMESTAMP)",
+                    &[&buf],
+                )
+                .await
+            {
+                error!("Failed to persist scorer: {e}");
+            }
+        });
         Ok(())
     }
 }
@@ -404,15 +386,15 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         monitor.write(&mut monitor_buf).unwrap();
         let latest_update_id = monitor.get_latest_update_id();
 
-        let client = self.client.clone();
+        let durable_connection = self.durable_connection.clone();
         let chain_monitor = self
             .chain_monitor
             .get()
             .expect("Incorrect initialisation")
             .clone();
-        tokio::task::spawn(async move {
-            let result = client
-                .read()
+        self.runtime.spawn(async move {
+            let result = durable_connection
+                .get()
                 .await
                 .execute(
                     "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
@@ -427,7 +409,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                         funding_txo.txid, funding_txo.index, latest_update_id
                     );
                     if let Err(e) = chain_monitor.channel_monitor_updated(funding_txo, update_id) {
-                        error!("Monitor update {}", ldk_error(e));
+                        error!("Failed to update channel monitor: {}", ldk_error(e));
                     }
                 }
                 Err(e) => {

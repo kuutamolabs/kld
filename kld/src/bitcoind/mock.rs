@@ -1,11 +1,11 @@
 use std::{str::FromStr, sync::Mutex};
 
-use super::Synchronised;
-use anyhow::Result;
 use async_trait::async_trait;
 use bitcoin::{BlockHash, Transaction, Txid};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{AsyncBlockSourceResult, BlockData, BlockHeaderData, BlockSource};
+
+use crate::Service;
 
 pub struct MockBitcoindClient {
     broadcast_transactions: Mutex<Vec<Txid>>,
@@ -22,9 +22,12 @@ impl Default for MockBitcoindClient {
 }
 
 #[async_trait]
-impl Synchronised for MockBitcoindClient {
-    async fn is_synchronised(&self) -> Result<bool> {
-        Ok(self.synchronised)
+impl Service for MockBitcoindClient {
+    async fn is_connected(&self) -> bool {
+        true
+    }
+    async fn is_synchronised(&self) -> bool {
+        self.synchronised
     }
 }
 

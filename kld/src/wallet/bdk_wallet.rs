@@ -27,13 +27,13 @@ use log::{error, info};
 use once_cell::sync::OnceCell;
 use settings::{Network, Settings};
 
-use crate::bitcoind::Synchronised;
+use crate::Service;
 
 use super::WalletInterface;
 
 pub struct Wallet<
     D: Database + BatchDatabase + BatchOperations,
-    B: BlockSource + FeeEstimator + Synchronised,
+    B: BlockSource + FeeEstimator + Service,
 > {
     // bdk::Wallet uses a RefCell to hold the database which is not thread safe so we use a mutex here.
     wallet: Arc<Mutex<bdk::Wallet<D>>>,
@@ -45,7 +45,7 @@ pub struct Wallet<
 #[async_trait]
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator + BroadcasterInterface + Synchronised,
+        B: BlockSource + FeeEstimator + BroadcasterInterface + Service,
     > WalletInterface for Wallet<D, B>
 {
     fn balance(&self) -> Result<Balance> {
@@ -66,7 +66,7 @@ impl<
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)> {
-        if !self.bitcoind_client.is_synchronised().await? {
+        if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is syncronising the blockchain")
         }
         let height = match self.bitcoind_client.get_best_block().await {
@@ -120,7 +120,7 @@ impl<
 
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator + Synchronised,
+        B: BlockSource + FeeEstimator + Service,
     > Wallet<D, B>
 {
     pub fn new(

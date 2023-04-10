@@ -1,7 +1,8 @@
-use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup, Synchronised};
+use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::wallet::{Wallet, WalletInterface};
+use crate::Service;
 
-use crate::database::{LdkDatabase, WalletDatabase};
+use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
 use async_trait::async_trait;
@@ -55,7 +56,7 @@ impl LightningInterface for Controller {
     }
 
     async fn synced(&self) -> Result<bool> {
-        Ok(self.bitcoind_client.is_synchronised().await?
+        Ok(self.bitcoind_client.is_synchronised().await
             && self.wallet.synced().await
             && self.channel_manager.current_best_block().block_hash()
                 == self
@@ -139,7 +140,7 @@ impl LightningInterface for Controller {
         fee_rate: Option<FeeRate>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
-        if !self.bitcoind_client.is_synchronised().await? {
+        if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is syncronising blockchain")
         }
         if !self.peer_manager.is_connected(&their_network_key) {
@@ -175,7 +176,7 @@ impl LightningInterface for Controller {
         channel_id: &[u8; 32],
         counterparty_node_id: &PublicKey,
     ) -> Result<()> {
-        if !self.bitcoind_client.is_synchronised().await? {
+        if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is syncronising blockchain")
         }
         self.channel_manager
@@ -394,15 +395,15 @@ impl Controller {
 
     pub async fn start_ldk(
         settings: Arc<Settings>,
+        durable_connection: Arc<DurableConnection>,
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         seed: &[u8; 32],
     ) -> Result<Controller> {
-        let database = Arc::new(
-            LdkDatabase::new(&settings)
-                .await
-                .context("LDK controller cannot connect to database")?,
-        );
+        let database = Arc::new(LdkDatabase::new(
+            settings.clone(),
+            durable_connection.clone(),
+        ));
 
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
@@ -451,6 +452,7 @@ impl Controller {
                     network_graph.clone(),
                 )
                 .await?
+                .map(|s| s.0)
                 .unwrap_or_else(|| {
                     ProbabilisticScorer::new(
                         ProbabilisticScoringParameters::default(),
