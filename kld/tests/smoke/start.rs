@@ -33,11 +33,6 @@ pub async fn test_start() -> Result<()> {
     settings_0.database_name = "start0".to_owned();
     let kld_0 = kld!(&bitcoin, &cockroach, settings_0);
 
-    let mut settings_1 = settings_0.clone();
-    settings_1.node_id = "start1".to_owned();
-    settings_1.database_name = "start1".to_owned();
-    let kld_1 = kld!(&bitcoin, &cockroach, settings_1);
-
     let pid = kld_0.call_exporter("pid").await?;
     assert_eq!(pid, kld_0.pid().unwrap().to_string());
     assert!(kld_0.call_exporter("metrics").await.is_ok());
@@ -62,6 +57,12 @@ pub async fn test_start() -> Result<()> {
             .total_balance
             > 0
     );
+
+    let mut settings_1 = settings_0.clone();
+    settings_1.node_id = "start1".to_owned();
+    settings_1.database_name = "start1".to_owned();
+    let kld_1 = kld!(&bitcoin, &cockroach, settings_1);
+
     let info_1: GetInfo = kld_1
         .call_rest_api(Method::GET, routes::GET_INFO, ())
         .await?;

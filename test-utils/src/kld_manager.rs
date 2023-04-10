@@ -114,7 +114,8 @@ impl KldManager {
         set_var("KLD_BITCOIN_RPC_HOST", "127.0.0.1");
         set_var("KLD_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
         set_var("KLD_DATABASE_PORT", cockroach.sql_port.to_string());
-        set_var("KLD_DATABASE_NAME", instance);
+        set_var("KLD_DATABASE_NAME", settings.database_name.clone());
+        set_var("KLD_NODE_ID", settings.node_id.clone());
         set_var(
             "KLD_DATABASE_CA_CERT_PATH",
             format!("{certs_dir}/cockroach/ca.crt"),
