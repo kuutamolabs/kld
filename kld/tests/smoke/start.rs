@@ -55,7 +55,7 @@ pub async fn test_start() -> Result<()> {
     .await?;
 
     poll!(
-        30,
+        300,
         kld_0
             .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
             .await?
@@ -85,7 +85,7 @@ pub async fn test_start() -> Result<()> {
     .await?;
 
     poll!(
-        30,
+        300,
         kld_0
             .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
             .await?

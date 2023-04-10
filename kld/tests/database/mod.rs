@@ -66,6 +66,7 @@ async fn cockroach() -> Result<&'static (
                 create_database(&settings).await;
                 let settings = Arc::new(settings);
                 let settings_clone = settings.clone();
+                std::thread::spawn(|| CONNECTION_RUNTIME.enter());
                 let durable_connection = CONNECTION_RUNTIME
                     .spawn(async { Arc::new(DurableConnection::new_migrate(settings_clone).await) })
                     .await?;

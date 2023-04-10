@@ -99,6 +99,7 @@ impl DurableConnection {
     }
 
     pub fn disconnect(&self) {
+        info!("Disconnecting from database");
         self.reconnect_task.abort();
         match self.connection_task.write() {
             Ok(guard) => guard.abort(),

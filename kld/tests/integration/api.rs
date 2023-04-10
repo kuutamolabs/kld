@@ -622,19 +622,17 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
 
     // Run the API with its own runtime in its own thread.
     spawn(move || {
-        API_RUNTIME
-            .block_on(async {
-                bind_api_server(rest_api_address, certs_dir)
-                    .await?
-                    .serve(
-                        LIGHTNING.clone(),
-                        Arc::new(MockWallet::default()),
-                        macaroon_auth,
-                        quit_signal().shared(),
-                    )
-                    .await
-            })
-            .unwrap()
+        API_RUNTIME.spawn(async {
+            bind_api_server(rest_api_address, certs_dir)
+                .await?
+                .serve(
+                    LIGHTNING.clone(),
+                    Arc::new(MockWallet::default()),
+                    macaroon_auth,
+                    quit_signal().shared(),
+                )
+                .await
+        })
     });
 
     let new_context = TestContext {
@@ -687,7 +685,7 @@ fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
     route: &str,
     f: F,
 ) -> Result<RequestBuilder> {
-    let body = serde_json::to_string(&f()).unwrap();
+    let body = serde_json::to_string(&f())?;
     Ok(admin_request(context, method, route)?.body(body))
 }
 
@@ -702,6 +700,6 @@ fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(
     route: &str,
     f: F,
 ) -> Result<RequestBuilder> {
-    let body = serde_json::to_string(&f()).unwrap();
+    let body = serde_json::to_string(&f())?;
     Ok(readonly_request(context, method, route)?.body(body))
 }
