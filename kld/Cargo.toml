@@ -60,7 +60,7 @@ reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json" ] }
 bitvec = "1.0.1"
 tokio-postgres = { version = "0.7.7", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
 postgres-openssl = "0.5.0"
-openssl = "0.10.47"
+openssl = "0.10.50"
 refinery = { version = "0.8.7", features = [ "tokio-postgres" ] }
 
 [dev-dependencies]
