@@ -29,7 +29,7 @@ lightning-background-processor = { version = "0.0.114", features = [ "futures" ]
 lightning-rapid-gossip-sync = { version = "0.0.114" }
 
 macaroon = "0.3.0"
-bitcoin = "0.29.2"
+bitcoin = "0.30.0"
 bitcoin-bech32 = "0.12"
 bitcoincore-rpc-json = "0.16.0"
 rust-bip39 = "1.0.0"
