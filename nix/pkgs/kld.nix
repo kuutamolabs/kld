@@ -26,7 +26,8 @@ let
   nativeBuildInputs = [ pkg-config ];
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
-    "https://github.com/Mic92/bdk?branch=backport-begin-batch-result" = "sha256-6DrNnzy2jYpkxiNReAkUl22Iz6au0+kmePmTXQxUsug=";
+    "https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result" = "sha256-E0fEo0VumVrF1yRqrbVHPM3vkuA4g/zk5KTW/4Gqj7c=";
+    "https://github.com/JosephGoulden/rust-bitcoincore-rpc?branch=jsonrpc" = "sha256-S4Fwm3WAwpddvEz0cIyaIT39PKp4wZrRvJZj6THgt9o=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src cargoToml buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
