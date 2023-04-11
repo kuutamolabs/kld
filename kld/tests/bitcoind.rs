@@ -5,13 +5,11 @@ use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{BlockData, BlockSource};
-use test_utils::{bitcoin, TEST_ADDRESS};
-
-use crate::test_settings;
+use test_utils::{bitcoin, test_settings, TEST_ADDRESS};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_bitcoind_client() -> Result<()> {
-    let mut settings = test_settings("client");
+    let mut settings = test_settings!("client");
     let _bitcoind = bitcoin!(settings);
     let client = &BitcoindClient::new(&settings).await?;
 

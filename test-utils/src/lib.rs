@@ -32,6 +32,13 @@ pub const TEST_ALIAS: &str = "test node";
 
 pub const TEST_WPKH: &str = "wpkh(cVpPVruEDdmutPzisEsYvtST1usBR3ntr8pXSyt6D2YYqXRyPcFW)";
 
+#[macro_export]
+macro_rules! test_settings {
+    ($name: literal) => {
+        test_utils::test_settings(env!("CARGO_TARGET_TMPDIR"), $name)
+    };
+}
+
 pub fn test_settings(tmp_dir: &str, name: &str) -> Settings {
     let mut settings = Settings::default();
     settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));

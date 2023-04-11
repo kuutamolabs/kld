@@ -1,9 +1,6 @@
 use std::{str::FromStr, time::Duration};
 
-use crate::{
-    smoke::{generate_blocks, START_N_BLOCKS},
-    test_settings,
-};
+use crate::{generate_blocks, START_N_BLOCKS};
 use anyhow::Result;
 use api::{
     routes, Channel, ChannelState, FundChannel, FundChannelResponse, GetInfo, NewAddress,
@@ -11,14 +8,14 @@ use api::{
 };
 use bitcoin::Address;
 use hyper::Method;
-use test_utils::{bitcoin, cockroach, kld, poll, TEST_ADDRESS};
+use test_utils::{bitcoin, cockroach, kld, poll, test_settings, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
 
 // This test is run separately (in its own process) from the other threads.
 // As it starts all the services it might clash with other tests.
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_start() -> Result<()> {
-    let mut settings_0 = test_settings("start");
+    let mut settings_0 = test_settings!("start");
     let cockroach = cockroach!(settings_0);
     let bitcoin = bitcoin!(settings_0);
     generate_blocks(
@@ -101,7 +98,7 @@ pub async fn test_start() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Only run this for manual testing"]
 pub async fn test_manual() -> Result<()> {
-    let mut settings = test_settings("manual");
+    let mut settings = test_settings!("manual");
     let cockroach = cockroach!(settings);
     let bitcoin = bitcoin!(settings);
 

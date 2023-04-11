@@ -16,7 +16,8 @@ use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
 use test_utils::{
-    https_client, poll, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID,
+    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
+    TEST_SHORT_CHANNEL_ID,
 };
 
 use api::{
@@ -29,7 +30,7 @@ use tokio::sync::RwLock;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
-use crate::{quit_signal, test_settings};
+use crate::quit_signal;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_unauthorized() -> Result<()> {
@@ -610,7 +611,7 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
     KldLogger::init("test", log::LevelFilter::Info);
     let rest_api_port = get_available_port().context("no port available")?;
     let rest_api_address = format!("127.0.0.1:{rest_api_port}");
-    let mut settings = test_settings("api");
+    let mut settings = test_settings!("api");
     settings.rest_api_address = rest_api_address.clone();
     let certs_dir = settings.certs_dir.clone();
     let macaroon_auth = Arc::new(

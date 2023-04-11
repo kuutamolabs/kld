@@ -15,11 +15,10 @@ use once_cell::sync::OnceCell;
 use settings::Settings;
 use test_utils::cockroach_manager::create_database;
 use test_utils::poll;
+use test_utils::test_settings;
 use test_utils::{cockroach, CockroachManager};
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
-
-use crate::test_settings;
 
 mod ldk_database;
 mod wallet_database;
@@ -61,7 +60,7 @@ async fn cockroach() -> Result<&'static (
         KldLogger::init("test", log::LevelFilter::Debug);
         tokio::task::block_in_place(move || {
             Handle::current().block_on(async move {
-                let mut settings = test_settings("integration");
+                let mut settings = test_settings!("integration");
                 let cockroach = cockroach!(settings);
                 create_database(&settings).await;
                 let settings = Arc::new(settings);
