@@ -41,8 +41,8 @@ pub struct Settings {
     #[arg(long, default_value = "9234", env = "KLD_PEER_PORT")]
     pub peer_port: u16,
     /// The node alias on the lightning network.
-    #[arg(long, default_value = "testnode", env = "KLD_NODE_NAME")]
-    pub node_name: String,
+    #[arg(long, default_value = "testnode", env = "KLD_NODE_ALIAS")]
+    pub node_alias: String,
     /// Public addresses to broadcast to the lightning network.
     #[arg(long, value_parser = addresses_parser, default_value = "127.0.0.1:9234", env = "KLD_PUBLIC_ADDRESSES")]
     pub public_addresses: Addresses,

@@ -90,7 +90,7 @@ impl LightningInterface for Controller {
     }
 
     fn alias(&self) -> String {
-        self.settings.node_name.clone()
+        self.settings.node_alias.clone()
     }
 
     async fn block_height(&self) -> Result<u64> {
