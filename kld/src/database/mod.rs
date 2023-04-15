@@ -73,7 +73,7 @@ impl DurableConnection {
             match DurableConnection::create_connection(settings.clone()).await {
                 Ok(client) => break client,
                 Err(e) => {
-                    error!("Can't connect to database: {e}");
+                    error!("{e}");
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
             }
@@ -126,7 +126,7 @@ impl DurableConnection {
         let connector = MakeTlsConnector::new(builder.build());
         let (client, connection) = tokio_postgres::connect(&log_safe_params, connector)
             .await
-            .with_context(|| format!("could not connect to database ({log_safe_params})"))?;
+            .with_context(|| format!("Cannot connect to database ({log_safe_params})"))?;
         let connection_task = tokio::spawn(async move {
             if let Err(e) = connection.await {
                 error!("{e}");

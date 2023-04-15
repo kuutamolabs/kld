@@ -10,6 +10,7 @@ use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     bitcoincore_rpc::{bitcoincore_rpc_json::ScanningDetails, RpcApi},
     blockchain::{
+        log_progress,
         rpc::{Auth, RpcSyncParams},
         ConfigurableBlockchain, RpcBlockchain, RpcConfig,
     },
@@ -203,9 +204,12 @@ impl<
                                         if sync_height < info.blocks {
                                             drop(database);
                                             info!("Starting wallet sync");
-                                            if let Err(e) =
-                                                guard.sync(blockchain, SyncOptions::default())
-                                            {
+                                            if let Err(e) = guard.sync(
+                                                blockchain,
+                                                SyncOptions {
+                                                    progress: Some(Box::new(log_progress())),
+                                                },
+                                            ) {
                                                 error!("Wallet sync failed with bitcoind. Check the logs of your bitcoind for more context: {e:}");
                                             } else {
                                                 info!("Wallet is synchronised to blockchain");
@@ -221,7 +225,7 @@ impl<
                     }
                 }
             }
-            std::thread::sleep(Duration::from_secs(10));
+            std::thread::sleep(Duration::from_secs(60));
         });
     }
 

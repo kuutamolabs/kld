@@ -12,7 +12,6 @@ use test_utils::{bitcoin, cockroach, kld, poll, test_settings, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Does not pass in CI"]
 pub async fn test_start() -> Result<()> {
     let mut settings_0 = test_settings!("start");
     let cockroach = cockroach!(settings_0);
