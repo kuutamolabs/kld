@@ -24,3 +24,9 @@ pub trait Service: Send + Sync {
     async fn is_connected(&self) -> bool;
     async fn is_synchronised(&self) -> bool;
 }
+
+pub fn log_error(e: &anyhow::Error) {
+    for cause in e.chain() {
+        log::error!("{}", cause);
+    }
+}

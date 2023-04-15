@@ -21,7 +21,7 @@ use tokio_postgres::Client;
 
 use settings::Settings;
 
-use crate::Service;
+use crate::{log_error, Service};
 
 #[macro_export]
 macro_rules! to_i64 {
@@ -73,7 +73,7 @@ impl DurableConnection {
             match DurableConnection::create_connection(settings.clone()).await {
                 Ok(client) => break client,
                 Err(e) => {
-                    error!("{e}");
+                    log_error(&e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
             }

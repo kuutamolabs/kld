@@ -8,7 +8,7 @@ use kld::ldk::Controller;
 use kld::logger::KldLogger;
 use kld::prometheus::start_prometheus_exporter;
 use kld::wallet::Wallet;
-use kld::{quit_signal, VERSION};
+use kld::{log_error, quit_signal, VERSION};
 use log::{error, info};
 use settings::Settings;
 use std::sync::Arc;
@@ -31,9 +31,7 @@ pub fn main() {
 
     let exit_code = if let Err(e) = runtime.block_on(run_kld(settings)) {
         error!("Fatal error encountered: {e}");
-        for cause in e.chain() {
-            error!("{}", cause);
-        }
+        log_error(&e);
         error!("{}", e.backtrace());
         1
     } else {
