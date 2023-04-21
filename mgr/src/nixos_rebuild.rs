@@ -75,5 +75,29 @@ pub fn nixos_rebuild(
             warn!("garbage collection failed, but continue...: {}", e);
         }
     }
+
+    let target = host.deploy_ssh_target();
+    let args = vec![
+        target.as_str(),
+        "--",
+        "systemd-run",
+        "--collect",
+        "--unit nixos-upgrade",
+        "echo",
+        "level=info",
+        "$(",
+        "kld-cli",
+        "system-info",
+        "--inline",
+        ")",
+    ];
+
+    let output = std::process::Command::new("ssh").args(&args).output()?;
+    if !output.status.success() {
+        warn!(
+            "Fail to send deployment event: {}",
+            std::str::from_utf8(&output.stdout).unwrap_or("stdout utf-8 decode error")
+        );
+    }
     Ok(())
 }
