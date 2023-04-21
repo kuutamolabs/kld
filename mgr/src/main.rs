@@ -9,7 +9,7 @@ use mgr::certs::{
 };
 use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -71,6 +71,13 @@ struct RebootArgs {
     hosts: String,
 }
 
+#[derive(clap::Args, PartialEq, Debug, Clone)]
+struct SystemInfoArgs {
+    /// Comma-separated lists of hosts to perform the install
+    #[clap(long, default_value = "")]
+    hosts: String,
+}
+
 /// Subcommand to run
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(clap::Subcommand, PartialEq, Debug, Clone)]
@@ -89,6 +96,8 @@ enum Command {
     Ssh(SshArgs),
     /// Reboot hosts
     Reboot(RebootArgs),
+    /// Get system info from a host
+    SystemInfo(SystemInfoArgs),
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -218,6 +227,29 @@ fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()>
     mgr::reboot(&hosts)
 }
 
+fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
+    let hosts = filter_hosts(&args.hosts, &config.hosts)?;
+    for host in hosts {
+        let target = host.deploy_ssh_target();
+        let args = vec![target.as_str(), "--", "kld-cli", "system-info"];
+        if let Ok(output) = std::process::Command::new("ssh").args(&args).output() {
+            if output.status.success() {
+                println!("[{}]", host.name);
+                io::stdout().write_all(&output.stdout)?;
+            } else {
+                println!(
+                    "fetch system info of {} error: {}",
+                    host.name,
+                    std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
+                );
+            }
+        } else {
+            println!("Fail to fetch system info from {}", host.name);
+        }
+    }
+    Ok(())
+}
+
 /// The kuutamo program entry point
 pub fn main() -> Result<()> {
     logging::init().context("failed to initialize logging")?;
@@ -255,6 +287,7 @@ pub fn main() -> Result<()> {
         Command::Rollback(ref rollback_args) => rollback(&args, rollback_args, &config, &flake),
         Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
         Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
+        Command::SystemInfo(ref args) => system_info(args, &config),
     };
     res.with_context(|| format!("kuutamo failed doing: {:?}", args.action))
 }
