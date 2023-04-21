@@ -67,5 +67,11 @@ refinery = { version = "0.8.7", features = [ "tokio-postgres" ] }
 test-utils = { path = "../test-utils" }
 criterion = { version = "0.4.0", features = ["async_tokio"] }
 
+[build-dependencies]
+vergen = { version = "8.1.1", features = ["git", "gitoxide"] }
+serde_derive = "1.0.151"
+serde = "1.0"
+toml = "0.7.3"
+
 
 

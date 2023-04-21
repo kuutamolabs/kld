@@ -16,6 +16,7 @@ let
     "benches"
     "settings"
     "test-utils"
+    "system-info.toml"
   ];
   src = lib.cleanSourceWith {
     src = self;

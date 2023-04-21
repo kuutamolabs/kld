@@ -10,3 +10,4 @@
 result
 result-*
 .direnv/
+.project-hash
