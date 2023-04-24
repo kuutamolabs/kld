@@ -16,6 +16,7 @@
           services.bitcoind."kld-${config.kuutamo.kld.network}" = {
             package = packages.bitcoind;
           };
+          _module.args.self = self;
         };
       default = self.nixosModules.kld;
 

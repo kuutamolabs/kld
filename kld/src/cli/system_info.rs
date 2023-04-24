@@ -1,5 +1,20 @@
 use anyhow::{bail, Result};
+use serde_derive::Deserialize;
 use std::env;
+
+#[derive(Deserialize)]
+struct SystemInfo {
+    git_sha: String,
+    git_commit_date: String,
+}
+
+fn read_system_info() -> Result<SystemInfo> {
+    if let Ok(content) = std::fs::read_to_string("/etc/system-info.toml") {
+        Ok(toml::from_str::<SystemInfo>(&content)?)
+    } else {
+        bail!("fail to read /etc/system-info.toml")
+    }
+}
 
 fn bitcoind_version() -> Result<String> {
     let output = std::process::Command::new("bitcoind")
@@ -20,20 +35,17 @@ fn bitcoind_version() -> Result<String> {
     }
 }
 pub fn system_info(inline: bool) {
-    let info = if let Ok(version) = bitcoind_version() {
-        vec![
-            ("kld-version", env!("CARGO_PKG_VERSION").into()),
-            ("git-sha", env!("VERGEN_GIT_SHA").into()),
-            ("git-commit-date", env!("VERGEN_GIT_COMMIT_DATE").into()),
-            ("bitcoind-version", version),
-        ]
-    } else {
-        vec![
-            ("kld-version", env!("CARGO_PKG_VERSION").into()),
-            ("git-sha", env!("VERGEN_GIT_SHA").into()),
-            ("git-commit-date", env!("VERGEN_GIT_COMMIT_DATE").into()),
-        ]
+    let mut info = vec![("kld-version", env!("CARGO_PKG_VERSION").to_string())];
+
+    if let Ok(system_info) = read_system_info() {
+        info.push(("git-sha", system_info.git_sha));
+        info.push(("git-commit-date", system_info.git_commit_date));
+    }
+
+    if let Ok(version) = bitcoind_version() {
+        info.push(("bitcoind-version", version));
     };
+
     if inline {
         let system_info: Vec<String> = info.iter().map(|i| format!("{}={}", i.0, i.1)).collect();
         println!("{}", system_info.join(" "))
@@ -42,5 +54,3 @@ pub fn system_info(inline: bool) {
         println!("{}", system_info.join("\n"))
     }
 }
-// └─[$] <git:(update-message*)> bitcoind --version
-// Bitcoin Core version v24.0.1
