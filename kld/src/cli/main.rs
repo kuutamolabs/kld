@@ -110,7 +110,7 @@ enum Command {
     },
     /// Show system info
     SystemInfo {
-        /// Cli will show system info with inline format
+        /// Display system info with inline format
         #[arg(long)]
         inline: bool,
     },
