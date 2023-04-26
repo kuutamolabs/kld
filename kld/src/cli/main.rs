@@ -127,19 +127,8 @@ fn main() {
 
 fn run_command(args: Args) -> Result<()> {
     let output = match args.command {
-        Command::GetInfo
-        | Command::GetBalance
-        | Command::NewAddress
-        | Command::Withdraw { .. }
-        | Command::ListChannels
-        | Command::ListPeers
-        | Command::ConnectPeer { .. }
-        | Command::DisconnectPeer { .. }
-        | Command::OpenChannel { .. }
-        | Command::SetChannelFee { .. }
-        | Command::CloseChannel { .. }
-        | Command::NetworkNodes { .. }
-        | Command::NetworkChannels { .. } => {
+        Command::SystemInfo { inline } => system_info(inline),
+        _ => {
             if let (Some(target), Some(cert_path), Some(macaroon_path)) =
                 (&args.target, &args.cert_path, &args.macaroon_path)
             {
@@ -177,10 +166,6 @@ fn run_command(args: Args) -> Result<()> {
             } else {
                 anyhow::bail!("`target`, `cert-path`, `macaroon-path` are required")
             }
-        }
-        Command::SystemInfo { inline } => {
-            system_info(inline);
-            "null".to_string()
         }
     };
 

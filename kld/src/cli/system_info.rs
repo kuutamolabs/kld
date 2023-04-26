@@ -34,7 +34,7 @@ fn bitcoind_version() -> Result<String> {
         bail!("fail to get version from bitcoind")
     }
 }
-pub fn system_info(inline: bool) {
+pub fn system_info(inline: bool) -> String {
     let mut info = vec![("kld-version", env!("CARGO_PKG_VERSION").to_string())];
 
     if let Ok(system_info) = read_system_info() {
@@ -48,9 +48,9 @@ pub fn system_info(inline: bool) {
 
     if inline {
         let system_info: Vec<String> = info.iter().map(|i| format!("{}={}", i.0, i.1)).collect();
-        println!("{}", system_info.join(" "))
+        system_info.join(" ")
     } else {
         let system_info: Vec<String> = info.iter().map(|i| format!("{}: {}", i.0, i.1)).collect();
-        println!("{}", system_info.join("\n"))
+        system_info.join("\n")
     }
 }

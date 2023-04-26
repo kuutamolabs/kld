@@ -92,7 +92,7 @@ pub fn nixos_rebuild(
         ")",
     ];
 
-    let output = std::process::Command::new("ssh").args(&args).output()?;
+    let output = Command::new("ssh").args(&args).output()?;
     if !output.status.success() {
         warn!(
             "Fail to send deployment event: {}",
