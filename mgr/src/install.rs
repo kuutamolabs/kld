@@ -59,6 +59,9 @@ pub fn install(
                 "accept-flake-config",
                 "true",
             ];
+            if cfg!(target_os = "macos") {
+                args.push("--build-on-remote")
+            }
             if debug {
                 args.push("--debug");
             }
