@@ -10,6 +10,7 @@
 , openssh
 , hostPlatform
 , makeWrapper
+, libiconv
 }:
 let
   paths = [ "mgr" ];
@@ -20,7 +21,7 @@ let
   inherit (self.packages.${hostPlatform.system}) cockroachdb;
   inherit (self.inputs.nixos-anywhere.packages.${hostPlatform.system}) nixos-anywhere;
 
-  buildInputs = [ openssl ];
+  buildInputs = [ openssl libiconv ];
   nativeBuildInputs = [ pkg-config makeWrapper ];
   checkInputs = [ nix openssl cockroachdb ];
 
