@@ -134,11 +134,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1680727722,
-        "narHash": "sha256-X360Gt8odtbTItWCM2aJ39YKqEXThuXka1hNmkjojxc=",
+        "lastModified": 1682592456,
+        "narHash": "sha256-Pu47r6MJVZlAPsFccEd2hOIIXN3lrLTmWfMweF4EBNg=",
         "owner": "numtide",
         "repo": "nixos-anywhere",
-        "rev": "7563cf5863ca03a3b92f555e8baf959a1242b88a",
+        "rev": "17cc299abbc47ef1d2cd79d2e81975b382156b8d",
         "type": "github"
       },
       "original": {
