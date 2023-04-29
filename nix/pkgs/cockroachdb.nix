@@ -10,6 +10,10 @@ let
       url = "https://binaries.cockroachdb.com/cockroach-v${version}.darwin-11.0-arm64.tgz";
       sha256 = "sha256-Zu85JhQ4VvblNSXJMuY1yE2AOBTrv9uiIrwtevqj2RA=";
     };
+    "x86_64-darwin" = {
+      url = "https://binaries.cockroachdb.com/cockroach-v${version}.darwin-10.9-amd64.tgz";
+      sha256 = "sha256-bfhBbxydZjjVXSPlQfF9G7OMA0FTE6Q+G7UM6wWJlvE=";
+    };
   };
 in
 stdenv.mkDerivation rec {
@@ -28,6 +32,7 @@ stdenv.mkDerivation rec {
     description = "A scalable, survivable, strongly-consistent SQL database";
     platforms = [
       "aarch64-darwin"
+      "x86_64-darwin"
       "x86_64-linux"
     ];
     maintainers = with maintainers; [ mic92 ];

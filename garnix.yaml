@@ -5,3 +5,6 @@ builds:
  - 'packages.aarch64-darwin.kld-mgr'
  - 'packages.aarch64-darwin.cockroachdb-mgr'
  - 'checks.aarch64-darwin.kld-mgr-clippy'
+ - 'packages.x86_64-darwin.kld-mgr'
+ - 'packages.x86_64-darwin.cockroachdb-mgr'
+ - 'checks.x86_64-darwin.kld-mgr-clippy'
