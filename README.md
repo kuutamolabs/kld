@@ -78,7 +78,7 @@ Options:
 
 ```toml
 [global]
-flake = "github:kuutamo/lightning-knd/0.0.0-alpha5"
+flake = "github:kuutamo/lightning-knd/0.0.0-alpha6"
 
 [host_defaults]
 public_ssh_keys = [
@@ -168,5 +168,5 @@ $ kld-mgr update
 
 ## Further Information
 
-- [kld v0.0.1-alpha5 install guide Google slides](https://docs.google.com/presentation/d/1MfzXU3pHnGyMZFql3ga00lrOpOwLCJB8Nq0-CEsyn9U)
+- [kld v0.0.1-alpha6 install guide Google slides](https://docs.google.com/presentation/d/1MfzXU3pHnGyMZFql3ga00lrOpOwLCJB8Nq0-CEsyn9U)
 
