@@ -168,5 +168,5 @@ $ kld-mgr update
 
 ## Further Information
 
-- [kld v0.0.1-alpha5 install guide Google slides](https://docs.google.com/presentation/d/1MfzXU3pHnGyMZFql3ga00lrOpOwLCJB8Nq0-CEsyn9U)
+- [kld v0.0.1-alpha6 install guide Google slides](https://docs.google.com/presentation/d/1MfzXU3pHnGyMZFql3ga00lrOpOwLCJB8Nq0-CEsyn9U)
 
