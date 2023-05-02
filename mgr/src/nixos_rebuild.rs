@@ -35,7 +35,11 @@ pub fn nixos_rebuild(
         "--target-host",
         &target,
         "--build-host",
-        "",
+        (if cfg!(target_os = "macos") {
+            &target
+        } else {
+            ""
+        }),
         "--use-substitutes",
         "--fast",
     ];
