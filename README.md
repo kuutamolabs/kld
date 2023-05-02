@@ -78,7 +78,7 @@ Options:
 
 ```toml
 [global]
-flake = "github:kuutamo/lightning-knd/0.0.0-alpha5"
+flake = "github:kuutamo/lightning-knd/0.0.0-alpha6"
 
 [host_defaults]
 public_ssh_keys = [
