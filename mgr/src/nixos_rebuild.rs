@@ -76,41 +76,5 @@ pub fn nixos_rebuild(
         }
     }
 
-    let target = host.deploy_ssh_target();
-    let args = match host.nixos_module.as_str() {
-        "kld-node" => vec![
-            target,
-            "--".into(),
-            "systemd-run".into(),
-            "--collect".into(),
-            "--unit nixos-upgrade".into(),
-            "echo".into(),
-            "level=info".into(),
-            "$(".into(),
-            "kld-cli".into(),
-            "message=kld-node-updated".into(),
-            "system-info".into(),
-            "--inline".into(),
-            ")".into(),
-        ],
-        _node => vec![
-            target,
-            "--".into(),
-            "systemd-run".into(),
-            "--collect".into(),
-            "--unit nixos-upgrade".into(),
-            "echo".into(),
-            "level=info".into(),
-            format!("message={}-updated", _node),
-        ],
-    };
-
-    let output = Command::new("ssh").args(&args).output()?;
-    if !output.status.success() {
-        warn!(
-            "Fail to send deployment event: {}",
-            std::str::from_utf8(&output.stdout).unwrap_or("stdout utf-8 decode error")
-        );
-    }
     Ok(())
 }
