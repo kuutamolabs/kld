@@ -34,6 +34,26 @@ fn bitcoind_version() -> Result<String> {
         bail!("fail to get version from bitcoind")
     }
 }
+
+fn cockroach_version() -> Result<String> {
+    let output = std::process::Command::new("cockroach")
+        .args(["version"])
+        .output()?;
+    if output.status.success() {
+        if let Some(version) = std::str::from_utf8(&output.stdout)?
+            .split('\n')
+            .next()
+            .and_then(|line| line.split("Build Tag:        ").nth(1))
+        {
+            Ok(version.into())
+        } else {
+            bail!("fail get version from return bitcoind")
+        }
+    } else {
+        bail!("fail to get version from bitcoind")
+    }
+}
+
 pub fn system_info(inline: bool) -> String {
     let mut info = vec![("kld-version", env!("CARGO_PKG_VERSION").to_string())];
 
@@ -44,6 +64,10 @@ pub fn system_info(inline: bool) -> String {
 
     if let Ok(version) = bitcoind_version() {
         info.push(("bitcoind-version", version));
+    };
+
+    if let Ok(version) = cockroach_version() {
+        info.push(("cockroach-version", version));
     };
 
     if inline {
