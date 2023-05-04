@@ -1,18 +1,29 @@
 use anyhow::{anyhow, bail, Context, Result};
-
+use base64::{engine::general_purpose, Engine as _};
 use log::warn;
 use regex::Regex;
+use reqwest::blocking::Client;
 use serde::Serialize;
 use serde_derive::Deserialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
-
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use url::Url;
 
 use super::secrets::Secrets;
 use super::NixosFlake;
+
+/// Kuutamo monitor environment parameters
+pub struct MonitorEnv<'a> {
+    /// Url for monitor server
+    pub monitor_url: &'a Url,
+    /// Protocol for user prefix
+    pub monitor_protocol: &'a String,
+    /// Path to default token
+    pub default_token_file: &'a PathBuf,
+}
 
 /// IpV6String allows prefix only address format and normal ipv6 address
 ///
@@ -91,6 +102,30 @@ pub struct CockroachPeer {
     pub ipv6_address: Option<IpAddr>,
 }
 
+/// Telegraf monitor
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct TelegrafOutputConfig {
+    /// url for monitor
+    pub url: Url,
+    /// username for monitor
+    pub username: String,
+    /// password for monitor
+    pub password: String,
+}
+
+/// Kuutamo monitor
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct KmonitorConfig {
+    /// url for kuutamo monitor
+    pub url: Url,
+    /// protocol for kuutamo monitor
+    pub protocol: String,
+    /// user_id for kuutamo monitor
+    pub user_id: String,
+    /// password for kuutamo monitor
+    pub password: String,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct HostConfig {
     #[serde(default)]
@@ -127,6 +162,12 @@ struct HostConfig {
 
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
+
+    #[serde(default)]
+    telegraf_config_file: Option<PathBuf>,
+
+    #[serde(default)]
+    kuutamo_monitoring_token_file: Option<PathBuf>,
 }
 
 /// NixOS host configuration
@@ -175,6 +216,14 @@ pub struct Host {
 
     /// CockroachDB nodes to connect to
     pub cockroach_peers: Vec<CockroachPeer>,
+
+    /// Setup telegraf output config to the self host monitor server
+    #[serde(skip_serializing)]
+    pub telegraf_config: Option<TelegrafOutputConfig>,
+
+    /// Setup telegraf output auth for kuutamo monitor server
+    #[serde(skip_serializing)]
+    pub kmonitor_config: Option<KmonitorConfig>,
 }
 
 impl Host {
@@ -268,7 +317,12 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     Ok(global)
 }
 
-fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
+fn validate_host(
+    name: &str,
+    host: &HostConfig,
+    default: &HostConfig,
+    monitor_env: &MonitorEnv<'_>,
+) -> Result<Host> {
     let name = name.to_string();
 
     if name.is_empty() || name.len() > 63 {
@@ -409,6 +463,35 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         .unwrap_or(&default_bitcoind_disks)
         .to_vec();
 
+    let telegraf_config_file = host
+        .telegraf_config_file
+        .as_ref()
+        .or(default.telegraf_config_file.as_ref());
+
+    let telegraf_config = if let Some(telegraf_config_file) = telegraf_config_file {
+        let content = fs::read_to_string(telegraf_config_file).with_context(|| {
+            format!(
+                "cannot read telegraf_config_file: '{}'",
+                telegraf_config_file.display()
+            )
+        })?;
+        Some(toml::from_str::<TelegrafOutputConfig>(&content)?)
+    } else {
+        None
+    };
+
+    let kmonitor_config = fs::read_to_string(
+        host.kuutamo_monitoring_token_file
+            .as_ref()
+            .unwrap_or(monitor_env.default_token_file),
+    )
+    .ok()
+    .map(|s| s.trim().into())
+    .and_then(|t| decode_token(t).ok())
+    .and_then(|(user_id, password)| {
+        try_verify_kuutamo_monitoring_config(user_id, password, monitor_env)
+    });
+
     Ok(Host {
         name,
         nixos_module,
@@ -426,6 +509,42 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         disks,
         bitcoind_disks,
         cockroach_peers: vec![],
+        telegraf_config,
+        kmonitor_config,
+    })
+}
+
+/// Try to access kuutamo monitoring , if auth is invalid the config will drop
+fn try_verify_kuutamo_monitoring_config(
+    user_id: String,
+    password: String,
+    monitor_env: &MonitorEnv<'_>,
+) -> Option<KmonitorConfig> {
+    let client = Client::new();
+    if let Ok(r) = client
+        .get(format!(
+            "https:://{}",
+            monitor_env.monitor_url.domain().unwrap_or_default()
+        ))
+        .basic_auth(
+            format!("{}-{}", monitor_env.monitor_protocol, user_id),
+            Some(&password),
+        )
+        .send()
+    {
+        if r.status() == reqwest::StatusCode::UNAUTHORIZED {
+            eprintln!("token for kuutamo monitoring.token is invalid, please check, else the monitor will not work after deploy");
+            return None;
+        }
+    } else {
+        eprintln!("Could not validate kuutamo-monitoring.token (network issue)");
+    }
+
+    Some(KmonitorConfig {
+        url: monitor_env.monitor_url.clone(),
+        protocol: monitor_env.monitor_protocol.clone(),
+        user_id,
+        password,
     })
 }
 
@@ -438,7 +557,11 @@ pub struct Config {
 }
 
 /// Parse toml configuration
-pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
+pub fn parse_config(
+    content: &str,
+    monitoring_env: &MonitorEnv<'_>,
+    working_directory: &Path,
+) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
     let mut hosts = config
         .hosts
@@ -446,7 +569,7 @@ pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
         .map(|(name, host)| {
             Ok((
                 name.to_string(),
-                validate_host(name, host, &config.host_defaults)?,
+                validate_host(name, host, &config.host_defaults, monitoring_env)?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
@@ -485,7 +608,7 @@ pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
 }
 
 /// Load configuration from path
-pub fn load_configuration(path: &Path) -> Result<Config> {
+pub fn load_configuration(path: &Path, monitor_env: MonitorEnv<'_>) -> Result<Config> {
     let content = fs::read_to_string(path).context("Cannot read file")?;
     let working_directory = path.parent().with_context(|| {
         format!(
@@ -493,7 +616,41 @@ pub fn load_configuration(path: &Path) -> Result<Config> {
             path.display()
         )
     })?;
-    parse_config(&content, working_directory)
+    parse_config(&content, &monitor_env, working_directory)
+}
+
+fn decode_token(s: String) -> Result<(String, String)> {
+    let binding =
+        general_purpose::STANDARD_NO_PAD.decode(s.trim_matches(|c| c == '=' || c == '\n'))?;
+    let decode_str = std::str::from_utf8(&binding)?;
+    decode_str
+        .split_once(':')
+        .map(|(u, p)| (u.trim().to_string(), p.trim().to_string()))
+        .ok_or(anyhow!("token should be `username: password` pair"))
+}
+
+#[cfg(test)]
+pub(crate) struct MockMonitor {
+    url: Url,
+    protocol: String,
+    token_file: PathBuf,
+}
+#[cfg(test)]
+impl MockMonitor {
+    pub fn new() -> Self {
+        Self {
+            url: Url::parse("http://localhost").unwrap(),
+            protocol: "protocol".to_string(),
+            token_file: PathBuf::new(),
+        }
+    }
+    pub fn to_env(&self) -> MonitorEnv {
+        MonitorEnv {
+            monitor_url: &self.url,
+            monitor_protocol: &self.protocol,
+            default_token_file: &self.token_file,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -532,7 +689,8 @@ ipv6_address = "2605:9880:400::4"
 pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
-    let config = parse_config(TEST_CONFIG, Path::new("/"))?;
+    let mock_monitor = MockMonitor::new();
+    let config = parse_config(TEST_CONFIG, &mock_monitor.to_env(), Path::new("/"))?;
     assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
 
     let hosts = &config.hosts;
@@ -560,7 +718,7 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"))?;
+    parse_config(TEST_CONFIG, &mock_monitor.to_env(), Path::new("/"))?;
 
     Ok(())
 }
@@ -608,8 +766,15 @@ fn test_validate_host() -> Result<()> {
         public_ssh_keys: vec!["".to_string()],
         ..Default::default()
     };
+    let mock_monitor = MockMonitor::new();
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default()).unwrap(),
+        validate_host(
+            "ipv4-only",
+            &config,
+            &HostConfig::default(),
+            &mock_monitor.to_env()
+        )
+        .unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -635,24 +800,44 @@ fn test_validate_host() -> Result<()> {
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
+            telegraf_config: None,
+            kmonitor_config: None,
         }
     );
 
     // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
+    assert!(validate_host(
+        "ipv4-only",
+        &config,
+        &HostConfig::default(),
+        &mock_monitor.to_env()
+    )
+    .is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
+    assert!(validate_host(
+        "ipv4-only",
+        &config,
+        &HostConfig::default(),
+        &mock_monitor.to_env()
+    )
+    .is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_ok());
+    assert!(validate_host(
+        "ipv4-only",
+        &config,
+        &HostConfig::default(),
+        &mock_monitor.to_env()
+    )
+    .is_ok());
 
     Ok(())
 }

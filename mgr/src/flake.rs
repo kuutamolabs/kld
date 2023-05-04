@@ -53,6 +53,27 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         host_file
             .write_all(host_toml.as_bytes())
             .with_context(|| format!("Cannot write {}", host_path.display()))?;
+        if let Some(telegraf_config) = &host.telegraf_config {
+            let telegraf_path = tmp_dir.path().join(format!("{name}-telegraf.toml"));
+            let mut telegraf_file = File::create(&telegraf_path)
+                .with_context(|| format!("could not create {}", telegraf_path.display()))?;
+            let telegraf_config_toml = toml::to_string(&telegraf_config)
+                .with_context(|| format!("cannot serialize {name} telegraf config to toml"))?;
+            telegraf_file
+                .write_all(telegraf_config_toml.as_bytes())
+                .with_context(|| format!("Cannot write {}", telegraf_path.display()))?;
+        }
+        if let Some(kmonitor_config) = &host.kmonitor_config {
+            let kmonitor_path = tmp_dir.path().join(format!("{name}-kmonitor.toml"));
+            let mut kmonitor_file = File::create(&kmonitor_path)
+                .with_context(|| format!("could not create {}", kmonitor_path.display()))?;
+            let kmonitor_config_toml = toml::to_string(&kmonitor_config).with_context(|| {
+                format!("cannot serialize {name} kuutamo monitor config to toml")
+            })?;
+            kmonitor_file
+                .write_all(kmonitor_config_toml.as_bytes())
+                .with_context(|| format!("Cannot write {}", kmonitor_path.display()))?;
+        }
     }
     let configurations = config
         .hosts
@@ -62,11 +83,17 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
             nixos_modules.push(host.nixos_module.clone());
             nixos_modules.extend_from_slice(host.extra_nixos_modules.as_slice());
 
-            let modules = nixos_modules
+            let mut modules = nixos_modules
                 .iter()
                 .map(|m| format!("      lightning-knd.nixosModules.\"{m}\""))
-                .collect::<Vec<_>>()
-                .join("\n");
+                .collect::<Vec<_>>();
+            if host.telegraf_config.is_some() {
+                modules.push(format!(r#"{{ kuutamo.monitorConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "{name}-telegraf.toml"; path = ./{name}-telegraf.toml; }})); }}"#));
+            }
+            if host.kmonitor_config.is_some() {
+                modules.push(format!(r#"{{ kuutamo.KMonitorConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "{name}-kmonitor.toml"; path = ./{name}-kmonitor.toml; }})); }}"#));
+            }
+            let modules = modules.join("\n");
 
             format!(
                 r#"  nixosConfigurations."{name}" = lightning-knd.inputs.nixpkgs.lib.nixosSystem {{
@@ -118,7 +145,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
 
 #[test]
 pub fn test_nixos_flake() -> Result<()> {
-    use crate::config::parse_config;
+    use crate::config::{parse_config, MockMonitor};
     use std::process::Command;
 
     let config = parse_config(
@@ -152,6 +179,7 @@ nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.4"
 ipv6_address = "2605:9880:400::4"
 "#,
+        &MockMonitor::new().to_env(),
         Path::new("/"),
     )?;
     let flake = generate_nixos_flake(&config)?;

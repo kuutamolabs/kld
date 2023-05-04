@@ -7,11 +7,12 @@ use clap::Parser;
 use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
-use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
+use mgr::{generate_nixos_flake, logging, Config, Host, MonitorEnv, NixosFlake};
 use std::collections::BTreeMap;
 use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
+use url::Url;
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
 struct InstallArgs {
@@ -121,6 +122,30 @@ struct Args {
 
     #[clap(subcommand)]
     action: Command,
+
+    /// kuutamo monitor url
+    #[clap(
+        long,
+        default_value = "https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push",
+        env = "KUUTAMO_MONITOR"
+    )]
+    monitor_url: Url,
+
+    /// kuutamo monitor protocol
+    #[clap(
+        long,
+        default_value = "lightning-testnet",
+        env = "KUUTAMO_MONITOR_PROTOCOL"
+    )]
+    monitor_protocol: String,
+
+    /// kuutamo monitoring default token to load, could be override by `kuutamo_monitoring_token_file` of host configure
+    #[clap(
+        long,
+        default_value = "kuutamo-monitoring.token",
+        env = "MONITORING_PASSWORD"
+    )]
+    default_token_file: PathBuf,
 }
 
 fn ask_yes_no(prompt_text: &str) -> bool {
@@ -263,7 +288,12 @@ fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
 pub fn main() -> Result<()> {
     logging::init().context("failed to initialize logging")?;
     let args = Args::parse();
-    let config = mgr::load_configuration(&args.config).with_context(|| {
+    let monitoring_env = MonitorEnv {
+        monitor_url: &args.monitor_url,
+        monitor_protocol: &args.monitor_protocol,
+        default_token_file: &args.default_token_file,
+    };
+    let config = mgr::load_configuration(&args.config, monitoring_env).with_context(|| {
         format!(
             "failed to parse configuration file: {}",
             &args.config.display()
