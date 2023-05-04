@@ -162,7 +162,7 @@ in
       git_sha = "${self.rev or "dirty"}"
       git_commit_date = "${self.lastModifiedDate}"
     '';
-    system.activationScripts.nixos-upgrade = ''
+    system.activationScripts.kld-node-upgrade = ''
       ${config.systemd.package}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"kld node updated\" $(kld-cli system-info --inline)
     '';
 

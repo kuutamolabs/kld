@@ -1,4 +1,4 @@
-{ config, lib, pkgs, utils, ... }:
+{ config, lib, pkgs, self, utils, ... }:
 
 let
   cfg = config.kuutamo.cockroachdb;
@@ -267,6 +267,13 @@ in
 
   config = {
     environment.systemPackages = [ cockroach-cli ];
+    environment.etc."system-info.toml".text = lib.mkDefault ''
+      git_sha = "${self.rev or "dirty"}"
+      git_commit_date = "${self.lastModifiedDate}"
+    '';
+    system.activationScripts.cockroachdb-node-upgrade = ''
+      ${config.systemd.package}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"cockroachdb node updated\" cockroachdb-version=$(cockroach version | head -n1 | cut -c 19-)
+    '';
 
     users.users = lib.optionalAttrs (cfg.user == "cockroachdb") {
       cockroachdb = {
