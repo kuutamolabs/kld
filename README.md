@@ -172,8 +172,6 @@ Monitoring is not required for deploy a node.  You can deploy a node without any
 
 With Kuutamo monitoring token, you can easily set up the node and send the metrics to Kuutamo monitor.
 The default token name is `kuutamo-monitoring.token`, the default monitor is `https://mimir.monitoring-00-cluster.kuutamo.computer`, and the default monitor protocol is for testnet.
-These can be configured by passing options(`--monitor-protocol`, `--monitor-url`, and `--default-token-file`) or environment variables(`KUUTAMO_MONITOR`, `KUUTAMO_MONITOR_PROTOCOL`, and `MONITORING_PASSWORD`) to change.
-
 If you have more than one hosts in `kld.toml`, and want have different tokens for each host, please set `kuutamo_monitoring_token_file` field for the host to point the token file you want to use.
 If you want to self monitor the node, you can set `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host for your customized monitor server.
 

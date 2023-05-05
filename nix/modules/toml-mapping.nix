@@ -50,7 +50,7 @@ in
 
     kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) (builtins.map (peer: peer.name) cfg.cockroach_peers);
 
-    kuutamo.telegraf.url = kmonitor_cfg.url;
+    kuutamo.telegraf.url = kmonitor_cfg.url or "https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push";
     kuutamo.telegraf.username = kmonitor_cfg.username;
     kuutamo.telegraf.password = kmonitor_cfg.password;
   };

@@ -15,16 +15,6 @@ use url::Url;
 use super::secrets::Secrets;
 use super::NixosFlake;
 
-/// Kuutamo monitor environment parameters
-pub struct MonitorEnv<'a> {
-    /// Url for monitor server
-    pub monitor_url: &'a Url,
-    /// Protocol for user prefix
-    pub monitor_protocol: &'a String,
-    /// Path to default token
-    pub default_token_file: &'a PathBuf,
-}
-
 /// IpV6String allows prefix only address format and normal ipv6 address
 ///
 /// Some providers include the subnet in their address shown in the webinterface i.e. 2607:5300:203:5cdf::/64
@@ -105,8 +95,8 @@ pub struct CockroachPeer {
 /// Kuutamo monitor
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct KmonitorConfig {
-    /// url for kuutamo monitor
-    pub url: Url,
+    /// self host url for monitoring, None for kuutamo monitoring
+    pub url: Option<Url>,
     /// username for kuutamo monitor
     pub username: String,
     /// password for kuutamo monitor
@@ -303,12 +293,7 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     Ok(global)
 }
 
-fn validate_host(
-    name: &str,
-    host: &HostConfig,
-    default: &HostConfig,
-    monitor_env: &MonitorEnv<'_>,
-) -> Result<Host> {
+fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
     let name = name.to_string();
 
     if name.is_empty() || name.len() > 63 {
@@ -450,35 +435,35 @@ fn validate_host(
         .to_vec();
 
     let kmonitor_config = match (
-            &host.self_monitoring_url,
-            &host.self_monitoring_username,
-            &host.self_monitoring_password,
-            fs::read_to_string(
-                host.kuutamo_monitoring_token_file
-                    .as_ref()
-                    .unwrap_or(monitor_env.default_token_file),
-            )
-            .ok()
-            .map(|s| s.trim().into())
-            .and_then(|t| decode_token(t).ok()),
-        ) {
-            (Some(url), Some(username), Some(password), _) => Some(KmonitorConfig {
-                url: url.clone(),
-                username: username.to_string(),
-                password: password.to_string(),
-            }),
-            (Some(url), _, _, Some((user_id, password))) => Some(KmonitorConfig {
-                url: url.clone(),
-                username: format!("{}-{}", monitor_env.monitor_protocol, user_id),
-                password,
-            }),
-            (None, _, _, Some((user_id, password))) => {
-                try_verify_kuutamo_monitoring_config(user_id, password, monitor_env)
-            }
-            _ => {
-                eprintln!("auth information for monitoring is insufficient, will not set up monitoring when deploying");
-                None
-            }
+        &host.self_monitoring_url,
+        &host.self_monitoring_username,
+        &host.self_monitoring_password,
+        fs::read_to_string(
+            host.kuutamo_monitoring_token_file
+                .as_ref()
+                .unwrap_or(&PathBuf::from("kuutamo-monitoring.token")),
+        )
+        .ok()
+        .map(|s| s.trim().into())
+        .and_then(|t| decode_token(t).ok()),
+    ) {
+        (url, Some(username), Some(password), _) if url.is_some() => Some(KmonitorConfig {
+            url: url.clone(),
+            username: username.to_string(),
+            password: password.to_string(),
+        }),
+        (url, _, _, Some((user_id, password))) if url.is_some() => Some(KmonitorConfig {
+            url: url.clone(),
+            username: user_id,
+            password,
+        }),
+        (None, _, _, Some((user_id, password))) => {
+            try_verify_kuutamo_monitoring_config(user_id, password)
+        }
+        _ => {
+            eprintln!("auth information for monitoring is insufficient, will not set up monitoring when deploying");
+            None
+        }
     };
 
     Ok(Host {
@@ -506,19 +491,12 @@ fn validate_host(
 fn try_verify_kuutamo_monitoring_config(
     user_id: String,
     password: String,
-    monitor_env: &MonitorEnv<'_>,
 ) -> Option<KmonitorConfig> {
     let client = Client::new();
-    let username = format!("{}-{}", monitor_env.monitor_protocol, user_id);
+    let username = format!("kld-{}", user_id);
     if let Ok(r) = client
-        .get(format!(
-            "https:://{}",
-            monitor_env.monitor_url.domain().unwrap_or_default()
-        ))
-        .basic_auth(
-            &username,
-            Some(&password),
-        )
+        .get("https://mimir.monitoring-00-cluster.kuutamo.computer")
+        .basic_auth(&username, Some(&password))
         .send()
     {
         if r.status() == reqwest::StatusCode::UNAUTHORIZED {
@@ -530,7 +508,7 @@ fn try_verify_kuutamo_monitoring_config(
     }
 
     Some(KmonitorConfig {
-        url: monitor_env.monitor_url.clone(),
+        url: None,
         username,
         password,
     })
@@ -545,11 +523,7 @@ pub struct Config {
 }
 
 /// Parse toml configuration
-pub fn parse_config(
-    content: &str,
-    monitoring_env: &MonitorEnv<'_>,
-    working_directory: &Path,
-) -> Result<Config> {
+pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
     let mut hosts = config
         .hosts
@@ -557,7 +531,7 @@ pub fn parse_config(
         .map(|(name, host)| {
             Ok((
                 name.to_string(),
-                validate_host(name, host, &config.host_defaults, monitoring_env)?,
+                validate_host(name, host, &config.host_defaults)?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
@@ -596,7 +570,7 @@ pub fn parse_config(
 }
 
 /// Load configuration from path
-pub fn load_configuration(path: &Path, monitor_env: MonitorEnv<'_>) -> Result<Config> {
+pub fn load_configuration(path: &Path) -> Result<Config> {
     let content = fs::read_to_string(path).context("Cannot read file")?;
     let working_directory = path.parent().with_context(|| {
         format!(
@@ -604,7 +578,7 @@ pub fn load_configuration(path: &Path, monitor_env: MonitorEnv<'_>) -> Result<Co
             path.display()
         )
     })?;
-    parse_config(&content, &monitor_env, working_directory)
+    parse_config(&content, working_directory)
 }
 
 fn decode_token(s: String) -> Result<(String, String)> {
@@ -615,30 +589,6 @@ fn decode_token(s: String) -> Result<(String, String)> {
         .split_once(':')
         .map(|(u, p)| (u.trim().to_string(), p.trim().to_string()))
         .ok_or(anyhow!("token should be `username: password` pair"))
-}
-
-#[cfg(test)]
-pub(crate) struct MockMonitor {
-    url: Url,
-    protocol: String,
-    token_file: PathBuf,
-}
-#[cfg(test)]
-impl MockMonitor {
-    pub fn new() -> Self {
-        Self {
-            url: Url::parse("http://localhost").unwrap(),
-            protocol: "protocol".to_string(),
-            token_file: PathBuf::new(),
-        }
-    }
-    pub fn to_env(&self) -> MonitorEnv {
-        MonitorEnv {
-            monitor_url: &self.url,
-            monitor_protocol: &self.protocol,
-            default_token_file: &self.token_file,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -677,8 +627,7 @@ ipv6_address = "2605:9880:400::4"
 pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
-    let mock_monitor = MockMonitor::new();
-    let config = parse_config(TEST_CONFIG, &mock_monitor.to_env(), Path::new("/"))?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"))?;
     assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
 
     let hosts = &config.hosts;
@@ -706,7 +655,7 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, &mock_monitor.to_env(), Path::new("/"))?;
+    parse_config(TEST_CONFIG, Path::new("/"))?;
 
     Ok(())
 }
@@ -754,15 +703,8 @@ fn test_validate_host() -> Result<()> {
         public_ssh_keys: vec!["".to_string()],
         ..Default::default()
     };
-    let mock_monitor = MockMonitor::new();
     assert_eq!(
-        validate_host(
-            "ipv4-only",
-            &config,
-            &HostConfig::default(),
-            &mock_monitor.to_env()
-        )
-        .unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default(),).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -788,7 +730,6 @@ fn test_validate_host() -> Result<()> {
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
-            telegraf_config: None,
             kmonitor_config: None,
         }
     );
@@ -796,36 +737,18 @@ fn test_validate_host() -> Result<()> {
     // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host(
-        "ipv4-only",
-        &config,
-        &HostConfig::default(),
-        &mock_monitor.to_env()
-    )
-    .is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(),).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host(
-        "ipv4-only",
-        &config,
-        &HostConfig::default(),
-        &mock_monitor.to_env()
-    )
-    .is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(),).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host(
-        "ipv4-only",
-        &config,
-        &HostConfig::default(),
-        &mock_monitor.to_env()
-    )
-    .is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(),).is_ok());
 
     Ok(())
 }

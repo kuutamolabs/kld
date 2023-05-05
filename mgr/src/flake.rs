@@ -132,7 +132,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
 
 #[test]
 pub fn test_nixos_flake() -> Result<()> {
-    use crate::config::{parse_config, MockMonitor};
+    use crate::config::parse_config;
     use std::process::Command;
 
     let config = parse_config(
@@ -166,7 +166,6 @@ nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.4"
 ipv6_address = "2605:9880:400::4"
 "#,
-        &MockMonitor::new().to_env(),
         Path::new("/"),
     )?;
     let flake = generate_nixos_flake(&config)?;

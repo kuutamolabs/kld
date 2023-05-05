@@ -220,7 +220,7 @@ pub fn create_or_update_lightning_certs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{parse_config, MockMonitor, TEST_CONFIG};
+    use crate::config::{parse_config, TEST_CONFIG};
     use std::fs;
     use tempfile::tempdir;
 
@@ -229,8 +229,7 @@ mod tests {
         let dir = tempdir().context("Failed to create temporary directory")?;
         let cert_dir = dir.path().join("certs");
 
-        let config = parse_config(TEST_CONFIG, &MockMonitor::new().to_env(), Path::new("/"))
-            .context("Failed to parse config")?;
+        let config = parse_config(TEST_CONFIG, Path::new("/")).context("Failed to parse config")?;
 
         create_or_update_lightning_certs(&cert_dir, &config.hosts, &CertRenewPolicy::default())
             .context("Failed to create lightning certificates")?;
