@@ -102,26 +102,13 @@ pub struct CockroachPeer {
     pub ipv6_address: Option<IpAddr>,
 }
 
-/// Telegraf monitor
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct TelegrafOutputConfig {
-    /// url for monitor
-    pub url: Url,
-    /// username for monitor
-    pub username: String,
-    /// password for monitor
-    pub password: String,
-}
-
 /// Kuutamo monitor
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct KmonitorConfig {
     /// url for kuutamo monitor
     pub url: Url,
-    /// protocol for kuutamo monitor
-    pub protocol: String,
-    /// user_id for kuutamo monitor
-    pub user_id: String,
+    /// username for kuutamo monitor
+    pub username: String,
     /// password for kuutamo monitor
     pub password: String,
 }
@@ -164,10 +151,13 @@ struct HostConfig {
     pub bitcoind_disks: Option<Vec<PathBuf>>,
 
     #[serde(default)]
-    telegraf_config_file: Option<PathBuf>,
-
-    #[serde(default)]
     kuutamo_monitoring_token_file: Option<PathBuf>,
+    #[serde(default)]
+    self_monitoring_url: Option<Url>,
+    #[serde(default)]
+    self_monitoring_username: Option<String>,
+    #[serde(default)]
+    self_monitoring_password: Option<String>,
 }
 
 /// NixOS host configuration
@@ -216,10 +206,6 @@ pub struct Host {
 
     /// CockroachDB nodes to connect to
     pub cockroach_peers: Vec<CockroachPeer>,
-
-    /// Setup telegraf output config to the self host monitor server
-    #[serde(skip_serializing)]
-    pub telegraf_config: Option<TelegrafOutputConfig>,
 
     /// Setup telegraf output auth for kuutamo monitor server
     #[serde(skip_serializing)]
@@ -463,34 +449,37 @@ fn validate_host(
         .unwrap_or(&default_bitcoind_disks)
         .to_vec();
 
-    let telegraf_config_file = host
-        .telegraf_config_file
-        .as_ref()
-        .or(default.telegraf_config_file.as_ref());
-
-    let telegraf_config = if let Some(telegraf_config_file) = telegraf_config_file {
-        let content = fs::read_to_string(telegraf_config_file).with_context(|| {
-            format!(
-                "cannot read telegraf_config_file: '{}'",
-                telegraf_config_file.display()
+    let kmonitor_config = match (
+            &host.self_monitoring_url,
+            &host.self_monitoring_username,
+            &host.self_monitoring_password,
+            fs::read_to_string(
+                host.kuutamo_monitoring_token_file
+                    .as_ref()
+                    .unwrap_or(monitor_env.default_token_file),
             )
-        })?;
-        Some(toml::from_str::<TelegrafOutputConfig>(&content)?)
-    } else {
-        None
+            .ok()
+            .map(|s| s.trim().into())
+            .and_then(|t| decode_token(t).ok()),
+        ) {
+            (Some(url), Some(username), Some(password), _) => Some(KmonitorConfig {
+                url: url.clone(),
+                username: username.to_string(),
+                password: password.to_string(),
+            }),
+            (Some(url), _, _, Some((user_id, password))) => Some(KmonitorConfig {
+                url: url.clone(),
+                username: format!("{}-{}", monitor_env.monitor_protocol, user_id),
+                password,
+            }),
+            (None, _, _, Some((user_id, password))) => {
+                try_verify_kuutamo_monitoring_config(user_id, password, monitor_env)
+            }
+            _ => {
+                eprintln!("auth information for monitoring is insufficient, will not set up monitoring when deploying");
+                None
+            }
     };
-
-    let kmonitor_config = fs::read_to_string(
-        host.kuutamo_monitoring_token_file
-            .as_ref()
-            .unwrap_or(monitor_env.default_token_file),
-    )
-    .ok()
-    .map(|s| s.trim().into())
-    .and_then(|t| decode_token(t).ok())
-    .and_then(|(user_id, password)| {
-        try_verify_kuutamo_monitoring_config(user_id, password, monitor_env)
-    });
 
     Ok(Host {
         name,
@@ -509,7 +498,6 @@ fn validate_host(
         disks,
         bitcoind_disks,
         cockroach_peers: vec![],
-        telegraf_config,
         kmonitor_config,
     })
 }
@@ -521,13 +509,14 @@ fn try_verify_kuutamo_monitoring_config(
     monitor_env: &MonitorEnv<'_>,
 ) -> Option<KmonitorConfig> {
     let client = Client::new();
+    let username = format!("{}-{}", monitor_env.monitor_protocol, user_id);
     if let Ok(r) = client
         .get(format!(
             "https:://{}",
             monitor_env.monitor_url.domain().unwrap_or_default()
         ))
         .basic_auth(
-            format!("{}-{}", monitor_env.monitor_protocol, user_id),
+            &username,
             Some(&password),
         )
         .send()
@@ -542,8 +531,7 @@ fn try_verify_kuutamo_monitoring_config(
 
     Some(KmonitorConfig {
         url: monitor_env.monitor_url.clone(),
-        protocol: monitor_env.monitor_protocol.clone(),
-        user_id,
+        username,
         password,
     })
 }

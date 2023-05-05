@@ -53,18 +53,8 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         host_file
             .write_all(host_toml.as_bytes())
             .with_context(|| format!("Cannot write {}", host_path.display()))?;
-        if let Some(telegraf_config) = &host.telegraf_config {
-            let telegraf_path = tmp_dir.path().join(format!("{name}-telegraf.toml"));
-            let mut telegraf_file = File::create(&telegraf_path)
-                .with_context(|| format!("could not create {}", telegraf_path.display()))?;
-            let telegraf_config_toml = toml::to_string(&telegraf_config)
-                .with_context(|| format!("cannot serialize {name} telegraf config to toml"))?;
-            telegraf_file
-                .write_all(telegraf_config_toml.as_bytes())
-                .with_context(|| format!("Cannot write {}", telegraf_path.display()))?;
-        }
         if let Some(kmonitor_config) = &host.kmonitor_config {
-            let kmonitor_path = tmp_dir.path().join(format!("{name}-kmonitor.toml"));
+            let kmonitor_path = tmp_dir.path().join(format!("{name}-kmonitor-secret.toml"));
             let mut kmonitor_file = File::create(&kmonitor_path)
                 .with_context(|| format!("could not create {}", kmonitor_path.display()))?;
             let kmonitor_config_toml = toml::to_string(&kmonitor_config).with_context(|| {
@@ -87,11 +77,8 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
                 .iter()
                 .map(|m| format!("      lightning-knd.nixosModules.\"{m}\""))
                 .collect::<Vec<_>>();
-            if host.telegraf_config.is_some() {
-                modules.push(format!(r#"{{ kuutamo.monitorConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "{name}-telegraf.toml"; path = ./{name}-telegraf.toml; }})); }}"#));
-            }
             if host.kmonitor_config.is_some() {
-                modules.push(format!(r#"{{ kuutamo.KMonitorConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "{name}-kmonitor.toml"; path = ./{name}-kmonitor.toml; }})); }}"#));
+                modules.push(format!(r#"{{ kuutamo.KMonitorConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "{name}-kmonitor-secret.toml"; path = ./{name}-kmonitor-secret.toml; }})); }}"#));
             }
             let modules = modules.join("\n");
 

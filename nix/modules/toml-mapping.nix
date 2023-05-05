@@ -2,7 +2,7 @@
 
 let
   cfg = config.kuutamo.deployConfig;
-
+  kmonitor_cfg = config.kuutamo.KMonitorConfig;
   settingsFormat = pkgs.formats.toml { };
 in
 {
@@ -11,6 +11,12 @@ in
     description = lib.mdDoc "toml configuration from kld-mgr cli";
     inherit (settingsFormat) type;
   };
+  options.kuutamo.KMonitorConfig = lib.mkOption {
+    default = { url = ""; username = ""; password = ""; };
+    description = lib.mdDoc "kuutamo monitor access token from kld-mgr cli";
+    inherit (settingsFormat) type;
+  };
+
   # deployConfig is optional
   config = lib.mkIf (cfg != { }) {
     networking.hostName = cfg.name;
@@ -43,5 +49,9 @@ in
       cfg.cockroach_peers;
 
     kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) (builtins.map (peer: peer.name) cfg.cockroach_peers);
+
+    kuutamo.telegraf.url = kmonitor_cfg.url;
+    kuutamo.telegraf.username = kmonitor_cfg.username;
+    kuutamo.telegraf.password = kmonitor_cfg.password;
   };
 }
