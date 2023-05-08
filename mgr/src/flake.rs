@@ -53,17 +53,6 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         host_file
             .write_all(host_toml.as_bytes())
             .with_context(|| format!("Cannot write {}", host_path.display()))?;
-        if let Some(kmonitor_config) = &host.kmonitor_config {
-            let kmonitor_path = tmp_dir.path().join(format!("{name}-kmonitor-secret.toml"));
-            let mut kmonitor_file = File::create(&kmonitor_path)
-                .with_context(|| format!("could not create {}", kmonitor_path.display()))?;
-            let kmonitor_config_toml = toml::to_string(&kmonitor_config).with_context(|| {
-                format!("cannot serialize {name} kuutamo monitor config to toml")
-            })?;
-            kmonitor_file
-                .write_all(kmonitor_config_toml.as_bytes())
-                .with_context(|| format!("Cannot write {}", kmonitor_path.display()))?;
-        }
     }
     let configurations = config
         .hosts
@@ -73,14 +62,11 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
             nixos_modules.push(host.nixos_module.clone());
             nixos_modules.extend_from_slice(host.extra_nixos_modules.as_slice());
 
-            let mut modules = nixos_modules
+            let modules = nixos_modules
                 .iter()
                 .map(|m| format!("      lightning-knd.nixosModules.\"{m}\""))
-                .collect::<Vec<_>>();
-            if host.kmonitor_config.is_some() {
-                modules.push(format!(r#"{{ kuutamo.KMonitorConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "{name}-kmonitor-secret.toml"; path = ./{name}-kmonitor-secret.toml; }})); }}"#));
-            }
-            let modules = modules.join("\n");
+                .collect::<Vec<_>>()
+                .join("\n");
 
             format!(
                 r#"  nixosConfigurations."{name}" = lightning-knd.inputs.nixpkgs.lib.nixosSystem {{

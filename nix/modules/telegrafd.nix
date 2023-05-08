@@ -3,6 +3,7 @@
 
   services.telegraf = {
     enable = true;
+    environmentFiles = [ /var/lib/secrets/telegraf ];
     extraConfig = {
       agent.interval = "60s";
       inputs = {
@@ -54,19 +55,12 @@
       };
       outputs =
         let
-          monitor = if config.kuutamo.telegraf.url == "" then { } else {
-            influxdb = {
-              urls = [ config.kuutamo.telegraf.url or "" ];
-              username = config.kuutamo.telegraf.username or "";
-              password = config.kuutamo.telegraf.password or "";
-            };
-          };
-          kmonitor = if config.kuutamo.telegraf.kmonitoring_user_id == "" then { } else {
+          kmonitor = if "$MONITORING_USERNAME" == "" then { } else {
             http = {
-              url = config.kuutamo.telegraf.kmonitoring_url;
+              url = "$MONITORING_URL";
               data_format = "prometheusremotewrite";
-              username = "${config.kuutamo.telegraf.kmonitoring_protocol}-${config.kuutamo.telegraf.kmonitoring_user_id}";
-              password = config.kuutamo.telegraf.kmonitoring_password;
+              username = "$MONITORING_USERNAME";
+              password = "$MONITORING_PASSWORD";
             };
           };
         in
@@ -75,7 +69,7 @@
             listen = ":9273";
             metric_version = 2;
           };
-        } // monitor // kmonitor;
+        } // kmonitor;
     };
   };
   security.sudo.extraRules = [
