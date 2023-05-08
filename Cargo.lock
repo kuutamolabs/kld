@@ -1304,7 +1304,7 @@ dependencies = [
  "futures",
  "hex",
  "hyper",
- "lightning",
+ "lightning 0.0.114",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1365,6 +1365,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.115"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e009e1c0c21f66378b491bb40f548682138c63e09db6f3a05af59f8804bb9f4a"
+dependencies = [
+ "bitcoin",
+]
+
+[[package]]
 name = "lightning-background-processor"
 version = "0.0.114"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1372,21 +1381,19 @@ checksum = "7af76b912df8827d9e6bde2fadbbb7b1e2d04f7da92009d244394bd2faa37380"
 dependencies = [
  "bitcoin",
  "futures-util",
- "lightning",
+ "lightning 0.0.114",
  "lightning-rapid-gossip-sync",
 ]
 
 [[package]]
 name = "lightning-block-sync"
-version = "0.0.114"
+version = "0.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71a6fcb6ffc245cf0aee4a4654145a2a7e670be2d879c14b8ed456cdc4235255"
+checksum = "7c60cf241b3c219ee865aad91eab85a879b23c1756a335a5a311790ad6c1c3d2"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
- "futures-util",
- "lightning",
- "serde",
+ "lightning 0.0.115",
  "serde_json",
 ]
 
@@ -1398,7 +1405,7 @@ checksum = "adfb59c6d13e130aece30fc72a7c17d74b201aed0ffb201b740f36e07aaece32"
 dependencies = [
  "bech32 0.9.1",
  "bitcoin_hashes",
- "lightning",
+ "lightning 0.0.114",
  "num-traits",
  "secp256k1",
 ]
@@ -1410,7 +1417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19197703db1195ed908ccd84cd76baaa5916e0d22750a2e1b7188f66516812bd"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.114",
  "tokio",
 ]
 
@@ -1421,7 +1428,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6073e6cac4019f39e0bb02d3c92ebbb22950a46a663059b3b0e19f7928e00edb"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.114",
 ]
 
 [[package]]
@@ -2481,7 +2488,7 @@ dependencies = [
  "async-trait",
  "base64 0.21.0",
  "bitcoin",
- "lightning",
+ "lightning 0.0.114",
  "lightning-block-sync",
  "openssl",
  "postgres-openssl",
