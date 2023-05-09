@@ -35,8 +35,6 @@
           kuutamo.ctl.package = packages.kld-ctl;
         };
 
-      telegrafd = ./telegrafd.nix;
-
       common-node = {
         imports = [
           inputs.srvos.nixosModules.server
@@ -44,7 +42,6 @@
           self.nixosModules.disko-partitioning-script
           self.nixosModules.kuutamo-binary-cache
           self.nixosModules.kld-ctl
-          self.nixosModules.telegrafd
           ./toml-mapping.nix
           ./hardware.nix
           ./network.nix

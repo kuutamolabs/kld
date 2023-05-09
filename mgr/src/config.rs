@@ -5,9 +5,11 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use serde::Serialize;
 use serde_derive::Deserialize;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use url::Url;
@@ -93,7 +95,7 @@ pub struct CockroachPeer {
 }
 
 /// Kuutamo monitor
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub struct KmonitorConfig {
     /// self host url for monitoring, None for kuutamo monitoring
     pub url: Option<Url>,
@@ -101,6 +103,12 @@ pub struct KmonitorConfig {
     pub username: String,
     /// password for kuutamo monitor
     pub password: String,
+}
+
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -200,6 +208,12 @@ pub struct Host {
     /// Setup telegraf output auth for kuutamo monitor server
     #[serde(skip_serializing)]
     pub kmonitor_config: Option<KmonitorConfig>,
+
+    /// Has monitoring server or not
+    pub telegraf_has_monitoring: bool,
+
+    /// Hash for monitoring config
+    pub telegraf_config_hash: String,
 }
 
 impl Host {
@@ -477,6 +491,9 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         }
     };
 
+    let telegraf_has_monitoring = kmonitor_config.is_some();
+    let telegraf_config_hash = calculate_hash(&kmonitor_config).to_string();
+
     Ok(Host {
         name,
         nixos_module,
@@ -495,6 +512,8 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         bitcoind_disks,
         cockroach_peers: vec![],
         kmonitor_config,
+        telegraf_has_monitoring,
+        telegraf_config_hash,
     })
 }
 
@@ -742,6 +761,8 @@ fn test_validate_host() -> Result<()> {
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
             kmonitor_config: None,
+            telegraf_has_monitoring: false,
+            telegraf_config_hash: "13646096770106105413".to_string(),
         }
     );
 

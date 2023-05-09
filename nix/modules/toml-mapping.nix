@@ -43,5 +43,8 @@ in
       cfg.cockroach_peers;
 
     kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) (builtins.map (peer: peer.name) cfg.cockroach_peers);
+
+    kuutamo.telegraf.hasMonitoring = cfg.telegraf_has_monitoring or false;
+    kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
   };
 }
