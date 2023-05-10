@@ -25,6 +25,7 @@ impl BitcoinManager {
         let args = &[
             "-server",
             "-noconnect",
+            "-rpcthreads=16",
             &format!("-chain={NETWORK}"),
             &format!("-datadir={}", &self.manager.storage_dir),
             &format!("-port={}", &self.p2p_port.to_string()),
