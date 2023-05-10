@@ -54,7 +54,7 @@ axum = { version = "0.6.18", features = ["ws", "headers"] }
 axum-server = { version = "0.4", features = ["tls-rustls"] }
 tower-http = { version = "0.4.0", features = [ "cors" ] }
 async-trait = "0.1.68"
-clap = { version = "4.2.4", features = ["derive", "env"] }
+clap = { version = "4.2.7", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json" ] }
 
 bitvec = "1.0.1"
