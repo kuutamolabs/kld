@@ -63,7 +63,6 @@ Commands:
   rollback         Rollback hosts to previous generation
   ssh              SSH into a host
   reboot           Reboot hosts
-  system-info      Get system info from a host
   help             Print this message or the help of the given subcommand(s)
 
 Options:
