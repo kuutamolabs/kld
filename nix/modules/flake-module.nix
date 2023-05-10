@@ -26,12 +26,23 @@
 
       disko-partitioning-script = ./disko-partitioning-script.nix;
 
+      kld-ctl = { pkgs, ... }:
+        let
+          packages = self.packages.${pkgs.hostPlatform.system};
+        in
+        {
+          imports = [ ./ctl ];
+          kuutamo.ctl.package = packages.kld-ctl;
+          _module.args.self = self;
+        };
+
       common-node = {
         imports = [
           inputs.srvos.nixosModules.server
           inputs.disko.nixosModules.disko
           self.nixosModules.disko-partitioning-script
           self.nixosModules.kuutamo-binary-cache
+          self.nixosModules.kld-ctl
           ./toml-mapping.nix
           ./hardware.nix
           ./network.nix

@@ -9,6 +9,9 @@
       kld-mgr = pkgs.callPackage ./kld-mgr.nix {
         inherit self;
       };
+      kld-ctl = pkgs.callPackage ./kld-ctl.nix {
+        inherit self;
+      };
       remote-pdb = pkgs.python3.pkgs.callPackage ./remote-pdb.nix { };
       bitcoind = pkgs.bitcoind.override { withGui = false; };
       cockroachdb = pkgs.callPackage ./cockroachdb.nix { };
