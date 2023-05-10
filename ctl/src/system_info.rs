@@ -54,7 +54,7 @@ fn cockroach_version() -> Result<String> {
     }
 }
 
-pub fn system_info(inline: bool) -> String {
+pub fn system_info(inline: bool) {
     let mut info = vec![("kld-version", env!("CARGO_PKG_VERSION").to_string())];
 
     if let Ok(system_info) = read_system_info() {
@@ -72,9 +72,9 @@ pub fn system_info(inline: bool) -> String {
 
     if inline {
         let system_info: Vec<String> = info.iter().map(|i| format!("{}={}", i.0, i.1)).collect();
-        system_info.join(" ")
+        println!("{}", system_info.join(" "));
     } else {
         let system_info: Vec<String> = info.iter().map(|i| format!("{}: {}", i.0, i.1)).collect();
-        system_info.join("\n")
+        println!("{}", system_info.join("\n"));
     }
 }

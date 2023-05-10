@@ -25,6 +25,12 @@
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
       };
 
+      kld-ctl = { pkgs, ... }: {
+        config = {
+          environment.systemPackages = [ self.packages.${pkgs.hostPlatform.system}.kld-ctl ];
+        };
+      };
+
       disko-partitioning-script = ./disko-partitioning-script.nix;
 
       common-node = {
@@ -33,6 +39,7 @@
           inputs.disko.nixosModules.disko
           self.nixosModules.disko-partitioning-script
           self.nixosModules.kuutamo-binary-cache
+          self.nixosModules.kld-ctl
           ./toml-mapping.nix
           ./hardware.nix
           ./network.nix

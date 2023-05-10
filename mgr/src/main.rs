@@ -230,15 +230,17 @@ fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()>
 fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
     let hosts = filter_hosts(&args.hosts, &config.hosts)?;
     for host in hosts {
-        let target = host.deploy_ssh_target();
-        let args = match host.nixos_module.as_str() {
-            "kld-node" => vec![target.as_str(), "--", "kld-cli", "system-info"],
-            "cockroachdb-node" => vec![target.as_str(), "--", "cockroach-sql", "version"],
-            _ => vec![target.as_str(), "--", "uname", "-a"],
-        };
-        if let Ok(output) = std::process::Command::new("ssh").args(&args).output() {
+        println!("[{}]", host.name);
+        if let Ok(output) = std::process::Command::new("ssh")
+            .args([
+                host.deploy_ssh_target().as_str(),
+                "--",
+                "kld-ctl",
+                "system-info",
+            ])
+            .output()
+        {
             if output.status.success() {
-                println!("[{}]", host.name);
                 io::stdout().write_all(&output.stdout)?;
             } else {
                 println!(
@@ -250,6 +252,7 @@ fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
         } else {
             println!("Fail to fetch system info from {}", host.name);
         }
+        println!("\n");
     }
     Ok(())
 }

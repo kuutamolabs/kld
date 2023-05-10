@@ -163,7 +163,7 @@ in
       git_commit_date = "${self.lastModifiedDate}"
     '';
     system.activationScripts.kld-node-upgrade = ''
-      ${config.systemd.package}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"kld node updated\" $(kld-cli system-info --inline)
+      ${config.systemd.package}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"kld node updated\" $(kld-ctl system-info --inline)
     '';
 
     kuutamo.cockroachdb.ensureDatabases = [ "kld" ];

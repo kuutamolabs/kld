@@ -1,8 +1,6 @@
 mod client;
-mod system_info;
 
 use crate::client::Api;
-use crate::system_info::system_info;
 use anyhow::Result;
 use api::FeeRate;
 use clap::{Parser, Subcommand};
@@ -12,13 +10,13 @@ use clap::{Parser, Subcommand};
 struct Args {
     /// IP address or hostname of the target machine.
     #[arg(short, long)]
-    target: Option<String>,
+    target: String,
     /// Path to the TLS cert of the target API.
     #[arg(short, long)]
-    cert_path: Option<String>,
+    cert_path: String,
     /// Path to the macaroon for authenticating with the API.
     #[arg(short, long)]
-    macaroon_path: Option<String>,
+    macaroon_path: String,
     /// Command to run.
     #[clap(subcommand)]
     command: Command,
@@ -108,12 +106,6 @@ enum Command {
         #[arg(long)]
         id: Option<String>,
     },
-    /// Show system info
-    SystemInfo {
-        /// Display system info with inline format
-        #[arg(long)]
-        inline: bool,
-    },
 }
 
 fn main() {
@@ -126,49 +118,37 @@ fn main() {
 }
 
 fn run_command(args: Args) -> Result<()> {
-    let output = match args.command {
-        Command::SystemInfo { inline } => system_info(inline),
-        _ => {
-            if let (Some(target), Some(cert_path), Some(macaroon_path)) =
-                (&args.target, &args.cert_path, &args.macaroon_path)
-            {
-                let api = Api::new(target, cert_path, macaroon_path)?;
-                match args.command {
-                    Command::GetInfo => api.get_info()?,
-                    Command::GetBalance => api.get_balance()?,
-                    Command::NewAddress => api.new_address()?,
-                    Command::Withdraw {
-                        address,
-                        satoshis,
-                        fee_rate,
-                    } => api.withdraw(address, satoshis, fee_rate)?,
-                    Command::ListChannels => api.list_channels()?,
-                    Command::ListPeers => api.list_peers()?,
-                    Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
-                    Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
-                    Command::OpenChannel {
-                        public_key,
-                        sats: satoshis,
-                        push_msat,
-                        announce,
-                        fee_rate,
-                    } => api.open_channel(public_key, satoshis, push_msat, announce, fee_rate)?,
-                    Command::SetChannelFee {
-                        id,
-                        base_fee,
-                        ppm_fee,
-                    } => api.set_channel_fee(id, base_fee, ppm_fee)?,
-                    Command::CloseChannel { id } => api.close_channel(id)?,
-                    Command::NetworkNodes { id } => api.list_network_nodes(id)?,
-                    Command::NetworkChannels { id } => api.list_network_channels(id)?,
-                    _ => unreachable!(),
-                }
-            } else {
-                anyhow::bail!("`target`, `cert-path`, `macaroon-path` are required")
-            }
-        }
-    };
+    let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
+    let output = match args.command {
+        Command::GetInfo => api.get_info()?,
+        Command::GetBalance => api.get_balance()?,
+        Command::NewAddress => api.new_address()?,
+        Command::Withdraw {
+            address,
+            satoshis,
+            fee_rate,
+        } => api.withdraw(address, satoshis, fee_rate)?,
+        Command::ListChannels => api.list_channels()?,
+        Command::ListPeers => api.list_peers()?,
+        Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
+        Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
+        Command::OpenChannel {
+            public_key,
+            sats: satoshis,
+            push_msat,
+            announce,
+            fee_rate,
+        } => api.open_channel(public_key, satoshis, push_msat, announce, fee_rate)?,
+        Command::SetChannelFee {
+            id,
+            base_fee,
+            ppm_fee,
+        } => api.set_channel_fee(id, base_fee, ppm_fee)?,
+        Command::CloseChannel { id } => api.close_channel(id)?,
+        Command::NetworkNodes { id } => api.list_network_nodes(id)?,
+        Command::NetworkChannels { id } => api.list_network_channels(id)?,
+    };
     if output != "null" {
         println!("{output}");
     }

@@ -272,7 +272,7 @@ in
       git_commit_date = "${self.lastModifiedDate}"
     '';
     system.activationScripts.cockroachdb-node-upgrade = ''
-      ${config.systemd.package}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"cockroachdb node updated\" cockroachdb-version=$(cockroach version | head -n1 | cut -c 19-)
+      ${config.systemd.package}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"cockroachdb node updated\" $(kld-ctl system-info --inline)
     '';
 
     users.users = lib.optionalAttrs (cfg.user == "cockroachdb") {
