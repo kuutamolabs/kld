@@ -281,10 +281,11 @@ fn init_rpc_blockchain(settings: Arc<Settings>) -> Result<RpcBlockchain> {
         error!("Incorrect system time");
         std::process::exit(1);
     };
+    info!("Sync start time: {start_time}");
     // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
     // It prevents a historical sync. So only add funds while kld is running.
     let rpc_sync_params = RpcSyncParams {
-        start_script_count: 10,
+        start_script_count: 100,
         start_time,
         force_start_time: false,
         poll_rate_sec: 10,
