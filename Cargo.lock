@@ -245,7 +245,7 @@ checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 [[package]]
 name = "bdk"
 version = "0.28.0"
-source = "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#377059254ef39998a8284df164513ec758ae39f9"
+source = "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#fa0973f58286383232048b6809f2bc5dc70c2de9"
 dependencies = [
  "async-trait",
  "bdk-macros",

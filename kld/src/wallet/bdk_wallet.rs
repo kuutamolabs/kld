@@ -24,7 +24,7 @@ use bitcoin::{
 };
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
-use log::{error, info};
+use log::{error, info, warn};
 use once_cell::sync::OnceCell;
 use settings::{Network, Settings};
 
@@ -53,7 +53,7 @@ impl<
         match self.wallet.try_lock() {
             Ok(wallet) => Ok(wallet.get_balance()?),
             Err(_) => {
-                error!("Wallet was locked when trying to get balance");
+                warn!("Wallet was locked when trying to get balance");
                 Ok(Balance::default())
             }
         }
@@ -225,7 +225,7 @@ impl<
                     }
                 }
             }
-            std::thread::sleep(Duration::from_secs(60));
+            std::thread::sleep(Duration::from_secs(10));
         });
     }
 
@@ -285,7 +285,7 @@ fn init_rpc_blockchain(settings: Arc<Settings>) -> Result<RpcBlockchain> {
     // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
     // It prevents a historical sync. So only add funds while kld is running.
     let rpc_sync_params = RpcSyncParams {
-        start_script_count: 100,
+        start_script_count: 10,
         start_time,
         force_start_time: false,
         poll_rate_sec: 10,
