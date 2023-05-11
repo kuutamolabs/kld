@@ -11,7 +11,7 @@ use lightning::{
 use super::net_utils::PeerAddress;
 
 #[async_trait]
-pub trait LightningInterface {
+pub trait LightningInterface: Send + Sync {
     fn alias(&self) -> String;
 
     async fn block_height(&self) -> Result<u64>;

@@ -72,11 +72,8 @@ impl Check for CockroachCheck {
 
 pub async fn connection(settings: &Settings) -> Result<Client> {
     let log_safe_params = format!(
-        "host={} port={} user={} dbname={}",
-        settings.database_host,
-        settings.database_port,
-        settings.database_user,
-        settings.database_name
+        "host={} port={} user={} dbname=defaultdb",
+        settings.database_host, settings.database_port, settings.database_user,
     );
     let mut builder = SslConnector::builder(SslMethod::tls())?;
     builder.set_ca_file(&settings.database_ca_cert_path)?;
@@ -90,6 +87,18 @@ pub async fn connection(settings: &Settings) -> Result<Client> {
         let _ = connection.await;
     });
     Ok(client)
+}
+
+pub async fn create_database(settings: &Settings) {
+    let client = connection(settings).await.unwrap();
+    client
+        .execute(
+            &format!("CREATE DATABASE IF NOT EXISTS {}", settings.database_name),
+            &[],
+        )
+        .await
+        .unwrap();
+    println!("Created database {}", &settings.database_name);
 }
 
 #[macro_export]

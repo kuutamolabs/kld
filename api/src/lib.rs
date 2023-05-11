@@ -144,6 +144,14 @@ pub struct WalletTransferResponse {
     pub txid: String,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum ChannelState {
+    Usable,
+    Ready,
+    Pending,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Channel {
@@ -152,7 +160,7 @@ pub struct Channel {
     /// Peer connection status (true or false)
     pub connected: String,
     // Channel connection status
-    pub state: String,
+    pub state: ChannelState,
     /// Channel ID
     pub short_channel_id: String,
     /// Channel ID
@@ -181,7 +189,7 @@ pub struct Channel {
     pub alias: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FundChannel {
     /// Pub key of the peer

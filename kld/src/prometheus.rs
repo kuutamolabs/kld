@@ -14,6 +14,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
 
 use crate::ldk::LightningInterface;
+use crate::Service;
 
 static START: OnceCell<Instant> = OnceCell::new();
 
@@ -40,11 +41,22 @@ static WALLET_BALANCE: Lazy<Gauge> =
     Lazy::new(|| register_gauge!("wallet_balance", "The bitcoin wallet balance").unwrap());
 
 async fn response_examples(
-    lightning_metrics: Arc<dyn LightningInterface + Send + Sync>,
+    lightning_metrics: Arc<dyn LightningInterface>,
+    database: Arc<dyn Service>,
+    bitcoind: Arc<dyn Service>,
     req: Request<Body>,
 ) -> hyper::Result<Response<Body>> {
     match (req.method(), req.uri().path()) {
-        (&Method::GET, "/health") => Ok(Response::new(Body::from("OK"))),
+        (&Method::GET, "/health") => {
+            let health = if database.is_synchronised().await && bitcoind.is_synchronised().await {
+                "OK"
+            } else if database.is_connected().await && bitcoind.is_connected().await {
+                "SYNCING"
+            } else {
+                "ERROR"
+            };
+            Ok(Response::new(Body::from(health)))
+        }
         (&Method::GET, "/pid") => Ok(Response::new(Body::from(process::id().to_string()))),
         (&Method::GET, "/metrics") => {
             UPTIME.set(START.get().unwrap().elapsed().as_millis() as f64);
@@ -74,15 +86,25 @@ fn not_found() -> Response<Body> {
 /// Starts an prometheus exporter backend
 pub async fn start_prometheus_exporter(
     address: String,
-    lightning_metrics: Arc<dyn LightningInterface + Send + Sync>,
+    lightning_metrics: Arc<dyn LightningInterface>,
+    database: Arc<dyn Service>,
+    bitcoind: Arc<dyn Service>,
     quit_signal: Shared<impl Future<Output = ()>>,
 ) -> Result<()> {
     START.set(Instant::now()).unwrap();
     let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
         let lightning_metrics_clone = lightning_metrics.clone();
-        let service =
-            service_fn(move |req| response_examples(lightning_metrics_clone.clone(), req));
+        let bitcoind_clone = bitcoind.clone();
+        let database_clone = database.clone();
+        let service = service_fn(move |req| {
+            response_examples(
+                lightning_metrics_clone.clone(),
+                database_clone.clone(),
+                bitcoind_clone.clone(),
+                req,
+            )
+        });
         async move { Ok::<_, hyper::Error>(service) }
     });
 

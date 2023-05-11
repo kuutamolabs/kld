@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use tokio::signal::unix::SignalKind;
 
 pub mod api;
@@ -16,4 +17,16 @@ pub async fn quit_signal() {
         .unwrap()
         .recv()
         .await;
+}
+
+#[async_trait]
+pub trait Service: Send + Sync {
+    async fn is_connected(&self) -> bool;
+    async fn is_synchronised(&self) -> bool;
+}
+
+pub fn log_error(e: &anyhow::Error) {
+    for cause in e.chain() {
+        log::error!("{}", cause);
+    }
 }

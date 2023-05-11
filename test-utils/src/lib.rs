@@ -32,6 +32,13 @@ pub const TEST_ALIAS: &str = "test node";
 
 pub const TEST_WPKH: &str = "wpkh(cVpPVruEDdmutPzisEsYvtST1usBR3ntr8pXSyt6D2YYqXRyPcFW)";
 
+#[macro_export]
+macro_rules! test_settings {
+    ($name: literal) => {
+        test_utils::test_settings(env!("CARGO_TARGET_TMPDIR"), $name)
+    };
+}
+
 pub fn test_settings(tmp_dir: &str, name: &str) -> Settings {
     let mut settings = Settings::default();
     settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
@@ -45,6 +52,7 @@ pub fn test_settings(tmp_dir: &str, name: &str) -> Settings {
         "{}/certs/cockroach/client.root.key",
         env!("CARGO_MANIFEST_DIR")
     );
+    settings.database_name = name.to_string();
     settings.node_id = name.to_string();
     settings.data_dir = format!("{tmp_dir}/test_{name}");
     settings.mnemonic_path = format!("{}/mnemonic", settings.data_dir);
@@ -90,7 +98,7 @@ macro_rules! poll {
             ellapsed += 1;
         }
         if ellapsed == $secs {
-            panic!("Timed out polling for result");
+            anyhow::bail!("Timed out polling for result");
         }
     };
 }

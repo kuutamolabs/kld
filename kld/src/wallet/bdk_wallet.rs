@@ -10,6 +10,7 @@ use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     bitcoincore_rpc::{bitcoincore_rpc_json::ScanningDetails, RpcApi},
     blockchain::{
+        log_progress,
         rpc::{Auth, RpcSyncParams},
         ConfigurableBlockchain, RpcBlockchain, RpcConfig,
     },
@@ -23,33 +24,38 @@ use bitcoin::{
 };
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
-use log::{error, info};
+use log::{error, info, warn};
+use once_cell::sync::OnceCell;
 use settings::{Network, Settings};
 
-use crate::bitcoind::Synchronised;
+use crate::Service;
 
 use super::WalletInterface;
 
 pub struct Wallet<
     D: Database + BatchDatabase + BatchOperations,
-    B: BlockSource + FeeEstimator + Synchronised,
+    B: BlockSource + FeeEstimator + Service,
 > {
     // bdk::Wallet uses a RefCell to hold the database which is not thread safe so we use a mutex here.
     wallet: Arc<Mutex<bdk::Wallet<D>>>,
     bitcoind_client: Arc<B>,
     settings: Arc<Settings>,
+    blockchain: Arc<OnceCell<RpcBlockchain>>,
 }
 
 #[async_trait]
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator + BroadcasterInterface + Synchronised,
+        B: BlockSource + FeeEstimator + BroadcasterInterface + Service,
     > WalletInterface for Wallet<D, B>
 {
     fn balance(&self) -> Result<Balance> {
         match self.wallet.try_lock() {
             Ok(wallet) => Ok(wallet.get_balance()?),
-            Err(_) => Ok(Balance::default()),
+            Err(_) => {
+                warn!("Wallet was locked when trying to get balance");
+                Ok(Balance::default())
+            }
         }
     }
 
@@ -61,7 +67,7 @@ impl<
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)> {
-        if !self.bitcoind_client.is_synchronised().await? {
+        if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is syncronising the blockchain")
         }
         let height = match self.bitcoind_client.get_best_block().await {
@@ -71,7 +77,7 @@ impl<
             }
         };
 
-        match self.wallet.try_lock() {
+        match self.wallet.lock() {
             Ok(wallet) => {
                 let mut tx_builder = wallet.build_tx();
                 if amount == u64::MAX {
@@ -106,7 +112,7 @@ impl<
     fn new_address(&self) -> Result<AddressInfo> {
         let address = self
             .wallet
-            .try_lock()
+            .lock()
             .unwrap()
             .get_address(bdk::wallet::AddressIndex::LastUnused)?;
         Ok(address)
@@ -115,7 +121,7 @@ impl<
 
 impl<
         D: Database + BatchDatabase + BatchOperations + Send + 'static,
-        B: BlockSource + FeeEstimator + Synchronised,
+        B: BlockSource + FeeEstimator + Service,
     > Wallet<D, B>
 {
     pub fn new(
@@ -154,70 +160,73 @@ impl<
             wallet: bdk_wallet,
             bitcoind_client,
             settings,
+            blockchain: Arc::new(OnceCell::new()),
         })
     }
 
-    pub fn keep_sync_with_chain(&self) -> Result<()> {
-        let url = format!(
-            "http://{}:{}",
-            self.settings.bitcoind_rpc_host, self.settings.bitcoind_rpc_port
-        );
+    pub async fn synced(&self) -> bool {
+        if let Ok((_, Some(height))) = self.bitcoind_client.get_best_block().await {
+            if let Ok(wallet) = self.wallet.try_lock() {
+                if let Ok(Some(sync_time)) = wallet.database().get_sync_time() {
+                    return sync_time.block_time.height == height;
+                }
+            }
+        }
+        false
+    }
 
-        // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
-        // It prevents a historical sync. So only add funds while kld is running.
-        let rpc_sync_params = RpcSyncParams {
-            start_script_count: 100,
-            start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            force_start_time: false,
-            poll_rate_sec: 10,
-        };
-
-        let wallet_config = RpcConfig {
-            url: url.clone(),
-            auth: Auth::Cookie {
-                file: self.settings.bitcoin_cookie_path.clone().into(),
-            },
-            network: self.settings.bitcoin_network.into(),
-            wallet_name: "kld-wallet".to_string(),
-            sync_params: Some(rpc_sync_params),
-        };
-        let blockchain = RpcBlockchain::from_config(&wallet_config)?;
-
+    pub fn keep_sync_with_chain(&self) {
         let wallet_clone = self.wallet.clone();
-        tokio::task::spawn_blocking(move || {
-            loop {
+        let blockchain = self.blockchain.clone();
+        let settings = self.settings.clone();
+        tokio::task::spawn_blocking(move || loop {
+            // RPCBlockchain will not be instantiated if bitcoind is down. So within this loop we can keep trying to connect and get in sync.
+            if let Ok(blockchain) =
+                blockchain.get_or_try_init(|| init_rpc_blockchain(settings.clone()))
+            {
                 match blockchain.get_wallet_info() {
-                    Ok(wallet_info) => {
-                        match wallet_info.scanning {
-                            Some(ScanningDetails::Scanning { duration, progress }) => {
-                                info!(
+                    Ok(wallet_info) => match wallet_info.scanning {
+                        Some(ScanningDetails::Scanning { duration, progress }) => {
+                            info!(
                                     "Wallet is synchronising with the blockchain. {}% progress after {} seconds.",
                                     (progress * 100_f32).round(),
                                     duration
                                 );
-                            }
-                            _ => {
-                                // Don't want to block for a long time while the wallet is syncing so use try_lock everywhere else.
-                                if let Err(e) = wallet_clone
-                                    .lock()
-                                    .expect("Cannot obtain mutex for wallet")
-                                    .sync(&blockchain, SyncOptions::default())
-                                {
-                                    error!("Wallet sync failed with bitcoind rpc endpoint {url:}. Check the logs of your bitcoind for more context: {e:}");
-                                } else {
-                                    info!("Wallet is synchronised to blockchain");
+                        }
+                        _ => {
+                            if let Ok(info) = blockchain.get_blockchain_info() {
+                                if let Ok(guard) = wallet_clone.try_lock() {
+                                    let database = guard.database();
+                                    if let Ok(synctime) = database.get_sync_time() {
+                                        let sync_height = synctime
+                                            .map(|time| time.block_time.height as u64)
+                                            .unwrap_or_default();
+                                        if sync_height < info.blocks {
+                                            drop(database);
+                                            info!("Starting wallet sync");
+                                            if let Err(e) = guard.sync(
+                                                blockchain,
+                                                SyncOptions {
+                                                    progress: Some(Box::new(log_progress())),
+                                                },
+                                            ) {
+                                                error!("Wallet sync failed with bitcoind. Check the logs of your bitcoind for more context: {e:}");
+                                            } else {
+                                                info!("Wallet is synchronised to blockchain");
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
+                    },
                     Err(e) => {
                         error!("Could not get wallet info: {e}");
                     }
                 }
-                std::thread::sleep(Duration::from_secs(60));
             }
+            std::thread::sleep(Duration::from_secs(10));
         });
-        Ok(())
     }
 
     pub fn fund_tx(
@@ -226,7 +235,7 @@ impl<
         channel_value_satoshis: &u64,
         fee_rate: api::FeeRate,
     ) -> Result<Transaction> {
-        let wallet = self.wallet.try_lock().unwrap();
+        let wallet = self.wallet.lock().unwrap();
 
         let mut tx_builder = wallet.build_tx();
 
@@ -265,6 +274,38 @@ impl<
     }
 }
 
+fn init_rpc_blockchain(settings: Arc<Settings>) -> Result<RpcBlockchain> {
+    let start_time = if let Ok(time) = SystemTime::now().duration_since(UNIX_EPOCH) {
+        time.as_secs()
+    } else {
+        error!("Incorrect system time");
+        std::process::exit(1);
+    };
+    info!("Sync start time: {start_time}");
+    // Sometimes we get wallet sync failure - https://github.com/bitcoindevkit/bdk/issues/859
+    // It prevents a historical sync. So only add funds while kld is running.
+    let rpc_sync_params = RpcSyncParams {
+        start_script_count: 10,
+        start_time,
+        force_start_time: false,
+        poll_rate_sec: 10,
+    };
+
+    let wallet_config = RpcConfig {
+        url: format!(
+            "http://{}:{}",
+            settings.bitcoind_rpc_host, settings.bitcoind_rpc_port
+        ),
+        auth: Auth::Cookie {
+            file: settings.bitcoin_cookie_path.clone().into(),
+        },
+        network: settings.bitcoin_network.into(),
+        wallet_name: settings.wallet_name.clone(),
+        sync_params: Some(rpc_sync_params),
+    };
+    Ok(RpcBlockchain::from_config(&wallet_config)?)
+}
+
 #[cfg(test)]
 mod test {
     use std::{
@@ -275,6 +316,7 @@ mod test {
     use anyhow::Result;
     use bdk::{database::MemoryDatabase, wallet::get_funded_wallet, Balance};
     use bitcoin::Address;
+    use once_cell::sync::OnceCell;
     use settings::Settings;
     use test_utils::{TEST_ADDRESS, TEST_WPKH};
 
@@ -290,6 +332,7 @@ mod test {
             Arc::new(MockBitcoindClient::default()),
             MemoryDatabase::new(),
         )?;
+
         let balance = wallet.balance()?;
         assert_eq!(balance, Balance::default());
 
@@ -318,9 +361,10 @@ mod test {
         let (bdk_wallet, _, _) = get_funded_wallet(TEST_WPKH);
         let bitcoind_client = Arc::new(bitcoind_client);
         let wallet = Wallet {
-            settings: Arc::new(Settings::default()),
             bitcoind_client: bitcoind_client.clone(),
             wallet: Arc::new(Mutex::new(bdk_wallet)),
+            settings: Arc::new(Settings::default()),
+            blockchain: Arc::new(OnceCell::new()),
         };
 
         let res = wallet
@@ -342,9 +386,10 @@ mod test {
         let (bdk_wallet, _, _) = get_funded_wallet(TEST_WPKH);
         let bitcoind_client = Arc::new(bitcoind_client);
         let wallet = Wallet {
-            settings: Arc::new(Settings::default()),
             bitcoind_client: bitcoind_client.clone(),
             wallet: Arc::new(Mutex::new(bdk_wallet)),
+            settings: Arc::new(Settings::default()),
+            blockchain: Arc::new(OnceCell::new()),
         };
 
         let (tx, tx_details) = wallet

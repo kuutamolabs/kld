@@ -10,7 +10,7 @@ pub struct Settings {
     pub bitcoind_rpc_host: String,
     #[arg(long, default_value = "8333", env = "KLD_BITCOIN_RPC_PORT")]
     pub bitcoind_rpc_port: u16,
-    #[arg(long, default_value = "testnet", env = "KLD_BITCOIN_NETWORK")]
+    #[arg(long, default_value = "regtest", env = "KLD_BITCOIN_NETWORK")]
     pub bitcoin_network: Network,
     #[arg(
         long,
@@ -31,6 +31,8 @@ pub struct Settings {
     pub mnemonic_path: String,
     #[arg(long, default_value = "one", env = "KLD_NODE_ID")]
     pub node_id: String,
+    #[arg(long, default_value = "kld-wallet", env = "KLD_WALLET_NAME")]
+    pub wallet_name: String,
     #[arg(long, default_value = "info", env = "KLD_LOG_LEVEL")]
     pub log_level: String,
     #[arg(long, default_value = "test", env = "KLD_ENV")]
@@ -39,8 +41,8 @@ pub struct Settings {
     #[arg(long, default_value = "9234", env = "KLD_PEER_PORT")]
     pub peer_port: u16,
     /// The node alias on the lightning network.
-    #[arg(long, default_value = "testnode", env = "KLD_NODE_NAME")]
-    pub node_name: String,
+    #[arg(long, default_value = "testnode", env = "KLD_NODE_ALIAS")]
+    pub node_alias: String,
     /// Public addresses to broadcast to the lightning network.
     #[arg(long, value_parser = addresses_parser, default_value = "127.0.0.1:9234", env = "KLD_PUBLIC_ADDRESSES")]
     pub public_addresses: Addresses,

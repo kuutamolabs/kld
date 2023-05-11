@@ -2,23 +2,23 @@ use anyhow::{Context, Result};
 use futures::FutureExt;
 use kld::api::{bind_api_server, MacaroonAuth};
 use kld::bitcoind::BitcoindClient;
-use kld::database::{migrate_database, LdkDatabase, WalletDatabase};
+use kld::database::{DurableConnection, WalletDatabase};
 use kld::key_generator::KeyGenerator;
 use kld::ldk::Controller;
 use kld::logger::KldLogger;
 use kld::prometheus::start_prometheus_exporter;
 use kld::wallet::Wallet;
-use kld::{quit_signal, VERSION};
+use kld::{log_error, quit_signal, VERSION};
 use log::{error, info};
 use settings::Settings;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub fn main() -> Result<()> {
+pub fn main() {
     let settings = Arc::new(Settings::load());
     KldLogger::init(
         &settings.node_id,
-        settings.log_level.parse().context("Invalid log level")?,
+        settings.log_level.parse().expect("Invalid log level"),
     );
 
     info!("Starting {VERSION}");
@@ -26,37 +26,34 @@ pub fn main() -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_io()
         .enable_time()
-        .build()?;
+        .build()
+        .expect("could not create runtime");
 
-    if let Err(e) = runtime.block_on(run_kld(settings)) {
-        error!("Fatal error encountered");
-        runtime.shutdown_background();
-        return Err(e);
-    }
+    let exit_code = if let Err(e) = runtime.block_on(run_kld(settings)) {
+        error!("Fatal error encountered: {e}");
+        log_error(&e);
+        error!("{}", e.backtrace());
+        1
+    } else {
+        0
+    };
 
     info!("Shutting down");
     runtime.shutdown_timeout(Duration::from_secs(30));
     info!("Stopped all threads. Process finished.");
-    Ok(())
+    std::process::exit(exit_code);
 }
 
 async fn run_kld(settings: Arc<Settings>) -> Result<()> {
     let quit_signal = quit_signal().shared();
 
-    migrate_database(&settings).await;
+    let durable_connection = Arc::new(DurableConnection::new_migrate(settings.clone()).await);
 
     let key_generator = Arc::new(
         KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
     );
 
-    let database = Arc::new(
-        LdkDatabase::new(&settings)
-            .await
-            .context("cannot connect to ldk database")?,
-    );
-    let wallet_database = WalletDatabase::new(&settings)
-        .await
-        .context("cannot connect to wallet database")?;
+    let wallet_database = WalletDatabase::new(settings.clone(), durable_connection.clone());
 
     let bitcoind_client = Arc::new(BitcoindClient::new(&settings).await?);
     bitcoind_client.poll_for_fee_estimates();
@@ -70,12 +67,11 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         )
         .context("Cannot create wallet")?,
     );
-    wallet.keep_sync_with_chain()?;
 
     let controller = Controller::start_ldk(
         settings.clone(),
-        database,
-        bitcoind_client,
+        durable_connection.clone(),
+        bitcoind_client.clone(),
         wallet.clone(),
         &key_generator.lightning_seed(),
     )
@@ -99,7 +95,7 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
             info!("Received quit signal.");
             Ok(())
         },
-        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), quit_signal.clone()) => {
+        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone()) => {
             result.context("Prometheus exporter failed")
         },
         result = server.serve(controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {

@@ -10,7 +10,7 @@ use axum::{
     Extension, TypedHeader,
 };
 use futures::StreamExt;
-use log::{debug, info};
+use log::{debug, error, info};
 
 use crate::api::unauthorized;
 
@@ -89,7 +89,9 @@ async fn handle_socket(mut socket: WebSocket, who: SocketAddr) {
         }
     });
 
-    recv_task.await.unwrap();
+    if let Err(e) = recv_task.await {
+        error!("{e}")
+    };
 
     // returning from the handler closes the websocket connection
     info!("Websocket context {} destroyed", who);

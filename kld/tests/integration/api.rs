@@ -1,5 +1,4 @@
 use std::thread::spawn;
-use std::time::Duration;
 use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
@@ -16,19 +15,22 @@ use reqwest::StatusCode;
 use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
-use test_utils::{https_client, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
+use test_utils::{
+    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
+    TEST_SHORT_CHANNEL_ID,
+};
 
 use api::{
-    routes, Address, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
-    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
-    WalletBalance, WalletTransfer, WalletTransferResponse,
+    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FundChannel, FundChannelResponse,
+    GetInfo, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer,
+    SetChannelFeeResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
-use crate::{quit_signal, test_settings};
+use crate::quit_signal;
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_unauthorized() -> Result<()> {
@@ -292,7 +294,7 @@ async fn test_list_channels_readonly() -> Result<()> {
         channel.id
     );
     assert_eq!("true", channel.connected);
-    assert_eq!("usable", channel.state);
+    assert_eq!(ChannelState::Usable, channel.state);
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
     assert_eq!(
         "0000000000000000000000000000000000000000000000000000000000000000",
@@ -609,7 +611,7 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
     KldLogger::init("test", log::LevelFilter::Info);
     let rest_api_port = get_available_port().context("no port available")?;
     let rest_api_address = format!("127.0.0.1:{rest_api_port}");
-    let mut settings = test_settings("api");
+    let mut settings = test_settings!("api");
     settings.rest_api_address = rest_api_address.clone();
     let certs_dir = settings.certs_dir.clone();
     let macaroon_auth = Arc::new(
@@ -621,19 +623,17 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
 
     // Run the API with its own runtime in its own thread.
     spawn(move || {
-        API_RUNTIME
-            .block_on(async {
-                bind_api_server(rest_api_address, certs_dir)
-                    .await?
-                    .serve(
-                        LIGHTNING.clone(),
-                        Arc::new(MockWallet::default()),
-                        macaroon_auth,
-                        quit_signal().shared(),
-                    )
-                    .await
-            })
-            .unwrap()
+        API_RUNTIME.spawn(async {
+            bind_api_server(rest_api_address, certs_dir)
+                .await?
+                .serve(
+                    LIGHTNING.clone(),
+                    Arc::new(MockWallet::default()),
+                    macaroon_auth,
+                    quit_signal().shared(),
+                )
+                .await
+        })
     });
 
     let new_context = TestContext {
@@ -642,14 +642,14 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
         readonly_macaroon,
     };
 
-    while !readonly_request(&new_context, Method::GET, routes::ROOT)?
-        .send()
-        .await
-        .map(|r| r.status().is_success())
-        .unwrap_or_default()
-    {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
+    poll!(
+        3,
+        readonly_request(&new_context, Method::GET, routes::ROOT)?
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or_default()
+    );
 
     *context = Some(Arc::new(new_context));
     drop(context); // release lock
@@ -686,7 +686,7 @@ fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
     route: &str,
     f: F,
 ) -> Result<RequestBuilder> {
-    let body = serde_json::to_string(&f()).unwrap();
+    let body = serde_json::to_string(&f())?;
     Ok(admin_request(context, method, route)?.body(body))
 }
 
@@ -701,6 +701,6 @@ fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(
     route: &str,
     f: F,
 ) -> Result<RequestBuilder> {
-    let body = serde_json::to_string(&f()).unwrap();
+    let body = serde_json::to_string(&f())?;
     Ok(readonly_request(context, method, route)?.body(body))
 }

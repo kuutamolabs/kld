@@ -25,7 +25,7 @@ impl PeerManager {
         database: Arc<LdkDatabase>,
         settings: Arc<Settings>,
     ) -> Result<PeerManager> {
-        if settings.node_name.len() > 32 {
+        if settings.node_alias.len() > 32 {
             bail!("Node Alias can not be longer than 32 bytes");
         }
         let mut addresses = vec![];
@@ -125,7 +125,8 @@ impl PeerManager {
     // to avoid churn in the global network graph.
     pub fn regularly_broadcast_node_announcement(&self) {
         let mut alias = [0; 32];
-        alias[..self.settings.node_name.len()].copy_from_slice(self.settings.node_name.as_bytes());
+        alias[..self.settings.node_alias.len()]
+            .copy_from_slice(self.settings.node_alias.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
         let addresses: Vec<NetAddress> = self.addresses.iter().map(|a| a.0.clone()).collect();
         tokio::spawn(async move {

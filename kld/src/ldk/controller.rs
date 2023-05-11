@@ -1,7 +1,8 @@
-use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup, Synchronised};
+use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::wallet::{Wallet, WalletInterface};
+use crate::Service;
 
-use crate::database::{LdkDatabase, WalletDatabase};
+use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
 use async_trait::async_trait;
@@ -10,8 +11,8 @@ use bitcoin::{BlockHash, Network, Transaction};
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
+use lightning::chain::Watch;
 use lightning::chain::{self, ChannelMonitorUpdateStatus};
-use lightning::chain::{chainmonitor, Watch};
 use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
@@ -55,7 +56,8 @@ impl LightningInterface for Controller {
     }
 
     async fn synced(&self) -> Result<bool> {
-        Ok(self.bitcoind_client.is_synchronised().await?
+        Ok(self.bitcoind_client.is_synchronised().await
+            && self.wallet.synced().await
             && self.channel_manager.current_best_block().block_hash()
                 == self
                     .bitcoind_client
@@ -88,7 +90,7 @@ impl LightningInterface for Controller {
     }
 
     fn alias(&self) -> String {
-        self.settings.node_name.clone()
+        self.settings.node_alias.clone()
     }
 
     async fn block_height(&self) -> Result<u64> {
@@ -138,7 +140,7 @@ impl LightningInterface for Controller {
         fee_rate: Option<FeeRate>,
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
-        if !self.bitcoind_client.is_synchronised().await? {
+        if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is syncronising blockchain")
         }
         if !self.peer_manager.is_connected(&their_network_key) {
@@ -174,7 +176,7 @@ impl LightningInterface for Controller {
         channel_id: &[u8; 32],
         counterparty_node_id: &PublicKey,
     ) -> Result<()> {
-        if !self.bitcoind_client.is_synchronised().await? {
+        if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is syncronising blockchain")
         }
         self.channel_manager
@@ -393,11 +395,16 @@ impl Controller {
 
     pub async fn start_ldk(
         settings: Arc<Settings>,
-        database: Arc<LdkDatabase>,
+        durable_connection: Arc<DurableConnection>,
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         seed: &[u8; 32],
     ) -> Result<Controller> {
+        let database = Arc::new(LdkDatabase::new(
+            settings.clone(),
+            durable_connection.clone(),
+        ));
+
         // BitcoindClient implements the FeeEstimator trait, so it'll act as our fee estimator.
         let fee_estimator = bitcoind_client.clone();
 
@@ -406,14 +413,14 @@ impl Controller {
 
         let network = settings.bitcoin_network.into();
 
-        // Initialize the ChainMonitor
-        let chain_monitor: Arc<ChainMonitor> = Arc::new(chainmonitor::ChainMonitor::new(
+        let chain_monitor: Arc<ChainMonitor> = Arc::new(ChainMonitor::new(
             None,
             broadcaster.clone(),
             KldLogger::global(),
             fee_estimator.clone(),
             database.clone(),
         ));
+        database.set_chain_monitor(chain_monitor.clone());
 
         let is_first_start = database
             .is_first_start()
@@ -422,10 +429,14 @@ impl Controller {
         // Initialize the KeysManager
         // The key seed that we use to derive the node privkey (that corresponds to the node pubkey) and
         // other secret key material.
-        let cur = SystemTime::now()
+        let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
-        let keys_manager = Arc::new(KeysManager::new(seed, cur.as_secs(), cur.subsec_nanos()));
+        let keys_manager = Arc::new(KeysManager::new(
+            seed,
+            current_time.as_secs(),
+            current_time.subsec_nanos(),
+        ));
 
         let network_graph = Arc::new(
             database
@@ -441,6 +452,7 @@ impl Controller {
                     network_graph.clone(),
                 )
                 .await?
+                .map(|s| s.0)
                 .unwrap_or_else(|| {
                     ProbabilisticScorer::new(
                         ProbabilisticScoringParameters::default(),
@@ -513,12 +525,12 @@ impl Controller {
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
 
-        let gossip_sync = Arc::new_cyclic(|u| {
+        let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
                 bitcoind_client.clone(),
                 network_graph.clone(),
-                u.clone(),
+                gossip.clone(),
             ));
             P2PGossipSync::new(
                 network_graph.clone(),
@@ -534,10 +546,6 @@ impl Controller {
             IgnoringMessageHandler {},
         ));
         let ephemeral_bytes: [u8; 32] = random();
-        let current_time = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
         let lightning_msg_handler = MessageHandler {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
@@ -545,7 +553,7 @@ impl Controller {
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
-            current_time.try_into().unwrap(),
+            current_time.as_secs().try_into().unwrap(),
             &ephemeral_bytes,
             KldLogger::global(),
             IgnoringMessageHandler {},
@@ -590,6 +598,7 @@ impl Controller {
         let bitcoind_client_clone = bitcoind_client.clone();
         let channel_manager_clone = channel_manager.clone();
         let peer_manager_clone = peer_manager.clone();
+        let wallet_clone = wallet.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
@@ -605,6 +614,7 @@ impl Controller {
             .await
             .unwrap();
 
+            wallet_clone.keep_sync_with_chain();
             peer_manager_clone.listen().await;
             peer_manager_clone.keep_channel_peers_connected();
             peer_manager_clone.regularly_broadcast_node_announcement();
