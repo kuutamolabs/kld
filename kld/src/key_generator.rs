@@ -33,6 +33,7 @@ impl KeyGenerator {
     }
 
     pub fn wallet_seed(&self) -> [u8; 32] {
+        // The seed can be loaded into any regular wallet and the on chain funds will be available.
         self.generate_key("")
     }
 

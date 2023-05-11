@@ -8,11 +8,11 @@ use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
+use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
-use lightning::chain::{self, ChannelMonitorUpdateStatus};
 use lightning::ln::channelmanager::{self, ChannelDetails};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
@@ -680,10 +680,7 @@ impl Controller {
 
         // Give ChannelMonitors to ChainMonitor
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
-            assert_eq!(
-                chain_monitor.watch_channel(funding_outpoint, channel_monitor),
-                ChannelMonitorUpdateStatus::Completed
-            );
+            chain_monitor.watch_channel(funding_outpoint, channel_monitor);
         }
 
         // Connect and Disconnect Blocks
