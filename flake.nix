@@ -10,6 +10,8 @@
     # These flakes are only used by crane at the moment, we pin them here so
     # that flake users can override them as needed.
     flake-utils.url = "github:numtide/flake-utils";
+    systems.url = "github:nix-systems/default";
+    flake-utils.inputs.systems.follows = "systems";
     rust-overlay.url = "github:oxalica/rust-overlay";
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
     rust-overlay.inputs.flake-utils.follows = "flake-utils";
