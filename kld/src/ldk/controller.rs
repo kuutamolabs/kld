@@ -67,6 +67,12 @@ impl LightningInterface for Controller {
                     .0)
     }
 
+    fn sign(&self, message: &[u8]) -> Result<String> {
+        let secret_key = self.keys_manager.get_node_secret_key();
+        let signature = lightning::util::message_signing::sign(message, &secret_key)?;
+        Ok(signature)
+    }
+
     fn graph_num_nodes(&self) -> usize {
         self.network_graph.read_only().nodes().len()
     }
@@ -376,6 +382,7 @@ pub struct Controller {
     bitcoind_client: Arc<BitcoindClient>,
     channel_manager: Arc<ChannelManager>,
     peer_manager: Arc<PeerManager>,
+    keys_manager: Arc<KeysManager>,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
@@ -626,6 +633,7 @@ impl Controller {
             bitcoind_client,
             channel_manager,
             peer_manager,
+            keys_manager,
             network_graph,
             wallet,
             async_api_requests,

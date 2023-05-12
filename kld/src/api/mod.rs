@@ -17,6 +17,7 @@ use crate::{
             get_network_channel, get_network_node, list_network_channels, list_network_nodes,
         },
         peers::{connect_peer, disconnect_peer, list_peers},
+        utility::sign,
         wallet::{get_balance, new_address, transfer},
         ws::ws_handler,
     },
@@ -69,6 +70,7 @@ impl RestApi {
 
         let app = Router::new()
             .route(routes::ROOT, get(root))
+            .route(routes::SIGN, post(sign))
             .route(routes::GET_INFO, get(get_info))
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_CHANNELS, get(list_channels))

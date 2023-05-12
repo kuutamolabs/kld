@@ -9,6 +9,8 @@ pub mod routes {
     /// --- General ---
     /// NO-OP
     pub const ROOT: &str = "/";
+    /// Sign
+    pub const SIGN: &str = "/v1/signmessage";
     /// Get node information.
     pub const GET_INFO: &str = "/v1/getinfo";
     /// Websocket
@@ -378,6 +380,16 @@ pub struct NetworkNode {
     pub last_timestamp: u32,
     pub features: String,
     pub addresses: Vec<Address>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SignRequest {
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SignResponse {
+    pub signature: String,
 }
 
 #[test]

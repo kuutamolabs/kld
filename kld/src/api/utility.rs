@@ -1,4 +1,5 @@
-use api::{Address, API_VERSION};
+use anyhow::anyhow;
+use api::{Address, SignRequest, SignResponse, API_VERSION};
 use api::{Chain, GetInfo};
 use axum::Json;
 use axum::{response::IntoResponse, Extension};
@@ -8,7 +9,7 @@ use std::sync::Arc;
 use crate::ldk::LightningInterface;
 use crate::VERSION;
 
-use super::MacaroonAuth;
+use super::{bad_request, MacaroonAuth};
 use super::{internal_server, unauthorized};
 use super::{ApiError, KldMacaroon};
 
@@ -57,4 +58,28 @@ pub(crate) async fn get_info(
             .collect(),
     };
     Ok(Json(info))
+}
+
+const MESSAGE_MAX_LENGTH: u16 = 65535;
+
+pub(crate) async fn sign(
+    macaroon: KldMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Json(body): Json<SignRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_admin_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
+
+    if body.message.len() > MESSAGE_MAX_LENGTH as usize {
+        return Err(bad_request(anyhow!(
+            "Max message length is {MESSAGE_MAX_LENGTH}"
+        )));
+    }
+
+    let signature = lightning_interface
+        .sign(body.message.as_bytes())
+        .map_err(internal_server)?;
+    Ok(Json(SignResponse { signature }))
 }
