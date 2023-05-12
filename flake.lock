@@ -86,7 +86,9 @@
     },
     "flake-utils": {
       "inputs": {
-        "systems": "systems"
+        "systems": [
+          "systems"
+        ]
       },
       "locked": {
         "lastModified": 1681202837,
@@ -228,6 +230,7 @@
         "nixpkgs": "nixpkgs",
         "rust-overlay": "rust-overlay",
         "srvos": "srvos",
+        "systems": "systems",
         "treefmt-nix": "treefmt-nix"
       }
     },
