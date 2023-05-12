@@ -214,9 +214,10 @@ pub struct FundChannel {
     pub compact_lease: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub enum FeeRate {
     Urgent,
+    #[default]
     Normal,
     Slow,
     PerKw(u32),
@@ -304,12 +305,6 @@ impl FromStr for FeeRate {
                 }
             }
         }
-    }
-}
-
-impl Default for FeeRate {
-    fn default() -> Self {
-        FeeRate::Normal
     }
 }
 
