@@ -26,6 +26,12 @@ struct Args {
 enum Command {
     /// Fetch information about this lightning node.
     GetInfo,
+    /// Creates a signature of the message using node's secret key (message limit 65536 chars)
+    Sign {
+        /// Message to be signed (max 65536 chars)
+        #[arg(long)]
+        message: String,
+    },
     /// Fetch confirmed and unconfirmed on-chain balance.
     GetBalance,
     /// Generates new on-chain address for receiving funds.
@@ -121,6 +127,7 @@ fn run_command(args: Args) -> Result<()> {
     let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
     let output = match args.command {
+        Command::Sign { message } => api.sign(message)?,
         Command::GetInfo => api.get_info()?,
         Command::GetBalance => api.get_balance()?,
         Command::NewAddress => api.new_address()?,

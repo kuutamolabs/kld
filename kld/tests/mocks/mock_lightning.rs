@@ -95,6 +95,11 @@ impl LightningInterface for MockLightning {
     async fn synced(&self) -> Result<bool> {
         Ok(true)
     }
+
+    fn sign(&self, _message: &[u8]) -> Result<String> {
+        Ok("1234abcd".to_string())
+    }
+
     fn graph_num_nodes(&self) -> usize {
         self.num_nodes
     }

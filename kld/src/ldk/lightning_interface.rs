@@ -20,6 +20,8 @@ pub trait LightningInterface: Send + Sync {
 
     async fn synced(&self) -> Result<bool>;
 
+    fn sign(&self, message: &[u8]) -> Result<String>;
+
     fn network(&self) -> Network;
 
     fn num_active_channels(&self) -> usize;

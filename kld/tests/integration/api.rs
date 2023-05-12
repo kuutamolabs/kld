@@ -23,7 +23,8 @@ use test_utils::{
 use api::{
     routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FundChannel, FundChannelResponse,
     GetInfo, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer,
-    SetChannelFeeResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
+    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -41,6 +42,22 @@ pub async fn test_unauthorized() -> Result<()> {
             .send()
             .await?
             .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::POST, routes::SIGN)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        readonly_request_with_body(&context, Method::POST, routes::SIGN, || SignRequest {
+            message: "testmessage".to_string()
+        })?
+        .send()
+        .await?
+        .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
@@ -251,6 +268,21 @@ async fn test_root_admin() -> Result<()> {
         .await?
         .status()
         .is_success());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_sign_admin() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: SignResponse =
+        admin_request_with_body(&context, Method::POST, routes::SIGN, || SignRequest {
+            message: "testmessage".to_string(),
+        })?
+        .send()
+        .await?
+        .json()
+        .await?;
+    assert_eq!("1234abcd", response.signature);
     Ok(())
 }
 

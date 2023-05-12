@@ -3,7 +3,7 @@ use std::process::{Command, Output};
 use anyhow::{bail, Result};
 use api::{
     Channel, FundChannelResponse, GetInfo, NetworkChannel, NetworkNode, NewAddressResponse, Peer,
-    SetChannelFeeResponse, WalletBalance, WalletTransferResponse,
+    SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 
@@ -17,6 +17,13 @@ use super::api::create_api_server;
 async fn test_cli_get_info() -> Result<()> {
     let output = run_cli("get-info", &[]).await?;
     let _: GetInfo = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_sign() -> Result<()> {
+    let output = run_cli("sign", &["--message", "testmessage"]).await?;
+    let _: SignResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

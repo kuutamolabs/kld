@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use api::{
     routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
     NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
-    WalletBalance, WalletTransfer, WalletTransferResponse,
+    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
@@ -37,6 +37,13 @@ impl Api {
             client,
             macaroon,
         })
+    }
+
+    pub fn sign(&self, message: String) -> Result<String> {
+        let response = self
+            .request_with_body(Method::POST, routes::SIGN, SignRequest { message })
+            .send()?;
+        deserialize::<SignResponse>(response)
     }
 
     pub fn get_info(&self) -> Result<String> {
