@@ -18,18 +18,16 @@
 
     services.telegraf = {
       enable = true;
-      environmentFiles = [
-        /var/lib/secrets/telegraf
-        (pkgs.writeTextFile {
-          name = "monitoring-passwordhash";
-          text = config.kuutamo.telegraf.configHash;
-        })
-      ];
+      environmentFiles =
+        if config.kuutamo.telegraf.hasMonitoring then [
+          /var/lib/secrets/telegraf
+          (pkgs.writeText "monitoring-configHash" config.kuutamo.telegraf.configHash)
+        ] else [ ];
       extraConfig = {
         agent.interval = "60s";
         inputs = {
           prometheus.urls = [
-            "http://localhost:3030/metrics"
+            "https://localhost:8080/_status/vars"
             "http://localhost:2233/metrics"
           ];
           prometheus.metric_version = 2;

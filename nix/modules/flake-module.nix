@@ -24,6 +24,8 @@
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
       };
 
+      telegraf = ./telegraf.nix;
+
       disko-partitioning-script = ./disko-partitioning-script.nix;
 
       kld-ctl = { pkgs, ... }:
