@@ -67,6 +67,7 @@ impl Default for MockLightning {
             inbound_htlc_minimum_msat: Some(300),
             inbound_htlc_maximum_msat: Some(300000),
             config: None,
+            feerate_sat_per_1000_weight: Some(10210),
         };
         let ipv4_address = NetAddress::IPv4 {
             addr: [127, 0, 0, 1],
@@ -217,7 +218,6 @@ impl LightningInterface for MockLightning {
             last_update: 21000000,
             rgb: [1, 2, 3],
             alias: NodeAlias(alias),
-            addresses: vec![self.ipv4_address.clone()],
             announcement_message: None,
         };
         Some(NodeInfo {

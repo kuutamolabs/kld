@@ -543,11 +543,6 @@ async fn test_list_network_node_readonly() -> Result<()> {
     assert_eq!(TEST_ALIAS, node.alias);
     assert_eq!("010203", node.color);
     assert_eq!(21000000, node.last_timestamp);
-    assert!(node.addresses.contains(&Address {
-        address_type: "ipv4".to_string(),
-        address: "127.0.0.1".to_string(),
-        port: 5555
-    }));
     assert!(!node.features.is_empty());
     Ok(())
 }

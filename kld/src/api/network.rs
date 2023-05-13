@@ -140,7 +140,7 @@ fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
         color: n.rgb.encode_hex(),
         last_timestamp: n.last_update,
         features: n.features.to_string(),
-        addresses: n.addresses.iter().map(to_api_address).collect(),
+        addresses: n.addresses().iter().map(to_api_address).collect(),
     })
 }
 
