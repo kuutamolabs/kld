@@ -11,8 +11,8 @@ use crate::database::WalletDatabase;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::keysinterface::KeysManager;
+use lightning::events::{Event, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
-use lightning::util::events::{Event, PaymentPurpose};
 use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -66,8 +66,8 @@ impl EventHandler {
     }
 }
 
-impl lightning::util::events::EventHandler for EventHandler {
-    fn handle_event(&self, event: lightning::util::events::Event) {
+impl lightning::events::EventHandler for EventHandler {
+    fn handle_event(&self, event: lightning::events::Event) {
         tokio::task::block_in_place(move || {
             self.runtime_handle.block_on(self.handle_event_async(event))
         })
@@ -75,7 +75,7 @@ impl lightning::util::events::EventHandler for EventHandler {
 }
 
 impl EventHandler {
-    pub async fn handle_event_async(&self, event: lightning::util::events::Event) {
+    pub async fn handle_event_async(&self, event: lightning::events::Event) {
         match event {
             Event::FundingGenerationReady {
                 temporary_channel_id,
@@ -128,6 +128,18 @@ impl EventHandler {
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
                 respond(Ok(funding_tx))
             }
+            Event::ChannelPending {
+                channel_id,
+                user_channel_id,
+                former_temporary_channel_id: _,
+                counterparty_node_id,
+                funding_txo,
+            } => {
+                info!(
+                    "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is pending. OutPoint: {funding_txo}",
+                    channel_id.encode_hex::<String>(),
+                );
+            }
             Event::ChannelReady {
                 channel_id,
                 user_channel_id,
@@ -135,9 +147,8 @@ impl EventHandler {
                 channel_type: _,
             } => {
                 info!(
-                    "EVENT: Channel {} - {user_channel_id} with counterparty {} is ready to use.",
+                    "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     channel_id.encode_hex::<String>(),
-                    counterparty_node_id
                 );
             }
             Event::ChannelClosed {
@@ -177,6 +188,8 @@ impl EventHandler {
                 receiver_node_id: _,
                 via_channel_id: _,
                 via_user_channel_id: _,
+                onion_fields: _,
+                claim_deadline: _,
             } => {
                 info!(
                     "EVENT: received payment from payment hash {} of {} millisatoshis",
@@ -274,6 +287,7 @@ impl EventHandler {
                 next_channel_id,
                 fee_earned_msat,
                 claim_from_onchain_tx,
+                outbound_amount_forwarded_msat,
             } => {
                 let read_only_network_graph = self.network_graph.read_only();
                 let nodes = read_only_network_graph.nodes();
@@ -320,17 +334,19 @@ impl EventHandler {
                 } else {
                     "from HTLC fulfill message"
                 };
-                if let Some(fee_earned) = fee_earned_msat {
-                    info!(
-                        "EVENT: Forwarded payment{}{}, earning {} msat {}",
-                        from_prev_str, to_next_str, fee_earned, from_onchain_str
-                    );
+                let amount_str = if let Some(amount) = outbound_amount_forwarded_msat {
+                    format!("of amount {amount}")
                 } else {
-                    info!(
-                        "EVENT: Forwarded payment{}{}, claiming onchain {}",
-                        from_prev_str, to_next_str, from_onchain_str
-                    );
-                }
+                    "of unknown amount".to_string()
+                };
+                let fee_str = if let Some(fee_earned) = fee_earned_msat {
+                    format!("earning {fee_earned} msat")
+                } else {
+                    "claimed onchain".to_string()
+                };
+                info!(
+                    "EVENT: Forwarded payment{from_prev_str}{to_next_str} {amount_str}, earning {fee_str} msat {from_onchain_str}",
+                );
             }
             Event::HTLCHandlingFailed {
                 prev_channel_id,
