@@ -13,6 +13,7 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{close_channel, list_channels, open_channel, set_channel_fee},
+        macaroon_auth::{admin_auth, readonly_auth},
         network::{
             get_network_channel, get_network_node, list_network_channels, list_network_nodes,
         },
@@ -28,6 +29,7 @@ use anyhow::{Context, Result};
 use api::routes;
 use axum::{
     extract::Extension,
+    middleware::from_fn,
     response::{IntoResponse, Response},
     routing::{delete, get, post},
     Json, Router,
@@ -68,25 +70,32 @@ impl RestApi {
         let cors = CorsLayer::permissive();
         let handle = Handle::new();
 
-        let app = Router::new()
+        let readonly_routes = Router::new()
             .route(routes::ROOT, get(root))
-            .route(routes::SIGN, post(sign))
             .route(routes::GET_INFO, get(get_info))
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_CHANNELS, get(list_channels))
+            .route(routes::LIST_PEERS, get(list_peers))
+            .route(routes::LIST_NETWORK_NODE, get(get_network_node))
+            .route(routes::LIST_NETWORK_NODES, get(list_network_nodes))
+            .route(routes::LIST_NETWORK_CHANNEL, get(get_network_channel))
+            .route(routes::LIST_NETWORK_CHANNELS, get(list_network_channels))
+            .layer(from_fn(readonly_auth));
+
+        let admin_routes = Router::new()
+            .route(routes::SIGN, post(sign))
             .route(routes::OPEN_CHANNEL, post(open_channel))
             .route(routes::SET_CHANNEL_FEE, post(set_channel_fee))
             .route(routes::CLOSE_CHANNEL, delete(close_channel))
             .route(routes::NEW_ADDR, get(new_address))
             .route(routes::WITHDRAW, post(transfer))
-            .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::CONNECT_PEER, post(connect_peer))
             .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
-            .route(routes::LIST_NETWORK_NODE, get(get_network_node))
-            .route(routes::LIST_NETWORK_NODES, get(list_network_nodes))
-            .route(routes::LIST_NETWORK_CHANNEL, get(get_network_channel))
-            .route(routes::LIST_NETWORK_CHANNELS, get(list_network_channels))
             .route(routes::WEBSOCKET, get(ws_handler))
+            .layer(from_fn(admin_auth));
+
+        let routes = readonly_routes
+            .merge(admin_routes)
             .fallback(handler_404)
             .layer(cors)
             .layer(Extension(lightning_api))
@@ -94,7 +103,7 @@ impl RestApi {
             .layer(Extension(macaroon_auth));
 
         tokio::select!(
-            result = self.server.serve(app.into_make_service_with_connect_info::<SocketAddr>()) => {
+            result = self.server.serve(routes.into_make_service_with_connect_info::<SocketAddr>()) => {
                     if let Err(e) = result {
                         error!("API server shutdown unexpectedly: {}", e);
                     } else {
@@ -109,13 +118,7 @@ impl RestApi {
     }
 }
 
-async fn root(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
-) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
+async fn root() -> Result<impl IntoResponse, ApiError> {
     Ok(())
 }
 

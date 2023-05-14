@@ -22,20 +22,11 @@ use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
 use super::internal_server;
-use super::unauthorized;
 use super::ApiError;
-use super::KldMacaroon;
-use super::MacaroonAuth;
 
 pub(crate) async fn list_channels(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let peers = lightning_interface
         .list_peers()
         .await
@@ -82,15 +73,9 @@ pub(crate) async fn list_channels(
 }
 
 pub(crate) async fn open_channel(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(fund_channel): Json<FundChannel>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let (public_key, net_address) = match fund_channel.id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
@@ -138,15 +123,9 @@ pub(crate) async fn open_channel(
 }
 
 pub(crate) async fn set_channel_fee(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(channel_fee): Json<ChannelFee>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let mut updated_channels = vec![];
 
     if channel_fee.id == "all" {
@@ -200,15 +179,9 @@ pub(crate) async fn set_channel_fee(
 }
 
 pub(crate) async fn close_channel(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
         c.channel_id.encode_hex::<String>() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id

@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, ops::ControlFlow, sync::Arc};
+use std::{net::SocketAddr, ops::ControlFlow};
 
 use axum::{
     extract::{
@@ -7,14 +7,12 @@ use axum::{
     },
     headers::UserAgent,
     response::IntoResponse,
-    Extension, TypedHeader,
+    TypedHeader,
 };
 use futures::StreamExt;
 use log::{debug, error, info};
 
-use crate::api::unauthorized;
-
-use super::{ApiError, KldMacaroon, MacaroonAuth};
+use super::ApiError;
 
 /// This is WIP. Just connects and checks macaroon at the moment.
 
@@ -24,15 +22,10 @@ use super::{ApiError, KldMacaroon, MacaroonAuth};
 /// This is the last point where we can extract TCP/IP metadata such as IP address of the client
 /// as well as things from HTTP headers such as user-agent of the browser etc.
 pub async fn ws_handler(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
     let user_agent = user_agent
         .map(|a| a.to_string())
         .unwrap_or_else(|| "Unknown client".to_string());

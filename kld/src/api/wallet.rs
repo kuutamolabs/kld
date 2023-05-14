@@ -12,22 +12,11 @@ use std::sync::Arc;
 
 use crate::wallet::WalletInterface;
 
-use super::bad_request;
-use super::internal_server;
-use super::unauthorized;
-use super::ApiError;
-use super::KldMacaroon;
-use super::MacaroonAuth;
+use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn get_balance(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let balance = wallet.balance().map_err(internal_server)?;
     let unconf_balance = balance.untrusted_pending + balance.trusted_pending;
     let total_balance = unconf_balance + balance.confirmed;
@@ -40,15 +29,9 @@ pub(crate) async fn get_balance(
 }
 
 pub(crate) async fn new_address(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
     Json(new_address): Json<NewAddress>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     if let Some(address_type) = new_address.address_type {
         if address_type != "bech32" {
             return Err(bad_request(anyhow!("Unsupported address type")));
@@ -62,15 +45,9 @@ pub(crate) async fn new_address(
 }
 
 pub(crate) async fn transfer(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
     Json(wallet_transfer): Json<WalletTransfer>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let address = Address::from_str(&wallet_transfer.address).map_err(bad_request)?;
     let amount = if wallet_transfer.satoshis == "all" {
         u64::MAX

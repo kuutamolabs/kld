@@ -9,17 +9,11 @@ use api::Peer;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 
-use super::{internal_server, unauthorized, ApiError, KldMacaroon, MacaroonAuth};
+use super::{internal_server, ApiError};
 
 pub(crate) async fn list_peers(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let peers: Vec<Peer> = lightning_interface
         .list_peers()
         .await
@@ -37,15 +31,9 @@ pub(crate) async fn list_peers(
 }
 
 pub(crate) async fn connect_peer(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(id): Json<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let (public_key, net_address) = match id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
@@ -62,15 +50,9 @@ pub(crate) async fn connect_peer(
 }
 
 pub(crate) async fn disconnect_peer(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let public_key = PublicKey::from_str(&id).map_err(bad_request)?;
     lightning_interface
         .disconnect_peer(public_key)
