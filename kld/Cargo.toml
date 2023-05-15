@@ -26,7 +26,7 @@ lightning-rapid-gossip-sync = { version = "0.0.115" }
 
 macaroon = "0.3.0"
 bitcoin = "0.29.2"
-bitcoin-bech32 = "0.12"
+bitcoin-bech32 = "0.13"
 bitcoincore-rpc-json = "0.16.0"
 rust-bip39 = "1.0.0"
 bech32 = "0.9"
