@@ -25,11 +25,19 @@
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
       };
 
-      kld-ctl = { pkgs, ... }: {
-        config = {
-          environment.systemPackages = [ self.packages.${pkgs.hostPlatform.system}.kld-ctl ];
+      kld-ctl = { config, pkgs, ... }:
+        let
+          inherit (self.packages.${pkgs.hostPlatform.system}) kld-ctl;
+          systemd = config.systemd.package;
+        in
+        {
+          config = {
+            system.activationScripts.node-upgrade = ''
+              ${systemd}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"kld node updated\" $(${kld-ctl}/bin/kld-ctl system-info --inline)
+            '';
+            environment.systemPackages = [ kld-ctl ];
+          };
         };
-      };
 
       disko-partitioning-script = ./disko-partitioning-script.nix;
 
