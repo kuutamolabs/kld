@@ -35,6 +35,7 @@ in
       extraConfig = {
         agent.interval = "60s";
         inputs = {
+          cpu = { };
           prometheus.insecure_skip_verify = true;
           prometheus.urls = [
             "https://localhost:8080/_status/vars"
