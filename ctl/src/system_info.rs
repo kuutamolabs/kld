@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Context, Result};
 use serde_derive::Deserialize;
 use std::env;
 
@@ -9,49 +9,37 @@ struct SystemInfo {
 }
 
 fn read_system_info() -> Result<SystemInfo> {
-    if let Ok(content) = std::fs::read_to_string("/etc/system-info.toml") {
-        Ok(toml::from_str::<SystemInfo>(&content)?)
-    } else {
-        bail!("fail to read /etc/system-info.toml")
-    }
+    let content = std::fs::read_to_string("/etc/system-info.toml")
+        .context("fail to read /etc/system-info.toml")?;
+    Ok(toml::from_str::<SystemInfo>(&content)?)
 }
 
 fn bitcoind_version() -> Result<String> {
     let output = std::process::Command::new("bitcoind")
         .args(["--version"])
-        .output()?;
-    if output.status.success() {
-        if let Some(version) = std::str::from_utf8(&output.stdout)?
-            .split('\n')
-            .next()
-            .and_then(|line| line.split("Bitcoin Core version ").nth(1))
-        {
-            Ok(version.into())
-        } else {
-            bail!("fail get version from return bitcoind")
-        }
-    } else {
-        bail!("fail to get version from bitcoind")
-    }
+        .output()
+        .context("could not run bitcoind command")?;
+    std::str::from_utf8(&output.stdout)?
+        .split('\n')
+        .next()
+        .and_then(|line| line.split("Bitcoin Core version ").nth(1))
+        .ok_or(anyhow!(
+            "failed to parse version from bitcoind command output"
+        ))
+        .map(|version| version.into())
 }
 
 fn cockroach_version() -> Result<String> {
     let output = std::process::Command::new("cockroach")
         .args(["version"])
-        .output()?;
-    if output.status.success() {
-        if let Some(version) = std::str::from_utf8(&output.stdout)?
-            .split('\n')
-            .next()
-            .and_then(|line| line.split("Build Tag:        ").nth(1))
-        {
-            Ok(version.into())
-        } else {
-            bail!("fail get version from return bitcoind")
-        }
-    } else {
-        bail!("fail to get version from bitcoind")
-    }
+        .output()
+        .context("could not run cockroach command")?;
+    std::str::from_utf8(&output.stdout)?
+        .split('\n')
+        .next()
+        .and_then(|line| line.split("Build Tag:        ").nth(1))
+        .ok_or(anyhow!("failed to parse version from cockroach output"))
+        .map(|version| version.into())
 }
 
 pub fn system_info(inline: bool) {
