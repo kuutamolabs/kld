@@ -19,7 +19,7 @@ use crate::{
         },
         peers::{connect_peer, disconnect_peer, list_peers},
         utility::sign,
-        wallet::{get_balance, new_address, transfer},
+        wallet::{get_balance, list_funds, new_address, transfer},
         ws::ws_handler,
     },
     ldk::LightningInterface,
@@ -74,6 +74,7 @@ impl RestApi {
             .route(routes::ROOT, get(root))
             .route(routes::GET_INFO, get(get_info))
             .route(routes::GET_BALANCE, get(get_balance))
+            .route(routes::LIST_FUNDS, get(list_funds))
             .route(routes::LIST_CHANNELS, get(list_channels))
             .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::LIST_NETWORK_NODE, get(get_network_node))

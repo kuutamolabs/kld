@@ -16,7 +16,7 @@ use bdk::{
     },
     database::{BatchDatabase, BatchOperations, Database},
     wallet::AddressInfo,
-    Balance, FeeRate, SignOptions, SyncOptions, TransactionDetails,
+    Balance, FeeRate, LocalUtxo, SignOptions, SyncOptions, TransactionDetails,
 };
 use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
@@ -116,6 +116,24 @@ impl<
             .unwrap()
             .get_address(bdk::wallet::AddressIndex::LastUnused)?;
         Ok(address)
+    }
+
+    fn list_utxos(&self) -> Result<Vec<(LocalUtxo, TransactionDetails)>> {
+        let mut result = vec![];
+        match self.wallet.try_lock() {
+            Ok(wallet) => {
+                let utxos = wallet.list_unspent()?;
+                for utxo in utxos {
+                    if let Some(tx) = wallet.get_tx(&utxo.outpoint.txid, false)? {
+                        result.push((utxo, tx));
+                    }
+                }
+            }
+            Err(_) => {
+                warn!("Wallet was locked when trying to list utxos");
+            }
+        }
+        Ok(result)
     }
 }
 

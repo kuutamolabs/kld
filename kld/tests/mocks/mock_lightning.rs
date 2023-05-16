@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use api::FeeRate;
 use async_trait::async_trait;
-use bitcoin::{consensus::deserialize, hashes::Hash, secp256k1::PublicKey, Network, Txid};
+use bitcoin::{consensus::deserialize, secp256k1::PublicKey, Network, Txid};
 use hex::FromHex;
 use kld::ldk::{net_utils::PeerAddress, LightningInterface, OpenChannelResult, Peer, PeerStatus};
 use lightning::{
@@ -17,7 +17,7 @@ use lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
-use test_utils::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX};
+use test_utils::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID};
 
 pub struct MockLightning {
     pub num_peers: usize,
@@ -43,7 +43,7 @@ impl Default for MockLightning {
                 outbound_htlc_maximum_msat: Some(100),
             },
             funding_txo: Some(OutPoint {
-                txid: Txid::all_zeros(),
+                txid: Txid::from_str(TEST_TX_ID).unwrap(),
                 index: 2,
             }),
             channel_type: None,

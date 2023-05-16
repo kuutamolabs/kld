@@ -1,7 +1,7 @@
 use anyhow::Result;
 use api::FeeRate;
 use async_trait::async_trait;
-use bdk::{wallet::AddressInfo, Balance, TransactionDetails};
+use bdk::{wallet::AddressInfo, Balance, LocalUtxo, TransactionDetails};
 use bitcoin::{Address, OutPoint, Transaction};
 
 #[async_trait]
@@ -19,4 +19,6 @@ pub trait WalletInterface {
     ) -> Result<(Transaction, TransactionDetails)>;
 
     fn new_address(&self) -> Result<AddressInfo>;
+
+    fn list_utxos(&self) -> Result<Vec<(LocalUtxo, TransactionDetails)>>;
 }
