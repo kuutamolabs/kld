@@ -8,3 +8,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "cargo"
+    directory: "/mgr"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "cargo"
+    directory: "/ctl"
+    schedule:
+      interval: "weekly"
