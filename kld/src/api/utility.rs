@@ -9,18 +9,11 @@ use std::sync::Arc;
 use crate::ldk::LightningInterface;
 use crate::VERSION;
 
-use super::{bad_request, MacaroonAuth};
-use super::{internal_server, unauthorized};
-use super::{ApiError, KldMacaroon};
+use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn get_info(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
     let synced_to_chain = lightning_interface
         .synced()
         .await
@@ -63,15 +56,9 @@ pub(crate) async fn get_info(
 const MESSAGE_MAX_LENGTH: u16 = 65535;
 
 pub(crate) async fn sign(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(body): Json<SignRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     if body.message.len() > MESSAGE_MAX_LENGTH as usize {
         return Err(bad_request(anyhow!(
             "Max message length is {MESSAGE_MAX_LENGTH}"

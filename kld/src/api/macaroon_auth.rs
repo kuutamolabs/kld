@@ -2,6 +2,7 @@ use base64::{engine::general_purpose, Engine};
 use hyper::header;
 #[cfg(not(test))]
 use std::fs;
+use std::sync::Arc;
 #[cfg(test)]
 use test_utils::fake_fs as fs;
 
@@ -9,9 +10,14 @@ use anyhow::Result;
 use axum::{
     async_trait,
     extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
+    http::{request::Parts, Request, StatusCode},
+    middleware::Next,
+    response::IntoResponse,
+    Extension,
 };
 use macaroon::{ByteString, Macaroon, MacaroonKey, Verifier};
+
+use super::{unauthorized, ApiError};
 
 pub struct MacaroonAuth {
     key: MacaroonKey,
@@ -80,6 +86,30 @@ fn verify_role(caveat: &ByteString, expected_role: &str) -> bool {
     };
 
     strcaveat[8..].split('|').any(|r| r == expected_role)
+}
+
+pub async fn admin_auth<B>(
+    macaroon: KldMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    request: Request<B>,
+    next: Next<B>,
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_admin_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
+    Ok(next.run(request).await)
+}
+
+pub async fn readonly_auth<B>(
+    macaroon: KldMacaroon,
+    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
+    request: Request<B>,
+    next: Next<B>,
+) -> Result<impl IntoResponse, ApiError> {
+    macaroon_auth
+        .verify_readonly_macaroon(&macaroon.0)
+        .map_err(unauthorized)?;
+    Ok(next.run(request).await)
 }
 
 pub struct KldMacaroon(pub Macaroon);

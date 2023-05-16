@@ -16,6 +16,9 @@ pub mod routes {
     /// Websocket
     pub const WEBSOCKET: &str = "/v1/ws";
 
+    /// List on chain and channel funds
+    pub const LIST_FUNDS: &str = "/v1/listfunds";
+
     /// --- Peers ---
     /// Connect with a network peer.
     pub const CONNECT_PEER: &str = "/v1/peer/connect";
@@ -148,6 +151,46 @@ pub struct WalletTransferResponse {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
+pub enum OutputStatus {
+    Unconfirmed,
+    Confirmed,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListFundsOutput {
+    pub txid: String,
+    pub output: u32,
+    pub value: u64,
+    pub amount_msat: u64,
+    pub address: String,
+    pub status: OutputStatus,
+    #[serde(rename = "blockheight")]
+    pub block_height: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListFundsChannel {
+    pub peer_id: String,
+    pub connected: bool,
+    pub state: ChannelState,
+    pub short_channel_id: String,
+    pub channel_sat: u64,
+    pub our_amount_msat: u64,
+    pub amount_msat: u64,
+    pub funding_txid: String,
+    pub funding_output: u16,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ListFunds {
+    pub outputs: Vec<ListFundsOutput>,
+    pub channels: Vec<ListFundsChannel>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
 pub enum ChannelState {
     Usable,
     Ready,
@@ -160,7 +203,7 @@ pub struct Channel {
     /// Pub key
     pub id: String,
     /// Peer connection status (true or false)
-    pub connected: String,
+    pub connected: bool,
     // Channel connection status
     pub state: ChannelState,
     /// Channel ID
@@ -170,19 +213,19 @@ pub struct Channel {
     /// Channel funding transaction
     pub funding_txid: String,
     /// Private channel flag (true or false)
-    pub private: String,
+    pub private: bool,
     /// Number of msats on our side
-    pub msatoshi_to_us: String,
+    pub msatoshi_to_us: u64,
     /// Total msats in the channel
-    pub msatoshi_total: String,
+    pub msatoshi_total: u64,
     /// Number of msats to push to their side
-    pub msatoshi_to_them: String,
+    pub msatoshi_to_them: u64,
     /// Minimum number of msats on their side
-    pub their_channel_reserve_satoshis: String,
+    pub their_channel_reserve_satoshis: u64,
     /// Minimum number of msats on our side
-    pub our_channel_reserve_satoshis: String,
+    pub our_channel_reserve_satoshis: Option<u64>,
     /// Spendable msats
-    pub spendable_msatoshi: String,
+    pub spendable_msatoshi: u64,
     ///
     /// pub funding_allocation_msat: String,
     /// Flag indicating if this peer initiated the channel (0,1)

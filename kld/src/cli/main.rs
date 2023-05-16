@@ -48,6 +48,8 @@ enum Command {
         #[arg(long)]
         fee_rate: Option<FeeRate>,
     },
+    /// Show available funds from the internal wallet.
+    ListFunds,
     /// Fetch a list of this nodes peers.
     ListPeers,
     /// Connect with a network peer.
@@ -136,6 +138,7 @@ fn run_command(args: Args) -> Result<()> {
             satoshis,
             fee_rate,
         } => api.withdraw(address, satoshis, fee_rate)?,
+        Command::ListFunds => api.list_funds()?,
         Command::ListChannels => api.list_channels()?,
         Command::ListPeers => api.list_peers()?,
         Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,

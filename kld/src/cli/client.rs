@@ -2,7 +2,7 @@ use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
 use api::{
-    routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo,
+    routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo, ListFunds,
     NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
     SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
@@ -80,6 +80,11 @@ impl Api {
             .request_with_body(Method::POST, routes::WITHDRAW, wallet_transfer)
             .send()?;
         deserialize::<WalletTransferResponse>(response)
+    }
+
+    pub fn list_funds(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::LIST_FUNDS).send()?;
+        deserialize::<ListFunds>(response)
     }
 
     pub fn list_channels(&self) -> Result<String> {

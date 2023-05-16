@@ -17,13 +17,13 @@ use settings::Settings;
 use test_utils::ports::get_available_port;
 use test_utils::{
     https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
-    TEST_SHORT_CHANNEL_ID,
+    TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
 };
 
 use api::{
     routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FundChannel, FundChannelResponse,
-    GetInfo, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer,
-    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
+    GetInfo, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, OutputStatus,
+    Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
@@ -69,6 +69,13 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::GET_BALANCE)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_FUNDS)
             .send()
             .await?
             .status()
@@ -313,6 +320,40 @@ async fn test_get_balance_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_list_funds_readonly() -> Result<()> {
+    let context = create_api_server().await?;
+    let funds: ListFunds = readonly_request(&context, Method::GET, routes::LIST_FUNDS)?
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let output = funds.outputs.get(0).context("Missing output")?;
+    assert_eq!(TEST_TX_ID, output.txid);
+    assert_eq!(0, output.output);
+    assert_eq!(546, output.value);
+    assert_eq!(546000, output.amount_msat);
+    assert_eq!(
+        "bc1prx7399hvfe8hta6lfn2qncvczxjeur5cwlrpxhwrzqssj9kuqpeqchh5xf",
+        output.address
+    );
+    assert_eq!(OutputStatus::Confirmed, output.status);
+    assert_eq!(Some(600000), output.block_height);
+
+    let channel = funds.channels.get(0).context("Missing channel")?;
+    assert_eq!(TEST_PUBLIC_KEY, channel.peer_id);
+    assert!(channel.connected);
+    assert_eq!(ChannelState::Usable, channel.state);
+    assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
+    assert_eq!(1000000, channel.channel_sat);
+    assert_eq!(10001, channel.our_amount_msat);
+    assert_eq!(1000000000, channel.amount_msat);
+    assert_eq!(TEST_TX_ID, channel.funding_txid);
+    assert_eq!(2, channel.funding_output);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_list_channels_readonly() -> Result<()> {
     let context = create_api_server().await?;
     let channels: Vec<Channel> = readonly_request(&context, Method::GET, routes::LIST_CHANNELS)?
@@ -320,25 +361,19 @@ async fn test_list_channels_readonly() -> Result<()> {
         .await?
         .json()
         .await?;
-    let channel = channels.get(0).unwrap();
-    assert_eq!(
-        "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266",
-        channel.id
-    );
-    assert_eq!("true", channel.connected);
+    let channel = channels.get(0).context("Missing channel")?;
+    assert_eq!(TEST_PUBLIC_KEY, channel.id);
+    assert!(channel.connected);
     assert_eq!(ChannelState::Usable, channel.state);
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
-    assert_eq!(
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        channel.funding_txid
-    );
-    assert_eq!("false", channel.private);
-    assert_eq!("100000", channel.msatoshi_to_us);
-    assert_eq!("1000000", channel.msatoshi_total);
-    assert_eq!("200000", channel.msatoshi_to_them);
-    assert_eq!("5000", channel.their_channel_reserve_satoshis);
-    assert_eq!("10000", channel.our_channel_reserve_satoshis);
-    assert_eq!("100000", channel.spendable_msatoshi);
+    assert_eq!(TEST_TX_ID, channel.funding_txid);
+    assert!(!channel.private);
+    assert_eq!(100000, channel.msatoshi_to_us);
+    assert_eq!(1000000, channel.msatoshi_total);
+    assert_eq!(200000, channel.msatoshi_to_them);
+    assert_eq!(5000, channel.their_channel_reserve_satoshis);
+    assert_eq!(Some(10000), channel.our_channel_reserve_satoshis);
+    assert_eq!(100000, channel.spendable_msatoshi);
     assert_eq!(1, channel.direction);
     assert_eq!(TEST_ALIAS, channel.alias);
     Ok(())
@@ -357,10 +392,7 @@ async fn test_open_channel_admin() -> Result<()> {
     .await?
     .json()
     .await?;
-    assert_eq!(
-        "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
-        response.txid
-    );
+    assert_eq!(TEST_TX_ID, response.txid);
     assert_eq!(
         "0101010101010101010101010101010101010101010101010101010101010101",
         response.channel_id
@@ -438,11 +470,8 @@ async fn test_withdraw_admin() -> Result<()> {
             .await?
             .json()
             .await?;
-    assert_eq!("0200000003c26f3eb7932f7acddc5ddd26602b77e7516079b03090a16e2c2f5485d1fd600f0100000000ffffffffc26f3eb7932f7acddc5ddd26602b77e7516079b03090a16e2c2f5485d1fd600f0000000000ffffffff571fb3e02278217852dd5d299947e2b7354a639adc32ec1fa7b82cfb5dec530e0500000000ffffffff03e80300000000000002aaeee80300000000000001aa200300000000000001ff00000000", response.tx);
-    assert_eq!(
-        "fba98a9a61ef62c081b31769f66a81f1640b4f94d48b550a550034cb4990eded",
-        response.txid
-    );
+    assert_eq!(TEST_TX, response.tx);
+    assert_eq!(TEST_TX_ID, response.txid);
     Ok(())
 }
 

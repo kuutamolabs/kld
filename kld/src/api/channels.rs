@@ -22,20 +22,11 @@ use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
 use super::internal_server;
-use super::unauthorized;
 use super::ApiError;
-use super::KldMacaroon;
-use super::MacaroonAuth;
 
 pub(crate) async fn list_channels(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let peers = lightning_interface
         .list_peers()
         .await
@@ -50,8 +41,7 @@ pub(crate) async fn list_channels(
                 .iter()
                 .find(|p| p.public_key == c.counterparty.node_id)
                 .map(|p| p.status == PeerStatus::Connected)
-                .unwrap_or_default()
-                .to_string(),
+                .unwrap_or_default(),
             state: if c.is_usable {
                 ChannelState::Usable
             } else if c.is_channel_ready {
@@ -62,16 +52,13 @@ pub(crate) async fn list_channels(
             short_channel_id: to_string_empty!(c.short_channel_id),
             channel_id: c.channel_id.encode_hex(),
             funding_txid: to_string_empty!(c.funding_txo.map(|x| x.txid)),
-            private: (!c.is_public).to_string(),
-            msatoshi_to_us: c.outbound_capacity_msat.to_string(),
-            msatoshi_total: c.channel_value_satoshis.to_string(),
-            msatoshi_to_them: c.inbound_capacity_msat.to_string(),
-            their_channel_reserve_satoshis: c
-                .counterparty
-                .unspendable_punishment_reserve
-                .to_string(),
-            our_channel_reserve_satoshis: to_string_empty!(c.unspendable_punishment_reserve),
-            spendable_msatoshi: c.outbound_capacity_msat.to_string(),
+            private: !c.is_public,
+            msatoshi_to_us: c.outbound_capacity_msat,
+            msatoshi_total: c.channel_value_satoshis,
+            msatoshi_to_them: c.inbound_capacity_msat,
+            their_channel_reserve_satoshis: c.counterparty.unspendable_punishment_reserve,
+            our_channel_reserve_satoshis: c.unspendable_punishment_reserve,
+            spendable_msatoshi: c.outbound_capacity_msat,
             direction: u8::from(c.is_outbound),
             alias: lightning_interface
                 .alias_of(&c.counterparty.node_id)
@@ -82,15 +69,9 @@ pub(crate) async fn list_channels(
 }
 
 pub(crate) async fn open_channel(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(fund_channel): Json<FundChannel>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let (public_key, net_address) = match fund_channel.id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
@@ -138,15 +119,9 @@ pub(crate) async fn open_channel(
 }
 
 pub(crate) async fn set_channel_fee(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(channel_fee): Json<ChannelFee>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     let mut updated_channels = vec![];
 
     if channel_fee.id == "all" {
@@ -200,15 +175,9 @@ pub(crate) async fn set_channel_fee(
 }
 
 pub(crate) async fn close_channel(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_admin_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
-
     if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
         c.channel_id.encode_hex::<String>() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id

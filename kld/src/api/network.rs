@@ -14,16 +14,11 @@ use std::{
 
 use crate::ldk::LightningInterface;
 
-use super::{bad_request, unauthorized, ApiError, KldMacaroon, MacaroonAuth};
+use super::{bad_request, ApiError};
 
 pub(crate) async fn list_network_nodes(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
     let nodes: Vec<NetworkNode> = lightning_interface
         .nodes()
         .unordered_iter()
@@ -33,14 +28,9 @@ pub(crate) async fn list_network_nodes(
 }
 
 pub(crate) async fn get_network_node(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
     let public_key = PublicKey::from_str(&id).map_err(bad_request)?;
     let node_id = NodeId::from_pubkey(&public_key);
     if let Some(node_info) = lightning_interface.get_node(&node_id) {
@@ -52,14 +42,9 @@ pub(crate) async fn get_network_node(
 }
 
 pub(crate) async fn get_network_channel(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
     let short_channel_id = u64::from_str(&id).map_err(bad_request)?;
     if let Some(channel_info) = lightning_interface.get_channel(short_channel_id) {
         if let Some((directed_info, _)) = channel_info.as_directed_to(&channel_info.node_one) {
@@ -74,13 +59,8 @@ pub(crate) async fn get_network_channel(
 }
 
 pub(crate) async fn list_network_channels(
-    macaroon: KldMacaroon,
-    Extension(macaroon_auth): Extension<Arc<MacaroonAuth>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    macaroon_auth
-        .verify_readonly_macaroon(&macaroon.0)
-        .map_err(unauthorized)?;
     let mut channels = vec![];
     for (short_channel_id, channel_info) in lightning_interface.channels().unordered_iter() {
         if let Some((directed_info, _)) = channel_info.as_directed_to(&channel_info.node_one) {
