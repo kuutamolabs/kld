@@ -24,7 +24,10 @@
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
       };
 
-      telegraf = ./telegraf.nix;
+      telegraf.imports = [
+        inputs.srvos.nixosModules.mixins-telegraf
+        ./telegraf.nix
+      ];
 
       disko-partitioning-script = ./disko-partitioning-script.nix;
 
