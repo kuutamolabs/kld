@@ -276,12 +276,6 @@ dependencies = [
 
 [[package]]
 name = "bech32"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
-
-[[package]]
-name = "bech32"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
@@ -299,20 +293,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0694ea59225b0c5f3cb405ff3f670e4828358ed26aec49dc352f730f0cb1a8a3"
 dependencies = [
  "base64 0.13.1",
- "bech32 0.9.1",
+ "bech32",
  "bitcoin_hashes",
  "bitcoinconsensus",
  "secp256k1",
  "serde",
-]
-
-[[package]]
-name = "bitcoin-bech32"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "754eb4c7f35c031f33c95cc257b4c4192a5c9d3de637d3ee78ab052a3f35da57"
-dependencies = [
- "bech32 0.8.1",
 ]
 
 [[package]]
@@ -1292,9 +1277,7 @@ dependencies = [
  "axum-server",
  "base64 0.21.0",
  "bdk",
- "bech32 0.9.1",
  "bitcoin",
- "bitcoin-bech32",
  "bitcoincore-rpc-json 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitvec",
  "chrono",
@@ -1392,7 +1375,7 @@ version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4e44b0e2822c8811470137d2339fdfe67a699b3248bb1606d1d02eb6a1e9f0a"
 dependencies = [
- "bech32 0.9.1",
+ "bech32",
  "bitcoin",
  "bitcoin_hashes",
  "lightning",
