@@ -1,4 +1,15 @@
 { config, pkgs, lib, ... }:
+let
+  monitoring =
+    if config.kuutamo.telegraf.hasMonitoring then {
+      http = {
+        url = "$MONITORING_URL";
+        data_format = "prometheusremotewrite";
+        username = "$MONITORING_USERNAME";
+        password = "$MONITORING_PASSWORD";
+      };
+    } else { };
+in
 {
   options = {
     kuutamo.telegraf.configHash = lib.mkOption {
@@ -29,15 +40,13 @@
             "https://localhost:8080/_status/vars"
             "http://localhost:2233/metrics"
           ];
-          outputs = lib.optionalAttrs config.kuutamo.telegraf.hasMonitoring {
-            http = {
-              url = "$MONITORING_URL";
-              data_format = "prometheusremotewrite";
-              username = "$MONITORING_USERNAME";
-              password = "$MONITORING_PASSWORD";
-            };
-          };
         };
+        outputs = {
+          prometheus_client = {
+            listen = ":9273";
+            metric_version = 2;
+          };
+        } // monitoring;
       };
     };
   };
