@@ -23,6 +23,11 @@ in
       default = false;
       description = "has monitoring setting or not";
     };
+    kuutamo.telegraf.hostname = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "the hostname tag on metrics";
+    };
   };
   config = {
     services.telegraf = {
@@ -35,12 +40,19 @@ in
       extraConfig = {
         agent.interval = "60s";
         inputs = {
-          cpu = { };
+          cpu = {
+            tags = {
+              host = config.kuutamo.telegraf.hostname;
+            };
+          };
           prometheus.insecure_skip_verify = true;
           prometheus.urls = [
             "https://localhost:8080/_status/vars"
             "http://localhost:2233/metrics"
           ];
+          prometheus.tags = {
+            host = config.kuutamo.telegraf.hostname;
+          };
         };
         outputs = {
           prometheus_client = {

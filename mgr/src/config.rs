@@ -190,7 +190,7 @@ pub struct Host {
     /// SSH Username used when connecting during installation
     pub install_ssh_user: String,
 
-    /// SSH hostname used for connecting
+    /// SSH hostname used for connection and host label on monitoring dashboard
     pub ssh_hostname: String,
 
     /// Public ssh keys that will be added to the nixos configuration
