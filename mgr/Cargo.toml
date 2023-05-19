@@ -22,5 +22,5 @@ tempfile = "3"
 ctrlc = { version = "3.2", features = ["termination"] }
 nix = "0.26.2"
 regex = "1"
-clap = { version = "4.1.8", features = ["derive", "env"] }
+clap = { version = "4.1.11", features = ["derive", "env"] }
 lazy_static = "1.4.0"
