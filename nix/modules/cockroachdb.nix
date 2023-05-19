@@ -1,4 +1,4 @@
-{ config, lib, pkgs, utils, ... }:
+{ config, lib, pkgs, self, utils, ... }:
 
 let
   cfg = config.kuutamo.cockroachdb;
@@ -267,6 +267,10 @@ in
 
   config = {
     environment.systemPackages = [ cockroach-cli ];
+    environment.etc."system-info.toml".text = lib.mkDefault ''
+      git_sha = "${self.rev or "dirty"}"
+      git_commit_date = "${self.lastModifiedDate}"
+    '';
 
     users.users = lib.optionalAttrs (cfg.user == "cockroachdb") {
       cockroachdb = {

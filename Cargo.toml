@@ -3,6 +3,5 @@ members = [
     "api",
     "kld",
     "settings",
-    "test-utils"
+    "test-utils",
 ]
-
