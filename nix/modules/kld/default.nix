@@ -1,7 +1,6 @@
 { config
 , lib
 , pkgs
-, self
 , ...
 }:
 let
@@ -158,10 +157,6 @@ in
   config = {
     # for cli
     environment.systemPackages = [ kld-cli bitcoin-cli ];
-    environment.etc."system-info.toml".text = lib.mkDefault ''
-      git_sha = "${self.rev or "dirty"}"
-      git_commit_date = "${self.lastModifiedDate}"
-    '';
 
     kuutamo.cockroachdb.ensureDatabases = [ "kld" ];
     kuutamo.cockroachdb.ensureUsers = [{

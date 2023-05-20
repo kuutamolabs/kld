@@ -75,6 +75,5 @@ pub fn nixos_rebuild(
             warn!("garbage collection failed, but continue...: {}", e);
         }
     }
-
     Ok(())
 }
