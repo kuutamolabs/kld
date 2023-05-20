@@ -1,4 +1,4 @@
-{ self, inputs, ... }:
+{ self, inputs, lib, ... }:
 {
   flake = {
     nixosModules = {
@@ -16,7 +16,7 @@
           services.bitcoind."kld-${config.kuutamo.kld.network}" = {
             package = packages.bitcoind;
           };
-          _module.args.self = self;
+          _module.args.self = lib.mkDefault self;
         };
       default = self.nixosModules.kld;
 
