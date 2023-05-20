@@ -23,7 +23,6 @@
       cockroachdb = { pkgs, ... }: {
         imports = [ ./cockroachdb.nix ];
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
-        _module.args.self = self;
       };
 
       kld-ctl = { config, pkgs, ... }:
