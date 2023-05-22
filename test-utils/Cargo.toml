@@ -10,7 +10,7 @@ lightning = { version = "0.0.115", features = [ "max_level_trace" ] }
 lightning-block-sync = { version = "0.0.115", features = [ "rpc-client" ] }
 bitcoin = "0.29.2"
 rand = "0.8.5"
-base64 = "0.21.0"
+base64 = "0.21.1"
 reqwest = { version = "0.11", default-features = false, features = [ "blocking", "native-tls" ] }
 tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
 postgres-openssl = "0.5.0"
