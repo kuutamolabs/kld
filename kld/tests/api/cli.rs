@@ -2,8 +2,8 @@ use std::process::{Command, Output};
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FundChannelResponse, GetInfo, ListFunds, NetworkChannel, NetworkNode,
-    NewAddressResponse, Peer, SetChannelFeeResponse, SignResponse, WalletBalance,
+    Channel, FeeRatesResponse, FundChannelResponse, GetInfo, ListFunds, NetworkChannel,
+    NetworkNode, NewAddressResponse, Peer, SetChannelFeeResponse, SignResponse, WalletBalance,
     WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
@@ -12,7 +12,7 @@ use serde::de;
 
 use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
-use super::api::create_api_server;
+use super::rest::create_api_server;
 
 #[tokio::test]
 async fn test_cli_get_info() -> Result<()> {
@@ -192,6 +192,14 @@ async fn test_cli_list_network_channels() -> Result<()> {
     let output = run_cli("network-channels", &[]).await?;
     let channels: Vec<NetworkChannel> = deserialize(&output.stdout)?;
     assert!(channels.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_fee_rates() -> Result<()> {
+    let output = run_cli("fee-rates", &[]).await?;
+    let fee_rates: FeeRatesResponse = deserialize(&output.stdout)?;
+    assert!(fee_rates.perkb.is_some());
     Ok(())
 }
 

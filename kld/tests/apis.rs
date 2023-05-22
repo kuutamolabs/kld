@@ -1,6 +1,6 @@
 use tokio::signal::unix::SignalKind;
 
-mod integration;
+mod api;
 mod mocks;
 
 pub async fn quit_signal() {

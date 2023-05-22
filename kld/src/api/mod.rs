@@ -15,13 +15,15 @@ use crate::{
         channels::{close_channel, list_channels, open_channel, set_channel_fee},
         macaroon_auth::{admin_auth, readonly_auth},
         network::{
-            get_network_channel, get_network_node, list_network_channels, list_network_nodes,
+            fee_rates, get_network_channel, get_network_node, list_network_channels,
+            list_network_nodes,
         },
         peers::{connect_peer, disconnect_peer, list_peers},
         utility::sign,
         wallet::{get_balance, list_funds, new_address, transfer},
         ws::ws_handler,
     },
+    bitcoind::bitcoind_interface::BitcoindInterface,
     ldk::LightningInterface,
     wallet::WalletInterface,
 };
@@ -62,6 +64,7 @@ pub async fn bind_api_server(listen_address: String, certs_dir: String) -> Resul
 impl RestApi {
     pub async fn serve(
         self,
+        bitcoind_api: Arc<dyn BitcoindInterface + Send + Sync>,
         lightning_api: Arc<dyn LightningInterface + Send + Sync>,
         wallet_api: Arc<dyn WalletInterface + Send + Sync>,
         macaroon_auth: Arc<MacaroonAuth>,
@@ -81,6 +84,7 @@ impl RestApi {
             .route(routes::LIST_NETWORK_NODES, get(list_network_nodes))
             .route(routes::LIST_NETWORK_CHANNEL, get(get_network_channel))
             .route(routes::LIST_NETWORK_CHANNELS, get(list_network_channels))
+            .route(routes::FEE_RATES, get(fee_rates))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()
@@ -99,6 +103,7 @@ impl RestApi {
             .merge(admin_routes)
             .fallback(handler_404)
             .layer(cors)
+            .layer(Extension(bitcoind_api))
             .layer(Extension(lightning_api))
             .layer(Extension(wallet_api))
             .layer(Extension(macaroon_auth));

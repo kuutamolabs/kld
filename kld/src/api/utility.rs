@@ -6,12 +6,14 @@ use axum::{response::IntoResponse, Extension};
 use bitcoin::Network;
 use std::sync::Arc;
 
+use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::ldk::LightningInterface;
 use crate::VERSION;
 
 use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn get_info(
+    Extension(bitcoind_interface): Extension<Arc<dyn BitcoindInterface + Send + Sync>>,
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
     let synced_to_chain = lightning_interface
@@ -25,7 +27,7 @@ pub(crate) async fn get_info(
         num_active_channels: lightning_interface.num_active_channels(),
         num_inactive_channels: lightning_interface.num_inactive_channels(),
         num_peers: lightning_interface.num_peers(),
-        block_height: lightning_interface
+        block_height: bitcoind_interface
             .block_height()
             .await
             .map_err(internal_server)?,
