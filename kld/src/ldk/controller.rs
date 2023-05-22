@@ -1,3 +1,4 @@
+use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::Service;
@@ -97,13 +98,6 @@ impl LightningInterface for Controller {
 
     fn alias(&self) -> String {
         self.settings.node_alias.clone()
-    }
-
-    async fn block_height(&self) -> Result<u64> {
-        self.bitcoind_client
-            .get_blockchain_info()
-            .await
-            .map(|i| i.blocks)
     }
 
     fn network(&self) -> bitcoin::Network {

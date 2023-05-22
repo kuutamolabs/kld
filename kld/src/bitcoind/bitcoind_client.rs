@@ -26,6 +26,8 @@ use tokio::runtime::Handle;
 
 use crate::{ldk::MIN_FEERATE, quit_signal, Service};
 
+use super::bitcoind_interface::BitcoindInterface;
+
 pub struct BitcoindClient {
     client: Arc<RpcClient>,
     priorities: Arc<Priorities>,
@@ -84,13 +86,6 @@ impl BitcoindClient {
     ) -> Result<Txid> {
         client
             .call_method::<JsonString>("sendrawtransaction", &[tx_serialized])
-            .await?
-            .deserialize()
-    }
-
-    pub async fn get_blockchain_info(&self) -> Result<GetBlockchainInfoResult> {
-        self.client
-            .call_method::<JsonString>("getblockchaininfo", &[])
             .await?
             .deserialize()
     }
@@ -169,6 +164,40 @@ impl BitcoindClient {
             Ok(Err(e)) => error!("Could not fetch fee estimate: {}", e),
             Err(e) => error!("Could not fetch fee estimate: {}", e),
         };
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct MempoolInfo {
+    #[serde(rename = "mempoolminfee")]
+    pub mempool_min_fee: f32,
+}
+
+#[async_trait]
+impl BitcoindInterface for BitcoindClient {
+    async fn get_blockchain_info(&self) -> Result<GetBlockchainInfoResult> {
+        self.client
+            .call_method::<JsonString>("getblockchaininfo", &[])
+            .await?
+            .deserialize()
+    }
+
+    async fn get_mempool_info(&self) -> Result<MempoolInfo> {
+        self.client
+            .call_method::<JsonString>("getmempoolinfo", &[])
+            .await?
+            .deserialize()
+    }
+
+    fn fee_rates_kw(&self) -> (u32, u32, u32) {
+        let urgent = self.get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
+        let normal = self.get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
+        let slow = self.get_est_sat_per_1000_weight(ConfirmationTarget::Background);
+        (urgent, normal, slow)
+    }
+
+    async fn block_height(&self) -> Result<u64> {
+        self.get_blockchain_info().await.map(|i| i.blocks)
     }
 }
 

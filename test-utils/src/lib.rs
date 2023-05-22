@@ -30,6 +30,10 @@ pub const TEST_ALIAS: &str = "test node";
 
 pub const TEST_WPKH: &str = "wpkh(cVpPVruEDdmutPzisEsYvtST1usBR3ntr8pXSyt6D2YYqXRyPcFW)";
 
+// https://mempool.space/block/0000000000000000000590fc0f3eba193a278534220b2b37e9849e1a770ca959
+pub const TEST_BLOCK_HASH: &str =
+    "0000000000000000000590fc0f3eba193a278534220b2b37e9849e1a770ca959";
+
 #[macro_export]
 macro_rules! test_settings {
     ($name: literal) => {

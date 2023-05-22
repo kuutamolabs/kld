@@ -1,3 +1,4 @@
+use std::assert_eq;
 use std::thread::spawn;
 use std::{fs, sync::Arc};
 
@@ -21,14 +22,15 @@ use test_utils::{
 };
 
 use api::{
-    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FundChannel, FundChannelResponse,
-    GetInfo, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, OutputStatus,
-    Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
-    WalletTransferResponse,
+    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
+    FundChannelResponse, GetInfo, ListFunds, NetworkChannel, NetworkNode, NewAddress,
+    NewAddressResponse, OutputStatus, Peer, SetChannelFeeResponse, SignRequest, SignResponse,
+    WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
+use crate::mocks::mock_bitcoind::MockBitcoind;
 use crate::mocks::mock_lightning::MockLightning;
 use crate::mocks::mock_wallet::MockWallet;
 use crate::quit_signal;
@@ -236,6 +238,13 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_CHANNELS)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::FEE_RATES)
             .send()
             .await?
             .status()
@@ -615,6 +624,68 @@ async fn test_list_network_channels_readonly() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fee_rates() -> Result<()> {
+    let context = create_api_server().await?;
+    let fee_rates: FeeRatesResponse = readonly_request(
+        &context,
+        Method::GET,
+        &routes::FEE_RATES.replace(":style", "perkb"),
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
+    let perkb = fee_rates.perkb.context("expected perkb fee rate")?;
+    assert_eq!(1600000, perkb.urgent);
+    assert_eq!(800000, perkb.normal);
+    assert_eq!(400000, perkb.slow);
+    assert_eq!(3101, perkb.min_acceptable);
+    assert_eq!(1600000, perkb.max_acceptable);
+    assert_eq!(
+        121600,
+        fee_rates.onchain_fee_estimates.opening_channel_satoshis
+    );
+    assert_eq!(
+        104000,
+        fee_rates.onchain_fee_estimates.mutual_close_satoshis
+    );
+    assert_eq!(
+        120000,
+        fee_rates.onchain_fee_estimates.unilateral_close_satoshis
+    );
+
+    let fee_rates: FeeRatesResponse = readonly_request(
+        &context,
+        Method::GET,
+        &routes::FEE_RATES.replace(":style", "perkw"),
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
+
+    let perkw = fee_rates.perkw.context("expected perkw fee rate")?;
+    assert_eq!(400000, perkw.urgent);
+    assert_eq!(200000, perkw.normal);
+    assert_eq!(100000, perkw.slow);
+    assert_eq!(775, perkw.min_acceptable);
+    assert_eq!(400000, perkw.max_acceptable);
+    assert_eq!(
+        121600,
+        fee_rates.onchain_fee_estimates.opening_channel_satoshis
+    );
+    assert_eq!(
+        104000,
+        fee_rates.onchain_fee_estimates.mutual_close_satoshis
+    );
+    assert_eq!(
+        120000,
+        fee_rates.onchain_fee_estimates.unilateral_close_satoshis
+    );
+    Ok(())
+}
+
 fn withdraw_request() -> WalletTransfer {
     WalletTransfer {
         address: TEST_ADDRESS.to_string(),
@@ -683,6 +754,7 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
             bind_api_server(rest_api_address, certs_dir)
                 .await?
                 .serve(
+                    Arc::new(MockBitcoind::default()),
                     LIGHTNING.clone(),
                     Arc::new(MockWallet::default()),
                     macaroon_auth,

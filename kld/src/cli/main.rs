@@ -114,6 +114,12 @@ enum Command {
         #[arg(long)]
         id: Option<String>,
     },
+    /// Return feerate estimates, either satoshi-per-kw or satoshi-per-kb.
+    FeeRates {
+        /// perkb (default) or perkw
+        #[arg(long)]
+        style: Option<String>,
+    },
 }
 
 fn main() {
@@ -158,6 +164,7 @@ fn run_command(args: Args) -> Result<()> {
         Command::CloseChannel { id } => api.close_channel(id)?,
         Command::NetworkNodes { id } => api.list_network_nodes(id)?,
         Command::NetworkChannels { id } => api.list_network_channels(id)?,
+        Command::FeeRates { style } => api.fee_rates(style)?,
     };
     if output != "null" {
         println!("{output}");

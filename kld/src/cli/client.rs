@@ -2,9 +2,10 @@ use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
 use api::{
-    routes, Channel, ChannelFee, FeeRate, FundChannel, FundChannelResponse, GetInfo, ListFunds,
-    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer, SetChannelFeeResponse,
-    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
+    routes, Channel, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
+    GetInfo, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, Peer,
+    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
@@ -180,6 +181,16 @@ impl Api {
                 .send()?
         };
         deserialize::<Vec<NetworkChannel>>(response)
+    }
+
+    pub fn fee_rates(&self, style: Option<String>) -> Result<String> {
+        let response = self
+            .request(
+                Method::GET,
+                &routes::FEE_RATES.replace(":style", &style.unwrap_or("perkb".to_string())),
+            )
+            .send()?;
+        deserialize::<FeeRatesResponse>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

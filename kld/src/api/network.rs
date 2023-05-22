@@ -1,4 +1,5 @@
-use api::{Address, NetworkChannel, NetworkNode};
+use anyhow::anyhow;
+use api::{Address, FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
@@ -12,9 +13,9 @@ use std::{
     sync::Arc,
 };
 
-use crate::ldk::LightningInterface;
+use crate::{bitcoind::bitcoind_interface::BitcoindInterface, ldk::LightningInterface};
 
-use super::{bad_request, ApiError};
+use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn list_network_nodes(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
@@ -79,6 +80,60 @@ pub(crate) async fn list_network_channels(
         }
     }
     Ok(Json(channels))
+}
+
+const CHANNEL_OPEN_VB: u32 = 152;
+const MUTUAL_CLOSE_VB: u32 = 130;
+const UNILATERAL_CLOSE_VB: u32 = 150;
+
+pub(crate) async fn fee_rates(
+    Extension(bitcoind_interface): Extension<Arc<dyn BitcoindInterface + Send + Sync>>,
+    Path(style): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let (urgent, normal, slow) = bitcoind_interface.fee_rates_kw();
+    let mempool_info = bitcoind_interface
+        .get_mempool_info()
+        .await
+        .map_err(internal_server)?;
+
+    let onchain_fee_estimates = OnChainFeeEstimates {
+        opening_channel_satoshis: ((normal as f32 / 1000.0) * CHANNEL_OPEN_VB as f32 * 4.0) as u32,
+        mutual_close_satoshis: ((normal as f32 / 1000.0) * MUTUAL_CLOSE_VB as f32 * 4.0) as u32,
+        unilateral_close_satoshis: ((normal as f32 / 1000.0) * UNILATERAL_CLOSE_VB as f32 * 4.0)
+            as u32,
+    };
+    let response = match style.as_str() {
+        "perkb" => {
+            let fee_rates = FeeRates {
+                urgent: urgent * 4,
+                normal: normal * 4,
+                slow: slow * 4,
+                min_acceptable: (mempool_info.mempool_min_fee * 100000000.0) as u32,
+                max_acceptable: urgent * 4,
+            };
+            FeeRatesResponse {
+                perkb: Some(fee_rates),
+                perkw: None,
+                onchain_fee_estimates,
+            }
+        }
+        "perkw" => {
+            let fee_rates = FeeRates {
+                urgent,
+                normal,
+                slow,
+                min_acceptable: (mempool_info.mempool_min_fee * 25000000.0) as u32,
+                max_acceptable: urgent,
+            };
+            FeeRatesResponse {
+                perkb: None,
+                perkw: Some(fee_rates),
+                onchain_fee_estimates,
+            }
+        }
+        _ => return Err(bad_request(anyhow!("unknown fee style {}", style))),
+    };
+    Ok(Json(response))
 }
 
 fn to_api_channel(

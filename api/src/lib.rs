@@ -17,7 +17,7 @@ pub mod routes {
     pub const WEBSOCKET: &str = "/v1/ws";
 
     /// List on chain and channel funds
-    pub const LIST_FUNDS: &str = "/v1/listfunds";
+    pub const LIST_FUNDS: &str = "/v1/listFunds";
 
     /// --- Peers ---
     /// Connect with a network peer.
@@ -46,10 +46,12 @@ pub mod routes {
     pub const LIST_NETWORK_CHANNEL: &str = "/v1/network/listchannel/:id";
     /// Return list of all channels on the network
     pub const LIST_NETWORK_CHANNELS: &str = "/v1/network/listchannel";
+    /// Return feerate estimates, either satoshi-per-kw or satoshi-per-kb
+    pub const FEE_RATES: &str = "/v1/network/feeRates/:style";
 
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.
-    pub const GET_BALANCE: &str = "/v1/getbalance";
+    pub const GET_BALANCE: &str = "/v1/getBalance";
     /// Generate address for recieving on-chain funds.
     pub const NEW_ADDR: &str = "/v1/newaddr";
     /// Withdraw on-chain funds to an address.
@@ -351,6 +353,34 @@ impl FromStr for FeeRate {
             }
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeeRates {
+    pub urgent: u32,
+    pub normal: u32,
+    pub slow: u32,
+    pub min_acceptable: u32,
+    pub max_acceptable: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnChainFeeEstimates {
+    pub opening_channel_satoshis: u32,
+    pub mutual_close_satoshis: u32,
+    pub unilateral_close_satoshis: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeeRatesResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub perkb: Option<FeeRates>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub perkw: Option<FeeRates>,
+    pub onchain_fee_estimates: OnChainFeeEstimates,
 }
 
 #[derive(Serialize, Deserialize)]
