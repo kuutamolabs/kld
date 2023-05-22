@@ -29,7 +29,7 @@ bitcoin = "0.29.2"
 bitcoincore-rpc-json = "0.16.0"
 rust-bip39 = "1.0.0"
 hex = "0.4"
-base64 = "0.21.0"
+base64 = "0.21.1"
 # see https://github.com/bitcoindevkit/bdk/pull/850, rebased to 0.27.1 release
 #bdk = { version = "0.26.0", features = [ "rpc" ] }
 bdk = { git = "https://github.com/JosephGoulden/bdk", branch = "backport-begin-batch-result", features = [ "rpc" ] }
