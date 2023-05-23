@@ -99,12 +99,6 @@ in
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes install --hosts kld-00 --debug --no-reboot --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
       installer.succeed("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@192.168.42.2 -- reboot >&2")
 
-      system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts kld-00").strip()
-      assert system_info.startswith("[kld-00]\nkld-version: 0.1.0\ngit-sha:"), f"unexpected system info: {system_info}"
-
-      system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts db-00").strip()
-      assert system_info.startswith("[db-00]\nkld-version: 0.1.0\ngit-sha:"), f"unexpected system info: {system_info}"
-
       installed.shutdown()
 
       new_machine = create_test_machine(oldmachine=installed, args={ "name": "after_install" })
@@ -115,6 +109,12 @@ in
       installer.wait_until_succeeds("ssh -o StrictHostKeyChecking=no root@192.168.42.2 -- exit 0 >&2")
 
       new_machine.wait_for_unit("sshd.service")
+
+      system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts kld-00").strip()
+      assert system_info.startswith("[kld-00]\nkld-version: 0.1.0\ngit-sha:"), f"unexpected system info: {system_info}"
+
+      system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts db-00").strip()
+      assert system_info.startswith("[db-00]\nkld-version: 0.1.0\ngit-sha:"), f"unexpected system info: {system_info}"
       # TODO test actual service here
 
       # check tls certificates
