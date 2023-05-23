@@ -111,10 +111,12 @@ in
       new_machine.wait_for_unit("sshd.service")
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts kld-00").strip()
-      assert system_info.startswith("kld-mgr version: 0.0.1\n\n[kld-00]\nkld-ctl version: 0.1.0\ngit sha:"), f"unexpected system info: {system_info}"
+      for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "bitcoind version", "cockroach version", "kld-cli version"):
+          assert version_field  in system_info, f"{version_field} in system info:\n{system_info}"
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts db-00").strip()
-      assert system_info.startswith("kld-mgr version: 0.0.1\n\n[db-00]\nkld-ctl version: 0.1.0\ngit sha:"), f"unexpected system info: {system_info}"
+      for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "cockroach version"):
+          assert version_field  in system_info, f"{version_field} not in system info:\n{system_info}"
       # TODO test actual service here
 
       # check tls certificates
