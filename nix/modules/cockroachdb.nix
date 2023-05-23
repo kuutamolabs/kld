@@ -266,7 +266,7 @@ in
   };
 
   config = {
-    environment.systemPackages = [ cockroach-cli ];
+    environment.systemPackages = [ cockroach-cli cfg.package ];
 
     users.users = lib.optionalAttrs (cfg.user == "cockroachdb") {
       cockroachdb = {
