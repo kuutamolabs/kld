@@ -33,7 +33,6 @@
         {
           imports = [ ./ctl ];
           kuutamo.ctl.package = packages.kld-ctl;
-          _module.args.self = self;
         };
 
       common-node = {
@@ -48,6 +47,7 @@
           ./network.nix
         ];
         system.stateVersion = "22.05";
+        _module.args.self = self;
       };
 
       cockroachdb-node.imports = [
