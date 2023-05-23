@@ -9,6 +9,7 @@ use mgr::certs::{
 };
 use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
+use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
@@ -228,6 +229,7 @@ fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()>
 }
 
 fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
+    println!("kld-mgr version: {}\n", env!("CARGO_PKG_VERSION"));
     let hosts = filter_hosts(&args.hosts, &config.hosts)?;
     for host in hosts {
         println!("[{}]", host.name);
