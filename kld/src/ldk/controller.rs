@@ -37,13 +37,12 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use tokio::runtime::Handle;
+
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 
 use super::event_handler::EventHandler;
 use super::net_utils::PeerAddress;
-use super::payment_info::PaymentInfoStorage;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, ChainMonitor, ChannelManager, LdkPeerManager, LightningInterface, NetworkGraph,
@@ -525,7 +524,6 @@ impl Controller {
             }
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
-
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
@@ -568,20 +566,15 @@ impl Controller {
         )?);
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
-        // Handle LDK Events
-        // TODO: persist payment info to disk
-        let inbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
-        let outbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
+
         let event_handler = EventHandler::new(
             channel_manager.clone(),
             bitcoind_client.clone(),
             keys_manager.clone(),
-            inbound_payments,
-            outbound_payments,
             network_graph.clone(),
             wallet.clone(),
+            database.clone(),
             async_api_requests.clone(),
-            Handle::current(),
         );
 
         // Background Processing

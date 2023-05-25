@@ -3,7 +3,6 @@ pub mod controller;
 mod event_handler;
 pub mod lightning_interface;
 pub mod net_utils;
-mod payment_info;
 mod peer_manager;
 
 use std::sync::Arc;

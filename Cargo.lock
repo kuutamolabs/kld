@@ -1297,6 +1297,7 @@ dependencies = [
  "once_cell",
  "openssl",
  "postgres-openssl",
+ "postgres-types",
  "prometheus",
  "rand",
  "refinery",
@@ -1775,6 +1776,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres-derive"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "070ffaa78859c779b19f9358ce035480479cf2619e968593ffbe72abcb6e0fcf"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.14",
+]
+
+[[package]]
 name = "postgres-openssl"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1814,6 +1826,7 @@ dependencies = [
  "bit-vec",
  "bytes",
  "fallible-iterator",
+ "postgres-derive",
  "postgres-protocol",
  "uuid",
 ]

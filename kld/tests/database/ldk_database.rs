@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use bitcoin::Network;
+use kld::database::payment::{MillisatAmount, Payment, PaymentDirection, PaymentStatus};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
 
@@ -10,11 +11,14 @@ use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::Filter;
+use lightning::ln::channelmanager::PaymentId;
 use lightning::ln::msgs::NetAddress;
+use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::persist::Persister;
+use rand::random;
 use test_utils::{poll, random_public_key};
 
 use super::with_cockroach;
@@ -45,6 +49,89 @@ pub async fn test_peers() -> Result<()> {
         database.delete_peer(&peer.public_key).await?;
         let peers = database.fetch_peers().await?;
         assert!(!peers.contains_key(&peer.public_key));
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+pub async fn test_outbound_payment() -> Result<()> {
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
+
+        let mut payment = Payment {
+            id: PaymentId(random()),
+            hash: PaymentHash(random()),
+            preimage: None,
+            secret: Some(PaymentSecret(random())),
+            status: PaymentStatus::Pending,
+            amount: MillisatAmount(500000),
+            fee: None,
+            direction: PaymentDirection::Outbound,
+        };
+        database.persist_payment(&payment).await?;
+
+        let result = database
+            .fetch_payments()
+            .await?
+            .into_iter()
+            .find(|p| p.id == payment.id)
+            .context("expected payment")?;
+        assert_eq!(result, payment);
+
+        payment.preimage = Some(PaymentPreimage(random()));
+        payment.status = PaymentStatus::Succeeded;
+        payment.fee = Some(MillisatAmount(232));
+        database
+            .update_outbound_payment(payment.id, payment.preimage, payment.status, payment.fee)
+            .await?;
+
+        let result = database
+            .fetch_payments()
+            .await?
+            .into_iter()
+            .find(|p| p.id == payment.id)
+            .context("expected payment")?;
+        assert_eq!(result, payment);
+
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+pub async fn test_inbound_payment() -> Result<()> {
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
+
+        let mut payment = Payment::new_spontaneous_inbound(
+            PaymentHash(random()),
+            PaymentPreimage(random()),
+            MillisatAmount(12345),
+        );
+
+        database.persist_payment(&payment).await?;
+
+        let result = database
+            .fetch_payments()
+            .await?
+            .into_iter()
+            .find(|p| p.id == payment.id)
+            .context("expected payment")?;
+        assert_eq!(result, payment);
+
+        payment.status = PaymentStatus::Succeeded;
+        database
+            .update_inbound_payment(payment.hash, payment.preimage, payment.status)
+            .await?;
+        let result = database
+            .fetch_payments()
+            .await?
+            .into_iter()
+            .find(|p| p.id == payment.id)
+            .context("expected payment")?;
+        assert_eq!(result, payment);
+
         Ok(())
     })
     .await

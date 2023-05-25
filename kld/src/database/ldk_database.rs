@@ -2,8 +2,10 @@ use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::to_i64;
 
+use super::payment::{MillisatAmount, Payment, PaymentStatus};
 use super::DurableConnection;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Txid};
@@ -15,8 +17,9 @@ use lightning::chain::keysinterface::{
 };
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
-use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
+use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs, PaymentId};
 use lightning::ln::msgs::NetAddress;
+use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::Router;
 use lightning::routing::scoring::{
@@ -136,6 +139,100 @@ impl LdkDatabase {
             )
             .await?;
         Ok(())
+    }
+
+    pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
+        debug!("Persist payment: {}", payment.hash.0.to_hex());
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "UPSERT INTO payments (id, hash, preimage, secret, status, amount, fee, direction) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.status, &payment.amount.0, &payment.fee.as_ref().map(|f| f.0), &payment.direction],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_inbound_payment(
+        &self,
+        hash: PaymentHash,
+        preimage: Option<PaymentPreimage>,
+        status: PaymentStatus,
+    ) -> Result<()> {
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "UPDATE payments SET preimage = $2, status = $3 WHERE hash = $1",
+                &[
+                    &hash.0.as_ref(),
+                    &preimage.as_ref().map(|x| x.0.as_ref()),
+                    &status,
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_outbound_payment(
+        &self,
+        id: PaymentId,
+        preimage: Option<PaymentPreimage>,
+        status: PaymentStatus,
+        fee: Option<MillisatAmount>,
+    ) -> Result<()> {
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "UPDATE payments SET preimage = $2, status = $3, fee = $4 WHERE id = $1",
+                &[
+                    &id.0.as_ref(),
+                    &preimage.as_ref().map(|x| x.0.as_ref()),
+                    &status,
+                    &fee.as_ref().map(|f| f.0),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_payments(&self) -> Result<Vec<Payment>> {
+        let mut payments = vec![];
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query("SELECT * FROM payments", &[])
+            .await?;
+        for row in rows {
+            let id: &[u8] = row.get("id");
+            let hash: &[u8] = row.get("hash");
+            let preimage: Option<&[u8]> = row.get("preimage");
+            let secret: Option<&[u8]> = row.get("secret");
+
+            let preimage = match preimage {
+                Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
+                None => None,
+            };
+            let secret = match secret {
+                Some(bytes) => Some(PaymentSecret(bytes.try_into().context("bad secret")?)),
+                None => None,
+            };
+
+            payments.push(Payment {
+                id: PaymentId(id.try_into().context("bad ID")?),
+                hash: PaymentHash(hash.try_into().context("bad hash")?),
+                preimage,
+                secret,
+                status: row.get("status"),
+                amount: MillisatAmount(row.get("amount")),
+                fee: row.get::<&str, Option<i64>>("fee").map(MillisatAmount),
+                direction: row.get("direction"),
+            })
+        }
+        Ok(payments)
     }
 
     pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
