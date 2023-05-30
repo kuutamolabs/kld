@@ -27,7 +27,6 @@
     # for mdraid 1.1
     boot.loader.grub.extraConfig = "insmod mdraid1x";
     boot.loader.grub.enable = true;
-    boot.loader.grub.version = 2;
     boot.loader.grub.efiSupport = true;
     boot.loader.grub.efiInstallAsRemovable = true;
   };
