@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
+use api::lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 
 pub(crate) enum HTLCStatus {
     Succeeded,

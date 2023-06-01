@@ -2,21 +2,21 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use api::lightning::ln::channelmanager::ChannelDetails;
 use api::Channel;
 use api::ChannelFee;
 use api::ChannelState;
 use api::FundChannel;
 use api::FundChannelResponse;
+use api::NetAddress;
 use api::SetChannelFee;
 use api::SetChannelFeeResponse;
 use axum::extract::Path;
 use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
-use lightning::ln::channelmanager::ChannelDetails;
 
 use crate::api::bad_request;
-use crate::ldk::net_utils::PeerAddress;
 use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
@@ -75,7 +75,7 @@ pub(crate) async fn open_channel(
     let (public_key, net_address) = match fund_channel.id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
-            Some(net_address.parse::<PeerAddress>().map_err(bad_request)?),
+            Some(net_address.parse::<NetAddress>().map_err(bad_request)?),
         ),
         None => (
             PublicKey::from_str(&fund_channel.id).map_err(bad_request)?,

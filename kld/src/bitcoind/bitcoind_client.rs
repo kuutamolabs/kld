@@ -8,11 +8,13 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 
+use api::lightning::chain::chaininterface::{
+    BroadcasterInterface, ConfirmationTarget, FeeEstimator,
+};
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use bitcoin::{consensus::encode, Address, BlockHash, Transaction, Txid};
 use bitcoincore_rpc_json::{EstimateMode, EstimateSmartFeeResult, GetBlockchainInfoResult};
-use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{
     http::{HttpEndpoint, JsonResponse},
     rpc::RpcClient,

@@ -1,4 +1,5 @@
 use std::assert_eq;
+use std::net::SocketAddr;
 use std::thread::spawn;
 use std::{fs, sync::Arc};
 
@@ -22,7 +23,7 @@ use test_utils::{
 };
 
 use api::{
-    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
+    routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
     FundChannelResponse, GetInfo, ListFunds, NetworkChannel, NetworkNode, NewAddress,
     NewAddressResponse, OutputStatus, Peer, SetChannelFeeResponse, SignRequest, SignResponse,
     WalletBalance, WalletTransfer, WalletTransferResponse,
@@ -505,11 +506,8 @@ async fn test_list_peers_readonly() -> Result<()> {
         .await?
         .json()
         .await?;
-    let netaddr = Some(Address {
-        address_type: "ipv4".to_string(),
-        address: "127.0.0.1".to_string(),
-        port: 5555,
-    });
+    let socket_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let netaddr = Some(socket_addr.into());
     assert!(response.contains(&Peer {
         id: TEST_PUBLIC_KEY.to_string(),
         connected: true,

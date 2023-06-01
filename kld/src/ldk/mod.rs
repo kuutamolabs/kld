@@ -2,7 +2,6 @@ pub mod channel_utils;
 pub mod controller;
 mod event_handler;
 pub mod lightning_interface;
-pub mod net_utils;
 mod payment_info;
 mod peer_manager;
 
@@ -10,7 +9,7 @@ use std::sync::Arc;
 
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
-use lightning::{
+use api::lightning::{
     chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
     ln::{channelmanager::SimpleArcChannelManager, peer_handler::SimpleArcPeerManager},
     onion_message::SimpleArcOnionMessenger,

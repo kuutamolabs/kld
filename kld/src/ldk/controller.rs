@@ -5,26 +5,26 @@ use crate::Service;
 
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
+use api::lightning::chain;
+use api::lightning::chain::channelmonitor::ChannelMonitor;
+use api::lightning::chain::keysinterface::{InMemorySigner, KeysManager};
+use api::lightning::chain::BestBlock;
+use api::lightning::chain::Watch;
+use api::lightning::ln::channelmanager::{self, ChannelDetails};
+use api::lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
+use api::lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
+use api::lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
+use api::lightning::routing::router::DefaultRouter;
+use api::lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
+use api::lightning::util::config::UserConfig;
 use api::FeeRate;
+use api::NetAddress;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
-use lightning::chain;
-use lightning::chain::channelmonitor::ChannelMonitor;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
-use lightning::chain::BestBlock;
-use lightning::chain::Watch;
-use lightning::ln::channelmanager::{self, ChannelDetails};
-use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
-use lightning::ln::msgs::NetAddress;
-use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
-use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
-use lightning::routing::router::DefaultRouter;
-use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
-use lightning::util::config::UserConfig;
 
 use crate::logger::KldLogger;
-use lightning::util::indexed_map::IndexedMap;
+use api::lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
@@ -42,7 +42,6 @@ use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 
 use super::event_handler::EventHandler;
-use super::net_utils::PeerAddress;
 use super::payment_info::PaymentInfoStorage;
 use super::peer_manager::PeerManager;
 use super::{
@@ -70,7 +69,7 @@ impl LightningInterface for Controller {
 
     fn sign(&self, message: &[u8]) -> Result<String> {
         let secret_key = self.keys_manager.get_node_secret_key();
-        let signature = lightning::util::message_signing::sign(message, &secret_key)?;
+        let signature = api::lightning::util::message_signing::sign(message, &secret_key)?;
         Ok(signature)
     }
 
@@ -259,21 +258,21 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        peer_address: Option<PeerAddress>,
+        peer_address: Option<NetAddress>,
     ) -> Result<()> {
         if let Some(net_address) = peer_address {
             self.peer_manager
                 .connect_peer(public_key, net_address)
                 .await
         } else {
-            let addresses: Vec<PeerAddress> = self
+            let addresses: Vec<NetAddress> = self
                 .network_graph
                 .read_only()
                 .get_addresses(&public_key)
                 .context("No addresses found for node")?
                 .into_iter()
-                .filter(|a| matches!(a, NetAddress::IPv4 { addr: _, port: _ }))
-                .map(PeerAddress)
+                .map(|a| a.into())
+                .filter(|a: &NetAddress| a.is_ipv4())
                 .collect();
             for address in addresses {
                 if let Err(e) = self
@@ -294,8 +293,8 @@ impl LightningInterface for Controller {
         self.peer_manager.disconnect_by_node_id(public_key).await
     }
 
-    fn public_addresses(&self) -> Vec<String> {
-        self.settings.public_addresses.clone()
+    fn public_addresses(&self) -> Vec<NetAddress> {
+        self.settings.public_addresses().to_vec()
     }
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {

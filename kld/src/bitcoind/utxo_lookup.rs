@@ -1,11 +1,11 @@
 use std::sync::{Arc, Weak};
 
 use crate::logger::KldLogger;
-use bitcoin::{blockdata::constants::genesis_block, BlockHash};
-use lightning::routing::{
+use api::lightning::routing::{
     gossip::P2PGossipSync,
     utxo::{UtxoFuture, UtxoLookup, UtxoLookupError, UtxoResult},
 };
+use bitcoin::{blockdata::constants::genesis_block, BlockHash};
 use lightning_block_sync::{BlockData, BlockSource};
 use log::warn;
 use settings::Settings;
