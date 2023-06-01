@@ -43,6 +43,7 @@ in
         agent.metric_batch_size = 10000;
         agent.collection_offset = "5s";
         agent.flush_interval = "60s";
+        agent.flush_jitter = "40s";
         inputs = {
           cpu = {
             tags = {
