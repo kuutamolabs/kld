@@ -8,7 +8,7 @@ let
 
   dependencies = [
     validator-system.config.system.build.toplevel
-    validator-system.config.system.build.disko
+    validator-system.config.system.build.diskoScript
   ] ++ builtins.map (i: i.outPath) (builtins.attrValues self.inputs);
 
   closureInfo = pkgs.closureInfo { rootPaths = dependencies; };
