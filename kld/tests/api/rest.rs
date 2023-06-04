@@ -23,9 +23,9 @@ use test_utils::{
 
 use api::{
     routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
-    FundChannelResponse, GetInfo, ListFunds, NetworkChannel, NetworkNode, NewAddress,
-    NewAddressResponse, OutputStatus, Peer, SetChannelFeeResponse, SignRequest, SignResponse,
-    WalletBalance, WalletTransfer, WalletTransferResponse,
+    FundChannelResponse, GetInfo, KeysendRequest, KeysendResponse, ListFunds, NetworkChannel,
+    NetworkNode, NewAddress, NewAddressResponse, OutputStatus, Peer, SetChannelFeeResponse,
+    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -245,6 +245,20 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::FEE_RATES)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::POST, routes::KEYSEND)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        readonly_request_with_body(&context, Method::POST, routes::KEYSEND, keysend_request)?
             .send()
             .await?
             .status()
@@ -686,6 +700,26 @@ async fn test_fee_rates() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_keysend_admin() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: KeysendResponse =
+        admin_request_with_body(&context, Method::POST, routes::KEYSEND, keysend_request)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    assert_eq!(TEST_PUBLIC_KEY, response.destination);
+    assert_eq!(64, response.payment_hash.len());
+    assert_eq!(64, response.payment_preimage.len());
+    assert_eq!(0, response.created_at);
+    assert_eq!(1, response.parts);
+    assert_eq!(1000, response.amount_msat);
+    assert_eq!(1000000, response.amount_sent_msat);
+    assert_eq!("succeeded", response.status);
+    Ok(())
+}
+
 fn withdraw_request() -> WalletTransfer {
     WalletTransfer {
         address: TEST_ADDRESS.to_string(),
@@ -716,6 +750,18 @@ fn set_channel_fee_request() -> ChannelFee {
         id: TEST_SHORT_CHANNEL_ID.to_string(),
         base: Some(32500),
         ppm: Some(1200),
+    }
+}
+
+fn keysend_request() -> KeysendRequest {
+    KeysendRequest {
+        pubkey: TEST_PUBLIC_KEY.to_string(),
+        amount: 1000,
+        label: None,
+        maxfeepercent: None,
+        retry_for: None,
+        maxdelay: None,
+        exemptfee: None,
     }
 }
 

@@ -1,9 +1,11 @@
-use crate::ldk::{ldk_error, ChainMonitor};
+use crate::ldk::ChainMonitor;
 use crate::logger::KldLogger;
 use crate::to_i64;
 
+use super::payment::Payment;
 use super::DurableConnection;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Txid};
@@ -15,8 +17,9 @@ use lightning::chain::keysinterface::{
 };
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
-use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
+use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs, PaymentId};
 use lightning::ln::msgs::NetAddress;
+use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::Router;
 use lightning::routing::scoring::{
@@ -136,6 +139,57 @@ impl LdkDatabase {
             )
             .await?;
         Ok(())
+    }
+
+    pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
+        debug!("Persist payment: {}", payment.hash.0.to_hex());
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "UPSERT INTO payments (id, hash, preimage, secret, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.status, &payment.amount.as_i64(), &payment.fee.as_ref().map(|f| f.as_i64()), &payment.direction, &payment.timestamp],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_payments(&self) -> Result<Vec<Payment>> {
+        let mut payments = vec![];
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query("SELECT * FROM payments", &[])
+            .await?;
+        for row in rows {
+            let id: &[u8] = row.get("id");
+            let hash: &[u8] = row.get("hash");
+            let preimage: Option<&[u8]> = row.get("preimage");
+            let secret: Option<&[u8]> = row.get("secret");
+
+            let preimage = match preimage {
+                Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
+                None => None,
+            };
+            let secret = match secret {
+                Some(bytes) => Some(PaymentSecret(bytes.try_into().context("bad secret")?)),
+                None => None,
+            };
+
+            payments.push(Payment {
+                id: PaymentId(id.try_into().context("bad ID")?),
+                hash: PaymentHash(hash.try_into().context("bad hash")?),
+                preimage,
+                secret,
+                status: row.get("status"),
+                amount: row.get::<&str, i64>("amount").into(),
+                fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
+                direction: row.get("direction"),
+                timestamp: row.get("timestamp"),
+            })
+        }
+        Ok(payments)
     }
 
     pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
@@ -377,7 +431,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         &self,
         funding_txo: OutPoint,
         monitor: &ChannelMonitor<ChannelSigner>,
-        update_id: MonitorUpdateId,
+        _update_id: MonitorUpdateId,
     ) -> ChannelMonitorUpdateStatus {
         let mut out_point_buf = vec![];
         funding_txo.write(&mut out_point_buf).unwrap();
@@ -387,37 +441,33 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let latest_update_id = monitor.get_latest_update_id();
 
         let durable_connection = self.durable_connection.clone();
-        let chain_monitor = self
-            .chain_monitor
-            .get()
-            .expect("Incorrect initialisation")
-            .clone();
-        self.runtime.spawn(async move {
-            let result = durable_connection
-                .get()
-                .await
-                .execute(
-                    "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
+        // Storing the updates async makes things way more complicated. So even though its a little slower we stick with sync for now.
+        tokio::task::block_in_place(move || {
+            tokio::runtime::Handle::current().block_on(async move {
+                let result = durable_connection
+                    .get()
+                    .await
+                    .execute(
+                        "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
                 VALUES ($1, $2, $3)",
-                    &[&out_point_buf, &monitor_buf, &to_i64!(latest_update_id)],
-                )
-                .await;
-            match result {
-                Ok(_) => {
-                    info!(
-                        "Stored channel: {}:{} with update id: {}",
-                        funding_txo.txid, funding_txo.index, latest_update_id
-                    );
-                    if let Err(e) = chain_monitor.channel_monitor_updated(funding_txo, update_id) {
-                        error!("Failed to update channel monitor: {}", ldk_error(e));
+                        &[&out_point_buf, &monitor_buf, &to_i64!(latest_update_id)],
+                    )
+                    .await;
+                match result {
+                    Ok(_) => {
+                        info!(
+                            "Stored channel: {}:{} with update id: {}",
+                            funding_txo.txid, funding_txo.index, latest_update_id
+                        );
+                        ChannelMonitorUpdateStatus::Completed
+                    }
+                    Err(e) => {
+                        error!("Failed to persist channel update: {e}");
+                        ChannelMonitorUpdateStatus::PermanentFailure
                     }
                 }
-                Err(e) => {
-                    error!("Failed to persist channel update: {e}");
-                }
-            };
-        });
-        ChannelMonitorUpdateStatus::InProgress
+            })
+        })
     }
 
     // Updates are applied to the monitor when fetched from database.
