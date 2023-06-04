@@ -3,11 +3,12 @@ use std::{str::FromStr, time::Duration};
 use crate::{generate_blocks, START_N_BLOCKS};
 use anyhow::Result;
 use api::{
-    routes, Channel, ChannelState, FundChannel, FundChannelResponse, GetInfo, NewAddress,
-    NewAddressResponse, WalletBalance,
+    routes, Channel, ChannelState, FundChannel, FundChannelResponse, GetInfo, KeysendRequest,
+    KeysendResponse, NewAddress, NewAddressResponse, WalletBalance,
 };
 use bitcoin::Address;
 use hyper::Method;
+use kld::database::payment::PaymentStatus;
 use test_utils::{bitcoin, cockroach, kld, poll, test_settings, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
 
@@ -59,6 +60,10 @@ pub async fn test_start() -> Result<()> {
     settings_1.database_name = "start1".to_owned();
     let kld_1 = kld!(&bitcoin, &cockroach, settings_1);
 
+    let _info_0: GetInfo = kld_0
+        .call_rest_api(Method::GET, routes::GET_INFO, ())
+        .await?;
+
     let info_1: GetInfo = kld_1
         .call_rest_api(Method::GET, routes::GET_INFO, ())
         .await?;
@@ -66,6 +71,7 @@ pub async fn test_start() -> Result<()> {
     let fund_channel = FundChannel {
         id: format!("{}@127.0.0.1:{}", info_1.id, kld_1.peer_port),
         satoshis: "1000000".to_string(),
+        push_msat: Some("10000".to_string()),
         ..Default::default()
     };
 
@@ -83,7 +89,7 @@ pub async fn test_start() -> Result<()> {
 
     poll!(
         120,
-        kld_0
+        kld_1
             .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
             .await?
             .get(0)
@@ -91,6 +97,18 @@ pub async fn test_start() -> Result<()> {
             == Some(&ChannelState::Usable)
     );
 
+    let keysend = KeysendRequest {
+        pubkey: info_1.id,
+        amount: 1000,
+        ..Default::default()
+    };
+    let keysend_response: KeysendResponse = kld_0
+        .call_rest_api(Method::POST, routes::KEYSEND, keysend)
+        .await?;
+    assert_eq!(
+        keysend_response.status,
+        PaymentStatus::Succeeded.to_string()
+    );
     Ok(())
 }
 

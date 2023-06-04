@@ -8,6 +8,8 @@ use lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
+use crate::database::payment::{MillisatAmount, Payment};
+
 use super::net_utils::PeerAddress;
 
 #[async_trait]
@@ -84,6 +86,8 @@ pub trait LightningInterface: Send + Sync {
     fn channels(&self) -> IndexedMap<u64, ChannelInfo>;
 
     fn user_config(&self) -> UserConfig;
+
+    async fn send_payment(&self, payee: NodeId, amount: MillisatAmount) -> Result<Payment>;
 }
 
 pub struct Peer {

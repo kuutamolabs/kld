@@ -1,8 +1,8 @@
-use crate::ldk::{ldk_error, ChainMonitor};
+use crate::ldk::ChainMonitor;
 use crate::logger::KldLogger;
 use crate::to_i64;
 
-use super::payment::{MillisatAmount, Payment, PaymentStatus};
+use super::payment::Payment;
 use super::DurableConnection;
 use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::hashes::hex::ToHex;
@@ -147,52 +147,8 @@ impl LdkDatabase {
             .get()
             .await
             .execute(
-                "UPSERT INTO payments (id, hash, preimage, secret, status, amount, fee, direction) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.status, &payment.amount.0, &payment.fee.as_ref().map(|f| f.0), &payment.direction],
-            )
-            .await?;
-        Ok(())
-    }
-
-    pub async fn update_inbound_payment(
-        &self,
-        hash: PaymentHash,
-        preimage: Option<PaymentPreimage>,
-        status: PaymentStatus,
-    ) -> Result<()> {
-        self.durable_connection
-            .get()
-            .await
-            .execute(
-                "UPDATE payments SET preimage = $2, status = $3 WHERE hash = $1",
-                &[
-                    &hash.0.as_ref(),
-                    &preimage.as_ref().map(|x| x.0.as_ref()),
-                    &status,
-                ],
-            )
-            .await?;
-        Ok(())
-    }
-
-    pub async fn update_outbound_payment(
-        &self,
-        id: PaymentId,
-        preimage: Option<PaymentPreimage>,
-        status: PaymentStatus,
-        fee: Option<MillisatAmount>,
-    ) -> Result<()> {
-        self.durable_connection
-            .get()
-            .await
-            .execute(
-                "UPDATE payments SET preimage = $2, status = $3, fee = $4 WHERE id = $1",
-                &[
-                    &id.0.as_ref(),
-                    &preimage.as_ref().map(|x| x.0.as_ref()),
-                    &status,
-                    &fee.as_ref().map(|f| f.0),
-                ],
+                "UPSERT INTO payments (id, hash, preimage, secret, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.status, &payment.amount.as_i64(), &payment.fee.as_ref().map(|f| f.as_i64()), &payment.direction, &payment.timestamp],
             )
             .await?;
         Ok(())
@@ -227,9 +183,10 @@ impl LdkDatabase {
                 preimage,
                 secret,
                 status: row.get("status"),
-                amount: MillisatAmount(row.get("amount")),
-                fee: row.get::<&str, Option<i64>>("fee").map(MillisatAmount),
+                amount: row.get::<&str, i64>("amount").into(),
+                fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
                 direction: row.get("direction"),
+                timestamp: row.get("timestamp"),
             })
         }
         Ok(payments)
@@ -474,7 +431,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         &self,
         funding_txo: OutPoint,
         monitor: &ChannelMonitor<ChannelSigner>,
-        update_id: MonitorUpdateId,
+        _update_id: MonitorUpdateId,
     ) -> ChannelMonitorUpdateStatus {
         let mut out_point_buf = vec![];
         funding_txo.write(&mut out_point_buf).unwrap();
@@ -484,37 +441,33 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let latest_update_id = monitor.get_latest_update_id();
 
         let durable_connection = self.durable_connection.clone();
-        let chain_monitor = self
-            .chain_monitor
-            .get()
-            .expect("Incorrect initialisation")
-            .clone();
-        self.runtime.spawn(async move {
-            let result = durable_connection
-                .get()
-                .await
-                .execute(
-                    "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
+        // Storing the updates async makes things way more complicated. So even though its a little slower we stick with sync for now.
+        tokio::task::block_in_place(move || {
+            tokio::runtime::Handle::current().block_on(async move {
+                let result = durable_connection
+                    .get()
+                    .await
+                    .execute(
+                        "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
                 VALUES ($1, $2, $3)",
-                    &[&out_point_buf, &monitor_buf, &to_i64!(latest_update_id)],
-                )
-                .await;
-            match result {
-                Ok(_) => {
-                    info!(
-                        "Stored channel: {}:{} with update id: {}",
-                        funding_txo.txid, funding_txo.index, latest_update_id
-                    );
-                    if let Err(e) = chain_monitor.channel_monitor_updated(funding_txo, update_id) {
-                        error!("Failed to update channel monitor: {}", ldk_error(e));
+                        &[&out_point_buf, &monitor_buf, &to_i64!(latest_update_id)],
+                    )
+                    .await;
+                match result {
+                    Ok(_) => {
+                        info!(
+                            "Stored channel: {}:{} with update id: {}",
+                            funding_txo.txid, funding_txo.index, latest_update_id
+                        );
+                        ChannelMonitorUpdateStatus::Completed
+                    }
+                    Err(e) => {
+                        error!("Failed to persist channel update: {e}");
+                        ChannelMonitorUpdateStatus::PermanentFailure
                     }
                 }
-                Err(e) => {
-                    error!("Failed to persist channel update: {e}");
-                }
-            };
-        });
-        ChannelMonitorUpdateStatus::InProgress
+            })
+        })
     }
 
     // Updates are applied to the monitor when fetched from database.

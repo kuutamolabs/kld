@@ -1,6 +1,7 @@
 mod channels;
 mod macaroon_auth;
 mod network;
+mod payments;
 mod peers;
 mod utility;
 mod wallet;
@@ -18,6 +19,7 @@ use crate::{
             fee_rates, get_network_channel, get_network_node, list_network_channels,
             list_network_nodes,
         },
+        payments::keysend,
         peers::{connect_peer, disconnect_peer, list_peers},
         utility::sign,
         wallet::{get_balance, list_funds, new_address, transfer},
@@ -96,6 +98,7 @@ impl RestApi {
             .route(routes::WITHDRAW, post(transfer))
             .route(routes::CONNECT_PEER, post(connect_peer))
             .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
+            .route(routes::KEYSEND, post(keysend))
             .route(routes::WEBSOCKET, get(ws_handler))
             .layer(from_fn(admin_auth));
 

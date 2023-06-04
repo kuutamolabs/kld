@@ -1,4 +1,4 @@
-CREATE TYPE payment_status AS ENUM ('pending', 'succeeded', 'failed');
+CREATE TYPE payment_status AS ENUM ('pending', 'succeeded', 'recipient_rejected', 'user_abandoned', 'retries_exhausted', 'expired', 'route_not_found', 'error');
 
 CREATE TYPE payment_direction AS ENUM ('inbound', 'outbound');
 

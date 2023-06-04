@@ -56,6 +56,10 @@ pub mod routes {
     pub const NEW_ADDR: &str = "/v1/newaddr";
     /// Withdraw on-chain funds to an address.
     pub const WITHDRAW: &str = "/v1/withdraw";
+
+    /// --- Payments ---
+    /// Send funds to a node without an invoice.
+    pub const KEYSEND: &str = "/v1/pay/keysend";
 }
 
 #[derive(Serialize, Deserialize)]
@@ -463,6 +467,38 @@ pub struct SignRequest {
 #[derive(Serialize, Deserialize)]
 pub struct SignResponse {
     pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct KeysendRequest {
+    // 33 byte, hex-encoded, pubkey of the node
+    pub pubkey: String,
+    // Amount in milli satoshis
+    pub amount: u64,
+    // Label for the payment
+    pub label: Option<String>,
+    // Fraction of the amount to be paid as fee (as a percentage)
+    pub maxfeepercent: Option<f64>,
+    // Keep retryinig to find routes for this long (seconds)
+    pub retry_for: Option<u64>,
+    // The payment can be delayed for more than this many blocks
+    pub maxdelay: Option<u64>,
+    // Amount for which the maxfeepercent check is skipped
+    pub exemptfee: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeysendResponse {
+    pub destination: String,
+    pub payment_hash: String,
+    pub created_at: u64,
+    pub parts: u64,
+    pub amount_msat: u64,
+    pub amount_sent_msat: u64,
+    pub payment_preimage: String,
+    pub status: String,
 }
 
 #[test]

@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use anyhow::{anyhow, Context, Result};
 use bitcoin::Network;
@@ -55,7 +56,7 @@ pub async fn test_peers() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-pub async fn test_outbound_payment() -> Result<()> {
+pub async fn test_payment() -> Result<()> {
     with_cockroach(|settings, durable_connection| async move {
         let database = LdkDatabase::new(settings, durable_connection);
 
@@ -68,6 +69,7 @@ pub async fn test_outbound_payment() -> Result<()> {
             amount: MillisatAmount(500000),
             fee: None,
             direction: PaymentDirection::Outbound,
+            timestamp: SystemTime::UNIX_EPOCH,
         };
         database.persist_payment(&payment).await?;
 
@@ -82,48 +84,8 @@ pub async fn test_outbound_payment() -> Result<()> {
         payment.preimage = Some(PaymentPreimage(random()));
         payment.status = PaymentStatus::Succeeded;
         payment.fee = Some(MillisatAmount(232));
-        database
-            .update_outbound_payment(payment.id, payment.preimage, payment.status, payment.fee)
-            .await?;
-
-        let result = database
-            .fetch_payments()
-            .await?
-            .into_iter()
-            .find(|p| p.id == payment.id)
-            .context("expected payment")?;
-        assert_eq!(result, payment);
-
-        Ok(())
-    })
-    .await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-pub async fn test_inbound_payment() -> Result<()> {
-    with_cockroach(|settings, durable_connection| async move {
-        let database = LdkDatabase::new(settings, durable_connection);
-
-        let mut payment = Payment::new_spontaneous_inbound(
-            PaymentHash(random()),
-            PaymentPreimage(random()),
-            MillisatAmount(12345),
-        );
-
         database.persist_payment(&payment).await?;
 
-        let result = database
-            .fetch_payments()
-            .await?
-            .into_iter()
-            .find(|p| p.id == payment.id)
-            .context("expected payment")?;
-        assert_eq!(result, payment);
-
-        payment.status = PaymentStatus::Succeeded;
-        database
-            .update_inbound_payment(payment.hash, payment.preimage, payment.status)
-            .await?;
         let result = database
             .fetch_payments()
             .await?

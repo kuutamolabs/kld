@@ -5,21 +5,30 @@ pub mod lightning_interface;
 pub mod net_utils;
 mod peer_manager;
 
-use std::sync::Arc;
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
+use anyhow::anyhow;
 use lightning::{
     chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
-    ln::{channelmanager::SimpleArcChannelManager, peer_handler::SimpleArcPeerManager},
+    ln::{
+        channelmanager::{PaymentSendFailure, SimpleArcChannelManager},
+        msgs::LightningError,
+        peer_handler::SimpleArcPeerManager,
+    },
     onion_message::SimpleArcOnionMessenger,
-    routing::gossip,
+    routing::{gossip, router::DefaultRouter, scoring::ProbabilisticScorerUsingTime},
     util::errors::APIError,
 };
 use lightning_net_tokio::SocketDescriptor;
 
 pub use controller::Controller;
 pub use lightning_interface::{LightningInterface, OpenChannelResult, Peer, PeerStatus};
+use log::warn;
 
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 
@@ -51,6 +60,10 @@ pub(crate) type ChannelManager =
 
 pub(crate) type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;
 
+pub(crate) type Scorer = ProbabilisticScorerUsingTime<Arc<NetworkGraph>, Arc<KldLogger>, Instant>;
+
+pub(crate) type KldRouter = DefaultRouter<Arc<NetworkGraph>, Arc<KldLogger>, Arc<Mutex<Scorer>>>;
+
 pub fn ldk_error(error: APIError) -> anyhow::Error {
     anyhow::Error::msg(match error {
         APIError::APIMisuseError { ref err } => format!("Misuse error: {err}"),
@@ -68,4 +81,41 @@ pub fn ldk_error(error: APIError) -> anyhow::Error {
             format!("Provided a scriptpubkey format not accepted by peer: {script}")
         }
     })
+}
+
+pub fn lightning_error(error: LightningError) -> anyhow::Error {
+    anyhow!(error.err)
+}
+
+pub fn payment_error(error: PaymentSendFailure) -> anyhow::Error {
+    match error {
+        PaymentSendFailure::ParameterError(api_error) => ldk_error(api_error),
+        PaymentSendFailure::PathParameterError(results) => {
+            for result in results {
+                if let Err(e) = result {
+                    warn!("{}", ldk_error(e));
+                }
+            }
+            anyhow!("Payment failure: Path parameter error. Check logs for more details.")
+        }
+        PaymentSendFailure::AllFailedResendSafe(errors) => {
+            for e in errors {
+                warn!("{}", ldk_error(e));
+            }
+            anyhow!("Payment failure: All failed, resend safe. Check logs for more details.")
+        }
+        PaymentSendFailure::DuplicatePayment => anyhow!("Payment failed: Duplicate Payment"),
+        PaymentSendFailure::PartialFailure {
+            results,
+            failed_paths_retry: _,
+            payment_id: _,
+        } => {
+            for result in results {
+                if let Err(e) = result {
+                    warn!("{}", ldk_error(e));
+                }
+            }
+            anyhow!("Payment failed: Partial failure. Check logs for more details.")
+        }
+    }
 }

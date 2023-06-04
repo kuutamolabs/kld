@@ -5,7 +5,7 @@ use anyhow::anyhow;
 
 use bitcoin::secp256k1::Secp256k1;
 
-use crate::database::payment::{Payment, PaymentStatus};
+use crate::database::payment::{MillisatAmount, Payment};
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
@@ -183,7 +183,7 @@ impl EventHandler {
                 claim_deadline: _,
             } => {
                 info!(
-                    "EVENT: received payment from payment hash {} of {} millisatoshis",
+                    "EVENT: Received payment with hash {} of {} millisatoshis",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
@@ -194,26 +194,12 @@ impl EventHandler {
                         if let Some(payment_preimage) = payment_preimage {
                             self.channel_manager.claim_funds(payment_preimage);
                         }
-                        if let Err(e) = self
-                            .ldk_database
-                            .update_inbound_payment(
-                                payment_hash,
-                                payment_preimage,
-                                PaymentStatus::Pending,
-                            )
-                            .await
-                        {
-                            error!(
-                                "Failed to update payment with hash {}: {e}",
-                                payment_hash.0.encode_hex::<String>()
-                            )
-                        }
                     }
                     PaymentPurpose::SpontaneousPayment(preimage) => {
                         let payment = Payment::new_spontaneous_inbound(
                             payment_hash,
                             preimage,
-                            amount_msat.into(),
+                            MillisatAmount(amount_msat),
                         );
                         if let Err(e) = self.ldk_database.persist_payment(&payment).await {
                             error!(
@@ -236,23 +222,13 @@ impl EventHandler {
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
-                let preimage = match purpose {
+                let _preimage = match purpose {
                     PaymentPurpose::InvoicePayment {
                         payment_preimage,
                         payment_secret: _,
                     } => payment_preimage,
                     PaymentPurpose::SpontaneousPayment(preimage) => Some(preimage),
                 };
-                if let Err(e) = self
-                    .ldk_database
-                    .update_inbound_payment(payment_hash, preimage, PaymentStatus::Succeeded)
-                    .await
-                {
-                    error!(
-                        "Failed to update payment with hash {}: {e}",
-                        payment_hash.0.encode_hex::<String>()
-                    )
-                }
             }
             Event::PaymentSent {
                 payment_id,
@@ -271,20 +247,16 @@ impl EventHandler {
                 );
                 match payment_id {
                     Some(id) => {
-                        if let Err(e) = self
-                            .ldk_database
-                            .update_outbound_payment(
-                                id,
-                                Some(payment_preimage),
-                                PaymentStatus::Succeeded,
-                                fee_paid_msat.map(|f| f.into()),
-                            )
-                            .await
+                        if let Some((mut payment, respond)) =
+                            self.async_api_requests.payments.get(&id).await
                         {
-                            error!(
-                                "Failed to update payment with id {}: {e}",
-                                payment_hash.0.encode_hex::<String>()
-                            )
+                            payment.succeeded(
+                                Some(payment_preimage),
+                                fee_paid_msat.map(MillisatAmount),
+                            );
+                            respond(Ok(payment));
+                        } else {
+                            error!("Can't find payment for {}", id.0.encode_hex::<String>());
                         }
                     }
                     None => {
@@ -324,13 +296,14 @@ impl EventHandler {
                 reason,
             } => {
                 info!("EVENT: Failed to send payment {payment_id:?}: {reason:?}",);
-                if let Err(e) = self
-                    .ldk_database
-                    .update_outbound_payment(payment_id, None, PaymentStatus::Failed, None)
-                    .await
+                if let Some((mut payment, respond)) =
+                    self.async_api_requests.payments.get(&payment_id).await
                 {
+                    payment.failed(reason);
+                    respond(Ok(payment));
+                } else {
                     error!(
-                        "Failed to update payment with id {}: {e}",
+                        "Can't find payment for {}",
                         payment_id.0.encode_hex::<String>()
                     );
                 }
