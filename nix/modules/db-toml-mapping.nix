@@ -15,6 +15,9 @@ in
   config = lib.mkIf (cfg != { }) {
     networking.hostName = cfg.name;
     kuutamo.cockroachdb.nodeName = cfg.name;
+    kuutamo.kld.publicAddresses = [ ]
+      ++ lib.optional (cfg ? ipv4_address) cfg.ipv4_address
+      ++ lib.optional (cfg ? ipv6_address) cfg.ipv6_address;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
