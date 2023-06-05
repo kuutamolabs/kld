@@ -19,7 +19,7 @@ format_serde_error = { version = "0.3.0", features = [ "colored", "serde_json" ]
 serde = { version = "1.0.163", features = ["derive"] }
 toml = "0.7.4"
 tempfile = "3"
-ctrlc = { version = "3.2", features = ["termination"] }
+ctrlc = { version = "3.4", features = ["termination"] }
 nix = "0.26.2"
 regex = "1"
 clap = { version = "4.1.11", features = ["derive", "env"] }
