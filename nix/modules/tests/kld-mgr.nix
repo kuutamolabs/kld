@@ -8,7 +8,7 @@ let
 
   dependencies = [
     validator-system.config.system.build.toplevel
-    validator-system.config.system.build.disko
+    validator-system.config.system.build.diskoScript
   ] ++ builtins.map (i: i.outPath) (builtins.attrValues self.inputs);
 
   closureInfo = pkgs.closureInfo { rootPaths = dependencies; };
@@ -64,7 +64,7 @@ in
       virtualisation.memorySize = 4096;
       networking.nameservers = [ "127.0.0.1" ];
       services.openssh.enable = true;
-      services.openssh.settings.useDns = false;
+      services.openssh.settings.UseDns = false;
       users.users.root.openssh.authorizedKeys.keyFiles = [ ./ssh-keys/ssh.pub ];
     };
   };

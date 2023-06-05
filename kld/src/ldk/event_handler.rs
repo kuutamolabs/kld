@@ -1,5 +1,3 @@
-use std::collections::hash_map::Entry;
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -7,7 +5,8 @@ use anyhow::anyhow;
 
 use bitcoin::secp256k1::Secp256k1;
 
-use crate::database::WalletDatabase;
+use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::keysinterface::KeysManager;
@@ -19,49 +18,41 @@ use tokio::runtime::Handle;
 
 use crate::bitcoind::BitcoindClient;
 use crate::ldk::ldk_error;
-use crate::ldk::payment_info::{HTLCStatus, MillisatAmount, PaymentInfo};
 use crate::wallet::{Wallet, WalletInterface};
 
 use super::controller::AsyncAPIRequests;
-use super::payment_info::PaymentInfoStorage;
 use super::{ChannelManager, NetworkGraph};
 
 pub(crate) struct EventHandler {
     channel_manager: Arc<ChannelManager>,
     bitcoind_client: Arc<BitcoindClient>,
     keys_manager: Arc<KeysManager>,
-    inbound_payments: PaymentInfoStorage,
-    outbound_payments: PaymentInfoStorage,
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
+    ldk_database: Arc<LdkDatabase>,
     async_api_requests: Arc<AsyncAPIRequests>,
     runtime_handle: Handle,
 }
 
 impl EventHandler {
-    // TODO remove when payments storage is in database
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_manager: Arc<ChannelManager>,
         bitcoind_client: Arc<BitcoindClient>,
         keys_manager: Arc<KeysManager>,
-        inbound_payments: PaymentInfoStorage,
-        outbound_payments: PaymentInfoStorage,
         network_graph: Arc<NetworkGraph>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
+        database: Arc<LdkDatabase>,
         async_api_requests: Arc<AsyncAPIRequests>,
-        runtime_handle: Handle,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
             bitcoind_client,
             keys_manager,
-            inbound_payments,
-            outbound_payments,
             network_graph,
             wallet,
+            ldk_database: database,
             async_api_requests,
-            runtime_handle,
+            runtime_handle: Handle::current(),
         }
     }
 }
@@ -192,19 +183,33 @@ impl EventHandler {
                 claim_deadline: _,
             } => {
                 info!(
-                    "EVENT: received payment from payment hash {} of {} millisatoshis",
+                    "EVENT: Received payment with hash {} of {} millisatoshis",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
-                let payment_preimage = match purpose {
+                match purpose {
                     PaymentPurpose::InvoicePayment {
                         payment_preimage, ..
-                    } => payment_preimage,
-                    PaymentPurpose::SpontaneousPayment(preimage) => Some(preimage),
+                    } => {
+                        if let Some(payment_preimage) = payment_preimage {
+                            self.channel_manager.claim_funds(payment_preimage);
+                        }
+                    }
+                    PaymentPurpose::SpontaneousPayment(preimage) => {
+                        let payment = Payment::new_spontaneous_inbound(
+                            payment_hash,
+                            preimage,
+                            MillisatAmount(amount_msat),
+                        );
+                        if let Err(e) = self.ldk_database.persist_payment(&payment).await {
+                            error!(
+                                "Failed to persist payment with hash {}: {e}",
+                                payment_hash.0.encode_hex::<String>()
+                            )
+                        }
+                        self.channel_manager.claim_funds(preimage);
+                    }
                 };
-                if let Some(payment_preimage) = payment_preimage {
-                    self.channel_manager.claim_funds(payment_preimage);
-                }
             }
             Event::PaymentClaimed {
                 payment_hash,
@@ -217,69 +222,90 @@ impl EventHandler {
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
-                let (payment_preimage, payment_secret) = match purpose {
+                let _preimage = match purpose {
                     PaymentPurpose::InvoicePayment {
                         payment_preimage,
-                        payment_secret,
-                        ..
-                    } => (payment_preimage, Some(payment_secret)),
-                    PaymentPurpose::SpontaneousPayment(preimage) => (Some(preimage), None),
+                        payment_secret: _,
+                    } => payment_preimage,
+                    PaymentPurpose::SpontaneousPayment(preimage) => Some(preimage),
                 };
-                let mut payments = self.inbound_payments.lock().unwrap();
-                match payments.entry(payment_hash) {
-                    Entry::Occupied(mut e) => {
-                        let payment = e.get_mut();
-                        payment.status = HTLCStatus::Succeeded;
-                        payment.preimage = payment_preimage;
-                        payment.secret = payment_secret;
-                    }
-                    Entry::Vacant(e) => {
-                        e.insert(PaymentInfo {
-                            preimage: payment_preimage,
-                            secret: payment_secret,
-                            status: HTLCStatus::Succeeded,
-                            amt_msat: MillisatAmount(Some(amount_msat)),
-                        });
-                    }
-                }
             }
             Event::PaymentSent {
+                payment_id,
                 payment_preimage,
                 payment_hash,
                 fee_paid_msat,
-                ..
             } => {
-                let mut payments = self.outbound_payments.lock().unwrap();
-                if let Some(payment) = payments.get_mut(&payment_hash) {
-                    payment.preimage = Some(payment_preimage);
-                    payment.status = HTLCStatus::Succeeded;
-                    info!(
-                        "EVENT: successfully sent payment of {} millisatoshis{} from \
-								 payment hash {} with preimage {}",
-                        payment.amt_msat,
-                        if let Some(fee) = fee_paid_msat {
-                            format!(" (fee {fee} msat)")
+                info!(
+                    "EVENT: Payment with id {:?} sent successfully with fee {}",
+                    payment_id,
+                    if let Some(fee) = fee_paid_msat {
+                        format!(" (fee {fee} msat)")
+                    } else {
+                        "".to_string()
+                    },
+                );
+                match payment_id {
+                    Some(id) => {
+                        if let Some((mut payment, respond)) =
+                            self.async_api_requests.payments.get(&id).await
+                        {
+                            payment.succeeded(
+                                Some(payment_preimage),
+                                fee_paid_msat.map(MillisatAmount),
+                            );
+                            respond(Ok(payment));
                         } else {
-                            "".to_string()
-                        },
-                        payment_hash.0.encode_hex::<String>(),
-                        payment_preimage.0.encode_hex::<String>()
-                    );
+                            error!("Can't find payment for {}", id.0.encode_hex::<String>());
+                        }
+                    }
+                    None => {
+                        error!(
+                            "Failed to update payment with hash {}",
+                            payment_hash.0.encode_hex::<String>()
+                        )
+                    }
                 }
             }
-            Event::PaymentPathSuccessful { .. } => {}
-            Event::PaymentPathFailed { .. } => {}
-            Event::ProbeSuccessful { .. } => {}
-            Event::ProbeFailed { .. } => {}
-            Event::PaymentFailed { payment_hash, .. } => {
+            Event::PaymentPathSuccessful {
+                payment_id,
+                payment_hash: _,
+                path: _,
+            } => {
                 info!(
-				"EVENT: Failed to send payment to payment hash {}: exhausted payment retry attempts",
-				payment_hash.0.encode_hex::<String>()
-			);
-
-                let mut payments = self.outbound_payments.lock().unwrap();
-                if let Some(payment) = payments.get_mut(&payment_hash) {
-                    payment.status = HTLCStatus::Failed;
+                    "EVENT: Payment path successful for payment with ID {}",
+                    payment_id.0.encode_hex::<String>()
+                );
+            }
+            Event::PaymentPathFailed {
+                payment_id: _,
+                payment_hash,
+                payment_failed_permanently: _,
+                failure: _,
+                path: _,
+                short_channel_id: _,
+            } => {
+                info!(
+                    "EVENT: Payment path failed for payment with hash {}",
+                    payment_hash.0.encode_hex::<String>()
+                );
+            }
+            Event::PaymentFailed {
+                payment_id,
+                payment_hash: _,
+                reason,
+            } => {
+                info!("EVENT: Failed to send payment {payment_id:?}: {reason:?}",);
+                if let Some((mut payment, respond)) =
+                    self.async_api_requests.payments.get(&payment_id).await
+                {
+                    payment.failed(reason);
+                    respond(Ok(payment));
+                } else {
+                    error!(
+                        "Can't find payment for {}",
+                        payment_id.0.encode_hex::<String>()
+                    );
                 }
             }
             Event::PaymentForwarded {
@@ -348,6 +374,8 @@ impl EventHandler {
                     "EVENT: Forwarded payment{from_prev_str}{to_next_str} {amount_str}, earning {fee_str} msat {from_onchain_str}",
                 );
             }
+            Event::ProbeSuccessful { .. } => {}
+            Event::ProbeFailed { .. } => {}
             Event::HTLCHandlingFailed {
                 prev_channel_id,
                 failed_next_destination,

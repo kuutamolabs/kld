@@ -1,4 +1,5 @@
 mod ldk_database;
+pub mod payment;
 pub mod peer;
 mod wallet_database;
 

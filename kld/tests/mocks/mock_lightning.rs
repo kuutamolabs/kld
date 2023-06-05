@@ -1,22 +1,27 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::Result;
 use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{consensus::deserialize, secp256k1::PublicKey, Network, Txid};
 use hex::FromHex;
-use kld::ldk::{net_utils::PeerAddress, LightningInterface, OpenChannelResult, Peer, PeerStatus};
+use kld::{
+    database::payment::{MillisatAmount, Payment, PaymentDirection, PaymentStatus},
+    ldk::{net_utils::PeerAddress, LightningInterface, OpenChannelResult, Peer, PeerStatus},
+};
 use lightning::{
     chain::transaction::OutPoint,
     ln::{
-        channelmanager::{ChannelCounterparty, ChannelDetails},
+        channelmanager::{ChannelCounterparty, ChannelDetails, PaymentId},
         features::{Features, InitFeatures},
         msgs::NetAddress,
+        PaymentHash, PaymentPreimage, PaymentSecret,
     },
     routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
+use rand::random;
 use test_utils::{TEST_ALIAS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID};
 
 pub struct MockLightning {
@@ -239,5 +244,19 @@ impl LightningInterface for MockLightning {
 
     fn user_config(&self) -> UserConfig {
         UserConfig::default()
+    }
+
+    async fn send_payment(&self, _payee: NodeId, _amount: MillisatAmount) -> Result<Payment> {
+        Ok(Payment {
+            id: PaymentId(random()),
+            hash: PaymentHash(random()),
+            preimage: Some(PaymentPreimage(random())),
+            secret: Some(PaymentSecret(random())),
+            status: PaymentStatus::Succeeded,
+            amount: MillisatAmount(1010101),
+            fee: Some(MillisatAmount(2323)),
+            direction: PaymentDirection::Outbound,
+            timestamp: UNIX_EPOCH,
+        })
     }
 }

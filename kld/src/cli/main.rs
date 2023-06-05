@@ -120,6 +120,15 @@ enum Command {
         #[arg(long)]
         style: Option<String>,
     },
+    /// Pay a node without an invoice.
+    Keysend {
+        /// Node ID of the payee.
+        #[arg(long)]
+        public_key: String,
+        /// Amount to pay in sats.
+        #[arg(long)]
+        amount: u64,
+    },
 }
 
 fn main() {
@@ -165,6 +174,7 @@ fn run_command(args: Args) -> Result<()> {
         Command::NetworkNodes { id } => api.list_network_nodes(id)?,
         Command::NetworkChannels { id } => api.list_network_channels(id)?,
         Command::FeeRates { style } => api.fee_rates(style)?,
+        Command::Keysend { public_key, amount } => api.keysend(public_key, amount)?,
     };
     if output != "null" {
         println!("{output}");

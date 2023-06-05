@@ -1,5 +1,6 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::database::payment::{MillisatAmount, Payment};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::Service;
 
@@ -14,12 +15,12 @@ use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
-use lightning::ln::channelmanager::{self, ChannelDetails};
+use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
-use lightning::routing::router::DefaultRouter;
+use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
 
@@ -37,17 +38,17 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use tokio::runtime::Handle;
+
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 
 use super::event_handler::EventHandler;
 use super::net_utils::PeerAddress;
-use super::payment_info::PaymentInfoStorage;
 use super::peer_manager::PeerManager;
 use super::{
-    ldk_error, ChainMonitor, ChannelManager, LdkPeerManager, LightningInterface, NetworkGraph,
-    OnionMessenger, OpenChannelResult, Peer, PeerStatus,
+    ldk_error, lightning_error, payment_error, ChainMonitor, ChannelManager, KldRouter,
+    LdkPeerManager, LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer,
+    PeerStatus,
 };
 
 #[async_trait]
@@ -318,16 +319,55 @@ impl LightningInterface for Controller {
     fn user_config(&self) -> UserConfig {
         *self.channel_manager.get_current_default_configuration()
     }
+
+    async fn send_payment(&self, payee: NodeId, amount: MillisatAmount) -> Result<Payment> {
+        let payment_id = Payment::generate_id();
+        let inflight_htlcs = self.channel_manager.compute_inflight_htlcs();
+        let route_params = RouteParameters {
+            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40),
+            final_value_msat: amount.0,
+        };
+        let route = self
+            .router
+            .find_route(
+                &self.identity_pubkey(),
+                &route_params,
+                None,
+                &inflight_htlcs,
+            )
+            .map_err(lightning_error)?;
+        let hash = self
+            .channel_manager
+            .send_spontaneous_payment(
+                &route,
+                None,
+                RecipientOnionFields::spontaneous_empty(),
+                payment_id,
+            )
+            .map_err(payment_error)?;
+        let payment = Payment::new_spontaneous_outbound(hash, amount);
+        self.database.persist_payment(&payment).await?;
+        let receiver = self
+            .async_api_requests
+            .payments
+            .insert(payment_id, payment)
+            .await;
+        let payment = receiver.await??;
+        self.database.persist_payment(&payment).await?;
+        Ok(payment)
+    }
 }
 
 pub(crate) struct AsyncAPIRequests {
     pub funding_transactions: AsyncSenders<u128, FeeRate, Result<Transaction>>,
+    pub payments: AsyncSenders<PaymentId, Payment, Result<Payment>>,
 }
 
 impl AsyncAPIRequests {
     fn new() -> AsyncAPIRequests {
         AsyncAPIRequests {
             funding_transactions: AsyncSenders::new(),
+            payments: AsyncSenders::new(),
         }
     }
 }
@@ -378,6 +418,7 @@ pub struct Controller {
     peer_manager: Arc<PeerManager>,
     keys_manager: Arc<KeysManager>,
     network_graph: Arc<NetworkGraph>,
+    router: Arc<KldRouter>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
@@ -494,7 +535,7 @@ impl Controller {
                     fee_estimator.clone(),
                     chain_monitor.clone(),
                     broadcaster.clone(),
-                    router,
+                    router.clone(),
                     KldLogger::global(),
                     keys_manager.clone(),
                     keys_manager.clone(),
@@ -513,7 +554,7 @@ impl Controller {
                     fee_estimator.clone(),
                     chain_monitor.clone(),
                     broadcaster.clone(),
-                    router,
+                    router.clone(),
                     KldLogger::global(),
                     user_config,
                     channel_monitor_mut_refs,
@@ -525,7 +566,6 @@ impl Controller {
             }
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
-
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
@@ -568,20 +608,15 @@ impl Controller {
         )?);
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
-        // Handle LDK Events
-        // TODO: persist payment info to disk
-        let inbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
-        let outbound_payments: PaymentInfoStorage = Arc::new(Mutex::new(HashMap::new()));
+
         let event_handler = EventHandler::new(
             channel_manager.clone(),
             bitcoind_client.clone(),
             keys_manager.clone(),
-            inbound_payments,
-            outbound_payments,
             network_graph.clone(),
             wallet.clone(),
+            database.clone(),
             async_api_requests.clone(),
-            Handle::current(),
         );
 
         // Background Processing
@@ -629,6 +664,7 @@ impl Controller {
             peer_manager,
             keys_manager,
             network_graph,
+            router,
             wallet,
             async_api_requests,
             background_processor: Arc::new(Mutex::new(Some(background_processor))),

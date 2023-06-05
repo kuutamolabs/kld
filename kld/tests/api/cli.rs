@@ -2,9 +2,9 @@ use std::process::{Command, Output};
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FeeRatesResponse, FundChannelResponse, GetInfo, ListFunds, NetworkChannel,
-    NetworkNode, NewAddressResponse, Peer, SetChannelFeeResponse, SignResponse, WalletBalance,
-    WalletTransferResponse,
+    Channel, FeeRatesResponse, FundChannelResponse, GetInfo, KeysendResponse, ListFunds,
+    NetworkChannel, NetworkNode, NewAddressResponse, Peer, SetChannelFeeResponse, SignResponse,
+    WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 
@@ -200,6 +200,17 @@ async fn test_cli_fee_rates() -> Result<()> {
     let output = run_cli("fee-rates", &[]).await?;
     let fee_rates: FeeRatesResponse = deserialize(&output.stdout)?;
     assert!(fee_rates.perkb.is_some());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_keysend() -> Result<()> {
+    let output = run_cli(
+        "keysend",
+        &["--public-key", TEST_PUBLIC_KEY, "--amount", "102000"],
+    )
+    .await?;
+    let _: KeysendResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 
