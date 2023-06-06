@@ -198,6 +198,9 @@ struct HostConfig {
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
 
+    // TODO change this field to hex string with maximum 32 bytes to fit real lightning spec
+    /// string for node_alias, currently it only accept 32 chars ascii string for this field
+    pub kld_node_alias: Option<String>,
     /// Set kld log level to `error`, `warn`, `info`, `debug`, `trace`
     #[serde(default)]
     #[toml_example(default = "info")]
@@ -272,6 +275,8 @@ pub struct Host {
     /// CockroachDB nodes to connect to
     pub cockroach_peers: Vec<CockroachPeer>,
 
+    /// alias of node in lightning
+    pub kld_node_alias: Option<String>,
     /// Log level for kld service
     pub kld_log_level: Option<LogLevel>,
 
@@ -576,6 +581,16 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
     let telegraf_has_monitoring = kmonitor_config.is_some();
     let telegraf_config_hash = calculate_hash(&kmonitor_config).to_string();
 
+    if let Some(alias) = &host.kld_node_alias {
+        // none ascii word will take more than one bytes and we can not validate it with len()
+        if !alias.is_ascii() {
+            bail!("currently alias should be ascii");
+        }
+        if alias.len() > 32 {
+            bail!("alias should be 32 bytes");
+        }
+    }
+
     Ok(Host {
         name,
         nixos_module,
@@ -597,6 +612,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         kmonitor_config,
         telegraf_has_monitoring,
         telegraf_config_hash,
+        kld_node_alias: host.kld_node_alias.clone(),
     })
 }
 
@@ -849,6 +865,7 @@ fn test_validate_host() -> Result<()> {
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
+            kld_node_alias: None,
             kld_log_level: None,
             kmonitor_config: None,
             telegraf_has_monitoring: false,
