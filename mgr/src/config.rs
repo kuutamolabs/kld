@@ -91,6 +91,20 @@ pub struct CockroachPeer {
     pub ipv6_address: Option<IpAddr>,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum LogLevel {
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "warn")]
+    Warn,
+    #[serde(rename = "info")]
+    Info,
+    #[serde(rename = "debug")]
+    Debug,
+    #[serde(rename = "trace")]
+    Trace,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct HostConfig {
     #[serde(default)]
@@ -127,6 +141,9 @@ struct HostConfig {
 
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
+
+    #[serde(default)]
+    pub kld_log_level: Option<LogLevel>,
 }
 
 /// NixOS host configuration
@@ -175,6 +192,9 @@ pub struct Host {
 
     /// CockroachDB nodes to connect to
     pub cockroach_peers: Vec<CockroachPeer>,
+
+    /// Log level for kld service
+    pub kld_log_level: Option<LogLevel>,
 }
 
 impl Host {
@@ -426,6 +446,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         disks,
         bitcoind_disks,
         cockroach_peers: vec![],
+        kld_log_level: host.kld_log_level.clone(),
     })
 }
 
@@ -635,6 +656,7 @@ fn test_validate_host() -> Result<()> {
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
+            kld_log_level: None,
         }
     );
 

@@ -15,6 +15,7 @@ in
   config = lib.mkIf (cfg != { }) {
     networking.hostName = cfg.name;
     kuutamo.cockroachdb.nodeName = cfg.name;
+    kuutamo.kld.logLevel = cfg.kld_log_level or "info";
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
