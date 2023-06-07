@@ -7,11 +7,12 @@ use clap::Parser;
 use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
-use mgr::{generate_nixos_flake, logging, Config, Host, NixosFlake};
+use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
+use toml_example::traits::TomlExample;
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
 struct InstallArgs {
@@ -85,6 +86,8 @@ struct SystemInfoArgs {
 enum Command {
     /// Generate NixOS configuration
     GenerateConfig(GenerateConfigArgs),
+    /// Generate kneard.toml example
+    GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
     /// Upload update to host and show which actions would be performed on an update
@@ -263,40 +266,46 @@ fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
 pub fn main() -> Result<()> {
     logging::init().context("failed to initialize logging")?;
     let args = Args::parse();
-    let config = mgr::load_configuration(&args.config).with_context(|| {
-        format!(
-            "failed to parse configuration file: {}",
-            &args.config.display()
-        )
-    })?;
-    create_or_update_lightning_certs(
-        &config.global.secret_directory.join("lightning"),
-        &config.hosts,
-        &CertRenewPolicy::default(),
-    )
-    .context("failed to create or update lightning certificates")?;
-    create_or_update_cockroachdb_certs(
-        &config.global.secret_directory.join("cockroachdb"),
-        &config.hosts,
-        &CertRenewPolicy::default(),
-    )
-    .context("failed to create or update cockroachdb certificates")?;
-
-    let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
 
     let res = match args.action {
-        Command::GenerateConfig(ref config_args) => {
-            generate_config(&args, config_args, &config, &flake)
+        Command::GenerateExample => Ok(println!("{}", ConfigFile::toml_example())),
+        _ => {
+            let config = mgr::load_configuration(&args.config).with_context(|| {
+                format!(
+                    "failed to parse configuration file: {}",
+                    &args.config.display()
+                )
+            })?;
+            create_or_update_lightning_certs(
+                &config.global.secret_directory.join("lightning"),
+                &config.hosts,
+                &CertRenewPolicy::default(),
+            )
+            .context("failed to create or update lightning certificates")?;
+            create_or_update_cockroachdb_certs(
+                &config.global.secret_directory.join("cockroachdb"),
+                &config.hosts,
+                &CertRenewPolicy::default(),
+            )
+            .context("failed to create or update cockroachdb certificates")?;
+
+            let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
+            match args.action {
+                Command::GenerateConfig(ref config_args) => {
+                    generate_config(&args, config_args, &config, &flake)
+                }
+                Command::Install(ref install_args) => install(&args, install_args, &config, &flake),
+                Command::DryUpdate(ref dry_update_args) => {
+                    dry_update(&args, dry_update_args, &config, &flake)
+                }
+                Command::Update(ref update_args) => update(&args, update_args, &config, &flake),
+                Command::Rollback(ref rollback_args) => rollback(&args, rollback_args, &config, &flake),
+                Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
+                Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
+                Command::SystemInfo(ref args) => system_info(args, &config),
+                _ => unreachable!(),
+            }
         }
-        Command::Install(ref install_args) => install(&args, install_args, &config, &flake),
-        Command::DryUpdate(ref dry_update_args) => {
-            dry_update(&args, dry_update_args, &config, &flake)
-        }
-        Command::Update(ref update_args) => update(&args, update_args, &config, &flake),
-        Command::Rollback(ref rollback_args) => rollback(&args, rollback_args, &config, &flake),
-        Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
-        Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
-        Command::SystemInfo(ref args) => system_info(args, &config),
     };
     res.with_context(|| format!("kuutamo failed doing: {:?}", args.action))
 }
