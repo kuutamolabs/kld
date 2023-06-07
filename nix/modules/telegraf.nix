@@ -41,8 +41,8 @@
           };
           prometheus.insecure_skip_verify = true;
           prometheus.urls = [
-            "https://localhost:8080/_status/vars"
-            "http://localhost:2233/metrics"
+            "https://${config.kuutamo.cockroachdb.http.address}:${toString config.kuutamo.cockroachdb.http.port}/_status/vars"
+            "http://${config.kuutamo.kld.exporterAddress}/metrics"
           ];
           prometheus.tags = {
             host = config.kuutamo.telegraf.hostname;
