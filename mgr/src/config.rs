@@ -185,12 +185,20 @@ struct HostConfig {
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
 
+    /// Token file for monitoring, default is "kuutamo-monitoring.token"
+    /// Provide this if you have a different file
     #[serde(default)]
+    #[toml_example(default = "kuutamo-monitoring.token")]
     kuutamo_monitoring_token_file: Option<PathBuf>,
+    /// Self monitoring server
+    /// The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
     #[serde(default)]
+    #[toml_example(default = "https://my.monitoring.server/api/v1/push")]
     self_monitoring_url: Option<Url>,
+    /// The http basic auth username to access self monitoring server
     #[serde(default)]
     self_monitoring_username: Option<String>,
+    /// The http basic auth password to access self monitoring server
     #[serde(default)]
     self_monitoring_password: Option<String>,
 }
