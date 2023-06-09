@@ -52,6 +52,20 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 
 # bitcoind_disks = [ "", ]
 
+# Token file for monitoring, default is "kuutamo-monitoring.token"
+# Provide this if you have a different file
+# kuutamo_monitoring_token_file = "kuutamo-monitoring.token"
+
+# Self monitoring server
+# The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
+# self_monitoring_url = "https://my.monitoring.server/api/v1/push"
+
+# The http basic auth username to access self monitoring server
+# self_monitoring_username = ""
+
+# The http basic auth password to access self monitoring server
+# self_monitoring_password = ""
+
 # The configure for host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
@@ -100,5 +114,19 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # disks = ["/dev/vdb",]
 
 # bitcoind_disks = [ "", ]
+
+# Token file for monitoring, default is "kuutamo-monitoring.token"
+# Provide this if you have a different file
+# kuutamo_monitoring_token_file = "kuutamo-monitoring.token"
+
+# Self monitoring server
+# The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
+# self_monitoring_url = "https://my.monitoring.server/api/v1/push"
+
+# The http basic auth username to access self monitoring server
+# self_monitoring_username = ""
+
+# The http basic auth password to access self monitoring server
+# self_monitoring_password = ""
 
 

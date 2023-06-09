@@ -2,7 +2,6 @@
 
 let
   cfg = config.kuutamo.deployConfig;
-
   settingsFormat = pkgs.formats.toml { };
 in
 {
@@ -11,6 +10,7 @@ in
     description = lib.mdDoc "toml configuration from kld-mgr cli";
     inherit (settingsFormat) type;
   };
+
   # deployConfig is optional
   config = lib.mkIf (cfg != { }) {
     networking.hostName = cfg.name;
@@ -43,5 +43,9 @@ in
       cfg.cockroach_peers;
 
     kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) (builtins.map (peer: peer.name) cfg.cockroach_peers);
+
+    kuutamo.telegraf.hostname = cfg.ssh_hostname;
+    kuutamo.telegraf.hasMonitoring = cfg.telegraf_has_monitoring or false;
+    kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
   };
 }
