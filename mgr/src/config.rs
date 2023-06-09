@@ -118,7 +118,6 @@ pub enum LogLevel {
     Trace,
 }
 
-
 /// Kuutamo monitor
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub struct KmonitorConfig {
@@ -135,7 +134,6 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     t.hash(&mut s);
     s.finish()
 }
-
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
 struct HostConfig {
@@ -221,6 +219,10 @@ struct HostConfig {
     /// The http basic auth password to access self monitoring server
     #[serde(default)]
     self_monitoring_password: Option<String>,
+
+    #[serde(flatten)]
+    #[toml_example(skip)]
+    others: BTreeMap<String, toml::Value>,
 }
 
 /// NixOS host configuration
@@ -388,6 +390,17 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
 }
 
 fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
+    if !host.others.is_empty() {
+        bail!(
+            "{} are not allowed fields",
+            host.others
+                .clone()
+                .into_keys()
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
+    }
+
     let name = name.to_string();
 
     if name.is_empty() || name.len() > 63 {
@@ -758,6 +771,12 @@ pub fn test_parse_config() -> Result<()> {
     parse_config(TEST_CONFIG, Path::new("/"))?;
 
     Ok(())
+}
+
+#[test]
+pub fn test_parse_config_with_redundant_filds() {
+    let parse_result = parse_config(&format!("{}\nredundant = 111", TEST_CONFIG), Path::new("/"));
+    assert!(parse_result.is_err());
 }
 
 #[test]
