@@ -13,7 +13,7 @@ pub use update::update;
 
 pub mod certs;
 mod command;
-mod config;
+pub mod config;
 mod dry_update;
 mod flake;
 mod generate_config;

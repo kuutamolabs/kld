@@ -3,7 +3,10 @@
   nodes = {
     # self here is set by using specialArgs in `lib.nix`
     db1 = { self, ... }: {
-      imports = [ self.nixosModules.kld ];
+      imports = [
+        self.nixosModules.kld
+        self.nixosModules.telegraf
+      ];
       # use the same name as the cert
       kuutamo.cockroachdb.nodeName = "db1";
       virtualisation.cores = 4;
@@ -22,6 +25,11 @@
       kuutamo.kld.certPath = ./kld-certs/kld.pem;
       kuutamo.kld.keyPath = ./kld-certs/kld.key;
       kuutamo.kld.network = "regtest";
+
+      kuutamo.telegraf = {
+        configHash = "";
+        hasMonitoring = false;
+      };
     };
   };
 
@@ -35,6 +43,12 @@
     db1.wait_for_unit("cockroachdb.service")
     db1.wait_for_unit("bitcoind-kld-regtest.service")
     db1.wait_for_unit("kld.service")
+
+    # check monitoring endpoints
+    db1.wait_until_succeeds("curl -s -k https://127.0.0.1:8080/_status/vars")
+    db1.wait_until_succeeds("curl -s http://127.0.0.1:2233/metrics")
+    db1.wait_for_unit("telegraf.service")
+    db1.wait_until_succeeds("curl -s http://127.0.0.1:9273/metrics")
 
     db1.wait_until_succeeds("kld-cli get-info")
 

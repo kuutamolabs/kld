@@ -1,0 +1,132 @@
+# Global configuration affecting all hosts
+[global]
+# Flake url where the nixos configuration is
+flake = "github:kuutamolabs/lightning-knd"
+
+# Directory where the secrets are stored i.e. certificates
+secret_directory = ""
+
+# The default values of host will use if any corresponding value is not provided in following hosts
+[host_defaults]
+# Ipv4 address of the node
+# ipv4_address = "192.168.0.1"
+
+# Ipv4 gateway of the node
+# ipv4_gateway = "192.168.0.254"
+
+# Ipv4 CIDR of the node
+# ipv4_cidr = 24
+
+# Nixos module will deploy to the node
+# nixos_module = "kld-node"
+
+# Extra nixos module will deploy to the node
+extra_nixos_modules = []
+
+# Mac address of the node
+# mac_address = "00:0A:02:0B:03:0C"
+
+# Ipv6 address of the node
+# ipv6_address = ""
+
+# Ipv6 gateway of the node
+# ipv6_gateway = ""
+
+# Ipv6 cidr of the node
+# ipv6_cidr = 0
+
+# The ssh public keys of the user
+# After installation the user could login as root with the corresponding ssh private key
+public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...",]
+
+# Admin user for install,
+# Please use `ubuntu` when you use OVH to install at first time,
+# Ubuntu did not allow `root` login
+# install_ssh_user = "ubuntu"
+
+# Setup ssh host name for connection and host label on monitoring dashboard
+# ssh_hostname = ""
+
+# Disk configure on the node
+# disks = ["/dev/vdb",]
+
+# bitcoind_disks = [ "", ]
+
+# Token file for monitoring, default is "kuutamo-monitoring.token"
+# Provide this if you have a different file
+# kuutamo_monitoring_token_file = "kuutamo-monitoring.token"
+
+# Self monitoring server
+# The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
+# self_monitoring_url = "https://my.monitoring.server/api/v1/push"
+
+# The http basic auth username to access self monitoring server
+# self_monitoring_username = ""
+
+# The http basic auth password to access self monitoring server
+# self_monitoring_password = ""
+
+# The configure for host, if any field not provided will use from host_defaults
+# For general use case, following fields is needed
+# - one of network should be configured (ipv4 or ipv6)
+# - the disk information of the node
+[hosts.example]
+# Ipv4 address of the node
+# ipv4_address = "192.168.0.1"
+
+# Ipv4 gateway of the node
+# ipv4_gateway = "192.168.0.254"
+
+# Ipv4 CIDR of the node
+# ipv4_cidr = 24
+
+# Nixos module will deploy to the node
+# nixos_module = "kld-node"
+
+# Extra nixos module will deploy to the node
+extra_nixos_modules = []
+
+# Mac address of the node
+# mac_address = "00:0A:02:0B:03:0C"
+
+# Ipv6 address of the node
+# ipv6_address = ""
+
+# Ipv6 gateway of the node
+# ipv6_gateway = ""
+
+# Ipv6 cidr of the node
+# ipv6_cidr = 0
+
+# The ssh public keys of the user
+# After installation the user could login as root with the corresponding ssh private key
+public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...",]
+
+# Admin user for install,
+# Please use `ubuntu` when you use OVH to install at first time,
+# Ubuntu did not allow `root` login
+# install_ssh_user = "ubuntu"
+
+# Setup ssh host name for connection and host label on monitoring dashboard
+# ssh_hostname = ""
+
+# Disk configure on the node
+# disks = ["/dev/vdb",]
+
+# bitcoind_disks = [ "", ]
+
+# Token file for monitoring, default is "kuutamo-monitoring.token"
+# Provide this if you have a different file
+# kuutamo_monitoring_token_file = "kuutamo-monitoring.token"
+
+# Self monitoring server
+# The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
+# self_monitoring_url = "https://my.monitoring.server/api/v1/push"
+
+# The http basic auth username to access self monitoring server
+# self_monitoring_username = ""
+
+# The http basic auth password to access self monitoring server
+# self_monitoring_password = ""
+
+
