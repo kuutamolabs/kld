@@ -198,8 +198,7 @@ struct HostConfig {
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
 
-    // TODO change this field to hex string with maximum 32 bytes to fit real lightning spec
-    /// string for node_alias, currently it only accept 32 chars ascii string for this field
+    /// String for node_alias, currently it only accept 32 chars ascii string for this field
     pub kld_node_alias: Option<String>,
     /// Set kld log level to `error`, `warn`, `info`, `debug`, `trace`
     #[serde(default)]
