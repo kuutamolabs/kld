@@ -7,9 +7,9 @@ use serde_derive::Deserialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
-
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use toml_example::TomlExample;
 
 use super::secrets::Secrets;
 use super::NixosFlake;
@@ -54,14 +54,23 @@ impl AsIpAddr for IpV6String {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct ConfigFile {
+#[derive(TomlExample, Debug, Deserialize)]
+pub struct ConfigFile {
     #[serde(default)]
+    #[toml_example(nesting)]
     global: Global,
 
+    /// The default values of host will use if any corresponding value is not provided in following hosts
     #[serde(default)]
+    #[toml_example(nesting)]
     host_defaults: HostConfig,
+
+    /// The configure for host, if any field not provided will use from host_defaults
+    /// For general use case, following fields is needed
+    /// - one of network should be configured (ipv4 or ipv6)
+    /// - the disk information of the node
     #[serde(default)]
+    #[toml_example(nesting)]
     hosts: HashMap<String, HostConfig>,
 }
 
@@ -91,38 +100,64 @@ pub struct CockroachPeer {
     pub ipv6_address: Option<IpAddr>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, TomlExample)]
 struct HostConfig {
+    /// Ipv4 address of the node
     #[serde(default)]
+    #[toml_example(default = "192.168.0.1")]
     ipv4_address: Option<IpAddr>,
+    /// Ipv4 gateway of the node
     #[serde(default)]
+    #[toml_example(default = "192.168.0.254")]
     ipv4_gateway: Option<IpAddr>,
+    /// Ipv4 CIDR of the node
     #[serde(default)]
+    #[toml_example(default = 24)]
     ipv4_cidr: Option<u8>,
+    /// Nixos module will deploy to the node
     #[serde(default)]
+    #[toml_example(default = "kld-node")]
     nixos_module: Option<String>,
+    /// Extra nixos module will deploy to the node
     #[serde(default)]
+    #[toml_example(default = [ ])]
     extra_nixos_modules: Vec<String>,
 
+    /// Mac address of the node
+    #[toml_example(default = [ ])]
     #[serde(default)]
+    #[toml_example(default = "00:0A:02:0B:03:0C")]
     pub mac_address: Option<String>,
+    /// Ipv6 address of the node
     #[serde(default)]
     ipv6_address: Option<IpV6String>,
+    /// Ipv6 gateway of the node
     #[serde(default)]
     ipv6_gateway: Option<IpAddr>,
+    /// Ipv6 cidr of the node
     #[serde(default)]
     ipv6_cidr: Option<u8>,
 
+    /// The ssh public keys of the user
+    /// After installation the user could login as root with the corresponding ssh private key
     #[serde(default)]
+    #[toml_example(default = [ "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...", ])]
     public_ssh_keys: Vec<String>,
 
+    /// Admin user for install,
+    /// Please use `ubuntu` when you use OVH to install at first time,
+    /// Ubuntu did not allow `root` login
     #[serde(default)]
+    #[toml_example(default = "ubuntu")]
     install_ssh_user: Option<String>,
 
+    /// Setup ssh host name for connection and host label on monitoring dashboard
     #[serde(default)]
     ssh_hostname: Option<String>,
 
+    /// Disk configure on the node
     #[serde(default)]
+    #[toml_example(default = [ "/dev/vdb", ])]
     pub disks: Option<Vec<PathBuf>>,
 
     #[serde(default)]
@@ -249,10 +284,11 @@ impl Host {
 }
 
 /// Global configuration affecting all hosts
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default, TomlExample)]
 pub struct Global {
     /// Flake url where the nixos configuration is
     #[serde(default = "default_flake")]
+    #[toml_example(default = "github:kuutamolabs/lightning-knd")]
     pub flake: String,
 
     /// Directory where the secrets are stored i.e. certificates
