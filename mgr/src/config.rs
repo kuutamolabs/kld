@@ -200,9 +200,11 @@ struct HostConfig {
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
 
+    /// Set kld log level to `error`, `warn`, `info`, `debug`, `trace`
     #[serde(default)]
+    #[toml_example(default = "info")]
     pub kld_log_level: Option<LogLevel>,
-  
+
     /// Token file for monitoring, default is "kuutamo-monitoring.token"
     /// Provide this if you have a different file
     #[serde(default)]
@@ -270,7 +272,7 @@ pub struct Host {
 
     /// Log level for kld service
     pub kld_log_level: Option<LogLevel>,
-  
+
     /// Setup telegraf output auth for kuutamo monitor server
     #[serde(skip_serializing)]
     pub kmonitor_config: Option<KmonitorConfig>,
