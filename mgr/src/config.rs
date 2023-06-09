@@ -104,6 +104,21 @@ pub struct CockroachPeer {
     pub ipv6_address: Option<IpAddr>,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum LogLevel {
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "warn")]
+    Warn,
+    #[serde(rename = "info")]
+    Info,
+    #[serde(rename = "debug")]
+    Debug,
+    #[serde(rename = "trace")]
+    Trace,
+}
+
+
 /// Kuutamo monitor
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub struct KmonitorConfig {
@@ -185,6 +200,11 @@ struct HostConfig {
     #[serde(default)]
     pub bitcoind_disks: Option<Vec<PathBuf>>,
 
+    /// Set kld log level to `error`, `warn`, `info`, `debug`, `trace`
+    #[serde(default)]
+    #[toml_example(default = "info")]
+    pub kld_log_level: Option<LogLevel>,
+
     /// Token file for monitoring, default is "kuutamo-monitoring.token"
     /// Provide this if you have a different file
     #[serde(default)]
@@ -249,6 +269,9 @@ pub struct Host {
 
     /// CockroachDB nodes to connect to
     pub cockroach_peers: Vec<CockroachPeer>,
+
+    /// Log level for kld service
+    pub kld_log_level: Option<LogLevel>,
 
     /// Setup telegraf output auth for kuutamo monitor server
     #[serde(skip_serializing)]
@@ -557,6 +580,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         disks,
         bitcoind_disks,
         cockroach_peers: vec![],
+        kld_log_level: host.kld_log_level.clone(),
         kmonitor_config,
         telegraf_has_monitoring,
         telegraf_config_hash,
@@ -806,6 +830,7 @@ fn test_validate_host() -> Result<()> {
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
+            kld_log_level: None,
             kmonitor_config: None,
             telegraf_has_monitoring: false,
             telegraf_config_hash: "13646096770106105413".to_string(),
