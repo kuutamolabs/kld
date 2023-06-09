@@ -18,7 +18,6 @@ mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
-
 ipv6_address = "2001:DB8::1"
 
 [hosts.db-00]
