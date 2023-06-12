@@ -129,6 +129,7 @@ impl KldManager {
             format!("{certs_dir}/cockroach/client.root.crt"),
         );
         set_var("KLD_LOG_LEVEL", "info");
+        set_var("KLD_NODE_ALIAS", "kld-00-alias");
 
         let client = https_client();
 
