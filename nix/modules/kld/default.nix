@@ -91,7 +91,7 @@ in
       '';
     };
     logLevel = lib.mkOption {
-      type = lib.types.enum [ "info" "debug" "trace" ];
+      type = lib.types.enum [ "error" "info" "debug" "trace" ];
       default = "info";
       example = "debug";
       description = lib.mdDoc "Log level for KLD";
