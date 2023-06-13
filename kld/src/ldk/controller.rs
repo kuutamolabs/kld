@@ -1,5 +1,6 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::database::invoice::Invoice;
 use crate::database::payment::{MillisatAmount, Payment};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::Service;
@@ -23,6 +24,7 @@ use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
+use lightning_invoice::DEFAULT_EXPIRY_TIME;
 
 use crate::logger::KldLogger;
 use lightning::util::indexed_map::IndexedMap;
@@ -35,7 +37,6 @@ use log::{error, info, warn};
 use rand::random;
 use settings::Settings;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
@@ -46,9 +47,9 @@ use super::event_handler::EventHandler;
 use super::net_utils::PeerAddress;
 use super::peer_manager::PeerManager;
 use super::{
-    ldk_error, lightning_error, payment_error, ChainMonitor, ChannelManager, KldRouter,
-    LdkPeerManager, LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer,
-    PeerStatus,
+    ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
+    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LdkPeerManager,
+    LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus,
 };
 
 #[async_trait]
@@ -320,8 +321,62 @@ impl LightningInterface for Controller {
         *self.channel_manager.get_current_default_configuration()
     }
 
-    async fn send_payment(&self, payee: NodeId, amount: MillisatAmount) -> Result<Payment> {
-        let payment_id = Payment::generate_id();
+    async fn generate_invoice(
+        &self,
+        label: String,
+        amount: Option<u64>,
+        description: String,
+        expiry: Option<u32>,
+    ) -> Result<Invoice> {
+        let bolt11 = lightning_invoice::utils::create_invoice_from_channelmanager(
+            &self.channel_manager,
+            self.keys_manager.clone(),
+            KldLogger::global(),
+            self.network().into(),
+            amount,
+            description,
+            expiry.unwrap_or(DEFAULT_EXPIRY_TIME as u32),
+            None,
+        )
+        .map_err(sign_or_creation_error)?;
+        let invoice = Invoice::new(Some(label), bolt11)?;
+        self.database.persist_invoice(&invoice).await?;
+        Ok(invoice)
+    }
+
+    async fn list_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>> {
+        self.database.fetch_invoices(label).await
+    }
+
+    async fn pay_invoice(&self, invoice: Invoice, label: Option<String>) -> Result<Payment> {
+        let payment = Payment::of_invoice_outbound(&invoice, label);
+        let route_params = RouteParameters {
+            payment_params: PaymentParameters::from_node_id(invoice.payee_pub_key, 40),
+            final_value_msat: invoice.amount.context("amount missing from invoice")?.0,
+        };
+        self.channel_manager
+            .send_payment(
+                payment.hash,
+                RecipientOnionFields::secret_only(*invoice.bolt11.payment_secret()),
+                payment.id,
+                route_params,
+                channelmanager::Retry::Timeout(Duration::from_secs(60)),
+            )
+            .map_err(retryable_send_failure)?;
+        self.database.persist_invoice(&invoice).await?;
+        self.database.persist_payment(&payment).await?;
+        let receiver = self
+            .async_api_requests
+            .payments
+            .insert(payment.id, payment)
+            .await;
+        let payment = receiver.await??;
+        self.database.persist_payment(&payment).await?;
+        Ok(payment)
+    }
+
+    async fn keysend_payment(&self, payee: NodeId, amount: MillisatAmount) -> Result<Payment> {
+        let payment_id = Payment::new_id();
         let inflight_htlcs = self.channel_manager.compute_inflight_htlcs();
         let route_params = RouteParameters {
             payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40),
@@ -344,8 +399,8 @@ impl LightningInterface for Controller {
                 RecipientOnionFields::spontaneous_empty(),
                 payment_id,
             )
-            .map_err(payment_error)?;
-        let payment = Payment::new_spontaneous_outbound(hash, amount);
+            .map_err(payment_send_failure)?;
+        let payment = Payment::spontaneous_outbound(payment_id, hash, amount);
         self.database.persist_payment(&payment).await?;
         let receiver = self
             .async_api_requests
@@ -376,7 +431,7 @@ pub(crate) struct AsyncSenders<K, V, RV> {
     senders: RwLock<HashMap<K, (V, Sender<RV>)>>,
 }
 
-impl<K: Eq + Hash, V: Clone, RV> AsyncSenders<K, V, RV> {
+impl<K: Eq + std::hash::Hash, V: Clone, RV> AsyncSenders<K, V, RV> {
     fn new() -> AsyncSenders<K, V, RV> {
         AsyncSenders {
             senders: RwLock::new(HashMap::new()),

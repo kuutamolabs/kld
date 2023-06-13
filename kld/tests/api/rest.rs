@@ -1,15 +1,21 @@
 use std::assert_eq;
+use std::str::FromStr;
 use std::thread::spawn;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use axum::http::HeaderValue;
+use bitcoin::hashes::{sha256, Hash};
+use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
 use futures::FutureExt;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::MacaroonAuth;
 use kld::logger::KldLogger;
+use lightning::ln::PaymentSecret;
+use lightning_invoice::{Currency, InvoiceBuilder};
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
@@ -17,15 +23,16 @@ use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
 use test_utils::{
-    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
+    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY,
     TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
 };
 
 use api::{
     routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
-    FundChannelResponse, GetInfo, KeysendRequest, KeysendResponse, ListFunds, NetworkChannel,
-    NetworkNode, NewAddress, NewAddressResponse, OutputStatus, Peer, SetChannelFeeResponse,
-    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
+    FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
+    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse,
+    OutputStatus, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
+    SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -262,6 +269,37 @@ pub async fn test_unauthorized() -> Result<()> {
             .send()
             .await?
             .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_INVOICES)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::POST, routes::GENERATE_INVOICE)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::POST, routes::PAY_INVOICE)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        readonly_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || PayInvoice {
+            label: Some("label".to_string()),
+            bolt11: test_invoice().to_string()
+        })?
+        .send()
+        .await?
+        .status()
     );
     Ok(())
 }
@@ -701,9 +739,96 @@ async fn test_fee_rates() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_generate_invoice() -> Result<()> {
+    let context = create_api_server().await?;
+    let expiry = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as u32;
+    let invoice_request = GenerateInvoice {
+        amount: 400004,
+        label: "test label".to_string(),
+        description: "test description".to_string(),
+        expiry: Some(expiry),
+        private: None,
+        fallbacks: None,
+        preimage: None,
+    };
+    let response: GenerateInvoiceResponse =
+        admin_request_with_body(&context, Method::POST, routes::GENERATE_INVOICE, || {
+            invoice_request.clone()
+        })?
+        .send()
+        .await?
+        .json()
+        .await?;
+    let bolt11 = lightning_invoice::Invoice::from_str(&response.bolt11)?;
+    assert_eq!(bolt11.payment_hash().to_string(), response.payment_hash);
+    assert!(response.expires_at > expiry);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_invoice_unpaid() -> Result<()> {
+    let context = create_api_server().await?;
+    let invoice = kld::database::invoice::Invoice::new(Some("label".to_string()), test_invoice())?;
+    LIGHTNING.invoices.set(vec![invoice.clone()]).unwrap();
+    let response: Vec<Invoice> = admin_request(&context, Method::GET, routes::LIST_INVOICES)?
+        .send()
+        .await?
+        .json()
+        .await?;
+    let invoice_response = response.get(0).context("expected invoice")?;
+    assert_eq!(invoice.label, invoice_response.label);
+    assert_eq!(invoice.bolt11.to_string(), invoice_response.bolt11);
+    assert_eq!(
+        invoice.bolt11.payment_hash().to_string(),
+        invoice_response.payment_hash
+    );
+    assert_eq!(InvoiceStatus::Unpaid, invoice_response.status);
+    assert_eq!("test invoice description", invoice_response.description);
+    assert_eq!(
+        invoice.bolt11.amount_milli_satoshis(),
+        invoice_response.amount_msat
+    );
+    assert_eq!(None, invoice_response.amount_received_msat);
+    assert_eq!(
+        invoice.bolt11.expires_at().map(|d| d.as_secs()),
+        invoice_response.expires_at
+    );
+    assert!(invoice_response.paid_at.is_none());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pay_invoice() -> Result<()> {
+    let context = create_api_server().await?;
+    let invoice = test_invoice();
+    let request = PayInvoice {
+        label: Some("test label".to_string()),
+        bolt11: invoice.to_string(),
+    };
+    let response: PaymentResponse =
+        admin_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || request)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    assert_eq!(TEST_PUBLIC_KEY, response.destination);
+    assert_eq!(invoice.payment_hash().to_string(), response.payment_hash);
+    assert_eq!(64, response.payment_preimage.len());
+    assert_eq!(
+        response.created_at,
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+    );
+    assert_eq!(1, response.parts);
+    assert_eq!(Some(200000), response.amount_msat);
+    assert_eq!(200000, response.amount_sent_msat);
+    assert_eq!("succeeded", response.status);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_keysend_admin() -> Result<()> {
     let context = create_api_server().await?;
-    let response: KeysendResponse =
+    let response: PaymentResponse =
         admin_request_with_body(&context, Method::POST, routes::KEYSEND, keysend_request)?
             .send()
             .await?
@@ -714,7 +839,7 @@ async fn test_keysend_admin() -> Result<()> {
     assert_eq!(64, response.payment_preimage.len());
     assert_eq!(0, response.created_at);
     assert_eq!(1, response.parts);
-    assert_eq!(1000, response.amount_msat);
+    assert_eq!(Some(1000), response.amount_msat);
     assert_eq!(1000000, response.amount_sent_msat);
     assert_eq!("succeeded", response.status);
     Ok(())
@@ -728,6 +853,24 @@ fn withdraw_request() -> WalletTransfer {
         min_conf: Some("3".to_string()),
         utxos: vec![],
     }
+}
+
+pub fn test_invoice() -> lightning_invoice::Invoice {
+    let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY).unwrap();
+    let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
+    let payment_hash = sha256::Hash::from_slice(&[1u8; 32]).unwrap();
+    let payment_secret = PaymentSecret([2u8; 32]);
+    InvoiceBuilder::new(Currency::Regtest)
+        .description("test invoice description".to_owned())
+        .payee_pub_key(public_key)
+        .payment_hash(payment_hash)
+        .payment_secret(payment_secret)
+        .min_final_cltv_expiry_delta(144)
+        .expiry_time(Duration::from_secs(2322))
+        .amount_milli_satoshis(200000)
+        .current_timestamp()
+        .build_signed(|hash| Secp256k1::new().sign_ecdsa_recoverable(hash, &private_key))
+        .unwrap()
 }
 
 fn fund_channel_request() -> FundChannel {

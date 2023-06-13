@@ -1,7 +1,13 @@
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 use bitcoin::Transaction;
-use serde::{de::Visitor, Deserialize, Serialize};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer, Serialize,
+};
 
 pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -60,6 +66,14 @@ pub mod routes {
     /// --- Payments ---
     /// Send funds to a node without an invoice.
     pub const KEYSEND: &str = "/v1/pay/keysend";
+    /// Pay a  bolt11 invoice.
+    pub const PAY_INVOICE: &str = "/v1/pay";
+
+    /// --- Invoices ---
+    /// Generate a bolt11 invoice.
+    pub const GENERATE_INVOICE: &str = "/v1/invoice/genInvoice";
+    /// List the invoices on the node
+    pub const LIST_INVOICES: &str = "/v1/invoice/listInvoices";
 }
 
 #[derive(Serialize, Deserialize)]
@@ -490,15 +504,91 @@ pub struct KeysendRequest {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct KeysendResponse {
+pub struct PaymentResponse {
     pub destination: String,
     pub payment_hash: String,
     pub created_at: u64,
     pub parts: u64,
-    pub amount_msat: u64,
+    pub amount_msat: Option<u64>,
     pub amount_sent_msat: u64,
     pub payment_preimage: String,
     pub status: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateInvoice {
+    // Amount in milli satoshis
+    pub amount: u64,
+    // Unique label for the invoice
+    pub label: String,
+    // Description for the invoice
+    pub description: String,
+    // Expiry time period for the invoice (seconds)
+    pub expiry: Option<u32>,
+    // Include routing hints for private channels (true or 1)
+    pub private: Option<bool>,
+    //  The fallbacks array is one or more fallback addresses to include in the invoice (in order from most-preferred to least).
+    pub fallbacks: Option<Vec<String>>,
+    // 64-digit hex string to be used as payment preimage for the created invoice. IMPORTANT> if you specify the preimage, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret. This parameter is an advanced feature intended for use with cutting-edge cryptographic protocols and should not be used unless explicitly needed.
+    pub preimage: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListInvoiceParams {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub label: Option<String>,
+}
+
+fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    T::Err: fmt::Display,
+{
+    let opt = Option::<String>::deserialize(de)?;
+    match opt.as_deref() {
+        None | Some("") => Ok(None),
+        Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum InvoiceStatus {
+    Unpaid,
+    Paid,
+    Expired,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Invoice {
+    pub label: Option<String>,
+    pub bolt11: String,
+    pub payment_hash: String,
+    pub description: String,
+    pub status: InvoiceStatus,
+    pub amount_msat: Option<u64>,
+    pub amount_received_msat: Option<u64>,
+    pub paid_at: Option<u32>,
+    pub expires_at: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateInvoiceResponse {
+    pub payment_hash: String,
+    pub expires_at: u32,
+    pub bolt11: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PayInvoice {
+    pub bolt11: String,
+    pub label: Option<String>,
 }
 
 #[test]
