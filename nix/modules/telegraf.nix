@@ -1,4 +1,7 @@
 { config, pkgs, lib, ... }:
+let
+  kld_metrics = if config.kuutamo ? kld then [ "http://localhost:2233/metrics" ] else [ ];
+in
 {
   options = {
     kuutamo.telegraf.configHash = lib.mkOption {
@@ -42,13 +45,17 @@
           prometheus.insecure_skip_verify = true;
           prometheus.urls = [
             "https://${config.kuutamo.cockroachdb.http.address}:${toString config.kuutamo.cockroachdb.http.port}/_status/vars"
-            "http://${config.kuutamo.kld.exporterAddress}/metrics"
-          ];
+          ] ++ kld_metrics;
           prometheus.tags = {
             host = config.kuutamo.telegraf.hostname;
           };
         };
         outputs = {
+          prometheus_client = {
+            # Not expose,
+            # just for debug and let telegraf service running if not following monitoring settings
+            listen = ":9273";
+          };
           http = lib.mkIf config.kuutamo.telegraf.hasMonitoring {
             url = "$MONITORING_URL";
             data_format = "prometheusremotewrite";

@@ -91,7 +91,7 @@ in
       '';
     };
     logLevel = lib.mkOption {
-      type = lib.types.enum [ "info" "debug" "trace" ];
+      type = lib.types.enum [ "error" "info" "debug" "trace" ];
       default = "info";
       example = "debug";
       description = lib.mdDoc "Log level for KLD";
@@ -178,7 +178,7 @@ in
       ];
     };
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ ];
+    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 ];
 
     users.users.kld = {
       isSystemUser = true;
