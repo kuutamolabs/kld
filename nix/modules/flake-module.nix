@@ -47,7 +47,6 @@
           self.nixosModules.disko-partitioning-script
           self.nixosModules.kuutamo-binary-cache
           self.nixosModules.kld-ctl
-          ./toml-mapping.nix
           ./hardware.nix
           ./network.nix
           ./telegraf.nix
@@ -57,11 +56,13 @@
       };
 
       cockroachdb-node.imports = [
+        ./db-toml-mapping.nix
         self.nixosModules.common-node
         self.nixosModules.cockroachdb
       ];
 
       kld-node.imports = [
+        ./kld-toml-mapping.nix
         self.nixosModules.common-node
         self.nixosModules.kld
         {
