@@ -49,6 +49,11 @@
           };
         };
         outputs = {
+          prometheus_client = {
+            # Not expose,
+            # just for debug and let telegraf service running if not following monitoring settings
+            listen = ":9273";
+          };
           http = lib.mkIf config.kuutamo.telegraf.hasMonitoring {
             url = "$MONITORING_URL";
             data_format = "prometheusremotewrite";
