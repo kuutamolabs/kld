@@ -1,18 +1,21 @@
-use std::process::{Command, Output};
+use std::{
+    process::{Command, Output},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FeeRatesResponse, FundChannelResponse, GetInfo, KeysendResponse, ListFunds,
-    NetworkChannel, NetworkNode, NewAddressResponse, Peer, SetChannelFeeResponse, SignResponse,
-    WalletBalance, WalletTransferResponse,
+    Channel, FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice,
+    ListFunds, NetworkChannel, NetworkNode, NewAddressResponse, PaymentResponse, Peer,
+    SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 
 use serde::de;
 
-use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
-
 use super::rest::create_api_server;
+use crate::api::rest::test_invoice;
+use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 #[tokio::test]
 async fn test_cli_get_info() -> Result<()> {
@@ -210,7 +213,42 @@ async fn test_cli_keysend() -> Result<()> {
         &["--public-key", TEST_PUBLIC_KEY, "--amount", "102000"],
     )
     .await?;
-    let _: KeysendResponse = deserialize(&output.stdout)?;
+    let _: PaymentResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_generate_invoice() -> Result<()> {
+    let output = run_cli(
+        "generate-invoice",
+        &[
+            "--amount",
+            "1234567890",
+            "--label",
+            "test invoice",
+            "--description",
+            "test description",
+            "--expiry",
+            &(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 3600).to_string(),
+        ],
+    )
+    .await?;
+    let _: GenerateInvoiceResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_list_invoices() -> Result<()> {
+    let output = run_cli("list-invoices", &["--label", "a label"]).await?;
+    let _: Vec<Invoice> = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_pay_invoice() -> Result<()> {
+    let bolt11 = test_invoice().to_string();
+    let output = run_cli("pay-invoice", &["--label", "a label", "--bolt11", &bolt11]).await?;
+    let _: PaymentResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

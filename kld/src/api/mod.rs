@@ -1,4 +1,5 @@
 mod channels;
+mod invoices;
 mod macaroon_auth;
 mod network;
 mod payments;
@@ -14,12 +15,13 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{close_channel, list_channels, open_channel, set_channel_fee},
+        invoices::{generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
         network::{
             fee_rates, get_network_channel, get_network_node, list_network_channels,
             list_network_nodes,
         },
-        payments::keysend,
+        payments::{keysend, pay_invoice},
         peers::{connect_peer, disconnect_peer, list_peers},
         utility::sign,
         wallet::{get_balance, list_funds, new_address, transfer},
@@ -87,6 +89,7 @@ impl RestApi {
             .route(routes::LIST_NETWORK_CHANNEL, get(get_network_channel))
             .route(routes::LIST_NETWORK_CHANNELS, get(list_network_channels))
             .route(routes::FEE_RATES, get(fee_rates))
+            .route(routes::LIST_INVOICES, get(list_invoices))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()
@@ -99,6 +102,8 @@ impl RestApi {
             .route(routes::CONNECT_PEER, post(connect_peer))
             .route(routes::DISCONNECT_PEER, delete(disconnect_peer))
             .route(routes::KEYSEND, post(keysend))
+            .route(routes::GENERATE_INVOICE, post(generate_invoice))
+            .route(routes::PAY_INVOICE, post(pay_invoice))
             .route(routes::WEBSOCKET, get(ws_handler))
             .layer(from_fn(admin_auth));
 

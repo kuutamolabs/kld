@@ -3,9 +3,10 @@ use std::{fs::File, io::Read};
 use anyhow::{anyhow, Result};
 use api::{
     routes, Channel, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
-    GetInfo, KeysendRequest, KeysendResponse, ListFunds, NetworkChannel, NetworkNode, NewAddress,
-    NewAddressResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
+    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, PayInvoice, PaymentResponse, Peer,
+    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
@@ -206,7 +207,45 @@ impl Api {
         let response = self
             .request_with_body(Method::POST, routes::KEYSEND, body)
             .send()?;
-        deserialize::<KeysendResponse>(response)
+        deserialize::<PaymentResponse>(response)
+    }
+
+    pub fn generate_invoice(
+        &self,
+        amount: u64,
+        label: String,
+        description: String,
+        expiry: Option<u32>,
+    ) -> Result<String> {
+        let body = GenerateInvoice {
+            amount,
+            label,
+            description,
+            expiry,
+            ..Default::default()
+        };
+        let response = self
+            .request_with_body(Method::POST, routes::GENERATE_INVOICE, body)
+            .send()?;
+        deserialize::<GenerateInvoiceResponse>(response)
+    }
+
+    pub fn list_invoices(&self, label: Option<String>) -> Result<String> {
+        let route = if let Some(label) = label {
+            format!("{}?{label}", routes::LIST_INVOICES)
+        } else {
+            routes::LIST_INVOICES.to_string()
+        };
+        let response = self.request(Method::GET, &route).send()?;
+        deserialize::<Vec<Invoice>>(response)
+    }
+
+    pub fn pay_invoice(&self, bolt11: String, label: Option<String>) -> Result<String> {
+        let body = PayInvoice { bolt11, label };
+        let response = self
+            .request_with_body(Method::POST, routes::PAY_INVOICE, body)
+            .send()?;
+        deserialize::<PaymentResponse>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

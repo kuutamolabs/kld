@@ -8,7 +8,10 @@ use lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
-use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::{
+    invoice::Invoice,
+    payment::{MillisatAmount, Payment},
+};
 
 use super::net_utils::PeerAddress;
 
@@ -87,7 +90,19 @@ pub trait LightningInterface: Send + Sync {
 
     fn user_config(&self) -> UserConfig;
 
-    async fn send_payment(&self, payee: NodeId, amount: MillisatAmount) -> Result<Payment>;
+    async fn pay_invoice(&self, invoice: Invoice, label: Option<String>) -> Result<Payment>;
+
+    async fn keysend_payment(&self, payee: NodeId, amount: MillisatAmount) -> Result<Payment>;
+
+    async fn generate_invoice(
+        &self,
+        label: String,
+        amount: Option<u64>,
+        description: String,
+        expiry: Option<u32>,
+    ) -> Result<Invoice>;
+
+    async fn list_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>>;
 }
 
 pub struct Peer {

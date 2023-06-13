@@ -21,9 +21,6 @@ pub const TEST_TX: &str = "02000000000101f127bd21d5188f21f623bca61cdefc443d2f8b1
 
 pub const TEST_ADDRESS: &str = "2N4eQYCbKUHCCTUjBJeHcJp9ok6J2GZsTDt";
 
-pub const TEST_PUBLIC_KEY: &str =
-    "0202755b475334bd9a56a317fd23dfe264b193bcbd7322faa3e974031704068266";
-
 pub const TEST_SHORT_CHANNEL_ID: u64 = 0x0102030405060708;
 
 pub const TEST_ALIAS: &str = "test node";
@@ -33,6 +30,15 @@ pub const TEST_WPKH: &str = "wpkh(cVpPVruEDdmutPzisEsYvtST1usBR3ntr8pXSyt6D2YYqX
 // https://mempool.space/block/0000000000000000000590fc0f3eba193a278534220b2b37e9849e1a770ca959
 pub const TEST_BLOCK_HASH: &str =
     "0000000000000000000590fc0f3eba193a278534220b2b37e9849e1a770ca959";
+
+pub const TEST_PRIVATE_KEY: [u8; 32] = [
+    0xe1, 0x26, 0xf6, 0x8f, 0x7e, 0xaf, 0xcc, 0x8b, 0x74, 0xf5, 0x4d, 0x26, 0x9f, 0xe2, 0x06, 0xbe,
+    0x71, 0x50, 0x00, 0xf9, 0x4d, 0xac, 0x06, 0x7d, 0x1c, 0x04, 0xa8, 0xca, 0x3b, 0x2d, 0xb7, 0x34,
+];
+
+// Public key of the above private key.
+pub const TEST_PUBLIC_KEY: &str =
+    "03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad";
 
 #[macro_export]
 macro_rules! test_settings {

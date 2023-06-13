@@ -1,8 +1,11 @@
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use anyhow::{anyhow, Context, Result};
+use bitcoin::hashes::{sha256, Hash};
+use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::Network;
+use kld::database::invoice::Invoice;
 use kld::database::payment::{MillisatAmount, Payment, PaymentDirection, PaymentStatus};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
@@ -19,8 +22,9 @@ use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::persist::Persister;
+use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
-use test_utils::{poll, random_public_key};
+use test_utils::{poll, random_public_key, TEST_PRIVATE_KEY};
 
 use super::with_cockroach;
 
@@ -56,6 +60,67 @@ pub async fn test_peers() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+pub async fn test_invoice() -> Result<()> {
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
+
+        let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY)?;
+        let payment_hash = sha256::Hash::from_slice(&[1u8; 32]).unwrap();
+        let payment_secret = PaymentSecret([2u8; 32]);
+
+        let bolt11 = InvoiceBuilder::new(Currency::Regtest)
+            .description("test".into())
+            .amount_milli_satoshis(1000)
+            .payment_hash(payment_hash)
+            .payment_secret(payment_secret)
+            .current_timestamp()
+            .expiry_time(Duration::from_secs(3600))
+            .min_final_cltv_expiry_delta(144)
+            .build_signed(|hash| Secp256k1::new().sign_ecdsa_recoverable(hash, &private_key))?;
+
+        let label = "test label".to_owned();
+        let invoice = Invoice::new(Some(label.clone()), bolt11)?;
+        database.persist_invoice(&invoice).await?;
+
+        let result = database
+            .fetch_invoices(Some(label.clone()))
+            .await?
+            .into_iter()
+            .last()
+            .context("expected invoice")?;
+        assert_eq!(result, invoice);
+
+        let payment = Payment {
+            id: PaymentId(random()),
+            hash: invoice.payment_hash,
+            preimage: None,
+            secret: Some(PaymentSecret(random())),
+            label: Some("label".to_string()),
+            status: PaymentStatus::Succeeded,
+            amount: MillisatAmount(1000),
+            fee: None,
+            direction: PaymentDirection::Inbound,
+            timestamp: SystemTime::UNIX_EPOCH,
+        };
+        database.persist_payment(&payment).await?;
+
+        let result = database
+            .fetch_invoices(Some(label.clone()))
+            .await?
+            .into_iter()
+            .last()
+            .context("expected invoice")?;
+        assert_eq!(1, result.payments.len());
+
+        let result = database.fetch_invoices(None).await?;
+        assert_eq!(1, result.len());
+
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
 pub async fn test_payment() -> Result<()> {
     with_cockroach(|settings, durable_connection| async move {
         let database = LdkDatabase::new(settings, durable_connection);
@@ -65,6 +130,7 @@ pub async fn test_payment() -> Result<()> {
             hash: PaymentHash(random()),
             preimage: None,
             secret: Some(PaymentSecret(random())),
+            label: Some("label".to_string()),
             status: PaymentStatus::Pending,
             amount: MillisatAmount(500000),
             fee: None,
