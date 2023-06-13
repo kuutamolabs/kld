@@ -16,6 +16,7 @@ in
     networking.hostName = cfg.name;
     kuutamo.cockroachdb.nodeName = cfg.name;
     kuutamo.kld.logLevel = cfg.kld_log_level or "info";
+    kuutamo.kld.nodeAlias = cfg.kld_node_alias or null;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
