@@ -105,7 +105,7 @@ in
       new_machine.start()
       hostname = new_machine.succeed("hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
-      new_machine.succeed("cat /etc/systemd/system/kld.service | grep -q 'kld-00-alias' || echo node alias does not set && exit 1")
+      new_machine.succeed("cat /etc/systemd/system/kld.service | grep -q 'kld-00-alias' || (echo node alias does not set && exit 1)")
 
       installer.wait_until_succeeds("ssh -o StrictHostKeyChecking=no root@192.168.42.2 -- exit 0 >&2")
 
