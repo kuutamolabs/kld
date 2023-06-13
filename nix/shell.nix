@@ -23,6 +23,7 @@
 
           # crane does not have this in nativeBuildInputs
           pkgs.rustc
+          pkgs.rust-analyzer
         ] ++ config.packages.kld.nativeBuildInputs
         ++ config.packages.kld.tests.nativeBuildInputs;
         inherit (config.packages.kld) buildInputs;
