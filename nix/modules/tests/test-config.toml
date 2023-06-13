@@ -19,6 +19,7 @@ ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
 ipv6_address = "2001:DB8::1"
+kld_node_alias = "kld-00-alias"
 
 [hosts.db-00]
 nixos_module = "cockroachdb-node"
