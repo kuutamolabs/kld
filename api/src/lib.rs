@@ -570,9 +570,13 @@ pub struct Invoice {
     pub payment_hash: String,
     pub description: String,
     pub status: InvoiceStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub amount_msat: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub amount_received_msat: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub paid_at: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<u64>,
 }
 

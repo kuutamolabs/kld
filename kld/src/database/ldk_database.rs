@@ -546,7 +546,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let durable_connection = self.durable_connection.clone();
         // Storing the updates async makes things way more complicated. So even though its a little slower we stick with sync for now.
         tokio::task::block_in_place(move || {
-            tokio::runtime::Handle::current().block_on(async move {
+            self.runtime.block_on(async move {
                 let result = durable_connection
                     .get()
                     .await
