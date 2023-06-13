@@ -20,6 +20,7 @@ in
       ++ lib.optional (cfg ? ipv4_address) "${cfg.ipv4_address}:8333"
       ++ lib.optional (cfg ? ipv6_address) "${cfg.ipv6_address}:8333";
 
+
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
 
