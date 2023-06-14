@@ -3,8 +3,9 @@ use std::{str::FromStr, time::Duration};
 use crate::{generate_blocks, START_N_BLOCKS};
 use anyhow::Result;
 use api::{
-    routes, Channel, ChannelState, FundChannel, FundChannelResponse, GetInfo, KeysendRequest,
-    KeysendResponse, NewAddress, NewAddressResponse, WalletBalance,
+    routes, Channel, ChannelState, FundChannel, FundChannelResponse, GenerateInvoice,
+    GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, NewAddress, NewAddressResponse,
+    PayInvoice, PaymentResponse, WalletBalance,
 };
 use bitcoin::Address;
 use hyper::Method;
@@ -99,16 +100,40 @@ pub async fn test_start() -> Result<()> {
 
     let keysend = KeysendRequest {
         pubkey: info_1.id,
-        amount: 1000,
+        amount: 10000,
         ..Default::default()
     };
-    let keysend_response: KeysendResponse = kld_0
+    let keysend_response: PaymentResponse = kld_0
         .call_rest_api(Method::POST, routes::KEYSEND, keysend)
         .await?;
     assert_eq!(
         keysend_response.status,
         PaymentStatus::Succeeded.to_string()
     );
+
+    let generate_invoice = GenerateInvoice {
+        amount: 1000,
+        label: "label".to_string(),
+        description: "description".to_string(),
+        ..Default::default()
+    };
+    let invoice: GenerateInvoiceResponse = kld_1
+        .call_rest_api(Method::POST, routes::GENERATE_INVOICE, generate_invoice)
+        .await?;
+    let pay_invoice = PayInvoice {
+        label: Some("payment".to_string()),
+        bolt11: invoice.bolt11,
+    };
+    let payment: PaymentResponse = kld_0
+        .call_rest_api(Method::POST, routes::PAY_INVOICE, pay_invoice)
+        .await?;
+    assert_eq!("succeeded", payment.status);
+
+    let invoices: Vec<Invoice> = kld_1
+        .call_rest_api(Method::GET, routes::LIST_INVOICES, ())
+        .await?;
+    assert_eq!(1, invoices.len());
+
     Ok(())
 }
 

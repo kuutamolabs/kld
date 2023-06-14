@@ -2,6 +2,7 @@ use crate::ldk::ChainMonitor;
 use crate::logger::KldLogger;
 use crate::to_i64;
 
+use super::invoice::Invoice;
 use super::payment::Payment;
 use super::DurableConnection;
 use anyhow::{anyhow, bail, Context, Result};
@@ -31,6 +32,7 @@ use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
+
 use settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -40,6 +42,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use std::{fs, io};
 use tokio::runtime::Handle;
+use tokio_postgres::Row;
 
 use super::peer::Peer;
 
@@ -141,14 +144,83 @@ impl LdkDatabase {
         Ok(())
     }
 
+    pub async fn persist_invoice(&self, invoice: &Invoice) -> Result<()> {
+        debug!(
+            "Persist invoice with hash: {}",
+            invoice.payment_hash.0.to_hex()
+        );
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount) VALUES ($1, $2, $3, $4, $5, $6)",
+                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a.as_i64())],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>> {
+        let mut query = "SELECT i.label as invoice_label, payment_hash, bolt11, expiry, i.amount as invoice_amount, payee_pub_key, id, hash, preimage, secret, status, p.amount as amount, fee, direction, p.timestamp as timestamp, p.label as label FROM invoices i LEFT OUTER JOIN payments p ON i.payment_hash = p.hash".to_string();
+        let rows = if let Some(label) = label {
+            query.push_str(" WHERE i.label = $1");
+            self.durable_connection
+                .get()
+                .await
+                .query(&query, &[&label])
+                .await?
+        } else {
+            self.durable_connection
+                .get()
+                .await
+                .query(&query, &[])
+                .await?
+        };
+
+        let mut invoices: HashMap<PaymentHash, Invoice> = HashMap::new();
+        for row in rows {
+            let payment_hash: Vec<u8> = row.get("payment_hash");
+            let payment_hash = PaymentHash(payment_hash.as_slice().try_into()?);
+            let payment = if row.try_get::<&str, Vec<u8>>("id").is_ok() {
+                Some(parse_payment(&row)?)
+            } else {
+                None
+            };
+            if let Some(invoice) = invoices.get_mut(&payment_hash) {
+                if let Some(payment) = payment {
+                    invoice.payments.push(payment);
+                }
+            } else {
+                let label: Option<String> = row.get("invoice_label");
+                let bolt11: String = row.get("bolt11");
+                let expiry: Option<i64> = row.get("expiry");
+                let payee_pub_key: Vec<u8> = row.get("payee_pub_key");
+                let amount: Option<i64> = row.get("invoice_amount");
+                let mut invoice = Invoice::deserialize(
+                    payment_hash,
+                    label,
+                    bolt11,
+                    payee_pub_key,
+                    expiry.map(|i| i as u64),
+                    amount,
+                )?;
+                if let Some(payment) = payment {
+                    invoice.payments.push(payment);
+                }
+                invoices.insert(invoice.payment_hash, invoice);
+            }
+        }
+        Ok(Vec::from_iter(invoices.into_values()))
+    }
+
     pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
         debug!("Persist payment: {}", payment.hash.0.to_hex());
         self.durable_connection
             .get()
             .await
             .execute(
-                "UPSERT INTO payments (id, hash, preimage, secret, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.status, &payment.amount.as_i64(), &payment.fee.as_ref().map(|f| f.as_i64()), &payment.direction, &payment.timestamp],
+                "UPSERT INTO payments (id, hash, preimage, secret, label, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.label, &payment.status, &payment.amount.as_i64(), &payment.fee.as_ref().map(|f| f.as_i64()), &payment.direction, &payment.timestamp],
             )
             .await?;
         Ok(())
@@ -182,6 +254,7 @@ impl LdkDatabase {
                 hash: PaymentHash(hash.try_into().context("bad hash")?),
                 preimage,
                 secret,
+                label: row.get("label"),
                 status: row.get("status"),
                 amount: row.get::<&str, i64>("amount").into(),
                 fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
@@ -351,6 +424,36 @@ where
     }
 }
 
+fn parse_payment(row: &Row) -> Result<Payment> {
+    let id: &[u8] = row.get("id");
+    let hash: &[u8] = row.get("hash");
+    let preimage: Option<&[u8]> = row.get("preimage");
+    let secret: Option<&[u8]> = row.get("secret");
+    let label: Option<String> = row.get("label");
+
+    let preimage = match preimage {
+        Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
+        None => None,
+    };
+    let secret = match secret {
+        Some(bytes) => Some(PaymentSecret(bytes.try_into().context("bad secret")?)),
+        None => None,
+    };
+
+    Ok(Payment {
+        id: PaymentId(id.try_into().context("bad ID")?),
+        hash: PaymentHash(hash.try_into().context("bad hash")?),
+        preimage,
+        secret,
+        label,
+        status: row.get("status"),
+        amount: row.get::<&str, i64>("amount").into(),
+        fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
+        direction: row.get("direction"),
+        timestamp: row.get("timestamp"),
+    })
+}
+
 impl<'a, M: Deref, T: Deref, ES: Deref, NS: Deref, SP: Deref, F: Deref, R: Deref, L: Deref, S>
     Persister<'a, M, T, ES, NS, SP, F, R, L, S> for LdkDatabase
 where
@@ -443,7 +546,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let durable_connection = self.durable_connection.clone();
         // Storing the updates async makes things way more complicated. So even though its a little slower we stick with sync for now.
         tokio::task::block_in_place(move || {
-            tokio::runtime::Handle::current().block_on(async move {
+            self.runtime.block_on(async move {
                 let result = durable_connection
                     .get()
                     .await

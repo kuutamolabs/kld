@@ -129,6 +129,36 @@ enum Command {
         #[arg(long)]
         amount: u64,
     },
+    /// Generate a bolt11 invoice for receiving a payment.
+    GenerateInvoice {
+        // Amount in milli satoshis
+        #[arg(long)]
+        amount: u64,
+        // Unique label for the invoice
+        #[arg(long)]
+        label: String,
+        // Description for the invoice
+        #[arg(long)]
+        description: String,
+        // Expiry time period for the invoice (seconds)
+        #[arg(long)]
+        expiry: Option<u32>,
+    },
+    /// List all invoices
+    ListInvoices {
+        // Label of the invoice
+        #[arg(long)]
+        label: Option<String>,
+    },
+    /// Pay an invoice
+    PayInvoice {
+        // The invoice to pay
+        #[arg(long)]
+        bolt11: String,
+        // Label for the payment
+        #[arg(long)]
+        label: Option<String>,
+    },
 }
 
 fn main() {
@@ -175,6 +205,14 @@ fn run_command(args: Args) -> Result<()> {
         Command::NetworkChannels { id } => api.list_network_channels(id)?,
         Command::FeeRates { style } => api.fee_rates(style)?,
         Command::Keysend { public_key, amount } => api.keysend(public_key, amount)?,
+        Command::GenerateInvoice {
+            amount,
+            label,
+            description,
+            expiry,
+        } => api.generate_invoice(amount, label, description, expiry)?,
+        Command::ListInvoices { label } => api.list_invoices(label)?,
+        Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
     };
     if output != "null" {
         println!("{output}");

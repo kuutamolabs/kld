@@ -1,14 +1,18 @@
 use std::{
     fmt::{self, Display},
+    ops::Add,
     time::SystemTime,
 };
 
+use bitcoin::hashes::Hash;
 use lightning::{
     events::PaymentFailureReason,
     ln::{channelmanager::PaymentId, PaymentHash, PaymentPreimage, PaymentSecret},
 };
 use postgres_types::{FromSql, ToSql};
 use rand::random;
+
+use super::invoice::Invoice;
 
 #[derive(Debug, ToSql, FromSql, PartialEq, Clone, Copy)]
 #[postgres(name = "payment_status")]
@@ -63,6 +67,7 @@ pub struct Payment {
     pub preimage: Option<PaymentPreimage>,
     // No secret indicates a spontaneous payment.
     pub secret: Option<PaymentSecret>,
+    pub label: Option<String>,
     pub status: PaymentStatus,
     pub amount: MillisatAmount,
     pub fee: Option<MillisatAmount>,
@@ -71,20 +76,21 @@ pub struct Payment {
 }
 
 impl Payment {
-    pub fn generate_id() -> PaymentId {
+    pub fn new_id() -> PaymentId {
         PaymentId(random())
     }
 
-    pub fn new_spontaneous_inbound(
+    pub fn spontaneous_inbound(
         hash: PaymentHash,
         preimage: PaymentPreimage,
         amount: MillisatAmount,
-    ) -> Payment {
+    ) -> Self {
         Payment {
             id: PaymentId(random()),
             hash,
             preimage: Some(preimage),
             secret: None,
+            label: None,
             status: PaymentStatus::Pending,
             amount,
             fee: None,
@@ -93,14 +99,54 @@ impl Payment {
         }
     }
 
-    pub fn new_spontaneous_outbound(hash: PaymentHash, amount: MillisatAmount) -> Payment {
+    pub fn spontaneous_outbound(id: PaymentId, hash: PaymentHash, amount: MillisatAmount) -> Self {
         Payment {
-            id: PaymentId(random()),
+            id,
             hash,
             preimage: None,
             secret: None,
+            label: None,
             status: PaymentStatus::Pending,
             amount,
+            fee: None,
+            direction: PaymentDirection::Outbound,
+            timestamp: SystemTime::now(),
+        }
+    }
+
+    pub fn of_invoice_inbound(
+        hash: PaymentHash,
+        preimage: Option<PaymentPreimage>,
+        secret: PaymentSecret,
+        amount: MillisatAmount,
+    ) -> Self {
+        Payment {
+            id: PaymentId(random()),
+            hash,
+            preimage,
+            secret: Some(secret),
+            label: None,
+            status: PaymentStatus::Succeeded,
+            amount,
+            fee: None,
+            direction: PaymentDirection::Inbound,
+            timestamp: SystemTime::now(),
+        }
+    }
+
+    pub fn of_invoice_outbound(invoice: &Invoice, label: Option<String>) -> Self {
+        Payment {
+            id: PaymentId(random()),
+            hash: PaymentHash(*invoice.bolt11.payment_hash().as_inner()),
+            preimage: None,
+            secret: Some(*invoice.bolt11.payment_secret()),
+            label,
+            status: PaymentStatus::Pending,
+            amount: invoice
+                .bolt11
+                .amount_milli_satoshis()
+                .map(MillisatAmount)
+                .unwrap_or(MillisatAmount::zero()),
             fee: None,
             direction: PaymentDirection::Outbound,
             timestamp: SystemTime::now(),
@@ -131,6 +177,18 @@ pub struct MillisatAmount(pub u64);
 impl MillisatAmount {
     pub fn as_i64(&self) -> i64 {
         self.0 as i64
+    }
+
+    pub fn zero() -> Self {
+        MillisatAmount(0)
+    }
+}
+
+impl Add<MillisatAmount> for MillisatAmount {
+    type Output = Self;
+
+    fn add(self, rhs: MillisatAmount) -> Self::Output {
+        MillisatAmount(self.0 + rhs.0)
     }
 }
 

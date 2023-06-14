@@ -170,7 +170,9 @@ impl EventHandler {
                 )
             }
             Event::OpenChannelRequest { .. } => {
-                // Unreachable, we don't set manually_accept_inbound_channels
+                unreachable!(
+                    "This event will not fire as we do not manually accept inbound channels."
+                )
             }
             Event::PaymentClaimable {
                 payment_hash,
@@ -183,7 +185,7 @@ impl EventHandler {
                 claim_deadline: _,
             } => {
                 info!(
-                    "EVENT: Received payment with hash {} of {} millisatoshis",
+                    "EVENT: Payment claimable with hash {} of {} millisatoshis",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
@@ -196,17 +198,6 @@ impl EventHandler {
                         }
                     }
                     PaymentPurpose::SpontaneousPayment(preimage) => {
-                        let payment = Payment::new_spontaneous_inbound(
-                            payment_hash,
-                            preimage,
-                            MillisatAmount(amount_msat),
-                        );
-                        if let Err(e) = self.ldk_database.persist_payment(&payment).await {
-                            error!(
-                                "Failed to persist payment with hash {}: {e}",
-                                payment_hash.0.encode_hex::<String>()
-                            )
-                        }
                         self.channel_manager.claim_funds(preimage);
                     }
                 };
@@ -218,17 +209,32 @@ impl EventHandler {
                 receiver_node_id: _,
             } => {
                 info!(
-                    "EVENT: claimed payment from payment hash {} of {} millisatoshis",
+                    "EVENT: Payment claimed with payment hash {} of {} millisatoshis",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
-                let _preimage = match purpose {
+                let payment = match purpose {
                     PaymentPurpose::InvoicePayment {
                         payment_preimage,
-                        payment_secret: _,
-                    } => payment_preimage,
-                    PaymentPurpose::SpontaneousPayment(preimage) => Some(preimage),
+                        payment_secret,
+                    } => Payment::of_invoice_inbound(
+                        payment_hash,
+                        payment_preimage,
+                        payment_secret,
+                        MillisatAmount(amount_msat),
+                    ),
+                    PaymentPurpose::SpontaneousPayment(preimage) => Payment::spontaneous_inbound(
+                        payment_hash,
+                        preimage,
+                        MillisatAmount(amount_msat),
+                    ),
                 };
+                if let Err(e) = self.ldk_database.persist_payment(&payment).await {
+                    error!(
+                        "Failed to persist payment with hash {}: {e}",
+                        payment_hash.0.encode_hex::<String>()
+                    )
+                }
             }
             Event::PaymentSent {
                 payment_id,

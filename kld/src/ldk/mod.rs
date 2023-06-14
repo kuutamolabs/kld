@@ -16,7 +16,7 @@ use anyhow::anyhow;
 use lightning::{
     chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
     ln::{
-        channelmanager::{PaymentSendFailure, SimpleArcChannelManager},
+        channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},
         msgs::LightningError,
         peer_handler::SimpleArcPeerManager,
     },
@@ -24,6 +24,7 @@ use lightning::{
     routing::{gossip, router::DefaultRouter, scoring::ProbabilisticScorerUsingTime},
     util::errors::APIError,
 };
+use lightning_invoice::SignOrCreationError;
 use lightning_net_tokio::SocketDescriptor;
 
 pub use controller::Controller;
@@ -87,7 +88,28 @@ pub fn lightning_error(error: LightningError) -> anyhow::Error {
     anyhow!(error.err)
 }
 
-pub fn payment_error(error: PaymentSendFailure) -> anyhow::Error {
+pub fn retryable_send_failure(error: RetryableSendFailure) -> anyhow::Error {
+    match error {
+        RetryableSendFailure::PaymentExpired => {
+            anyhow!("Payment failure: payment has expired")
+        }
+        RetryableSendFailure::RouteNotFound => {
+            anyhow!("Payment failure: route not found")
+        }
+        RetryableSendFailure::DuplicatePayment => {
+            anyhow!("Payment failure: duplicate payment")
+        }
+    }
+}
+
+pub fn sign_or_creation_error(error: SignOrCreationError) -> anyhow::Error {
+    match error {
+        SignOrCreationError::SignError(()) => anyhow!("Error signing invoice"),
+        SignOrCreationError::CreationError(e) => anyhow!("Error creating invoice: {e}"),
+    }
+}
+
+pub fn payment_send_failure(error: PaymentSendFailure) -> anyhow::Error {
     match error {
         PaymentSendFailure::ParameterError(api_error) => ldk_error(api_error),
         PaymentSendFailure::PathParameterError(results) => {
