@@ -4,7 +4,7 @@ lint:
   cd ./mgr && cargo clippy --workspace --all-targets --all-features -- -D warnings
 fix:
   cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged  -- -D warnings
-  cd ./mgr && cargo clippy --workspace --all-targets --all-features --fix --allow-dirty --allow-staged  -- -D warnings
+  cd ./mgr && cargo clippy --allow-no-vcs --workspace --all-targets --all-features --fix --allow-dirty --allow-staged  -- -D warnings
   treefmt
 
 test:
