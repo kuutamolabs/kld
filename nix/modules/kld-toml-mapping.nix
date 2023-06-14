@@ -17,6 +17,10 @@ in
     kuutamo.cockroachdb.nodeName = cfg.name;
     kuutamo.kld.logLevel = cfg.kld_log_level or "info";
     kuutamo.kld.nodeAlias = cfg.kld_node_alias or null;
+    kuutamo.kld.publicAddresses = [ ]
+      ++ lib.optional (cfg ? ipv4_address) "${cfg.ipv4_address}:9234"
+      ++ lib.optional (cfg ? ipv6_address) "${cfg.ipv6_address}:9234";
+
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
