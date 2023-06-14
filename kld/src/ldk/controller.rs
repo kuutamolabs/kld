@@ -694,7 +694,7 @@ impl Controller {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
                 .await;
-            Controller::sync_to_chain_tip(
+            if let Err(e) = Controller::sync_to_chain_tip(
                 network,
                 bitcoind_client_clone,
                 chain_monitor,
@@ -703,7 +703,10 @@ impl Controller {
                 channelmonitors,
             )
             .await
-            .unwrap();
+            {
+                error!("Fatal error: {}", e.into_inner());
+                std::process::exit(1)
+            };
 
             wallet_clone.keep_sync_with_chain();
             peer_manager_clone.listen().await;
