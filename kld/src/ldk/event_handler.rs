@@ -21,6 +21,7 @@ use crate::ldk::ldk_error;
 use crate::wallet::{Wallet, WalletInterface};
 
 use super::controller::AsyncAPIRequests;
+use super::peer_manager::PeerManager;
 use super::{ChannelManager, NetworkGraph};
 
 pub(crate) struct EventHandler {
@@ -30,11 +31,13 @@ pub(crate) struct EventHandler {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     ldk_database: Arc<LdkDatabase>,
+    peer_manager: Arc<PeerManager>,
     async_api_requests: Arc<AsyncAPIRequests>,
     runtime_handle: Handle,
 }
 
 impl EventHandler {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_manager: Arc<ChannelManager>,
         bitcoind_client: Arc<BitcoindClient>,
@@ -42,6 +45,7 @@ impl EventHandler {
         network_graph: Arc<NetworkGraph>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         database: Arc<LdkDatabase>,
+        peer_manager: Arc<PeerManager>,
         async_api_requests: Arc<AsyncAPIRequests>,
     ) -> EventHandler {
         EventHandler {
@@ -51,6 +55,7 @@ impl EventHandler {
             network_graph,
             wallet,
             ldk_database: database,
+            peer_manager,
             async_api_requests,
             runtime_handle: Handle::current(),
         }
@@ -141,6 +146,7 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     channel_id.encode_hex::<String>(),
                 );
+                self.peer_manager.broadcast_node_announcement();
             }
             Event::ChannelClosed {
                 channel_id,
