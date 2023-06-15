@@ -104,7 +104,7 @@ pub struct GetInfo {
     pub version: String,
     pub api_version: String,
     pub network: String,
-    pub address: Vec<NetAddress>,
+    pub address: Vec<String>,
 }
 
 /// A warper for lightning::ln::msgs::NetAddress
@@ -151,7 +151,7 @@ impl Display for NetAddress {
                 write!(f, "{}:{port}", Ipv4Addr::from(*addr))?
             }
             lightning::ln::msgs::NetAddress::IPv6 { addr, port } => {
-                write!(f, "{}:{port}", Ipv6Addr::from(*addr))?
+                write!(f, "[{}]:{port}", Ipv6Addr::from(*addr))?
             }
             lightning::ln::msgs::NetAddress::OnionV2(bytes) => {
                 write!(f, "onionv2({})", bytes.encode_hex::<String>())?

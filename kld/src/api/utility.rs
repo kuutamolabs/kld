@@ -41,7 +41,11 @@ pub(crate) async fn get_info(
         api_version: API_VERSION.to_string(),
         color: "".to_string(),
         network: lightning_interface.network().to_string(),
-        address: lightning_interface.public_addresses(),
+        address: lightning_interface
+            .public_addresses()
+            .into_iter()
+            .map(|a| a.to_string())
+            .collect(),
     };
     Ok(Json(info))
 }
