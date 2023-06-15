@@ -6,7 +6,7 @@ use std::{
 use anyhow::{bail, Result};
 use api::{
     Channel, FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice,
-    ListFunds, NetworkChannel, NetworkNode, NewAddressResponse, PaymentResponse, Peer,
+    ListFunds, NetworkChannel, NetworkNode, NewAddressResponse, Payment, PaymentResponse, Peer,
     SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
@@ -14,7 +14,7 @@ use bitcoin::secp256k1::PublicKey;
 use serde::de;
 
 use super::rest::create_api_server;
-use crate::api::rest::test_invoice;
+use crate::api::rest::LIGHTNING;
 use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 #[tokio::test]
@@ -246,9 +246,16 @@ async fn test_cli_list_invoices() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_pay_invoice() -> Result<()> {
-    let bolt11 = test_invoice().to_string();
+    let bolt11 = LIGHTNING.invoice.bolt11.to_string();
     let output = run_cli("pay-invoice", &["--label", "a label", "--bolt11", &bolt11]).await?;
     let _: PaymentResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_list_payments() -> Result<()> {
+    let output = run_cli("list-payments", &["--bolt11", "bolt11"]).await?;
+    let _: Vec<Payment> = deserialize(&output.stdout)?;
     Ok(())
 }
 

@@ -1,12 +1,12 @@
 use std::{str::FromStr, sync::Arc, time::UNIX_EPOCH};
 
-use api::{KeysendRequest, PayInvoice, PaymentResponse};
-use axum::{response::IntoResponse, Extension, Json};
+use api::{KeysendRequest, ListPaysParams, PayInvoice, Payment, PaymentResponse};
+use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
 use crate::{
-    database::{invoice::Invoice, payment::MillisatAmount},
+    database::{invoice::Invoice, millisat_amount::MillisatAmount},
     ldk::LightningInterface,
 };
 
@@ -46,10 +46,7 @@ pub(crate) async fn pay_invoice(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(pay_invoice_request): Json<PayInvoice>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let bolt11 =
-        lightning_invoice::Invoice::from_str(&pay_invoice_request.bolt11).map_err(bad_request)?;
-    bolt11.check_signature().map_err(bad_request)?;
-    let invoice = Invoice::new(None, bolt11).map_err(bad_request)?;
+    let invoice: Invoice = pay_invoice_request.bolt11.try_into().map_err(bad_request)?;
     let destination = invoice.payee_pub_key.to_string();
     let amount = invoice.amount.map(|a| a.0);
     let payment = lightning_interface
@@ -74,4 +71,28 @@ pub(crate) async fn pay_invoice(
         status: payment.status.to_string(),
     };
     Ok(Json(response))
+}
+
+pub(crate) async fn list_payments(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Query(params): Query<ListPaysParams>,
+) -> Result<impl IntoResponse, ApiError> {
+    let invoice = params
+        .invoice
+        .map(|i| i.try_into())
+        .transpose()
+        .map_err(bad_request)?;
+    let payments: Vec<Payment> = lightning_interface
+        .list_payments(invoice)
+        .await
+        .map_err(internal_server)?
+        .into_iter()
+        .map(|p| Payment {
+            bolt11: p.bolt11,
+            status: p.status.to_string(),
+            payment_preimage: p.preimage.map(|i| i.0.encode_hex()),
+            amount_sent_msat: p.amount.to_string(),
+        })
+        .collect();
+    Ok(Json(payments))
 }

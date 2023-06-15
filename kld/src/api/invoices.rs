@@ -8,7 +8,7 @@ use api::{GenerateInvoice, GenerateInvoiceResponse, Invoice, InvoiceStatus, List
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use hex::ToHex;
 
-use crate::{database::payment::MillisatAmount, ldk::LightningInterface};
+use crate::{database::millisat_amount::MillisatAmount, ldk::LightningInterface};
 
 use super::{bad_request, internal_server, ApiError};
 

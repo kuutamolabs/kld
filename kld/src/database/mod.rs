@@ -1,5 +1,6 @@
 pub mod invoice;
 mod ldk_database;
+pub mod millisat_amount;
 pub mod payment;
 pub mod peer;
 mod wallet_database;

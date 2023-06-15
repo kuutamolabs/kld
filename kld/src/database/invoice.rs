@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use bitcoin::{hashes::Hash, secp256k1::PublicKey};
 use lightning::ln::PaymentHash;
 
-use super::payment::{MillisatAmount, Payment};
+use super::{millisat_amount::MillisatAmount, payment::Payment};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Invoice {
@@ -18,6 +18,16 @@ pub struct Invoice {
     pub amount: Option<MillisatAmount>,
     // Payments with the payment_hash of the bolt11 invoice.
     pub payments: Vec<Payment>,
+}
+
+impl TryFrom<String> for Invoice {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        let bolt11 = lightning_invoice::Invoice::from_str(&value)?;
+        bolt11.check_signature()?;
+        Invoice::new(None, bolt11)
+    }
 }
 
 impl Invoice {

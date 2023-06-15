@@ -1,21 +1,17 @@
 use std::assert_eq;
 use std::str::FromStr;
 use std::thread::spawn;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use axum::http::HeaderValue;
-use bitcoin::hashes::{sha256, Hash};
-use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
 use futures::FutureExt;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::MacaroonAuth;
 use kld::logger::KldLogger;
-use lightning::ln::PaymentSecret;
-use lightning_invoice::{Currency, InvoiceBuilder};
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
@@ -23,7 +19,7 @@ use serde::Serialize;
 use settings::Settings;
 use test_utils::ports::get_available_port;
 use test_utils::{
-    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY,
+    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
     TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
 };
 
@@ -31,7 +27,7 @@ use api::{
     routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
     FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
     KeysendRequest, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse,
-    OutputStatus, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
+    OutputStatus, PayInvoice, Payment, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
     SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
@@ -295,11 +291,18 @@ pub async fn test_unauthorized() -> Result<()> {
         StatusCode::UNAUTHORIZED,
         readonly_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || PayInvoice {
             label: Some("label".to_string()),
-            bolt11: test_invoice().to_string()
+            bolt11: LIGHTNING.invoice.bolt11.to_string()
         })?
         .send()
         .await?
         .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_PAYMENTS)
+            .send()
+            .await?
+            .status()
     );
     Ok(())
 }
@@ -768,8 +771,7 @@ async fn test_generate_invoice() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_invoice_unpaid() -> Result<()> {
     let context = create_api_server().await?;
-    let invoice = kld::database::invoice::Invoice::new(Some("label".to_string()), test_invoice())?;
-    LIGHTNING.invoices.set(vec![invoice.clone()]).unwrap();
+    let invoice = &LIGHTNING.invoice;
     let response: Vec<Invoice> = admin_request(&context, Method::GET, routes::LIST_INVOICES)?
         .send()
         .await?
@@ -798,9 +800,28 @@ async fn test_list_invoice_unpaid() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_list_payments() -> Result<()> {
+    let context = create_api_server().await?;
+    let payment = &LIGHTNING.payment;
+    let response: Vec<Payment> = admin_request(&context, Method::GET, routes::LIST_PAYMENTS)?
+        .send()
+        .await?
+        .json()
+        .await?;
+    let payment_response = response.get(0).context("expected payment")?;
+    assert_eq!(payment.bolt11, payment_response.bolt11);
+    assert_eq!(payment.status.to_string(), payment_response.status);
+    assert!(payment_response.payment_preimage.is_some());
+    assert_eq!(
+        payment.amount.to_string(),
+        payment_response.amount_sent_msat
+    );
+    Ok(())
+}
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pay_invoice() -> Result<()> {
     let context = create_api_server().await?;
-    let invoice = test_invoice();
+    let invoice = &LIGHTNING.invoice.bolt11;
     let request = PayInvoice {
         label: Some("test label".to_string()),
         bolt11: invoice.to_string(),
@@ -853,24 +874,6 @@ fn withdraw_request() -> WalletTransfer {
         min_conf: Some("3".to_string()),
         utxos: vec![],
     }
-}
-
-pub fn test_invoice() -> lightning_invoice::Invoice {
-    let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY).unwrap();
-    let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
-    let payment_hash = sha256::Hash::from_slice(&[1u8; 32]).unwrap();
-    let payment_secret = PaymentSecret([2u8; 32]);
-    InvoiceBuilder::new(Currency::Regtest)
-        .description("test invoice description".to_owned())
-        .payee_pub_key(public_key)
-        .payment_hash(payment_hash)
-        .payment_secret(payment_secret)
-        .min_final_cltv_expiry_delta(144)
-        .expiry_time(Duration::from_secs(2322))
-        .amount_milli_satoshis(200000)
-        .current_timestamp()
-        .build_signed(|hash| Secp256k1::new().sign_ecdsa_recoverable(hash, &private_key))
-        .unwrap()
 }
 
 fn fund_channel_request() -> FundChannel {
@@ -983,7 +986,7 @@ fn readonly_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
 
-static LIGHTNING: Lazy<Arc<MockLightning>> = Lazy::new(|| Arc::new(MockLightning::default()));
+pub static LIGHTNING: Lazy<Arc<MockLightning>> = Lazy::new(|| Arc::new(MockLightning::default()));
 
 fn unauthorized_request(context: &TestContext, method: Method, route: &str) -> RequestBuilder {
     let address = &context.settings.rest_api_address;

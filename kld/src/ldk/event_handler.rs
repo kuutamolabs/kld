@@ -5,7 +5,8 @@ use anyhow::anyhow;
 
 use bitcoin::secp256k1::Secp256k1;
 
-use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::millisat_amount::MillisatAmount;
+use crate::database::payment::Payment;
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};

@@ -68,6 +68,8 @@ pub mod routes {
     pub const KEYSEND: &str = "/v1/pay/keysend";
     /// Pay a  bolt11 invoice.
     pub const PAY_INVOICE: &str = "/v1/pay";
+    /// List payments.
+    pub const LIST_PAYMENTS: &str = "/v1/pay/listPays";
 
     /// --- Invoices ---
     /// Generate a bolt11 invoice.
@@ -515,6 +517,16 @@ pub struct PaymentResponse {
     pub status: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Payment {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bolt11: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_preimage: Option<String>,
+    pub amount_sent_msat: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateInvoice {
@@ -532,6 +544,13 @@ pub struct GenerateInvoice {
     pub fallbacks: Option<Vec<String>>,
     // 64-digit hex string to be used as payment preimage for the created invoice. IMPORTANT> if you specify the preimage, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret. This parameter is an advanced feature intended for use with cutting-edge cryptographic protocols and should not be used unless explicitly needed.
     pub preimage: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListPaysParams {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub invoice: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

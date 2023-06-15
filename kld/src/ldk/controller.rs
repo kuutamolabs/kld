@@ -1,7 +1,8 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::invoice::Invoice;
-use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::millisat_amount::MillisatAmount;
+use crate::database::payment::Payment;
 use crate::wallet::{Wallet, WalletInterface};
 use crate::Service;
 
@@ -410,6 +411,12 @@ impl LightningInterface for Controller {
         let payment = receiver.await??;
         self.database.persist_payment(&payment).await?;
         Ok(payment)
+    }
+
+    async fn list_payments(&self, invoice: Option<Invoice>) -> Result<Vec<Payment>> {
+        self.database
+            .fetch_payments(invoice.map(|i| i.payment_hash))
+            .await
     }
 }
 

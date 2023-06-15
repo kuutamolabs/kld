@@ -159,6 +159,12 @@ enum Command {
         #[arg(long)]
         label: Option<String>,
     },
+    /// List all payments
+    ListPayments {
+        // Bolt11 invoice of payment
+        #[arg(long)]
+        bolt11: Option<String>,
+    },
 }
 
 fn main() {
@@ -213,6 +219,7 @@ fn run_command(args: Args) -> Result<()> {
         } => api.generate_invoice(amount, label, description, expiry)?,
         Command::ListInvoices { label } => api.list_invoices(label)?,
         Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
+        Command::ListPayments { bolt11 } => api.list_payments(bolt11)?,
     };
     if output != "null" {
         println!("{output}");
