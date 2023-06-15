@@ -1,17 +1,12 @@
 use anyhow::anyhow;
-use api::{Address, FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
+use api::lightning::routing::gossip::{ChannelInfo, DirectedChannelInfo, NodeId, NodeInfo};
+use api::{
+    FeeRates, FeeRatesResponse, NetAddress, NetworkChannel, NetworkNode, OnChainFeeEstimates,
+};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
-use lightning::{
-    ln::msgs::NetAddress,
-    routing::gossip::{ChannelInfo, DirectedChannelInfo, NodeId, NodeInfo},
-};
-use std::{
-    net::{Ipv4Addr, Ipv6Addr},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{str::FromStr, sync::Arc};
 
 use crate::{bitcoind::bitcoind_interface::BitcoindInterface, ldk::LightningInterface};
 
@@ -175,41 +170,10 @@ fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
         color: n.rgb.encode_hex(),
         last_timestamp: n.last_update,
         features: n.features.to_string(),
-        addresses: n.addresses().iter().map(to_api_address).collect(),
+        addresses: n
+            .addresses()
+            .iter()
+            .map(|a| NetAddress(a.clone()))
+            .collect(),
     })
-}
-
-pub(crate) fn to_api_address(net_address: &NetAddress) -> Address {
-    match net_address {
-        NetAddress::IPv4 { addr, port } => Address {
-            address_type: "ipv4".to_string(),
-            address: Ipv4Addr::from(*addr).to_string(),
-            port: *port,
-        },
-        NetAddress::IPv6 { addr, port } => Address {
-            address_type: "ipv6".to_string(),
-            address: Ipv6Addr::from(*addr).to_string(),
-            port: *port,
-        },
-        NetAddress::OnionV2(pubkey) => Address {
-            address_type: "onionv2".to_string(),
-            address: pubkey.encode_hex(),
-            port: 0,
-        },
-        NetAddress::OnionV3 {
-            ed25519_pubkey,
-            checksum: _,
-            version: _,
-            port,
-        } => Address {
-            address_type: "onionv3".to_string(),
-            address: ed25519_pubkey.encode_hex(),
-            port: *port,
-        },
-        NetAddress::Hostname { hostname, port } => Address {
-            address_type: "hostname".to_string(),
-            address: hostname.to_string(),
-            port: *port,
-        },
-    }
 }

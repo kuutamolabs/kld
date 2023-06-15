@@ -2,7 +2,6 @@ pub mod channel_utils;
 pub mod controller;
 mod event_handler;
 pub mod lightning_interface;
-pub mod net_utils;
 mod peer_manager;
 
 use std::{
@@ -13,7 +12,7 @@ use std::{
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
-use lightning::{
+use api::lightning::{
     chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},

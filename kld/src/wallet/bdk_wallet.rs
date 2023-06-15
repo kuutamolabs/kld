@@ -5,6 +5,9 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use api::lightning::chain::chaininterface::{
+    BroadcasterInterface, ConfirmationTarget, FeeEstimator,
+};
 use async_trait::async_trait;
 use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
@@ -22,7 +25,6 @@ use bitcoin::{
     util::bip32::{ChildNumber, DerivationPath},
     Address, OutPoint, Script, Transaction,
 };
-use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use once_cell::sync::OnceCell;

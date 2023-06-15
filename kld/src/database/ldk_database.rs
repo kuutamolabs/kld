@@ -6,30 +6,30 @@ use super::invoice::Invoice;
 use super::payment::Payment;
 use super::DurableConnection;
 use anyhow::{anyhow, bail, Context, Result};
+use api::lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
+use api::lightning::chain::chainmonitor::MonitorUpdateId;
+use api::lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
+use api::lightning::chain::keysinterface::{
+    EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner,
+};
+use api::lightning::chain::transaction::OutPoint;
+use api::lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
+use api::lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs, PaymentId};
+use api::lightning::ln::msgs::NetAddress;
+use api::lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
+use api::lightning::routing::gossip::NetworkGraph;
+use api::lightning::routing::router::Router;
+use api::lightning::routing::scoring::{
+    ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore,
+};
+use api::lightning::util::logger::Logger;
+use api::lightning::util::persist::Persister;
+use api::lightning::util::ser::ReadableArgs;
+use api::lightning::util::ser::Writeable;
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Txid};
-use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
-use lightning::chain::chainmonitor::MonitorUpdateId;
-use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
-use lightning::chain::keysinterface::{
-    EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner,
-};
-use lightning::chain::transaction::OutPoint;
-use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
-use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs, PaymentId};
-use lightning::ln::msgs::NetAddress;
-use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
-use lightning::routing::gossip::NetworkGraph;
-use lightning::routing::router::Router;
-use lightning::routing::scoring::{
-    ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore,
-};
-use lightning::util::logger::Logger;
-use lightning::util::persist::Persister;
-use lightning::util::ser::ReadableArgs;
-use lightning::util::ser::Writeable;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
 
@@ -494,7 +494,7 @@ where
     // Network graph could get very large so just write it to disk for now.
     fn persist_graph(
         &self,
-        network_graph: &lightning::routing::gossip::NetworkGraph<L>,
+        network_graph: &api::lightning::routing::gossip::NetworkGraph<L>,
     ) -> Result<(), io::Error> {
         let mut buf = vec![];
         network_graph.write(&mut buf)?;

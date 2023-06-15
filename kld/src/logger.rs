@@ -1,4 +1,4 @@
-use lightning::util::logger::{Level, Logger};
+use api::lightning::util::logger::{Level, Logger};
 use log::{logger, LevelFilter, Log, Metadata, MetadataBuilder, Record};
 use once_cell::sync::OnceCell;
 use std::{process, sync::Arc};
@@ -49,7 +49,7 @@ impl Log for KldLogger {
 }
 
 impl Logger for KldLogger {
-    fn log(&self, record: &lightning::util::logger::Record) {
+    fn log(&self, record: &api::lightning::util::logger::Record) {
         logger().log(
             &log::RecordBuilder::new()
                 .args(record.args)

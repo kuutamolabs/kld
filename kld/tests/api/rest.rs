@@ -1,10 +1,12 @@
 use std::assert_eq;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread::spawn;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
+use api::lightning::ln::PaymentSecret;
 use axum::http::HeaderValue;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
@@ -14,7 +16,6 @@ use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::MacaroonAuth;
 use kld::logger::KldLogger;
-use lightning::ln::PaymentSecret;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
@@ -28,7 +29,7 @@ use test_utils::{
 };
 
 use api::{
-    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
+    routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
     FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
     KeysendRequest, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse,
     OutputStatus, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
@@ -557,11 +558,8 @@ async fn test_list_peers_readonly() -> Result<()> {
         .await?
         .json()
         .await?;
-    let netaddr = Some(Address {
-        address_type: "ipv4".to_string(),
-        address: "127.0.0.1".to_string(),
-        port: 5555,
-    });
+    let socket_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let netaddr = Some(socket_addr.into());
     assert!(response.contains(&Peer {
         id: TEST_PUBLIC_KEY.to_string(),
         connected: true,

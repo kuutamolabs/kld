@@ -4,11 +4,11 @@ use std::{
     time::SystemTime,
 };
 
-use bitcoin::hashes::Hash;
-use lightning::{
+use api::lightning::{
     events::PaymentFailureReason,
     ln::{channelmanager::PaymentId, PaymentHash, PaymentPreimage, PaymentSecret},
 };
+use bitcoin::hashes::Hash;
 use postgres_types::{FromSql, ToSql};
 use rand::random;
 

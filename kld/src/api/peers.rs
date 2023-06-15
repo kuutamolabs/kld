@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use crate::{
-    api::{bad_request, network::to_api_address},
+    api::bad_request,
     ldk::{LightningInterface, PeerStatus},
 };
 use anyhow::Result;
@@ -22,7 +22,7 @@ pub(crate) async fn list_peers(
         .map(|p| Peer {
             id: p.public_key.serialize().to_hex(),
             connected: p.status == PeerStatus::Connected,
-            netaddr: p.net_address.as_ref().map(to_api_address),
+            netaddr: p.net_address.clone(),
             alias: p.alias.clone(),
         })
         .collect();

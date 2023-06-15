@@ -7,11 +7,13 @@ use bitcoin::secp256k1::Secp256k1;
 
 use crate::database::payment::{MillisatAmount, Payment};
 use crate::database::{LdkDatabase, WalletDatabase};
+use api::lightning::chain::chaininterface::{
+    BroadcasterInterface, ConfirmationTarget, FeeEstimator,
+};
+use api::lightning::chain::keysinterface::KeysManager;
+use api::lightning::events::{Event, PaymentPurpose};
+use api::lightning::routing::gossip::NodeId;
 use hex::ToHex;
-use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning::chain::keysinterface::KeysManager;
-use lightning::events::{Event, PaymentPurpose};
-use lightning::routing::gossip::NodeId;
 use log::{error, info};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -57,8 +59,8 @@ impl EventHandler {
     }
 }
 
-impl lightning::events::EventHandler for EventHandler {
-    fn handle_event(&self, event: lightning::events::Event) {
+impl api::lightning::events::EventHandler for EventHandler {
+    fn handle_event(&self, event: api::lightning::events::Event) {
         tokio::task::block_in_place(move || {
             self.runtime_handle.block_on(self.handle_event_async(event))
         })
@@ -66,7 +68,7 @@ impl lightning::events::EventHandler for EventHandler {
 }
 
 impl EventHandler {
-    pub async fn handle_event_async(&self, event: lightning::events::Event) {
+    pub async fn handle_event_async(&self, event: api::lightning::events::Event) {
         match event {
             Event::FundingGenerationReady {
                 temporary_channel_id,
