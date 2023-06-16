@@ -71,7 +71,9 @@ pub struct Payment {
     pub amount: MillisatAmount,
     pub fee: Option<MillisatAmount>,
     pub direction: PaymentDirection,
+    // The time that the payment was sent/received.
     pub timestamp: SystemTime,
+    // The bolt11 invoice with corresponding payment hash. Useful when querying payments.
     pub bolt11: Option<String>,
 }
 

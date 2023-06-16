@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::SystemTime};
 
 use anyhow::{anyhow, Result};
 use bitcoin::{hashes::Hash, secp256k1::PublicKey};
@@ -16,6 +16,8 @@ pub struct Invoice {
     pub payee_pub_key: PublicKey,
     pub expiry: Option<u64>,
     pub amount: Option<MillisatAmount>,
+    // The time that the invoice was generated.
+    pub timestamp: SystemTime,
     // Payments with the payment_hash of the bolt11 invoice.
     pub payments: Vec<Payment>,
 }
@@ -36,6 +38,7 @@ impl Invoice {
         let expiry = raw.expiry_time().map(|t| t.as_seconds());
         let payee_pub_key = raw.recover_payee_pub_key()?.0;
         let amount = raw.amount_pico_btc().map(|a| MillisatAmount(a / 10));
+        let timestamp = bolt11.timestamp();
         Ok(Invoice {
             payment_hash: PaymentHash(
                 raw.payment_hash()
@@ -48,6 +51,7 @@ impl Invoice {
             payee_pub_key,
             expiry,
             amount,
+            timestamp,
             payments: vec![],
         })
     }
@@ -59,6 +63,7 @@ impl Invoice {
         payee_pub_key: Vec<u8>,
         expiry: Option<u64>,
         amount: Option<i64>,
+        timestamp: SystemTime,
     ) -> Result<Self> {
         Ok(Invoice {
             payment_hash,
@@ -67,6 +72,7 @@ impl Invoice {
             payee_pub_key: PublicKey::from_slice(&payee_pub_key)?,
             expiry,
             amount: amount.map(|a| MillisatAmount(a as u64)),
+            timestamp,
             payments: vec![],
         })
     }

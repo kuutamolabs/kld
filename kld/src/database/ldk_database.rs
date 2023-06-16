@@ -153,8 +153,8 @@ impl LdkDatabase {
             .get()
             .await
             .execute(
-                "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount) VALUES ($1, $2, $3, $4, $5, $6)",
-                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a.as_i64())],
+                "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a.as_i64()), &invoice.timestamp],
             )
             .await?;
         Ok(())
@@ -170,6 +170,7 @@ impl LdkDatabase {
                 i.expiry,
                 i.amount as invoice_amount,
                 i.payee_pub_key,
+                i.timestamp as invoice_timestamp,
                 p.id,
                 p.hash,
                 p.preimage,
@@ -208,6 +209,7 @@ impl LdkDatabase {
                 let expiry: Option<i64> = row.get("expiry");
                 let payee_pub_key: Vec<u8> = row.get("payee_pub_key");
                 let amount: Option<i64> = row.get("invoice_amount");
+                let timestamp: SystemTime = row.get("invoice_timestamp");
                 let mut invoice = Invoice::deserialize(
                     payment_hash,
                     label,
@@ -215,6 +217,7 @@ impl LdkDatabase {
                     payee_pub_key,
                     expiry.map(|i| i as u64),
                     amount,
+                    timestamp,
                 )?;
                 if let Some(payment) = payment {
                     invoice.payments.push(payment);
