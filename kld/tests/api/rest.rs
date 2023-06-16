@@ -363,6 +363,7 @@ async fn test_get_info_readonly() -> Result<()> {
         .await?
         .json()
         .await?;
+    assert_eq!(info.address, vec!["127.0.0.1:2312", "[2001:db8::1]:8080"]);
     assert_eq!(LIGHTNING.num_peers, info.num_peers);
     Ok(())
 }
