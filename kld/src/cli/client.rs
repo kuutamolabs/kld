@@ -4,9 +4,9 @@ use anyhow::{anyhow, Result};
 use api::{
     routes, Channel, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
-    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, PayInvoice, PaymentResponse, Peer,
-    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
-    WalletTransferResponse,
+    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, PayInvoice, Payment,
+    PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
+    WalletTransfer, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use reqwest::{
@@ -246,6 +246,16 @@ impl Api {
             .request_with_body(Method::POST, routes::PAY_INVOICE, body)
             .send()?;
         deserialize::<PaymentResponse>(response)
+    }
+
+    pub fn list_payments(&self, bolt11: Option<String>) -> Result<String> {
+        let route = if let Some(bolt11) = bolt11 {
+            format!("{}?{bolt11}", routes::LIST_PAYMENTS)
+        } else {
+            routes::LIST_PAYMENTS.to_string()
+        };
+        let response = self.request(Method::GET, &route).send()?;
+        deserialize::<Vec<Payment>>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

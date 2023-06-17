@@ -153,28 +153,41 @@ impl LdkDatabase {
             .get()
             .await
             .execute(
-                "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount) VALUES ($1, $2, $3, $4, $5, $6)",
-                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a.as_i64())],
+                "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a as i64), &invoice.timestamp],
             )
             .await?;
         Ok(())
     }
 
     pub async fn fetch_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>> {
-        let mut query = "SELECT i.label as invoice_label, payment_hash, bolt11, expiry, i.amount as invoice_amount, payee_pub_key, id, hash, preimage, secret, status, p.amount as amount, fee, direction, p.timestamp as timestamp, p.label as label FROM invoices i LEFT OUTER JOIN payments p ON i.payment_hash = p.hash".to_string();
+        let connection = self.durable_connection.get().await;
+        let query = "
+            SELECT
+                i.label as invoice_label,
+                i.payment_hash,
+                i.bolt11,
+                i.expiry,
+                i.amount as invoice_amount,
+                i.payee_pub_key,
+                i.timestamp as invoice_timestamp,
+                p.id,
+                p.hash,
+                p.preimage,
+                p.secret,
+                p.status,
+                p.amount,
+                p.fee,
+                p.direction,
+                p.timestamp,
+                p.label
+            FROM invoices i
+            LEFT OUTER JOIN payments p ON i.payment_hash = p.hash";
         let rows = if let Some(label) = label {
-            query.push_str(" WHERE i.label = $1");
-            self.durable_connection
-                .get()
-                .await
-                .query(&query, &[&label])
-                .await?
+            let query = &format!("{query} WHERE i.label = $1");
+            connection.query(query, &[&label]).await?
         } else {
-            self.durable_connection
-                .get()
-                .await
-                .query(&query, &[])
-                .await?
+            connection.query(query, &[]).await?
         };
 
         let mut invoices: HashMap<PaymentHash, Invoice> = HashMap::new();
@@ -196,6 +209,7 @@ impl LdkDatabase {
                 let expiry: Option<i64> = row.get("expiry");
                 let payee_pub_key: Vec<u8> = row.get("payee_pub_key");
                 let amount: Option<i64> = row.get("invoice_amount");
+                let timestamp: SystemTime = row.get("invoice_timestamp");
                 let mut invoice = Invoice::deserialize(
                     payment_hash,
                     label,
@@ -203,6 +217,7 @@ impl LdkDatabase {
                     payee_pub_key,
                     expiry.map(|i| i as u64),
                     amount,
+                    timestamp,
                 )?;
                 if let Some(payment) = payment {
                     invoice.payments.push(payment);
@@ -220,20 +235,38 @@ impl LdkDatabase {
             .await
             .execute(
                 "UPSERT INTO payments (id, hash, preimage, secret, label, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.label, &payment.status, &payment.amount.as_i64(), &payment.fee.as_ref().map(|f| f.as_i64()), &payment.direction, &payment.timestamp],
+                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.label, &payment.status, &(payment.amount as i64), &payment.fee.map(|f| f as i64).as_ref(), &payment.direction, &payment.timestamp],
             )
             .await?;
         Ok(())
     }
 
-    pub async fn fetch_payments(&self) -> Result<Vec<Payment>> {
+    pub async fn fetch_payments(&self, payment_hash: Option<PaymentHash>) -> Result<Vec<Payment>> {
         let mut payments = vec![];
-        let rows = self
-            .durable_connection
-            .get()
-            .await
-            .query("SELECT * FROM payments", &[])
-            .await?;
+        let connection = self.durable_connection.get().await;
+        let query = "
+            SELECT
+                p.id,
+                p.hash,
+                p.preimage,
+                p.secret,
+                p.label,
+                p.status,
+                p.amount,
+                p.fee,
+                p.direction,
+                p.timestamp,
+                i.bolt11
+            FROM payments p
+            LEFT OUTER JOIN invoices i
+            ON p.hash = i.payment_hash";
+
+        let rows = if let Some(hash) = payment_hash {
+            let query = &format!("{query} WHERE p.hash = $1");
+            connection.query(query, &[&hash.0.as_ref()]).await?
+        } else {
+            connection.query(query, &[]).await?
+        };
         for row in rows {
             let id: &[u8] = row.get("id");
             let hash: &[u8] = row.get("hash");
@@ -256,10 +289,11 @@ impl LdkDatabase {
                 secret,
                 label: row.get("label"),
                 status: row.get("status"),
-                amount: row.get::<&str, i64>("amount").into(),
-                fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
+                amount: row.get::<&str, i64>("amount") as u64,
+                fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
                 direction: row.get("direction"),
                 timestamp: row.get("timestamp"),
+                bolt11: row.get("bolt11"),
             })
         }
         Ok(payments)
@@ -447,10 +481,11 @@ fn parse_payment(row: &Row) -> Result<Payment> {
         secret,
         label,
         status: row.get("status"),
-        amount: row.get::<&str, i64>("amount").into(),
-        fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
+        amount: row.get::<&str, i64>("amount") as u64,
+        fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
         direction: row.get("direction"),
         timestamp: row.get("timestamp"),
+        bolt11: None,
     })
 }
 

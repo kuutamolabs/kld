@@ -5,7 +5,7 @@ use anyhow::anyhow;
 
 use bitcoin::secp256k1::Secp256k1;
 
-use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::payment::Payment;
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
@@ -227,13 +227,11 @@ impl EventHandler {
                         payment_hash,
                         payment_preimage,
                         payment_secret,
-                        MillisatAmount(amount_msat),
+                        amount_msat,
                     ),
-                    PaymentPurpose::SpontaneousPayment(preimage) => Payment::spontaneous_inbound(
-                        payment_hash,
-                        preimage,
-                        MillisatAmount(amount_msat),
-                    ),
+                    PaymentPurpose::SpontaneousPayment(preimage) => {
+                        Payment::spontaneous_inbound(payment_hash, preimage, amount_msat)
+                    }
                 };
                 if let Err(e) = self.ldk_database.persist_payment(&payment).await {
                     error!(
@@ -262,10 +260,7 @@ impl EventHandler {
                         if let Some((mut payment, respond)) =
                             self.async_api_requests.payments.get(&id).await
                         {
-                            payment.succeeded(
-                                Some(payment_preimage),
-                                fee_paid_msat.map(MillisatAmount),
-                            );
+                            payment.succeeded(Some(payment_preimage), fee_paid_msat);
                             respond(Ok(payment));
                         } else {
                             error!("Can't find payment for {}", id.0.encode_hex::<String>());

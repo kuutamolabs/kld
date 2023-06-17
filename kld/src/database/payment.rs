@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Display},
-    ops::Add,
     time::SystemTime,
 };
 
@@ -11,6 +10,8 @@ use lightning::{
 };
 use postgres_types::{FromSql, ToSql};
 use rand::random;
+
+use crate::MillisatAmount;
 
 use super::invoice::Invoice;
 
@@ -72,7 +73,10 @@ pub struct Payment {
     pub amount: MillisatAmount,
     pub fee: Option<MillisatAmount>,
     pub direction: PaymentDirection,
+    // The time that the payment was sent/received.
     pub timestamp: SystemTime,
+    // The bolt11 invoice with corresponding payment hash. Useful when querying payments.
+    pub bolt11: Option<String>,
 }
 
 impl Payment {
@@ -96,6 +100,7 @@ impl Payment {
             fee: None,
             direction: PaymentDirection::Inbound,
             timestamp: SystemTime::now(),
+            bolt11: None,
         }
     }
 
@@ -111,6 +116,7 @@ impl Payment {
             fee: None,
             direction: PaymentDirection::Outbound,
             timestamp: SystemTime::now(),
+            bolt11: None,
         }
     }
 
@@ -131,6 +137,7 @@ impl Payment {
             fee: None,
             direction: PaymentDirection::Inbound,
             timestamp: SystemTime::now(),
+            bolt11: None,
         }
     }
 
@@ -142,14 +149,11 @@ impl Payment {
             secret: Some(*invoice.bolt11.payment_secret()),
             label,
             status: PaymentStatus::Pending,
-            amount: invoice
-                .bolt11
-                .amount_milli_satoshis()
-                .map(MillisatAmount)
-                .unwrap_or(MillisatAmount::zero()),
+            amount: invoice.bolt11.amount_milli_satoshis().unwrap_or_default(),
             fee: None,
             direction: PaymentDirection::Outbound,
             timestamp: SystemTime::now(),
+            bolt11: Some(invoice.bolt11.to_string()),
         }
     }
 
@@ -168,38 +172,5 @@ impl Payment {
             Some(PaymentFailureReason::RouteNotFound) => PaymentStatus::RouteNotFound,
             _ => PaymentStatus::Error,
         };
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct MillisatAmount(pub u64);
-
-impl MillisatAmount {
-    pub fn as_i64(&self) -> i64 {
-        self.0 as i64
-    }
-
-    pub fn zero() -> Self {
-        MillisatAmount(0)
-    }
-}
-
-impl Add<MillisatAmount> for MillisatAmount {
-    type Output = Self;
-
-    fn add(self, rhs: MillisatAmount) -> Self::Output {
-        MillisatAmount(self.0 + rhs.0)
-    }
-}
-
-impl From<i64> for MillisatAmount {
-    fn from(value: i64) -> Self {
-        MillisatAmount(value as u64)
-    }
-}
-
-impl fmt::Display for MillisatAmount {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
     }
 }

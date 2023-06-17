@@ -8,7 +8,7 @@ use api::{GenerateInvoice, GenerateInvoiceResponse, Invoice, InvoiceStatus, List
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use hex::ToHex;
 
-use crate::{database::payment::MillisatAmount, ldk::LightningInterface};
+use crate::{ldk::LightningInterface, MillisatAmount};
 
 use super::{bad_request, internal_server, ApiError};
 
@@ -63,7 +63,7 @@ pub(crate) async fn list_invoices(
         let amount_received_msat = invoice
             .payments
             .iter()
-            .fold(MillisatAmount::zero(), |sum, p| sum + p.amount);
+            .fold(MillisatAmount::default(), |sum, p| sum + p.amount);
         let status = if !invoice.payments.is_empty() {
             InvoiceStatus::Paid
         } else if invoice.bolt11.expiry_time()
@@ -81,8 +81,8 @@ pub(crate) async fn list_invoices(
             payment_hash: invoice.bolt11.payment_hash().encode_hex(),
             amount_msat: invoice.bolt11.amount_milli_satoshis(),
             status,
-            amount_received_msat: if amount_received_msat.0 > 0 {
-                Some(amount_received_msat.0)
+            amount_received_msat: if amount_received_msat > 0 {
+                Some(amount_received_msat)
             } else {
                 None
             },
