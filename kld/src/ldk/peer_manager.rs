@@ -119,23 +119,14 @@ impl PeerManager {
         });
     }
 
-    // Regularly broadcast our node_announcement. This is only required (or possible) if we have
-    // some public channels, and is only useful if we have public listen address(es) to announce.
-    // In a production environment, this should occur only after the announcement of new channels
-    // to avoid churn in the global network graph.
-    pub fn regularly_broadcast_node_announcement(&self) {
+    // This is only be relayed by the gossip network if we have some public channels.
+    pub fn broadcast_node_announcement(&self) {
         let mut alias = [0; 32];
         alias[..self.settings.node_alias.len()]
             .copy_from_slice(self.settings.node_alias.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
         let addresses: Vec<NetAddress> = self.addresses.iter().map(|a| a.0.clone()).collect();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
-            loop {
-                interval.tick().await;
-                peer_manager.broadcast_node_announcement([0; 3], alias, addresses.clone());
-            }
-        });
+        peer_manager.broadcast_node_announcement([0; 3], alias, addresses);
     }
 
     pub fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)> {

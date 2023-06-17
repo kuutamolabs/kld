@@ -671,6 +671,7 @@ impl Controller {
             network_graph.clone(),
             wallet.clone(),
             database.clone(),
+            peer_manager.clone(),
             async_api_requests.clone(),
         );
 
@@ -711,7 +712,7 @@ impl Controller {
             wallet_clone.keep_sync_with_chain();
             peer_manager_clone.listen().await;
             peer_manager_clone.keep_channel_peers_connected();
-            peer_manager_clone.regularly_broadcast_node_announcement();
+            peer_manager_clone.broadcast_node_announcement();
         });
 
         Ok(Controller {
