@@ -5,10 +5,7 @@ use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
-use crate::{
-    database::{invoice::Invoice, millisat_amount::MillisatAmount},
-    ldk::LightningInterface,
-};
+use crate::{database::invoice::Invoice, ldk::LightningInterface};
 
 use super::{bad_request, internal_server, ApiError};
 
@@ -17,9 +14,8 @@ pub(crate) async fn keysend(
     Json(keysend_request): Json<KeysendRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     let node_id = NodeId::from_str(&keysend_request.pubkey).map_err(bad_request)?;
-    let amount = MillisatAmount(keysend_request.amount);
     let payment = lightning_interface
-        .keysend_payment(node_id, amount)
+        .keysend_payment(node_id, keysend_request.amount)
         .await
         .map_err(internal_server)?;
     let response = PaymentResponse {
@@ -48,7 +44,7 @@ pub(crate) async fn pay_invoice(
 ) -> Result<impl IntoResponse, ApiError> {
     let invoice: Invoice = pay_invoice_request.bolt11.try_into().map_err(bad_request)?;
     let destination = invoice.payee_pub_key.to_string();
-    let amount = invoice.amount.map(|a| a.0);
+    let amount = invoice.amount;
     let payment = lightning_interface
         .pay_invoice(invoice, pay_invoice_request.label)
         .await
@@ -63,7 +59,7 @@ pub(crate) async fn pay_invoice(
             .as_secs(),
         parts: 1,
         amount_msat: amount,
-        amount_sent_msat: payment.amount.0,
+        amount_sent_msat: payment.amount,
         payment_preimage: payment
             .preimage
             .map(|i| i.0.encode_hex::<String>())

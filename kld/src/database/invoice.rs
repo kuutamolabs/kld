@@ -4,7 +4,9 @@ use anyhow::{anyhow, Result};
 use bitcoin::{hashes::Hash, secp256k1::PublicKey};
 use lightning::ln::PaymentHash;
 
-use super::{millisat_amount::MillisatAmount, payment::Payment};
+use crate::MillisatAmount;
+
+use super::payment::Payment;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Invoice {
@@ -37,7 +39,7 @@ impl Invoice {
         let raw = bolt11.clone().into_signed_raw();
         let expiry = raw.expiry_time().map(|t| t.as_seconds());
         let payee_pub_key = raw.recover_payee_pub_key()?.0;
-        let amount = raw.amount_pico_btc().map(|a| MillisatAmount(a / 10));
+        let amount = raw.amount_pico_btc().map(|a| a / 10);
         let timestamp = bolt11.timestamp();
         Ok(Invoice {
             payment_hash: PaymentHash(
@@ -71,7 +73,7 @@ impl Invoice {
             bolt11: lightning_invoice::Invoice::from_str(&bolt11)?,
             payee_pub_key: PublicKey::from_slice(&payee_pub_key)?,
             expiry,
-            amount: amount.map(|a| MillisatAmount(a as u64)),
+            amount: amount.map(|a| a as u64),
             timestamp,
             payments: vec![],
         })

@@ -154,7 +154,7 @@ impl LdkDatabase {
             .await
             .execute(
                 "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a.as_i64()), &invoice.timestamp],
+                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a as i64), &invoice.timestamp],
             )
             .await?;
         Ok(())
@@ -235,7 +235,7 @@ impl LdkDatabase {
             .await
             .execute(
                 "UPSERT INTO payments (id, hash, preimage, secret, label, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.label, &payment.status, &payment.amount.as_i64(), &payment.fee.as_ref().map(|f| f.as_i64()), &payment.direction, &payment.timestamp],
+                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.label, &payment.status, &(payment.amount as i64), &payment.fee.map(|f| f as i64).as_ref(), &payment.direction, &payment.timestamp],
             )
             .await?;
         Ok(())
@@ -289,8 +289,8 @@ impl LdkDatabase {
                 secret,
                 label: row.get("label"),
                 status: row.get("status"),
-                amount: row.get::<&str, i64>("amount").into(),
-                fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
+                amount: row.get::<&str, i64>("amount") as u64,
+                fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
                 direction: row.get("direction"),
                 timestamp: row.get("timestamp"),
                 bolt11: row.get("bolt11"),
@@ -481,8 +481,8 @@ fn parse_payment(row: &Row) -> Result<Payment> {
         secret,
         label,
         status: row.get("status"),
-        amount: row.get::<&str, i64>("amount").into(),
-        fee: row.get::<&str, Option<i64>>("fee").map(|f| f.into()),
+        amount: row.get::<&str, i64>("amount") as u64,
+        fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
         direction: row.get("direction"),
         timestamp: row.get("timestamp"),
         bolt11: None,

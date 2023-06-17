@@ -11,7 +11,9 @@ use lightning::{
 use postgres_types::{FromSql, ToSql};
 use rand::random;
 
-use super::{invoice::Invoice, millisat_amount::MillisatAmount};
+use crate::MillisatAmount;
+
+use super::invoice::Invoice;
 
 #[derive(Debug, ToSql, FromSql, PartialEq, Clone, Copy)]
 #[postgres(name = "payment_status")]
@@ -147,11 +149,7 @@ impl Payment {
             secret: Some(*invoice.bolt11.payment_secret()),
             label,
             status: PaymentStatus::Pending,
-            amount: invoice
-                .bolt11
-                .amount_milli_satoshis()
-                .map(MillisatAmount)
-                .unwrap_or(MillisatAmount::zero()),
+            amount: invoice.bolt11.amount_milli_satoshis().unwrap_or_default(),
             fee: None,
             direction: PaymentDirection::Outbound,
             timestamp: SystemTime::now(),

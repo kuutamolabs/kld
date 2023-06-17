@@ -16,10 +16,10 @@ use hex::FromHex;
 use kld::{
     database::{
         invoice::Invoice,
-        millisat_amount::MillisatAmount,
         payment::{Payment, PaymentDirection, PaymentStatus},
     },
     ldk::{net_utils::PeerAddress, LightningInterface, OpenChannelResult, Peer, PeerStatus},
+    MillisatAmount,
 };
 use lightning::{
     chain::transaction::OutPoint,
@@ -119,8 +119,8 @@ impl Default for MockLightning {
             secret: Some(PaymentSecret(random())),
             label: Some("label".to_string()),
             status: PaymentStatus::Succeeded,
-            amount: MillisatAmount(100000),
-            fee: Some(MillisatAmount(2323)),
+            amount: 100000,
+            fee: Some(2323),
             direction: PaymentDirection::Outbound,
             timestamp: UNIX_EPOCH,
             bolt11: Some(invoice.bolt11.to_string()),
@@ -307,7 +307,7 @@ impl LightningInterface for MockLightning {
 
     async fn pay_invoice(&self, invoice: Invoice, label: Option<String>) -> Result<Payment> {
         let mut payment = Payment::of_invoice_outbound(&invoice, label);
-        payment.succeeded(Some(PaymentPreimage([1u8; 32])), Some(MillisatAmount(2323)));
+        payment.succeeded(Some(PaymentPreimage([1u8; 32])), Some(2323));
         Ok(payment)
     }
 

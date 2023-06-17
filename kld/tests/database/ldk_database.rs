@@ -6,7 +6,6 @@ use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::Network;
 use kld::database::invoice::Invoice;
-use kld::database::millisat_amount::MillisatAmount;
 use kld::database::payment::{Payment, PaymentDirection, PaymentStatus};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
@@ -98,7 +97,7 @@ pub async fn test_invoice_payments() -> Result<()> {
             secret: Some(PaymentSecret(random())),
             label: Some("label".to_string()),
             status: PaymentStatus::Succeeded,
-            amount: MillisatAmount(1000),
+            amount: 1000,
             fee: None,
             direction: PaymentDirection::Inbound,
             timestamp: SystemTime::UNIX_EPOCH,
@@ -125,7 +124,7 @@ pub async fn test_invoice_payments() -> Result<()> {
             .context("expected payment")?;
         assert_eq!(result, payment);
 
-        payment.succeeded(Some(PaymentPreimage(random())), Some(MillisatAmount(232)));
+        payment.succeeded(Some(PaymentPreimage(random())), Some(232));
         database.persist_payment(&payment).await?;
 
         let result = database

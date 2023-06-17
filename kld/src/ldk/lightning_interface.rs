@@ -8,7 +8,10 @@ use lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
-use crate::database::{invoice::Invoice, millisat_amount::MillisatAmount, payment::Payment};
+use crate::{
+    database::{invoice::Invoice, payment::Payment},
+    MillisatAmount,
+};
 
 use super::net_utils::PeerAddress;
 
