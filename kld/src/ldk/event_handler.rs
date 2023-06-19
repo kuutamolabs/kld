@@ -5,7 +5,7 @@ use anyhow::anyhow;
 
 use bitcoin::secp256k1::Secp256k1;
 
-use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::payment::Payment;
 use crate::database::{LdkDatabase, WalletDatabase};
 use api::lightning::chain::chaininterface::{
     BroadcasterInterface, ConfirmationTarget, FeeEstimator,
@@ -23,6 +23,7 @@ use crate::ldk::ldk_error;
 use crate::wallet::{Wallet, WalletInterface};
 
 use super::controller::AsyncAPIRequests;
+use super::peer_manager::PeerManager;
 use super::{ChannelManager, NetworkGraph};
 
 pub(crate) struct EventHandler {
@@ -32,11 +33,13 @@ pub(crate) struct EventHandler {
     network_graph: Arc<NetworkGraph>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     ldk_database: Arc<LdkDatabase>,
+    peer_manager: Arc<PeerManager>,
     async_api_requests: Arc<AsyncAPIRequests>,
     runtime_handle: Handle,
 }
 
 impl EventHandler {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_manager: Arc<ChannelManager>,
         bitcoind_client: Arc<BitcoindClient>,
@@ -44,6 +47,7 @@ impl EventHandler {
         network_graph: Arc<NetworkGraph>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         database: Arc<LdkDatabase>,
+        peer_manager: Arc<PeerManager>,
         async_api_requests: Arc<AsyncAPIRequests>,
     ) -> EventHandler {
         EventHandler {
@@ -53,6 +57,7 @@ impl EventHandler {
             network_graph,
             wallet,
             ldk_database: database,
+            peer_manager,
             async_api_requests,
             runtime_handle: Handle::current(),
         }
@@ -143,6 +148,7 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     channel_id.encode_hex::<String>(),
                 );
+                self.peer_manager.broadcast_node_announcement();
             }
             Event::ChannelClosed {
                 channel_id,
@@ -223,13 +229,11 @@ impl EventHandler {
                         payment_hash,
                         payment_preimage,
                         payment_secret,
-                        MillisatAmount(amount_msat),
+                        amount_msat,
                     ),
-                    PaymentPurpose::SpontaneousPayment(preimage) => Payment::spontaneous_inbound(
-                        payment_hash,
-                        preimage,
-                        MillisatAmount(amount_msat),
-                    ),
+                    PaymentPurpose::SpontaneousPayment(preimage) => {
+                        Payment::spontaneous_inbound(payment_hash, preimage, amount_msat)
+                    }
                 };
                 if let Err(e) = self.ldk_database.persist_payment(&payment).await {
                     error!(
@@ -258,10 +262,7 @@ impl EventHandler {
                         if let Some((mut payment, respond)) =
                             self.async_api_requests.payments.get(&id).await
                         {
-                            payment.succeeded(
-                                Some(payment_preimage),
-                                fee_paid_msat.map(MillisatAmount),
-                            );
+                            payment.succeeded(Some(payment_preimage), fee_paid_msat);
                             respond(Ok(payment));
                         } else {
                             error!("Can't find payment for {}", id.0.encode_hex::<String>());

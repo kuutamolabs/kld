@@ -27,13 +27,13 @@ use hex::FromHex;
 use kld::{
     database::{
         invoice::Invoice,
-        payment::{MillisatAmount, Payment, PaymentDirection, PaymentStatus},
+        payment::{Payment, PaymentDirection, PaymentStatus},
     },
     ldk::{LightningInterface, OpenChannelResult, Peer, PeerStatus},
+    MillisatAmount,
 };
 
 use lightning_invoice::{Currency, InvoiceBuilder};
-use once_cell::sync::OnceCell;
 use rand::random;
 use test_utils::{
     TEST_ALIAS, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
@@ -47,7 +47,8 @@ pub struct MockLightning {
     pub channels: Vec<ChannelDetails>,
     pub public_key: PublicKey,
     pub ipv4_address: NetAddress,
-    pub invoices: OnceCell<Vec<Invoice>>,
+    pub invoice: Invoice,
+    pub payment: Payment,
 }
 
 impl Default for MockLightning {
@@ -91,6 +92,36 @@ impl Default for MockLightning {
             feerate_sat_per_1000_weight: Some(10210),
         };
         let socket_addr: SocketAddrV4 = "127.0.0.1:5555".parse().unwrap();
+        let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY).unwrap();
+        let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
+        let payment_hash = sha256::Hash::from_slice(&[1u8; 32]).unwrap();
+        let payment_secret = PaymentSecret([2u8; 32]);
+        let invoice = InvoiceBuilder::new(Currency::Regtest)
+            .description("test invoice description".to_owned())
+            .payee_pub_key(public_key)
+            .payment_hash(payment_hash)
+            .payment_secret(payment_secret)
+            .min_final_cltv_expiry_delta(144)
+            .expiry_time(Duration::from_secs(2322))
+            .amount_milli_satoshis(200000)
+            .current_timestamp()
+            .build_signed(|hash| Secp256k1::new().sign_ecdsa_recoverable(hash, &private_key))
+            .unwrap();
+        let invoice =
+            kld::database::invoice::Invoice::new(Some("label".to_string()), invoice).unwrap();
+        let payment = Payment {
+            id: PaymentId(random()),
+            hash: PaymentHash(random()),
+            preimage: Some(PaymentPreimage(random())),
+            secret: Some(PaymentSecret(random())),
+            label: Some("label".to_string()),
+            status: PaymentStatus::Succeeded,
+            amount: 100000,
+            fee: Some(2323),
+            direction: PaymentDirection::Outbound,
+            timestamp: UNIX_EPOCH,
+            bolt11: Some(invoice.bolt11.to_string()),
+        };
         Self {
             num_peers: 5,
             num_nodes: 6,
@@ -99,7 +130,8 @@ impl Default for MockLightning {
             channels: vec![channel],
             public_key,
             ipv4_address: socket_addr.into(),
-            invoices: OnceCell::new(),
+            invoice,
+            payment,
         }
     }
 }
@@ -198,7 +230,7 @@ impl LightningInterface for MockLightning {
     async fn list_peers(&self) -> Result<Vec<Peer>> {
         Ok(vec![Peer {
             public_key: self.public_key,
-            net_address: Some(self.ipv4_address.clone()),
+            net_address: Some(self.ipv4_address.clone().into()),
             status: PeerStatus::Connected,
             alias: TEST_ALIAS.to_string(),
         }])
@@ -261,55 +293,29 @@ impl LightningInterface for MockLightning {
 
     async fn generate_invoice(
         &self,
-        label: String,
-        amount: Option<u64>,
-        description: String,
-        expiry: Option<u32>,
+        _label: String,
+        _amount: Option<u64>,
+        _description: String,
+        _expiry: Option<u32>,
     ) -> Result<Invoice> {
-        let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY)?;
-        let payment_hash = sha256::Hash::from_slice(&[1u8; 32]).unwrap();
-        let payment_secret = PaymentSecret([2u8; 32]);
-        let builder = InvoiceBuilder::new(Currency::Regtest)
-            .description(description)
-            .payment_hash(payment_hash)
-            .payment_secret(payment_secret)
-            .min_final_cltv_expiry_delta(144)
-            .expiry_time(Duration::from_secs(expiry.unwrap_or_default() as u64))
-            .current_timestamp();
-        let builder = if let Some(amount) = amount {
-            builder.amount_milli_satoshis(amount)
-        } else {
-            builder
-        };
-
-        let bolt11 = builder
-            .build_signed(|hash| Secp256k1::new().sign_ecdsa_recoverable(hash, &private_key))?;
-        let invoice = Invoice::new(Some(label), bolt11)?;
-        Ok(invoice)
+        Ok(self.invoice.clone())
     }
 
     async fn pay_invoice(&self, invoice: Invoice, label: Option<String>) -> Result<Payment> {
         let mut payment = Payment::of_invoice_outbound(&invoice, label);
-        payment.succeeded(Some(PaymentPreimage([1u8; 32])), Some(MillisatAmount(2323)));
+        payment.succeeded(Some(PaymentPreimage([1u8; 32])), Some(2323));
         Ok(payment)
     }
 
+    async fn list_payments(&self, _bolt11: Option<Invoice>) -> Result<Vec<Payment>> {
+        Ok(vec![self.payment.clone()])
+    }
+
     async fn list_invoices(&self, _label: Option<String>) -> Result<Vec<Invoice>> {
-        Ok(self.invoices.get().cloned().unwrap_or_default())
+        Ok(vec![self.invoice.clone()])
     }
 
     async fn keysend_payment(&self, _payee: NodeId, _amount: MillisatAmount) -> Result<Payment> {
-        Ok(Payment {
-            id: PaymentId(random()),
-            hash: PaymentHash(random()),
-            preimage: Some(PaymentPreimage(random())),
-            secret: Some(PaymentSecret(random())),
-            label: Some("label".to_string()),
-            status: PaymentStatus::Succeeded,
-            amount: MillisatAmount(1010101),
-            fee: Some(MillisatAmount(2323)),
-            direction: PaymentDirection::Outbound,
-            timestamp: UNIX_EPOCH,
-        })
+        Ok(self.payment.clone())
     }
 }

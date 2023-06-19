@@ -21,7 +21,7 @@ use crate::{
             fee_rates, get_network_channel, get_network_node, list_network_channels,
             list_network_nodes,
         },
-        payments::{keysend, pay_invoice},
+        payments::{keysend, list_payments, pay_invoice},
         peers::{connect_peer, disconnect_peer, list_peers},
         utility::sign,
         wallet::{get_balance, list_funds, new_address, transfer},
@@ -90,6 +90,7 @@ impl RestApi {
             .route(routes::LIST_NETWORK_CHANNELS, get(list_network_channels))
             .route(routes::FEE_RATES, get(fee_rates))
             .route(routes::LIST_INVOICES, get(list_invoices))
+            .route(routes::LIST_PAYMENTS, get(list_payments))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()

@@ -12,6 +12,8 @@ pub mod wallet;
 
 pub const VERSION: &str = concat!("KLD v", env!("CARGO_PKG_VERSION"));
 
+pub type MillisatAmount = u64;
+
 pub async fn quit_signal() {
     let _ = tokio::signal::unix::signal(SignalKind::quit())
         .unwrap()

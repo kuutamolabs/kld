@@ -21,7 +21,7 @@ impl Manager {
         let storage_dir = format!("{output_dir}/{instance_name}");
         // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
         let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
-        fs::create_dir_all(&storage_dir).unwrap();
+        fs::create_dir_all(&storage_dir).unwrap_or_default();
 
         Manager {
             process: None,

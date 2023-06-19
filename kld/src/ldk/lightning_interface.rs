@@ -5,9 +5,9 @@ use api::lightning::{
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
-use crate::database::{
-    invoice::Invoice,
-    payment::{MillisatAmount, Payment},
+use crate::{
+    database::{invoice::Invoice, payment::Payment},
+    MillisatAmount,
 };
 
 use api::{FeeRate, NetAddress};
@@ -102,6 +102,8 @@ pub trait LightningInterface: Send + Sync {
     ) -> Result<Invoice>;
 
     async fn list_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>>;
+
+    async fn list_payments(&self, bolt11: Option<Invoice>) -> Result<Vec<Payment>>;
 }
 
 pub struct Peer {

@@ -1,9 +1,9 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::invoice::Invoice;
-use crate::database::payment::{MillisatAmount, Payment};
+use crate::database::payment::Payment;
 use crate::wallet::{Wallet, WalletInterface};
-use crate::Service;
+use crate::{MillisatAmount, Service};
 
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
@@ -351,7 +351,7 @@ impl LightningInterface for Controller {
         let payment = Payment::of_invoice_outbound(&invoice, label);
         let route_params = RouteParameters {
             payment_params: PaymentParameters::from_node_id(invoice.payee_pub_key, 40),
-            final_value_msat: invoice.amount.context("amount missing from invoice")?.0,
+            final_value_msat: invoice.amount.context("amount missing from invoice")?,
         };
         self.channel_manager
             .send_payment(
@@ -379,7 +379,7 @@ impl LightningInterface for Controller {
         let inflight_htlcs = self.channel_manager.compute_inflight_htlcs();
         let route_params = RouteParameters {
             payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40),
-            final_value_msat: amount.0,
+            final_value_msat: amount,
         };
         let route = self
             .router
@@ -409,6 +409,12 @@ impl LightningInterface for Controller {
         let payment = receiver.await??;
         self.database.persist_payment(&payment).await?;
         Ok(payment)
+    }
+
+    async fn list_payments(&self, invoice: Option<Invoice>) -> Result<Vec<Payment>> {
+        self.database
+            .fetch_payments(invoice.map(|i| i.payment_hash))
+            .await
     }
 }
 
@@ -670,6 +676,7 @@ impl Controller {
             network_graph.clone(),
             wallet.clone(),
             database.clone(),
+            peer_manager.clone(),
             async_api_requests.clone(),
         );
 
@@ -710,7 +717,7 @@ impl Controller {
             wallet_clone.keep_sync_with_chain();
             peer_manager_clone.listen().await;
             peer_manager_clone.keep_channel_peers_connected();
-            peer_manager_clone.regularly_broadcast_node_announcement();
+            peer_manager_clone.broadcast_node_announcement();
         });
 
         Ok(Controller {
