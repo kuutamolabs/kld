@@ -230,7 +230,7 @@ impl LightningInterface for MockLightning {
     async fn list_peers(&self) -> Result<Vec<Peer>> {
         Ok(vec![Peer {
             public_key: self.public_key,
-            net_address: Some(self.ipv4_address.clone().into()),
+            net_address: Some(self.ipv4_address.clone()),
             status: PeerStatus::Connected,
             alias: TEST_ALIAS.to_string(),
         }])
