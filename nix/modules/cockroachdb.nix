@@ -299,7 +299,8 @@ in
 
         serviceConfig =
           {
-            Type = "notify";
+            #Type = "notify";
+            Type = "simple";
             User = cfg.user;
             StateDirectory = [
               "cockroachdb"
@@ -384,6 +385,9 @@ in
 
       # for cli
       path = [ cockroach-cli ];
+
+      environment.COCKROACH_LOG_MAX_SYNC_DURATION = "40s";
+      environment.COCKROACH_ENGINE_MAX_SYNC_DURATION_DEFAULT = "40s";
 
       serviceConfig =
         {
