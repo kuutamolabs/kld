@@ -14,7 +14,6 @@ use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
 use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
 use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
@@ -22,7 +21,10 @@ use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
-use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
+use lightning::routing::scoring::{
+    ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
+};
+use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
 use crate::logger::KldLogger;
@@ -550,14 +552,14 @@ impl Controller {
         let scorer = Arc::new(Mutex::new(
             database
                 .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
+                    ProbabilisticScoringDecayParameters::default(),
                     network_graph.clone(),
                 )
                 .await?
                 .map(|s| s.0)
                 .unwrap_or_else(|| {
                     ProbabilisticScorer::new(
-                        ProbabilisticScoringParameters::default(),
+                        ProbabilisticScoringDecayParameters::default(),
                         network_graph.clone(),
                         KldLogger::global(),
                     )
@@ -569,6 +571,7 @@ impl Controller {
             KldLogger::global(),
             random_seed_bytes,
             scorer.clone(),
+            ProbabilisticScoringFeeParameters::default(),
         ));
 
         // Initialize the ChannelManager
@@ -651,13 +654,13 @@ impl Controller {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
+            custom_message_handler: IgnoringMessageHandler {},
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
             current_time.as_secs().try_into().unwrap(),
             &ephemeral_bytes,
             KldLogger::global(),
-            IgnoringMessageHandler {},
             keys_manager.clone(),
         ));
         let peer_manager = Arc::new(PeerManager::new(

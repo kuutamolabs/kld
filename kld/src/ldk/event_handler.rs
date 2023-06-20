@@ -9,9 +9,9 @@ use crate::database::payment::Payment;
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning::chain::keysinterface::KeysManager;
 use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
+use lightning::sign::KeysManager;
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -484,6 +484,7 @@ impl EventHandler {
                     Vec::new(),
                     destination_address.script_pubkey(),
                     tx_feerate,
+                    None, // lock time, TODO  It it recommended to set this to the current block height to avoid fee sniping,
                     &Secp256k1::new(),
                 ) {
                     Ok(spending_tx) => {
