@@ -6,21 +6,21 @@ mod peer_manager;
 
 use std::{
     sync::{Arc, Mutex},
-    time::Instant,
 };
 
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
 use lightning::{
-    chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
+    chain::{chainmonitor, Filter},
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},
         msgs::LightningError,
         peer_handler::SimpleArcPeerManager,
     },
     onion_message::SimpleArcOnionMessenger,
-    routing::{gossip, router::DefaultRouter, scoring::ProbabilisticScorerUsingTime},
+    routing::{gossip, router::DefaultRouter, scoring::{ProbabilisticScoringFeeParameters, ProbabilisticScorer}},
+    sign::InMemorySigner,
     util::errors::APIError,
 };
 use lightning_invoice::SignOrCreationError;
@@ -60,9 +60,9 @@ pub(crate) type ChannelManager =
 
 pub(crate) type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;
 
-pub(crate) type Scorer = ProbabilisticScorerUsingTime<Arc<NetworkGraph>, Arc<KldLogger>, Instant>;
+pub(crate) type Scorer = ProbabilisticScorer<Arc<NetworkGraph>, Arc<KldLogger>>;
 
-pub(crate) type KldRouter = DefaultRouter<Arc<NetworkGraph>, Arc<KldLogger>, Arc<Mutex<Scorer>>>;
+pub(crate) type KldRouter = DefaultRouter<Arc<NetworkGraph>, Arc<KldLogger>, Arc<Mutex<Scorer>>, ProbabilisticScoringFeeParameters, Scorer>;
 
 pub fn ldk_error(error: APIError) -> anyhow::Error {
     anyhow::Error::msg(match error {
