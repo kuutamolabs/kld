@@ -1,8 +1,8 @@
 use std::{str::FromStr, time::SystemTime};
 
 use anyhow::{anyhow, Result};
-use api::lightning::ln::PaymentHash;
 use bitcoin::{hashes::Hash, secp256k1::PublicKey};
+use lightning::ln::PaymentHash;
 
 use crate::MillisatAmount;
 

@@ -6,9 +6,9 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use kld::settings::Settings;
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
-use settings::Settings;
 use tokio_postgres::Client;
 
 pub struct CockroachManager {

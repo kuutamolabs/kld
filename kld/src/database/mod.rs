@@ -21,7 +21,7 @@ use postgres_openssl::MakeTlsConnector;
 use tokio::sync::RwLock as AsyncRwLock;
 use tokio_postgres::Client;
 
-use settings::Settings;
+use crate::settings::Settings;
 
 use crate::{log_error, Service};
 

@@ -5,28 +5,29 @@ use crate::database::payment::Payment;
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{MillisatAmount, Service};
 
+use crate::api::NetAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
-use api::lightning::chain;
-use api::lightning::chain::channelmonitor::ChannelMonitor;
-use api::lightning::chain::keysinterface::{InMemorySigner, KeysManager};
-use api::lightning::chain::BestBlock;
-use api::lightning::chain::Watch;
-use api::lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
-use api::lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
-use api::lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
-use api::lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
-use api::lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
-use api::lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
-use api::lightning::util::config::UserConfig;
 use api::FeeRate;
-use api::NetAddress;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
+use lightning::chain;
+use lightning::chain::channelmonitor::ChannelMonitor;
+use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
+use lightning::chain::BestBlock;
+use lightning::chain::Watch;
+use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
+use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
+use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
+use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
+use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
+use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
+use lightning::util::config::UserConfig;
 
 use crate::logger::KldLogger;
-use api::lightning::util::indexed_map::IndexedMap;
+use crate::settings::Settings;
+use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
@@ -35,7 +36,6 @@ use lightning_block_sync::{poll, BlockSource};
 use lightning_invoice::DEFAULT_EXPIRY_TIME;
 use log::{error, info, warn};
 use rand::random;
-use settings::Settings;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -71,7 +71,7 @@ impl LightningInterface for Controller {
 
     fn sign(&self, message: &[u8]) -> Result<String> {
         let secret_key = self.keys_manager.get_node_secret_key();
-        let signature = api::lightning::util::message_signing::sign(message, &secret_key)?;
+        let signature = lightning::util::message_signing::sign(message, &secret_key)?;
         Ok(signature)
     }
 

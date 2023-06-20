@@ -1,11 +1,11 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use crate::api::NetAddress;
 use crate::database::{peer::Peer, LdkDatabase};
+use crate::settings::Settings;
 use anyhow::{anyhow, bail, Context, Result};
-use api::NetAddress;
 use bitcoin::secp256k1::PublicKey;
 use log::{error, info};
-use settings::Settings;
 use tokio::task::JoinHandle;
 
 use super::{ChannelManager, LdkPeerManager};
@@ -122,7 +122,7 @@ impl PeerManager {
         alias[..self.settings.node_alias.len()]
             .copy_from_slice(self.settings.node_alias.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
-        let addresses: Vec<api::lightning::ln::msgs::NetAddress> = self
+        let addresses: Vec<lightning::ln::msgs::NetAddress> = self
             .addresses
             .clone()
             .into_iter()

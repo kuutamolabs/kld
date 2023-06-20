@@ -2,19 +2,19 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use api::lightning::ln::channelmanager::ChannelDetails;
+use crate::api::NetAddress;
 use api::Channel;
 use api::ChannelFee;
 use api::ChannelState;
 use api::FundChannel;
 use api::FundChannelResponse;
-use api::NetAddress;
 use api::SetChannelFee;
 use api::SetChannelFeeResponse;
 use axum::extract::Path;
 use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
+use lightning::ln::channelmanager::ChannelDetails;
 
 use crate::api::bad_request;
 use crate::ldk::LightningInterface;

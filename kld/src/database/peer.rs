@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
-use api::lightning::{ln::msgs::NetAddress, util::ser::MaybeReadable};
 use bitcoin::secp256k1::PublicKey;
+use lightning::{ln::msgs::NetAddress, util::ser::MaybeReadable};
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct Peer {

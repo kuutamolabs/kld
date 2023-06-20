@@ -12,7 +12,7 @@ use std::{
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
-use api::lightning::{
+use lightning::{
     chain::{chainmonitor, keysinterface::InMemorySigner, Filter},
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},

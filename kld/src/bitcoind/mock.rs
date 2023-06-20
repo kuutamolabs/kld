@@ -1,10 +1,8 @@
 use std::{str::FromStr, sync::Mutex};
 
-use api::lightning::chain::chaininterface::{
-    BroadcasterInterface, ConfirmationTarget, FeeEstimator,
-};
 use async_trait::async_trait;
 use bitcoin::{BlockHash, Transaction, Txid};
+use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{AsyncBlockSourceResult, BlockData, BlockHeaderData, BlockSource};
 
 use crate::Service;

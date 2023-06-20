@@ -110,10 +110,8 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode",
  "bitcoin",
  "hex",
- "lightning",
  "serde",
  "serde_json",
 ]
@@ -1200,6 +1198,7 @@ dependencies = [
  "axum-server",
  "base64 0.21.2",
  "bdk",
+ "bincode",
  "bitcoin",
  "bitcoincore-rpc-json 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitvec",
@@ -1209,6 +1208,7 @@ dependencies = [
  "futures",
  "hex",
  "hyper",
+ "lightning",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1227,7 +1227,6 @@ dependencies = [
  "rust-bip39",
  "serde",
  "serde_json",
- "settings",
  "test-utils",
  "tokio",
  "tokio-postgres",
@@ -2186,16 +2185,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "settings"
-version = "0.1.0"
-dependencies = [
- "api",
- "bitcoin",
- "clap",
- "once_cell",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2385,6 +2374,7 @@ dependencies = [
  "async-trait",
  "base64 0.21.2",
  "bitcoin",
+ "kld",
  "lightning",
  "lightning-block-sync",
  "openssl",
@@ -2393,7 +2383,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "settings",
  "tokio",
  "tokio-postgres",
 ]

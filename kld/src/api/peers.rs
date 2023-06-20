@@ -22,7 +22,7 @@ pub(crate) async fn list_peers(
         .map(|p| Peer {
             id: p.public_key.serialize().to_hex(),
             connected: p.status == PeerStatus::Connected,
-            netaddr: p.net_address.clone(),
+            netaddr: p.net_address.as_ref().map(|a| a.to_string()),
             alias: p.alias.clone(),
         })
         .collect();

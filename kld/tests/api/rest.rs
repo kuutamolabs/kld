@@ -13,11 +13,11 @@ use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::MacaroonAuth;
 use kld::logger::KldLogger;
+use kld::settings::Settings;
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use serde::Serialize;
-use settings::Settings;
 use test_utils::ports::get_available_port;
 use test_utils::{
     https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
@@ -563,7 +563,7 @@ async fn test_list_peers_readonly() -> Result<()> {
         .json()
         .await?;
     let socket_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
-    let netaddr = Some(socket_addr.into());
+    let netaddr = Some(socket_addr.to_string());
     assert!(response.contains(&Peer {
         id: TEST_PUBLIC_KEY.to_string(),
         connected: true,

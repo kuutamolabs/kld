@@ -5,17 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use api::lightning::{
-    chain::transaction::OutPoint,
-    ln::{
-        channelmanager::{ChannelCounterparty, ChannelDetails, PaymentId},
-        features::{Features, InitFeatures},
-        PaymentHash, PaymentPreimage, PaymentSecret,
-    },
-    routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
-    util::{config::UserConfig, indexed_map::IndexedMap},
-};
-use api::{FeeRate, NetAddress};
+use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{
     consensus::deserialize,
@@ -24,6 +14,7 @@ use bitcoin::{
     Network, Txid,
 };
 use hex::FromHex;
+use kld::api::NetAddress;
 use kld::{
     database::{
         invoice::Invoice,
@@ -31,6 +22,16 @@ use kld::{
     },
     ldk::{LightningInterface, OpenChannelResult, Peer, PeerStatus},
     MillisatAmount,
+};
+use lightning::{
+    chain::transaction::OutPoint,
+    ln::{
+        channelmanager::{ChannelCounterparty, ChannelDetails, PaymentId},
+        features::{Features, InitFeatures},
+        PaymentHash, PaymentPreimage, PaymentSecret,
+    },
+    routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
+    util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
 use lightning_invoice::{Currency, InvoiceBuilder};

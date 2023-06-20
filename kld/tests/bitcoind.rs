@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail, Result};
-use api::lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use bitcoin::Address;
 use kld::bitcoind::{bitcoind_interface::BitcoindInterface, BitcoindClient};
+use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{BlockData, BlockSource};
 use test_utils::{bitcoin, test_settings, TEST_ADDRESS};
 

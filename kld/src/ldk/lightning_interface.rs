@@ -1,5 +1,5 @@
 use anyhow::Result;
-use api::lightning::{
+use lightning::{
     ln::channelmanager::ChannelDetails,
     routing::gossip::{ChannelInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
@@ -10,7 +10,8 @@ use crate::{
     MillisatAmount,
 };
 
-use api::{FeeRate, NetAddress};
+use crate::api::NetAddress;
+use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 

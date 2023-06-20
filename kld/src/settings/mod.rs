@@ -1,7 +1,7 @@
 mod bitcoin_network;
 
-pub use crate::bitcoin_network::Network;
-use api::NetAddress;
+use crate::api::NetAddress;
+pub use bitcoin_network::Network;
 use clap::{builder::OsStr, Parser};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
@@ -97,9 +97,8 @@ impl Default for Settings {
 
 #[cfg(test)]
 mod test {
+    use crate::settings::Settings;
     use std::env::set_var;
-
-    use crate::Settings;
 
     #[test]
     pub fn test_parse_settings() {

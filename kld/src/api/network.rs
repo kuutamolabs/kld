@@ -1,11 +1,10 @@
+use crate::api::NetAddress;
 use anyhow::anyhow;
-use api::lightning::routing::gossip::{ChannelInfo, DirectedChannelInfo, NodeId, NodeInfo};
-use api::{
-    FeeRates, FeeRatesResponse, NetAddress, NetworkChannel, NetworkNode, OnChainFeeEstimates,
-};
+use api::{FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
+use lightning::routing::gossip::{ChannelInfo, DirectedChannelInfo, NodeId, NodeInfo};
 use std::{str::FromStr, sync::Arc};
 
 use crate::{bitcoind::bitcoind_interface::BitcoindInterface, ldk::LightningInterface};
@@ -173,7 +172,7 @@ fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
         addresses: n
             .addresses()
             .iter()
-            .map(|a| NetAddress(a.clone()))
+            .map(|a| NetAddress(a.clone()).to_string())
             .collect(),
     })
 }
