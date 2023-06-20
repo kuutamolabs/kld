@@ -3,8 +3,8 @@ use std::{fs::File, io::Read};
 use anyhow::Result;
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
+use kld::settings::Settings;
 use lightning_block_sync::{http::HttpEndpoint, rpc::RpcClient, BlockSource};
-use settings::Settings;
 
 use crate::{
     manager::{Check, Manager},
@@ -88,7 +88,7 @@ macro_rules! bitcoin {
             &$settings.node_id,
         );
         $settings.bitcoin_network =
-            settings::Network::from_str(&bitcoind.network).map_err(|e| anyhow::anyhow!(e))?;
+            kld::settings::Network::from_str(&bitcoind.network).map_err(|e| anyhow::anyhow!(e))?;
         $settings.bitcoind_rpc_port = bitcoind.rpc_port;
         $settings.bitcoin_cookie_path = bitcoind.cookie_path();
         bitcoind

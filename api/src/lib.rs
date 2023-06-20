@@ -102,15 +102,7 @@ pub struct GetInfo {
     pub version: String,
     pub api_version: String,
     pub network: String,
-    pub address: Vec<Address>,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct Address {
-    #[serde(rename = "type")]
-    pub address_type: String,
-    pub address: String,
-    pub port: u16,
+    pub address: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -459,7 +451,7 @@ pub struct NewAddressResponse {
 pub struct Peer {
     pub id: String,
     pub connected: bool,
-    pub netaddr: Option<Address>,
+    pub netaddr: Option<String>,
     pub alias: String,
 }
 
@@ -472,7 +464,7 @@ pub struct NetworkNode {
     pub color: String,
     pub last_timestamp: u32,
     pub features: String,
-    pub addresses: Vec<Address>,
+    pub addresses: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]

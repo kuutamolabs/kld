@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::Result;
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
-use settings::Settings;
+use kld::settings::Settings;
 
 mod start;
 

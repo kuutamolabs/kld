@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-settings = { path = "../settings" }
+kld = { path = "../kld" }
 anyhow = { version = "1.0.71", features = [ "backtrace" ] }
 lightning = { version = "0.0.115", features = [ "max_level_trace" ] }
 lightning-block-sync = { version = "0.0.115", features = [ "rpc-client" ] }

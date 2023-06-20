@@ -6,10 +6,10 @@ use crate::ports::get_available_port;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::serde::de::DeserializeOwned;
+use kld::settings::Settings;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use reqwest::Method;
 use serde::Serialize;
-use settings::Settings;
 use std::env::set_var;
 use std::fs;
 

@@ -7,10 +7,10 @@ use kld::key_generator::KeyGenerator;
 use kld::ldk::Controller;
 use kld::logger::KldLogger;
 use kld::prometheus::start_prometheus_exporter;
+use kld::settings::Settings;
 use kld::wallet::Wallet;
 use kld::{log_error, quit_signal, VERSION};
 use log::{error, info};
-use settings::Settings;
 use std::sync::Arc;
 use std::time::Duration;
 

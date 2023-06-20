@@ -16,7 +16,6 @@ doctest = false
 
 [dependencies]
 api = { path = "../api" }
-settings = { path = "../settings" }
 lightning = { version = "0.0.115", features = ["max_level_trace", "_test_utils"] }
 lightning-block-sync = { version = "0.0.115", features = [ "rpc-client" ] }
 lightning-invoice = { version = "0.23" }
@@ -61,6 +60,4 @@ refinery = { version = "0.8.10", features = [ "tokio-postgres" ] }
 [dev-dependencies]
 test-utils = { path = "../test-utils" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
-
-
-
+bincode = "1.3.3"

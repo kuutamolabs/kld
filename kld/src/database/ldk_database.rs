@@ -33,7 +33,7 @@ use lightning::util::ser::Writeable;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
 
-use settings::Settings;
+use crate::settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;

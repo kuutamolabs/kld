@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use super::DurableConnection;
+use crate::settings::Settings;
 use crate::to_i64;
 use anyhow::Result;
 use bdk::{
@@ -9,7 +10,6 @@ use bdk::{
 };
 use bitcoin::consensus::encode::{deserialize, serialize};
 use bitcoin::{OutPoint, Script, Transaction, TxOut, Txid};
-use settings::Settings;
 use tokio::runtime::Handle;
 
 macro_rules! execute_blocking {

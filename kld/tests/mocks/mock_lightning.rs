@@ -1,4 +1,5 @@
 use std::{
+    net::{SocketAddrV4, SocketAddrV6},
     str::FromStr,
     time::{Duration, UNIX_EPOCH},
 };
@@ -13,12 +14,13 @@ use bitcoin::{
     Network, Txid,
 };
 use hex::FromHex;
+use kld::api::NetAddress;
 use kld::{
     database::{
         invoice::Invoice,
         payment::{Payment, PaymentDirection, PaymentStatus},
     },
-    ldk::{net_utils::PeerAddress, LightningInterface, OpenChannelResult, Peer, PeerStatus},
+    ldk::{LightningInterface, OpenChannelResult, Peer, PeerStatus},
     MillisatAmount,
 };
 use lightning::{
@@ -26,7 +28,6 @@ use lightning::{
     ln::{
         channelmanager::{ChannelCounterparty, ChannelDetails, PaymentId},
         features::{Features, InitFeatures},
-        msgs::NetAddress,
         PaymentHash, PaymentPreimage, PaymentSecret,
     },
     routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
@@ -91,10 +92,7 @@ impl Default for MockLightning {
             config: None,
             feerate_sat_per_1000_weight: Some(10210),
         };
-        let ipv4_address = NetAddress::IPv4 {
-            addr: [127, 0, 0, 1],
-            port: 5555,
-        };
+        let socket_addr: SocketAddrV4 = "127.0.0.1:5555".parse().unwrap();
         let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY).unwrap();
         let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
         let payment_hash = sha256::Hash::from_slice(&[1u8; 32]).unwrap();
@@ -132,7 +130,7 @@ impl Default for MockLightning {
             wallet_balance: 8,
             channels: vec![channel],
             public_key,
-            ipv4_address,
+            ipv4_address: socket_addr.into(),
             invoice,
             payment,
         }
@@ -206,11 +204,10 @@ impl LightningInterface for MockLightning {
         Some(TEST_ALIAS.to_string())
     }
 
-    fn public_addresses(&self) -> Vec<String> {
-        vec![
-            "127.0.0.1:2324".to_string(),
-            "194.454.23.2:2020".to_string(),
-        ]
+    fn public_addresses(&self) -> Vec<NetAddress> {
+        let addr1: SocketAddrV4 = "127.0.0.1:2312".parse().unwrap();
+        let addr2: SocketAddrV6 = "[2001:db8::1]:8080".parse().unwrap();
+        vec![addr1.into(), addr2.into()]
     }
 
     async fn open_channel(
@@ -243,7 +240,7 @@ impl LightningInterface for MockLightning {
     async fn connect_peer(
         &self,
         _public_key: PublicKey,
-        _socket_addr: Option<PeerAddress>,
+        _socket_addr: Option<NetAddress>,
     ) -> Result<()> {
         Ok(())
     }

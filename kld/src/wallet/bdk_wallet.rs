@@ -4,6 +4,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use crate::settings::{Network, Settings};
 use anyhow::{bail, Result};
 use async_trait::async_trait;
 use bdk::{
@@ -26,7 +27,6 @@ use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget,
 use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use once_cell::sync::OnceCell;
-use settings::{Network, Settings};
 
 use crate::Service;
 
@@ -331,11 +331,11 @@ mod test {
         sync::{Arc, Mutex},
     };
 
+    use crate::settings::Settings;
     use anyhow::Result;
     use bdk::{database::MemoryDatabase, wallet::get_funded_wallet, Balance};
     use bitcoin::Address;
     use once_cell::sync::OnceCell;
-    use settings::Settings;
     use test_utils::{TEST_ADDRESS, TEST_WPKH};
 
     use crate::{bitcoind::MockBitcoindClient, wallet::WalletInterface};

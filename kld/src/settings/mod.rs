@@ -1,7 +1,9 @@
 mod bitcoin_network;
 
-pub use crate::bitcoin_network::Network;
+use crate::api::NetAddress;
+pub use bitcoin_network::Network;
 use clap::{builder::OsStr, Parser};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -44,8 +46,11 @@ pub struct Settings {
     #[arg(long, default_value = "testnode", env = "KLD_NODE_ALIAS")]
     pub node_alias: String,
     /// Public addresses to broadcast to the lightning network.
-    #[arg(long, value_parser = addresses_parser, default_value = "127.0.0.1:9234", env = "KLD_PUBLIC_ADDRESSES")]
-    pub public_addresses: Addresses,
+    #[arg(long, default_value = "127.0.0.1", env = "KLD_PUBLIC_IPV4_ADDRESS")]
+    pub ipv4_address: Option<Ipv4Addr>,
+
+    #[arg(long, env = "KLD_PUBLIC_IPV6_ADDRESS")]
+    pub ipv6_address: Option<Ipv6Addr>,
 
     #[arg(long, default_value = "127.0.0.1:2233", env = "KLD_EXPORTER_ADDRESS")]
     pub exporter_address: String,
@@ -72,6 +77,16 @@ impl Settings {
     pub fn load() -> Settings {
         Settings::parse()
     }
+    pub fn public_addresses(&self) -> Vec<NetAddress> {
+        let mut output = Vec::new();
+        if let Some(v4) = self.ipv4_address {
+            output.push(SocketAddr::V4(SocketAddrV4::new(v4, self.peer_port)).into());
+        }
+        if let Some(v6) = self.ipv6_address {
+            output.push(SocketAddr::V6(SocketAddrV6::new(v6, self.peer_port, 0, 0)).into());
+        }
+        output
+    }
 }
 
 impl Default for Settings {
@@ -80,32 +95,17 @@ impl Default for Settings {
     }
 }
 
-type Addresses = Vec<String>;
-
-fn addresses_parser(env: &str) -> Result<Addresses, std::io::Error> {
-    if env.is_empty() {
-        Ok(vec![])
-    } else {
-        Ok(env.split(',').map(|s| s.to_string()).collect())
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use crate::settings::Settings;
     use std::env::set_var;
-
-    use crate::Settings;
 
     #[test]
     pub fn test_parse_settings() {
-        set_var("KLD_PUBLIC_ADDRESSES", "");
+        set_var("KLD_PUBLIC_IPV4_ADDRESS", "127.0.0.1");
+        set_var("KLD_PUBLIC_IPV6_ADDRESS", "2001:db8::1");
         let settings = Settings::load();
 
-        assert_eq!(settings.public_addresses.len(), 0);
-
-        set_var("KLD_PUBLIC_ADDRESSES", "127.0.0.1:2312,1.2.3.4:4321");
-        let settings = Settings::load();
-
-        assert_eq!(settings.public_addresses.len(), 2);
+        assert_eq!(settings.public_addresses().len(), 2);
     }
 }

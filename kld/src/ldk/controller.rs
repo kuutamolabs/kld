@@ -5,6 +5,7 @@ use crate::database::payment::Payment;
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{MillisatAmount, Service};
 
+use crate::api::NetAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
@@ -18,24 +19,23 @@ use lightning::chain::BestBlock;
 use lightning::chain::Watch;
 use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
-use lightning::ln::msgs::NetAddress;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
 use lightning::util::config::UserConfig;
-use lightning_invoice::DEFAULT_EXPIRY_TIME;
 
 use crate::logger::KldLogger;
+use crate::settings::Settings;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
 use lightning_block_sync::{poll, BlockSource};
+use lightning_invoice::DEFAULT_EXPIRY_TIME;
 use log::{error, info, warn};
 use rand::random;
-use settings::Settings;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -44,7 +44,6 @@ use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 
 use super::event_handler::EventHandler;
-use super::net_utils::PeerAddress;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
@@ -261,21 +260,21 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        peer_address: Option<PeerAddress>,
+        peer_address: Option<NetAddress>,
     ) -> Result<()> {
         if let Some(net_address) = peer_address {
             self.peer_manager
                 .connect_peer(public_key, net_address)
                 .await
         } else {
-            let addresses: Vec<PeerAddress> = self
+            let addresses: Vec<NetAddress> = self
                 .network_graph
                 .read_only()
                 .get_addresses(&public_key)
                 .context("No addresses found for node")?
                 .into_iter()
-                .filter(|a| matches!(a, NetAddress::IPv4 { addr: _, port: _ }))
-                .map(PeerAddress)
+                .map(|a| a.into())
+                .filter(|a: &NetAddress| a.is_ipv4())
                 .collect();
             for address in addresses {
                 if let Err(e) = self
@@ -296,8 +295,8 @@ impl LightningInterface for Controller {
         self.peer_manager.disconnect_by_node_id(public_key).await
     }
 
-    fn public_addresses(&self) -> Vec<String> {
-        self.settings.public_addresses.clone()
+    fn public_addresses(&self) -> Vec<NetAddress> {
+        self.settings.public_addresses().to_vec()
     }
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {

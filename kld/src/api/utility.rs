@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use api::{Address, SignRequest, SignResponse, API_VERSION};
 use api::{Chain, GetInfo};
+use api::{SignRequest, SignResponse, API_VERSION};
 use axum::Json;
 use axum::{response::IntoResponse, Extension};
 use bitcoin::Network;
@@ -43,13 +43,8 @@ pub(crate) async fn get_info(
         network: lightning_interface.network().to_string(),
         address: lightning_interface
             .public_addresses()
-            .iter()
-            .filter_map(|a| a.split_once(':'))
-            .map(|a| Address {
-                address_type: "ipv4".to_string(),
-                address: a.0.to_string(),
-                port: a.1.parse().unwrap_or_default(),
-            })
+            .into_iter()
+            .map(|a| a.to_string())
             .collect(),
     };
     Ok(Json(info))

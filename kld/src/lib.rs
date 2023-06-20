@@ -8,6 +8,7 @@ pub mod key_generator;
 pub mod ldk;
 pub mod logger;
 pub mod prometheus;
+pub mod settings;
 pub mod wallet;
 
 pub const VERSION: &str = concat!("KLD v", env!("CARGO_PKG_VERSION"));

@@ -2,7 +2,6 @@ pub mod channel_utils;
 pub mod controller;
 mod event_handler;
 pub mod lightning_interface;
-pub mod net_utils;
 mod peer_manager;
 
 use std::{

@@ -1,6 +1,7 @@
 use std::sync::{Arc, Weak};
 
 use crate::logger::KldLogger;
+use crate::settings::Settings;
 use bitcoin::{blockdata::constants::genesis_block, BlockHash};
 use lightning::routing::{
     gossip::P2PGossipSync,
@@ -8,7 +9,6 @@ use lightning::routing::{
 };
 use lightning_block_sync::{BlockData, BlockSource};
 use log::warn;
-use settings::Settings;
 use tokio::runtime::Handle;
 
 use crate::ldk::{

@@ -123,11 +123,18 @@ in
         Whether to open ports used by KLD
       '';
     };
-    publicAddresses = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
+    publicIpv4Address = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
       description = lib.mDoc ''
-        Comma-seperated list of ip addresses on which the lightning node is *directly* reachable.
+        ip v4 address on which the lightning node is *directly* reachable.
+      '';
+    };
+    publicIpv6Address = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = lib.mDoc ''
+        ip v6 address on which the lightning node is *directly* reachable.
       '';
     };
     exporterAddress = lib.mkOption {
@@ -207,7 +214,8 @@ in
         KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''/var/lib/cockroachdb-certs/ca.crt'';
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
-        KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses;
+        KLD_PUBLIC_IPV4_ADDRESS = cfg.publicIpv4Address;
+        KLD_PUBLIC_IPV6_ADDRESS = cfg.publicIpv6Address;
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";

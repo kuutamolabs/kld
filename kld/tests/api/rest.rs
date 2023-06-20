@@ -1,4 +1,5 @@
 use std::assert_eq;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread::spawn;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,11 +13,11 @@ use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::MacaroonAuth;
 use kld::logger::KldLogger;
+use kld::settings::Settings;
 use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use serde::Serialize;
-use settings::Settings;
 use test_utils::ports::get_available_port;
 use test_utils::{
     https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
@@ -24,7 +25,7 @@ use test_utils::{
 };
 
 use api::{
-    routes, Address, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
+    routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
     FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
     KeysendRequest, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse,
     OutputStatus, PayInvoice, Payment, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
@@ -365,6 +366,7 @@ async fn test_get_info_readonly() -> Result<()> {
         .await?
         .json()
         .await?;
+    assert_eq!(info.address, vec!["127.0.0.1:2312", "[2001:db8::1]:8080"]);
     assert_eq!(LIGHTNING.num_peers, info.num_peers);
     Ok(())
 }
@@ -560,11 +562,8 @@ async fn test_list_peers_readonly() -> Result<()> {
         .await?
         .json()
         .await?;
-    let netaddr = Some(Address {
-        address_type: "ipv4".to_string(),
-        address: "127.0.0.1".to_string(),
-        port: 5555,
-    });
+    let socket_addr: SocketAddr = "127.0.0.1:5555".parse().unwrap();
+    let netaddr = Some(socket_addr.to_string());
     assert!(response.contains(&Peer {
         id: TEST_PUBLIC_KEY.to_string(),
         connected: true,

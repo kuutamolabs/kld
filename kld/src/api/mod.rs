@@ -1,12 +1,14 @@
 mod channels;
 mod invoices;
 mod macaroon_auth;
+mod netaddress;
 mod network;
 mod payments;
 mod peers;
 mod utility;
 mod wallet;
 mod ws;
+pub use netaddress::NetAddress;
 
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
 use serde_json::json;

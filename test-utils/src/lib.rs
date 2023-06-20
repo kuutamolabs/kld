@@ -12,7 +12,6 @@ pub use cockroach_manager::CockroachManager;
 pub use kld_manager::KldManager;
 pub use manager::Check;
 use reqwest::{Certificate, Client};
-use settings::Settings;
 
 // https://mempool.space/tx/b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86
 pub const TEST_TX_ID: &str = "b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86";
@@ -47,8 +46,8 @@ macro_rules! test_settings {
     };
 }
 
-pub fn test_settings(tmp_dir: &str, name: &str) -> Settings {
-    let mut settings = Settings::default();
+pub fn test_settings(tmp_dir: &str, name: &str) -> kld::settings::Settings {
+    let mut settings = kld::settings::Settings::default();
     settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
     settings.database_ca_cert_path =
         format!("{}/certs/cockroach/ca.crt", env!("CARGO_MANIFEST_DIR"));

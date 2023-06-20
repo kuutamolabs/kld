@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use bitcoin::BlockHash;
 use bitcoincore_rpc_json::GetBlockchainInfoResult;
 use kld::bitcoind::{bitcoind_interface::BitcoindInterface, MempoolInfo};
-use settings::Network;
+use kld::settings::Network;
 use test_utils::TEST_BLOCK_HASH;
 
 #[derive(Default)]

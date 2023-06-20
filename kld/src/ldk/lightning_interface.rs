@@ -1,9 +1,6 @@
 use anyhow::Result;
-use api::FeeRate;
-use async_trait::async_trait;
-use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 use lightning::{
-    ln::{channelmanager::ChannelDetails, msgs::NetAddress},
+    ln::channelmanager::ChannelDetails,
     routing::gossip::{ChannelInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
@@ -13,7 +10,10 @@ use crate::{
     MillisatAmount,
 };
 
-use super::net_utils::PeerAddress;
+use crate::api::NetAddress;
+use api::FeeRate;
+use async_trait::async_trait;
+use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 
 #[async_trait]
 pub trait LightningInterface: Send + Sync {
@@ -53,14 +53,14 @@ pub trait LightningInterface: Send + Sync {
 
     fn alias_of(&self, node_id: &PublicKey) -> Option<String>;
 
-    fn public_addresses(&self) -> Vec<String>;
+    fn public_addresses(&self) -> Vec<NetAddress>;
 
     async fn list_peers(&self) -> Result<Vec<Peer>>;
 
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        socket_addr: Option<PeerAddress>,
+        socket_addr: Option<NetAddress>,
     ) -> Result<()>;
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()>;

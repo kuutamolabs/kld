@@ -1,21 +1,21 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use crate::api::NetAddress;
 use crate::database::{peer::Peer, LdkDatabase};
+use crate::settings::Settings;
 use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::secp256k1::PublicKey;
-use lightning::ln::msgs::NetAddress;
 use log::{error, info};
-use settings::Settings;
 use tokio::task::JoinHandle;
 
-use super::{net_utils::PeerAddress, ChannelManager, LdkPeerManager};
+use super::{ChannelManager, LdkPeerManager};
 
 pub struct PeerManager {
     ldk_peer_manager: Arc<LdkPeerManager>,
     channel_manager: Arc<ChannelManager>,
     database: Arc<LdkDatabase>,
     settings: Arc<Settings>,
-    addresses: Vec<PeerAddress>,
+    addresses: Vec<NetAddress>,
 }
 
 impl PeerManager {
@@ -28,10 +28,7 @@ impl PeerManager {
         if settings.node_alias.len() > 32 {
             bail!("Node Alias can not be longer than 32 bytes");
         }
-        let mut addresses = vec![];
-        for address in &settings.public_addresses {
-            addresses.push(address.parse::<PeerAddress>().unwrap());
-        }
+        let addresses = settings.public_addresses();
         Ok(PeerManager {
             ldk_peer_manager,
             channel_manager,
@@ -65,7 +62,7 @@ impl PeerManager {
         });
     }
 
-    pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: PeerAddress) -> Result<()> {
+    pub async fn connect_peer(&self, public_key: PublicKey, peer_addr: NetAddress) -> Result<()> {
         if self.is_connected(&public_key) {
             return Ok(());
         }
@@ -106,7 +103,7 @@ impl PeerManager {
                                 ldk_peer_manager.clone(),
                                 database.clone(),
                                 peer.public_key,
-                                PeerAddress(peer.net_address),
+                                peer.net_address.into(),
                             )
                             .await;
                         }
@@ -125,12 +122,21 @@ impl PeerManager {
         alias[..self.settings.node_alias.len()]
             .copy_from_slice(self.settings.node_alias.as_bytes());
         let peer_manager = self.ldk_peer_manager.clone();
-        let addresses: Vec<NetAddress> = self.addresses.iter().map(|a| a.0.clone()).collect();
+        let addresses: Vec<lightning::ln::msgs::NetAddress> = self
+            .addresses
+            .clone()
+            .into_iter()
+            .map(|a| a.inner())
+            .collect();
         peer_manager.broadcast_node_announcement([0; 3], alias, addresses);
     }
 
     pub fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)> {
-        self.ldk_peer_manager.get_peer_node_ids()
+        self.ldk_peer_manager
+            .get_peer_node_ids()
+            .into_iter()
+            .map(|(k, a)| (k, a.map(NetAddress::from)))
+            .collect()
     }
 
     pub fn is_connected(&self, public_key: &PublicKey) -> bool {
@@ -154,7 +160,7 @@ async fn connect_peer(
     ldk_peer_manager: Arc<LdkPeerManager>,
     database: Arc<LdkDatabase>,
     public_key: PublicKey,
-    peer_address: PeerAddress,
+    peer_address: NetAddress,
 ) -> Result<JoinHandle<()>> {
     let socket_addr = SocketAddr::try_from(peer_address.clone())?;
     let connection_closed =
