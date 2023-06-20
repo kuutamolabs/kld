@@ -360,9 +360,10 @@ in
 
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
                 if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
-                  ${lib.optionalString (cfg.join != []) "cockroach-rpc init"}
-                  ${csql initialSql}
-                  touch /var/lib/cockroachdb/.cluster-init
+                  ${lib.optionalString (cfg.join != []) ''
+                    cockroach-rpc init 2>&1
+                  ''}
+                  touch .cluster-init
                 fi
               ''}
             ''}";
@@ -373,5 +374,50 @@ in
             RestartSec = 10;
           };
       };
+    systemd.services.cockroachdb-setup = {
+      description = "CockroachDB Database Setup";
+      documentation = [ "man:cockroach(1)" "https://www.cockroachlabs.com" ];
+
+      after = [ "network.target" "time-sync.target" "cockroachdb.service" ];
+      requires = [ "time-sync.target" "cockroachdb.service" ];
+      wantedBy = [ "multi-user.target" ];
+
+      # for cli
+      path = [ cockroach-cli ];
+
+      serviceConfig =
+        {
+          Type = "oneshot";
+          User = cfg.user;
+          StateDirectory = [
+            "cockroachdb"
+          ];
+          StateDirectoryMode = "0700";
+          RuntimeDirectory = "cockroachdb";
+          WorkingDirectory = "/var/lib/cockroachdb";
+          RemainAfterExit = true;
+
+          # we need to run this as root since do not have a password yet.
+          ExecStart = "+${pkgs.writeShellScript "setup-database" ''
+              set -x -eu -o pipefail
+              export PATH=$PATH:${cfg.package}/bin
+
+              ${lib.optionalString (cfg.rootClientCertPath != null) ''
+                if [[ ! -f /var/lib/cockroachdb/.db-init ]]; then
+                  while ! ${pkgs.netcat}/bin/nc -z localhost ${toString cfg.sql.port}; do
+                    sleep 1
+                  done
+                  ${csql initialSql}
+                  touch /var/lib/cockroachdb/.db-init
+                fi
+              ''}
+            ''}";
+
+          # A conservative-ish timeout is alright here, because for Type=notify
+          # cockroach will send systemd pings during startup to keep it alive
+          TimeoutStopSec = 60;
+          RestartSec = 10;
+        };
+    };
   };
 }

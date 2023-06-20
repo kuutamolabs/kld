@@ -201,6 +201,7 @@ in
       after = [
         "network.target"
         "cockroachdb.service"
+        "cockroachdb-setup.service"
         "bitcoind.service"
       ];
       environment = {
@@ -228,11 +229,8 @@ in
         bitcoin-cli
         pkgs.util-linux # setpriv
       ];
-      script = ''
-        set -euo pipefail
-        exec ${lib.getExe cfg.package}
-      '';
       serviceConfig = {
+        ExecStart = lib.getExe cfg.package;
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
           setpriv --reuid bitcoind-${bitcoind-instance} \
                   --regid bitcoind-${bitcoind-instance} \
