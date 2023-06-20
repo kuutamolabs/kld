@@ -109,7 +109,7 @@ pub struct GetInfo {
     pub address: Vec<String>,
 }
 
-/// A warper for lightning::ln::msgs::NetAddress
+/// A wrapper for lightning::ln::msgs::NetAddress
 #[derive(Debug, PartialEq, Clone)]
 pub struct NetAddress(pub lightning::ln::msgs::NetAddress);
 
