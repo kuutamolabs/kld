@@ -5,6 +5,7 @@ let
       imports = [ self.nixosModules.cockroachdb ];
       # Bank/TPC-C benchmarks take some memory to complete
       virtualisation.memorySize = 2048;
+      virtualisation.cores = 2;
 
       kuutamo.cockroachdb.nodeName = nodeName;
       kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
