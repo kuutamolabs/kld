@@ -330,7 +330,7 @@ in
               "${crdb}/bin/cockroach"
               (if cfg.join == [ ] then "start-single-node" else "start")
               "--store=/var/lib/cockroachdb"
-              "--socket-dir=/run/cockroachdb"
+              #"--socket-dir=/run/cockroachdb"
               # disable file-based logging
               "--log-config-file=${pkgs.writeText "cockroach-log-config.yaml" (builtins.toJSON logConfig)}"
 
