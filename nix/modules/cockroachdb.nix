@@ -408,7 +408,7 @@ in
 
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
                 if [[ ! -f /var/lib/cockroachdb/.db-init ]]; then
-                  while ! ${pkgs.netcat}/bin/nc -z localhost ${toString cfg.sql.port}; do
+                  while ! ${csql "select 1"}; do
                     sleep 1
                   done
                   ${csql initialSql}
