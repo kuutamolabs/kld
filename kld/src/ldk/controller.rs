@@ -27,6 +27,7 @@ use lightning::util::config::UserConfig;
 
 use crate::logger::KldLogger;
 use crate::settings::Settings;
+// use crate::ldk::lsp::message_handler::LiquidityManager;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
@@ -652,7 +653,8 @@ impl Controller {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
-            custom_message_handler: IgnoringMessageHandler{},
+            custom_message_handler: IgnoringMessageHandler {},
+            // custom_message_handler: Arc::new(LiquidityManager::new(keys_manager, None)), // TODO handle entropy_source, LiquidityProviderConfig
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,

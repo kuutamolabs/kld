@@ -3,6 +3,7 @@ pub mod controller;
 mod event_handler;
 pub mod lightning_interface;
 mod peer_manager;
+mod lsp;
 
 use std::{
     sync::{Arc, Mutex},
