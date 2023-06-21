@@ -296,7 +296,7 @@ impl LightningInterface for Controller {
     }
 
     fn public_addresses(&self) -> Vec<NetAddress> {
-        self.settings.public_addresses().to_vec()
+        self.settings.public_addresses.clone()
     }
 
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo> {

@@ -3,7 +3,6 @@ mod bitcoin_network;
 use crate::api::NetAddress;
 pub use bitcoin_network::Network;
 use clap::{builder::OsStr, Parser};
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -46,11 +45,8 @@ pub struct Settings {
     #[arg(long, default_value = "testnode", env = "KLD_NODE_ALIAS")]
     pub node_alias: String,
     /// Public addresses to broadcast to the lightning network.
-    #[arg(long, default_value = "127.0.0.1", env = "KLD_PUBLIC_IPV4_ADDRESS")]
-    pub ipv4_address: Option<Ipv4Addr>,
-
-    #[arg(long, env = "KLD_PUBLIC_IPV6_ADDRESS")]
-    pub ipv6_address: Option<Ipv6Addr>,
+    #[arg(long, value_delimiter = ',', env = "KLD_PUBLIC_ADDRESSES")]
+    pub public_addresses: Vec<NetAddress>,
 
     #[arg(long, default_value = "127.0.0.1:2233", env = "KLD_EXPORTER_ADDRESS")]
     pub exporter_address: String,
@@ -77,16 +73,6 @@ impl Settings {
     pub fn load() -> Settings {
         Settings::parse()
     }
-    pub fn public_addresses(&self) -> Vec<NetAddress> {
-        let mut output = Vec::new();
-        if let Some(v4) = self.ipv4_address {
-            output.push(SocketAddr::V4(SocketAddrV4::new(v4, self.peer_port)).into());
-        }
-        if let Some(v6) = self.ipv6_address {
-            output.push(SocketAddr::V6(SocketAddrV6::new(v6, self.peer_port, 0, 0)).into());
-        }
-        output
-    }
 }
 
 impl Default for Settings {
@@ -102,10 +88,8 @@ mod test {
 
     #[test]
     pub fn test_parse_settings() {
-        set_var("KLD_PUBLIC_IPV4_ADDRESS", "127.0.0.1");
-        set_var("KLD_PUBLIC_IPV6_ADDRESS", "2001:db8::1");
+        set_var("KLD_PUBLIC_ADDRESSES", "127.0.0.1:2312,[2001:db8::1]:1212");
         let settings = Settings::load();
-
-        assert_eq!(settings.public_addresses().len(), 2);
+        assert_eq!(settings.public_addresses.len(), 2);
     }
 }
