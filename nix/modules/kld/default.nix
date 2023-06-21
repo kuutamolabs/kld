@@ -123,18 +123,11 @@ in
         Whether to open ports used by KLD
       '';
     };
-    publicIpv4Address = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
+    publicAddresses = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
       description = lib.mDoc ''
-        ip v4 address on which the lightning node is *directly* reachable.
-      '';
-    };
-    publicIpv6Address = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = lib.mDoc ''
-        ip v6 address on which the lightning node is *directly* reachable.
+        Comma-seperated list of lightning network addresses on which the node is *directly* reachable.
       '';
     };
     exporterAddress = lib.mkOption {
@@ -215,8 +208,6 @@ in
         KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''/var/lib/cockroachdb-certs/ca.crt'';
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
-        KLD_PUBLIC_IPV4_ADDRESS = cfg.publicIpv4Address;
-        KLD_PUBLIC_IPV6_ADDRESS = cfg.publicIpv6Address;
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
@@ -224,7 +215,8 @@ in
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
         KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
-      };
+      } // lib.optionalAttrs (cfg.publicAddresses != [ ]) { KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses; };
+
       path = [
         bitcoin-cli
         pkgs.util-linux # setpriv

@@ -28,7 +28,7 @@ impl PeerManager {
         if settings.node_alias.len() > 32 {
             bail!("Node Alias can not be longer than 32 bytes");
         }
-        let addresses = settings.public_addresses();
+        let addresses = settings.public_addresses.clone();
         Ok(PeerManager {
             ldk_peer_manager,
             channel_manager,

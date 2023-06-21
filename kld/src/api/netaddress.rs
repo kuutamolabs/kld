@@ -185,7 +185,7 @@ impl FromStr for NetAddress {
         if let Ok(sktv6) = SocketAddrV6::from_str(s) {
             return Ok(sktv6.into());
         }
-        anyhow::bail!("Invalid or unsuppoerted network address: {s:?}")
+        anyhow::bail!("Invalid or unsupported network address: {s:?}")
     }
 }
 
