@@ -4,7 +4,7 @@ let
     {
       imports = [ self.nixosModules.cockroachdb ];
       # Bank/TPC-C benchmarks take some memory to complete
-      virtualisation.memorySize = 2048;
+      virtualisation.memorySize = 4096;
       virtualisation.cores = 2;
 
       kuutamo.cockroachdb.nodeName = nodeName;
