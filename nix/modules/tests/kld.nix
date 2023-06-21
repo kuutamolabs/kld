@@ -30,6 +30,12 @@
         configHash = "";
         hasMonitoring = false;
       };
+
+      # IO on garnix is really slow
+      virtualisation.fileSystems."/var/lib/cockroachdb" = {
+        fsType = "tmpfs";
+      };
+
     };
   };
 
