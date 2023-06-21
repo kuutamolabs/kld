@@ -1,22 +1,23 @@
 { stdenv, fetchurl, autoPatchelfHook, lib }:
 let
-  version = "22.2.3";
+  version = "23.1.4";
+
   srcs = {
     "x86_64-linux" = {
       url = "https://binaries.cockroachdb.com/cockroach-v${version}.linux-amd64.tgz";
-      sha256 = "sha256-CHuk4lYf6YQiOmcAcjkHuzL3PW/o55G99a5JjbKF4NY=";
+      sha256 = "sha256-MSX4U4nIG9TUQ8tugmzL3Y60pJ7y05f5W9suO9bnmss=";
     };
     "aarch64-darwin" = {
       url = "https://binaries.cockroachdb.com/cockroach-v${version}.darwin-11.0-arm64.tgz";
-      sha256 = "sha256-Zu85JhQ4VvblNSXJMuY1yE2AOBTrv9uiIrwtevqj2RA=";
+      sha256 = "sha256-0KE20Vn7phqnuQujetdXs/AWmWMC9sjVWyzT46pg9IE=";
     };
     "x86_64-darwin" = {
       url = "https://binaries.cockroachdb.com/cockroach-v${version}.darwin-10.9-amd64.tgz";
-      sha256 = "sha256-bfhBbxydZjjVXSPlQfF9G7OMA0FTE6Q+G7UM6wWJlvE=";
+      sha256 = "0i48bk4pdfxz7khafsl2wz3q3akrsr28r5gs2rgrivyv2bdm5501";
     };
   };
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "cockroachdb";
   inherit version;
   src = fetchurl srcs.${stdenv.system};
@@ -25,7 +26,9 @@ stdenv.mkDerivation rec {
 
   installPhase = ''
     install -D -m755 cockroach $out/bin/cockroach
-    cp -r lib $out/lib
+    if [[ -d lib ]]; then
+      cp -r lib $out/lib
+    fi
   '';
   meta = with lib; {
     homepage = "https://www.cockroachlabs.com";
