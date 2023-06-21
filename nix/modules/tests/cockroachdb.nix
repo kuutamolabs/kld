@@ -4,7 +4,8 @@ let
     {
       imports = [ self.nixosModules.cockroachdb ];
       # Bank/TPC-C benchmarks take some memory to complete
-      virtualisation.memorySize = 2048;
+      virtualisation.memorySize = 4096;
+      virtualisation.cores = 2;
 
       kuutamo.cockroachdb.nodeName = nodeName;
       kuutamo.cockroachdb.caCertPath = ./cockroach-certs/ca.crt;
@@ -19,6 +20,11 @@ let
         192.168.1.2 db2
         192.168.1.3 db3
       '';
+      # IO on garnix is really slow
+      virtualisation.fileSystems."/var/lib/cockroachdb" = {
+        fsType = "tmpfs";
+      };
+
       kuutamo.cockroachdb.join = [ "db1" "db2" "db3" ];
     };
 

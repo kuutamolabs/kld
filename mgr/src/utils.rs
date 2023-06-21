@@ -1,4 +1,4 @@
-///! utils for deploy and control remote machines
+//! utils for deploy and control remote machines
 use anyhow::{Context, Result};
 use std::process::{Command, Output};
 
