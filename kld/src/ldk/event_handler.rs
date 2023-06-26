@@ -3,12 +3,15 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 
+use bitcoin::blockdata::locktime::PackedLockTime;
+use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::database::payment::Payment;
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
+use lightning::chain::BestBlock;
 use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
 use lightning::sign::KeysManager;
@@ -484,7 +487,9 @@ impl EventHandler {
                     Vec::new(),
                     destination_address.script_pubkey(),
                     tx_feerate,
-                    None, // lock time, TODO  It it recommended to set this to the current block height to avoid fee sniping,
+                    Some(PackedLockTime(
+                        BestBlock::from_network(Network::Bitcoin).height(),
+                    )),
                     &Secp256k1::new(),
                 ) {
                     Ok(spending_tx) => {
