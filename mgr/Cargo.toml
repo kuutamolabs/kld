@@ -22,7 +22,7 @@ tempfile = "3"
 ctrlc = { version = "3.4", features = ["termination"] }
 nix = "0.26.2"
 regex = "1"
-clap = { version = "4.3.4", features = ["derive", "env"] }
+clap = { version = "4.3.8", features = ["derive", "env"] }
 lazy_static = "1.4.0"
 reqwest = { version = "0.11.16", features = ["blocking"], default-features = false }
 url = { version = "2.0", features = ["serde"] }
