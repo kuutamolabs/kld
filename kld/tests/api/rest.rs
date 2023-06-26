@@ -434,9 +434,9 @@ async fn test_list_channels_readonly() -> Result<()> {
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
     assert_eq!(TEST_TX_ID, channel.funding_txid);
     assert!(!channel.private);
-    assert_eq!(100000, channel.msatoshi_to_us);
-    assert_eq!(1000000, channel.msatoshi_total);
-    assert_eq!(200000, channel.msatoshi_to_them);
+    assert_eq!(10001, channel.msatoshi_to_us);
+    assert_eq!(1000000000, channel.msatoshi_total);
+    assert_eq!(999989999, channel.msatoshi_to_them);
     assert_eq!(5000, channel.their_channel_reserve_satoshis);
     assert_eq!(Some(10000), channel.our_channel_reserve_satoshis);
     assert_eq!(100000, channel.spendable_msatoshi);

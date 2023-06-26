@@ -128,6 +128,7 @@ impl PeerManager {
             .into_iter()
             .map(|a| a.inner())
             .collect();
+        info!("Broadcasting node announcement message");
         peer_manager.broadcast_node_announcement([0; 3], alias, addresses);
     }
 
