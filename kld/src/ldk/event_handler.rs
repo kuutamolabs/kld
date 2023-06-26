@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 
@@ -10,9 +10,9 @@ use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::chain::keysinterface::KeysManager;
-use lightning::events::{Event, PaymentPurpose};
+use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
-use log::{error, info};
+use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
@@ -185,15 +185,28 @@ impl EventHandler {
                 purpose,
                 amount_msat,
                 receiver_node_id: _,
-                via_channel_id: _,
+                via_channel_id,
                 via_user_channel_id: _,
                 onion_fields: _,
-                claim_deadline: _,
+                claim_deadline,
             } => {
                 info!(
-                    "EVENT: Payment claimable with hash {} of {} millisatoshis",
+                    "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
+                    if let Some(channel_id) = via_channel_id {
+                        format!("via channel ID {} ", channel_id.encode_hex::<String>())
+                    } else {
+                        String::new()
+                    },
+                    if let Some(deadline) = claim_deadline {
+                        format!(
+                            "with deadline {:?}",
+                            SystemTime::UNIX_EPOCH + Duration::from_secs(deadline as u64)
+                        )
+                    } else {
+                        String::new()
+                    }
                 );
                 match purpose {
                     PaymentPurpose::InvoicePayment {
@@ -215,7 +228,7 @@ impl EventHandler {
                 receiver_node_id: _,
             } => {
                 info!(
-                    "EVENT: Payment claimed with payment hash {} of {} millisatoshis",
+                    "EVENT: Payment claimed with hash {} of {} millisatoshis",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
@@ -276,33 +289,64 @@ impl EventHandler {
             }
             Event::PaymentPathSuccessful {
                 payment_id,
-                payment_hash: _,
-                path: _,
+                payment_hash,
+                path,
             } => {
                 info!(
-                    "EVENT: Payment path successful for payment with ID {}",
-                    payment_id.0.encode_hex::<String>()
+                    "EVENT: Payment path with {} hops successful for payment with ID {}{}",
+                    path.hops.len(),
+                    payment_id.0.encode_hex::<String>(),
+                    payment_hash
+                        .map(|h| format!(" and hash {}", h.0.encode_hex::<String>()))
+                        .unwrap_or_default()
                 );
             }
             Event::PaymentPathFailed {
-                payment_id: _,
+                payment_id,
                 payment_hash,
-                payment_failed_permanently: _,
-                failure: _,
-                path: _,
-                short_channel_id: _,
+                payment_failed_permanently,
+                failure,
+                path,
+                short_channel_id,
             } => {
+                match failure {
+                    PathFailure::InitialSend { err } => warn!("{}", ldk_error(err)),
+                    PathFailure::OnPath { network_update } => {
+                        if let Some(update) = network_update {
+                            self.network_graph.handle_network_update(&update);
+                        }
+                    }
+                };
                 info!(
-                    "EVENT: Payment path failed for payment with hash {}",
-                    payment_hash.0.encode_hex::<String>()
+                    "EVENT: Payment path failed for payment with hash {}{}. Payment failed {} {}. Path: {:?}",
+                    payment_hash.0.encode_hex::<String>(),
+                    payment_id.map(|id| format!(" and ID {}", id.0.encode_hex::<String>())).unwrap_or_default(),
+                    if payment_failed_permanently {
+                        "permanently"
+                    } else {
+                        "temporarily"
+                    },
+                    if let Some(short_channel_id) = short_channel_id {
+                        format!("along channel {}", short_channel_id)
+                    } else {
+                        "".to_string()
+                    },
+                    path
                 );
             }
             Event::PaymentFailed {
                 payment_id,
-                payment_hash: _,
+                payment_hash,
                 reason,
             } => {
-                info!("EVENT: Failed to send payment {payment_id:?}: {reason:?}",);
+                info!(
+                    "EVENT: Failed to send payment with ID {} and hash {}{}",
+                    payment_id.0.encode_hex::<String>(),
+                    payment_hash.0.encode_hex::<String>(),
+                    reason
+                        .map(|r| format!(" for reason {r:?}"))
+                        .unwrap_or_default()
+                );
                 if let Some((mut payment, respond)) =
                     self.async_api_requests.payments.get(&payment_id).await
                 {
@@ -373,12 +417,12 @@ impl EventHandler {
                     "of unknown amount".to_string()
                 };
                 let fee_str = if let Some(fee_earned) = fee_earned_msat {
-                    format!("earning {fee_earned} msat")
+                    format!(" earning {fee_earned} msat")
                 } else {
-                    "claimed onchain".to_string()
+                    "".to_string()
                 };
                 info!(
-                    "EVENT: Forwarded payment{from_prev_str}{to_next_str} {amount_str}, earning {fee_str} msat {from_onchain_str}",
+                    "EVENT: Forwarded payment{from_prev_str}{to_next_str} {amount_str},{fee_str} {from_onchain_str}",
                 );
             }
             Event::ProbeSuccessful { .. } => {}
@@ -388,9 +432,30 @@ impl EventHandler {
                 failed_next_destination,
             } => {
                 error!(
-                    "EVENT: Failed handling HTLC from channel {} to {:?}",
+                    "EVENT: Failed handling HTLC from channel {}. {}",
                     prev_channel_id.encode_hex::<String>(),
-                    failed_next_destination
+                    match failed_next_destination {
+                        HTLCDestination::NextHopChannel {
+                            node_id: _,
+                            channel_id,
+                        } => format!("Next hop channel ID {}", channel_id.encode_hex::<String>()),
+                        HTLCDestination::UnknownNextHop {
+                            requested_forward_scid,
+                        } => format!(
+                            "Unknown next hop to requested SCID {}",
+                            requested_forward_scid
+                        ),
+                        HTLCDestination::InvalidForward {
+                            requested_forward_scid,
+                        } => format!(
+                            "Invalid forward to requested SCID {}",
+                            requested_forward_scid
+                        ),
+                        HTLCDestination::FailedPayment { payment_hash } => format!(
+                            "Failed payment with hash {}",
+                            payment_hash.0.encode_hex::<String>()
+                        ),
+                    }
                 );
             }
             Event::PendingHTLCsForwardable { time_forwardable } => {
