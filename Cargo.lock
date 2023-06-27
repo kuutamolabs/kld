@@ -1288,7 +1288,7 @@ dependencies = [
 [[package]]
 name = "lightning"
 version = "0.0.115"
-source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=498f2331459d8031031ef151a44c90d700aa8c7e#498f2331459d8031031ef151a44c90d700aa8c7e"
+source = "git+https://github.com/yanganto/rust-lightning.git?rev=f074d6d881c5f9029761706c5e1221a207ccded6#f074d6d881c5f9029761706c5e1221a207ccded6"
 dependencies = [
  "bitcoin",
  "hex",
@@ -1299,7 +1299,7 @@ dependencies = [
 [[package]]
 name = "lightning-background-processor"
 version = "0.0.115"
-source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=498f2331459d8031031ef151a44c90d700aa8c7e#498f2331459d8031031ef151a44c90d700aa8c7e"
+source = "git+https://github.com/yanganto/rust-lightning.git?rev=f074d6d881c5f9029761706c5e1221a207ccded6#f074d6d881c5f9029761706c5e1221a207ccded6"
 dependencies = [
  "bitcoin",
  "lightning",
@@ -1309,7 +1309,7 @@ dependencies = [
 [[package]]
 name = "lightning-block-sync"
 version = "0.0.115"
-source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=498f2331459d8031031ef151a44c90d700aa8c7e#498f2331459d8031031ef151a44c90d700aa8c7e"
+source = "git+https://github.com/yanganto/rust-lightning.git?rev=f074d6d881c5f9029761706c5e1221a207ccded6#f074d6d881c5f9029761706c5e1221a207ccded6"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
@@ -1320,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.23.0"
-source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=498f2331459d8031031ef151a44c90d700aa8c7e#498f2331459d8031031ef151a44c90d700aa8c7e"
+source = "git+https://github.com/yanganto/rust-lightning.git?rev=f074d6d881c5f9029761706c5e1221a207ccded6#f074d6d881c5f9029761706c5e1221a207ccded6"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -1333,7 +1333,7 @@ dependencies = [
 [[package]]
 name = "lightning-net-tokio"
 version = "0.0.115"
-source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=498f2331459d8031031ef151a44c90d700aa8c7e#498f2331459d8031031ef151a44c90d700aa8c7e"
+source = "git+https://github.com/yanganto/rust-lightning.git?rev=f074d6d881c5f9029761706c5e1221a207ccded6#f074d6d881c5f9029761706c5e1221a207ccded6"
 dependencies = [
  "bitcoin",
  "lightning",
@@ -1343,7 +1343,7 @@ dependencies = [
 [[package]]
 name = "lightning-rapid-gossip-sync"
 version = "0.0.115"
-source = "git+https://github.com/lightningdevkit/rust-lightning.git?rev=498f2331459d8031031ef151a44c90d700aa8c7e#498f2331459d8031031ef151a44c90d700aa8c7e"
+source = "git+https://github.com/yanganto/rust-lightning.git?rev=f074d6d881c5f9029761706c5e1221a207ccded6#f074d6d881c5f9029761706c5e1221a207ccded6"
 dependencies = [
  "bitcoin",
  "lightning",

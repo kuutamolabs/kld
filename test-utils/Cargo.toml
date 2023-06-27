@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 kld = { path = "../kld" }
 anyhow = { version = "1.0.71", features = [ "backtrace" ] }
-lightning = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev = "498f2331459d8031031ef151a44c90d700aa8c7e", features = [ "max_level_trace" ] }
-lightning-block-sync = { git = "https://github.com/lightningdevkit/rust-lightning.git", rev = "498f2331459d8031031ef151a44c90d700aa8c7e", features = [ "rpc-client" ] }
+lightning = { git = "https://github.com/yanganto/rust-lightning.git", rev = "f074d6d881c5f9029761706c5e1221a207ccded6", features = [ "max_level_trace" ] }
+lightning-block-sync = { git = "https://github.com/yanganto/rust-lightning.git", rev = "f074d6d881c5f9029761706c5e1221a207ccded6", features = [ "rpc-client" ] }
 bitcoin = "0.29.2"
 rand = "0.8.5"
 base64 = "0.21.2"
