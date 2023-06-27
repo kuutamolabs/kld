@@ -26,10 +26,6 @@ let
   buildInputs = [ openssl ];
   nativeBuildInputs = [ pkg-config ];
   cargoExtraArgs = "--workspace --all-features";
-  outputHashes = {
-    "https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result" = "sha256-7uK8gVQUk3zFMCu6OxQRKqY3aK39GA+MuAefagSXrtk=";
-    "https://github.com/JosephGoulden/rust-bitcoincore-rpc?branch=jsonrpc" = "sha256-S4Fwm3WAwpddvEz0cIyaIT39PKp4wZrRvJZj6THgt9o=";
-  };
   # this is a bit of an hack, since we have to copy the vendor dir and find the broken symlink and replace it with the real file
   # we should remove (or disable) this if pointing to a stable release again
   cargoVendorDir = (craneLib.vendorCargoDeps { inherit src; }).overrideAttrs (old: {
@@ -45,25 +41,25 @@ let
     '';
   });
   cargoArtifacts = craneLib.buildDepsOnly {
-    inherit src cargoToml buildInputs nativeBuildInputs cargoExtraArgs outputHashes cargoVendorDir;
+    inherit src cargoToml buildInputs nativeBuildInputs cargoExtraArgs cargoVendorDir;
   };
 in
 craneLib.buildPackage {
   name = "kld";
-  inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs outputHashes cargoVendorDir;
+  inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoVendorDir;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
   passthru = {
     clippy = craneLib.cargoClippy {
-      inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes cargoVendorDir;
+      inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs cargoVendorDir;
       cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
     };
     benches = craneLib.mkCargoDerivation {
-      inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes cargoVendorDir;
+      inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs cargoVendorDir;
       buildPhaseCargoCommand = "cargo bench --no-run";
     };
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
-      inherit src cargoToml cargoArtifacts buildInputs cargoExtraArgs outputHashes cargoVendorDir;
+      inherit src cargoToml cargoArtifacts buildInputs cargoExtraArgs cargoVendorDir;
       nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
     };
     inherit cargoArtifacts cargoVendorDir;
