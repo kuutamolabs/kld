@@ -218,6 +218,7 @@ pub fn bad_request(e: impl Into<anyhow::Error>) -> ApiError {
     ApiError::BadRequest(anyhow_err.into())
 }
 
+#[allow(clippy::all)]
 pub mod codegen {
     #![allow(dead_code)]
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
