@@ -260,10 +260,15 @@ impl EventHandler {
                 fee_paid_msat,
             } => {
                 info!(
-                    "EVENT: Payment with id {:?} sent successfully with fee {}",
-                    payment_id,
+                    "EVENT: Payment with hash {}{} sent successfully{}",
+                    payment_hash.0.encode_hex::<String>(),
+                    if let Some(id) = payment_id {
+                        format!(" and ID {}", id.0.encode_hex::<String>())
+                    } else {
+                        "".to_string()
+                    },
                     if let Some(fee) = fee_paid_msat {
-                        format!(" (fee {fee} msat)")
+                        format!(" with fee {fee} msat")
                     } else {
                         "".to_string()
                     },

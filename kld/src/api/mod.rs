@@ -8,6 +8,7 @@ mod peers;
 mod utility;
 mod wallet;
 mod ws;
+
 pub use netaddress::NetAddress;
 
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
@@ -25,7 +26,7 @@ use crate::{
         },
         payments::{keysend, list_payments, pay_invoice},
         peers::{connect_peer, disconnect_peer, list_peers},
-        utility::sign,
+        utility::{estimate_channel_liquidity_range, sign},
         wallet::{get_balance, list_funds, new_address, transfer},
         ws::ws_handler,
     },
@@ -78,10 +79,13 @@ impl RestApi {
     ) -> Result<()> {
         let cors = CorsLayer::permissive();
         let handle = Handle::new();
-
         let readonly_routes = Router::new()
             .route(routes::ROOT, get(root))
             .route(routes::GET_INFO, get(get_info))
+            .route(
+                routes::ESTIMATE_CHANNEL_LIQUIDITY,
+                get(estimate_channel_liquidity_range),
+            )
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_FUNDS, get(list_funds))
             .route(routes::LIST_CHANNELS, get(list_channels))
@@ -212,4 +216,10 @@ pub fn bad_request(e: impl Into<anyhow::Error>) -> ApiError {
     let anyhow_err = e.into();
     info!("{}", anyhow_err);
     ApiError::BadRequest(anyhow_err.into())
+}
+
+#[allow(clippy::all)]
+pub mod codegen {
+    #![allow(dead_code)]
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }

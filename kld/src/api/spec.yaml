@@ -1,0 +1,36 @@
+swagger: "2.0"
+info:
+  version: 0.0.1
+  title: KLD REST API
+basePath: /
+paths:
+  /v1/estimateChannelLiquidity:
+    get:
+      description: Estimate channel liquidity
+      operationId: estimateChannelLiquidity
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          required:
+            - scid
+            - target
+          type: object
+          properties:
+            scid:
+              type: integer
+            target:
+              type: string
+      responses:
+        "200":
+          schema:
+            required:
+              - minimum
+              - maximum
+            type: object
+            properties:
+              minimum:
+                type: integer
+              maximum:
+                type: integer
