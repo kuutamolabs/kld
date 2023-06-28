@@ -165,6 +165,15 @@ enum Command {
         #[arg(long)]
         bolt11: Option<String>,
     },
+    /// Esimate channel liquidity to a target node
+    EstimateChannelLiquidity {
+        // Short channel ID
+        #[arg(long)]
+        scid: u64,
+        // Bolt11 invoice of payment
+        #[arg(long)]
+        target: String,
+    },
 }
 
 fn main() {
@@ -220,6 +229,9 @@ fn run_command(args: Args) -> Result<()> {
         Command::ListInvoices { label } => api.list_invoices(label)?,
         Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
         Command::ListPayments { bolt11 } => api.list_payments(bolt11)?,
+        Command::EstimateChannelLiquidity { scid, target } => {
+            api.estimate_channel_liquidity(scid, target)?
+        }
     };
     if output != "null" {
         println!("{output}");

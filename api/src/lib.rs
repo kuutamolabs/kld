@@ -19,6 +19,8 @@ pub mod routes {
     pub const SIGN: &str = "/v1/signmessage";
     /// Get node information.
     pub const GET_INFO: &str = "/v1/getinfo";
+    /// Estimate channel liquidity range to a particular node.
+    pub const ESTIMATE_CHANNEL_LIQUIDITY: &str = "/v1/estimateChannelLiquidity";
     /// Websocket
     pub const WEBSOCKET: &str = "/v1/ws";
 

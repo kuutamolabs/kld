@@ -10,6 +10,7 @@ use api::{
     SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
+use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 
 use serde::de;
 
@@ -256,6 +257,22 @@ async fn test_cli_pay_invoice() -> Result<()> {
 async fn test_cli_list_payments() -> Result<()> {
     let output = run_cli("list-payments", &["--bolt11", "bolt11"]).await?;
     let _: Vec<Payment> = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_estimate_channel_liquidity() -> Result<()> {
+    let output = run_cli(
+        "estimate-channel-liquidity",
+        &[
+            "--scid",
+            &TEST_SHORT_CHANNEL_ID.to_string(),
+            "--target",
+            TEST_PUBLIC_KEY,
+        ],
+    )
+    .await?;
+    let _: GetV1EstimateChannelLiquidityResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

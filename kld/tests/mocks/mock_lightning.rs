@@ -319,4 +319,12 @@ impl LightningInterface for MockLightning {
     async fn keysend_payment(&self, _payee: NodeId, _amount: MillisatAmount) -> Result<Payment> {
         Ok(self.payment.clone())
     }
+
+    async fn estimated_channel_liquidity_range(
+        &self,
+        _scid: u64,
+        _target: &NodeId,
+    ) -> Result<Option<(u64, u64)>> {
+        Ok(Some((100, 100000)))
+    }
 }

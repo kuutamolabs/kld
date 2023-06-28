@@ -11,6 +11,8 @@ use futures::FutureExt;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
+use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
+use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::MacaroonAuth;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
@@ -301,6 +303,13 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LIST_PAYMENTS)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::ESTIMATE_CHANNEL_LIQUIDITY)
             .send()
             .await?
             .status()
@@ -862,6 +871,27 @@ async fn test_keysend_admin() -> Result<()> {
     assert_eq!(Some(1000), response.amount_msat);
     assert_eq!(1000000, response.amount_sent_msat);
     assert_eq!("succeeded", response.status);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_estimate_liquidity() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: GetV1EstimateChannelLiquidityResponse = readonly_request_with_body(
+        &context,
+        Method::GET,
+        routes::ESTIMATE_CHANNEL_LIQUIDITY,
+        || GetV1EstimateChannelLiquidityBody {
+            scid: TEST_SHORT_CHANNEL_ID as i64,
+            target: TEST_PUBLIC_KEY.to_string(),
+        },
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
+    assert_eq!(100, response.minimum);
+    assert_eq!(100000, response.maximum);
     Ok(())
 }
 

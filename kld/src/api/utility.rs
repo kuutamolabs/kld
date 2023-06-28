@@ -4,12 +4,16 @@ use api::{SignRequest, SignResponse, API_VERSION};
 use axum::Json;
 use axum::{response::IntoResponse, Extension};
 use bitcoin::Network;
+use lightning::routing::gossip::NodeId;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::ldk::LightningInterface;
 use crate::VERSION;
 
+use super::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
+use super::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn get_info(
@@ -66,4 +70,22 @@ pub(crate) async fn sign(
         .sign(body.message.as_bytes())
         .map_err(internal_server)?;
     Ok(Json(SignResponse { signature }))
+}
+
+pub(crate) async fn estimate_channel_liquidity_range(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Json(body): Json<GetV1EstimateChannelLiquidityBody>,
+) -> Result<impl IntoResponse, ApiError> {
+    let node_id = NodeId::from_str(&body.target).map_err(bad_request)?;
+    match lightning_interface
+        .estimated_channel_liquidity_range(body.scid as u64, &node_id)
+        .await
+        .map_err(internal_server)?
+    {
+        Some((minimum, maximum)) => Ok(Json(GetV1EstimateChannelLiquidityResponse {
+            minimum: minimum as i64,
+            maximum: maximum as i64,
+        })),
+        None => Err(ApiError::NotFound(body.scid.to_string())),
+    }
 }
