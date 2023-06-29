@@ -36,7 +36,9 @@ pub(crate) trait ProtocolMessageHandler {
 ///
 /// Allows end-user to configure options when using the [`LiquidityManager`]
 /// to provide liquidity services to clients.
-pub struct LiquidityProviderConfig;
+pub struct LiquidityProviderConfig {
+    provider: String,
+}
 
 /// The main interface into LSP functionality.
 ///
@@ -57,8 +59,6 @@ where
     ES::Target: EntropySource,
 {
     /// Constructor for the LiquidityManager
-    ///
-    /// Sets up the required protocol message handlers based on the given [`LiquidityProviderConfig`].
     pub fn new(entropy_source: ES, provider_config: Option<LiquidityProviderConfig>) -> Self {
         let pending_messages = Arc::new(Mutex::new(vec![]));
 

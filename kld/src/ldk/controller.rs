@@ -18,7 +18,7 @@ use lightning::chain::BestBlock;
 use lightning::chain::Watch;
 use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
-use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
+use lightning::ln::peer_handler::MessageHandler;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{
@@ -27,6 +27,7 @@ use lightning::routing::scoring::{
 use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
+use crate::ldk::lsp::message_handler::{LiquidityManager, LiquidityProviderConfig};
 use crate::logger::KldLogger;
 use crate::settings::Settings;
 use lightning::util::indexed_map::IndexedMap;
@@ -541,6 +542,12 @@ impl Controller {
             current_time.as_secs(),
             current_time.subsec_nanos(),
         ));
+        let liquidity_manager = LiquidityManager::new(
+            keys_manager.clone(),
+            Some(LiquidityProviderConfig {
+                provider: "kuutamo-lsp-node".into(),
+            }),
+        );
 
         let network_graph = Arc::new(
             database
@@ -647,14 +654,14 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
-            IgnoringMessageHandler {},
+            liquidity_manager,
         ));
         let ephemeral_bytes: [u8; 32] = random();
         let lightning_msg_handler = MessageHandler {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
-            custom_message_handler: IgnoringMessageHandler {},
+            custom_message_handler: liquidity_manager,
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,

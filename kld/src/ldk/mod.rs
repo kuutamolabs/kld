@@ -8,14 +8,16 @@ mod peer_manager;
 use std::sync::{Arc, Mutex};
 
 use crate::database::LdkDatabase;
+use crate::ldk::lsp::message_handler::LiquidityManager;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
+use lightning::sign::KeysManager;
 use lightning::{
     chain::{chainmonitor, Filter},
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},
         msgs::LightningError,
-        peer_handler::SimpleArcPeerManager,
+        peer_handler::PeerManager,
     },
     onion_message::SimpleArcOnionMessenger,
     routing::{
@@ -40,13 +42,20 @@ pub static MIN_FEERATE: u32 = 253;
 
 pub type NetworkGraph = gossip::NetworkGraph<Arc<KldLogger>>;
 
-pub(crate) type LdkPeerManager = SimpleArcPeerManager<
+pub(crate) type LdkPeerManager = PeerManager<
     SocketDescriptor,
-    ChainMonitor,
-    BitcoindClient,
-    BitcoindClient,
-    BitcoindUtxoLookup,
-    KldLogger,
+    Arc<SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>>,
+    Arc<
+        gossip::P2PGossipSync<
+            Arc<gossip::NetworkGraph<Arc<KldLogger>>>,
+            Arc<BitcoindUtxoLookup>,
+            Arc<KldLogger>,
+        >,
+    >,
+    Arc<SimpleArcOnionMessenger<KldLogger>>,
+    Arc<KldLogger>,
+    LiquidityManager<KeysManager>,
+    Arc<KeysManager>,
 >;
 
 pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
