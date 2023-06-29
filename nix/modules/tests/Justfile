@@ -62,7 +62,7 @@ generate-kld-certs:
 
     [alt_names]
     DNS.1 = localhost
-    IP.1 = 127.0.0.1
+    IP.1 = 0.0.0.0
     EOF
 
     openssl req -newkey rsa:4096 -keyout kld-certs/kld.key -out kld-certs/kld.csr -nodes -config kld-certs/kld.conf

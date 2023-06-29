@@ -139,7 +139,7 @@ in
     };
     restApiAddress = lib.mkOption {
       type = lib.types.str;
-      default = "127.0.0.1:2244";
+      default = "0.0.0.0:2244";
       description = lib.mDoc ''
         Address and port to bind to for the REST API
       '';
@@ -178,7 +178,7 @@ in
       ];
     };
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 ];
+    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 2244 ];
 
     users.users.kld = {
       isSystemUser = true;

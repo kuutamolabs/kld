@@ -125,7 +125,7 @@ keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 subjectAltName = @alt_names
 [alt_names]
 DNS.1 = localhost
-IP.1 = 127.0.0.1
+IP.1 = 0.0.0.0
 IP.2 = ::1
 "#,
     )?;

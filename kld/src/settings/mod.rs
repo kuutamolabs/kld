@@ -50,7 +50,7 @@ pub struct Settings {
 
     #[arg(long, default_value = "127.0.0.1:2233", env = "KLD_EXPORTER_ADDRESS")]
     pub exporter_address: String,
-    #[arg(long, default_value = "127.0.0.1:2244", env = "KLD_REST_API_ADDRESS")]
+    #[arg(long, default_value = "0.0.0.0:2244", env = "KLD_REST_API_ADDRESS")]
     pub rest_api_address: String,
 
     #[arg(long, default_value = "127.0.0.1", env = "KLD_DATABASE_HOST")]
