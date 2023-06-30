@@ -2,6 +2,7 @@ use super::{cert_is_atleast_valid_for, openssl, CertRenewPolicy};
 use crate::Host;
 use anyhow::{Context, Result};
 use std::collections::BTreeMap;
+use std::net::IpAddr;
 use std::path::Path;
 
 fn create_tls_key(ca_key_path: &Path) -> Result<()> {
@@ -108,14 +109,14 @@ fn create_or_update_cert(
     ca_key_path: &Path,
     ca_cert_path: &Path,
     policy: &CertRenewPolicy,
+    ipv4_address: &Option<IpAddr>,
+    ipv6_address: &Option<IpAddr>
 ) -> Result<()> {
     if cert_path.exists() && cert_is_atleast_valid_for(cert_path, policy.cert_renew_seconds) {
         return Ok(());
     }
     let cert_conf = cert_path.with_file_name("cert.conf");
-    std::fs::write(
-        &cert_conf,
-        r#"[req]
+    let mut conf = r#"[req]
 req_extensions = v3_req
 distinguished_name = req_distinguished_name
 [req_distinguished_name]
@@ -127,7 +128,18 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 IP.1 = 0.0.0.0
 IP.2 = ::1
-"#,
+"#.to_string();
+    let mut ip_num = 3;
+    if let Some(ip) = ipv4_address {
+        conf.push_str(&format!("\nIP.{ip_num} = {ip}"));
+        ip_num = 4;
+    }
+    if let Some(ip) = ipv6_address {
+        conf.push_str(&format!("\nIP.{ip_num} = {ip}"))
+    }
+    std::fs::write(
+        &cert_conf,
+        conf
     )?;
     openssl(&[
         "req",
@@ -210,6 +222,8 @@ pub fn create_or_update_lightning_certs(
             &ca_key_path,
             &ca_cert_path,
             renew_policy,
+            &h.ipv4_address,
+            &h.ipv6_address
         )
         .with_context(|| format!("Failed to create lightning certificate: {}", h.name))?
     }
