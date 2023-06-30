@@ -18,7 +18,7 @@ use lightning::chain::BestBlock;
 use lightning::chain::Watch;
 use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
-use lightning::ln::peer_handler::MessageHandler;
+use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{
@@ -28,6 +28,7 @@ use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
 use crate::ldk::lsp::message_handler::{LiquidityManager, LiquidityProviderConfig};
+use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
 use lightning::util::indexed_map::IndexedMap;
@@ -50,8 +51,8 @@ use super::event_handler::EventHandler;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
-    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LdkPeerManager,
-    LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus,
+    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LightningInterface,
+    NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus,
 };
 
 #[async_trait]
@@ -267,7 +268,7 @@ impl LightningInterface for Controller {
     ) -> Result<()> {
         if let Some(net_address) = peer_address {
             self.peer_manager
-                .connect_peer(public_key, net_address)
+                .connect_peer(self.database.clone(), public_key, net_address)
                 .await
         } else {
             let addresses: Vec<NetAddress> = self
@@ -282,7 +283,7 @@ impl LightningInterface for Controller {
             for address in addresses {
                 if let Err(e) = self
                     .peer_manager
-                    .connect_peer(public_key, address.clone())
+                    .connect_peer(self.database.clone(), public_key, address.clone())
                     .await
                 {
                     info!("Could not connect to {public_key}@{address}. {}", e);
@@ -295,7 +296,9 @@ impl LightningInterface for Controller {
     }
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
-        self.peer_manager.disconnect_by_node_id(public_key).await
+        self.peer_manager
+            .disconnect_and_drop_by_node_id(self.database.clone(), public_key)
+            .await
     }
 
     fn public_addresses(&self) -> Vec<NetAddress> {
@@ -542,12 +545,12 @@ impl Controller {
             current_time.as_secs(),
             current_time.subsec_nanos(),
         ));
-        let liquidity_manager = LiquidityManager::new(
+        let liquidity_manager = Arc::new(LiquidityManager::new(
             keys_manager.clone(),
             Some(LiquidityProviderConfig {
                 provider: "kuutamo-lsp-node".into(),
             }),
-        );
+        ));
 
         let network_graph = Arc::new(
             database
@@ -654,7 +657,9 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
-            liquidity_manager,
+            IgnoringMessageHandler {},
+            // TODO let lsp support onion
+            // liquidity_manager,
         ));
         let ephemeral_bytes: [u8; 32] = random();
         let lightning_msg_handler = MessageHandler {
@@ -663,19 +668,13 @@ impl Controller {
             onion_message_handler: onion_messenger,
             custom_message_handler: liquidity_manager,
         };
-        let ldk_peer_manager = Arc::new(LdkPeerManager::new(
+        let peer_manager = Arc::new(PeerManager::new(
             lightning_msg_handler,
             current_time.as_secs().try_into().unwrap(),
             &ephemeral_bytes,
             KldLogger::global(),
             keys_manager.clone(),
         ));
-        let peer_manager = Arc::new(PeerManager::new(
-            ldk_peer_manager.clone(),
-            channel_manager.clone(),
-            database.clone(),
-            settings.clone(),
-        )?);
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
 
@@ -688,6 +687,7 @@ impl Controller {
             database.clone(),
             peer_manager.clone(),
             async_api_requests.clone(),
+            settings.clone(),
         );
 
         // Background Processing
@@ -697,7 +697,7 @@ impl Controller {
             chain_monitor.clone(),
             channel_manager.clone(),
             GossipSync::p2p(gossip_sync),
-            ldk_peer_manager.clone(),
+            peer_manager.clone(),
             KldLogger::global(),
             Some(scorer),
         );
@@ -706,6 +706,11 @@ impl Controller {
         let channel_manager_clone = channel_manager.clone();
         let peer_manager_clone = peer_manager.clone();
         let wallet_clone = wallet.clone();
+        let peer_port = settings.peer_port;
+        let db = database.clone();
+        let cm = channel_manager.clone();
+        let node_alias = settings.node_alias.clone();
+        let addresses = settings.public_addresses.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
@@ -725,9 +730,11 @@ impl Controller {
             };
 
             wallet_clone.keep_sync_with_chain();
-            peer_manager_clone.listen().await;
-            peer_manager_clone.keep_channel_peers_connected();
-            peer_manager_clone.broadcast_node_announcement();
+            if let Err(e) = peer_manager_clone.listen(peer_port).await {
+                error!("could not listen on peer port: {e}");
+            };
+            peer_manager_clone.keep_channel_peers_connected(db, cm);
+            peer_manager_clone.regularly_broadcast_node_announcement(node_alias, addresses);
         });
 
         Ok(Controller {

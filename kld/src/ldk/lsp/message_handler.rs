@@ -37,7 +37,7 @@ pub(crate) trait ProtocolMessageHandler {
 /// Allows end-user to configure options when using the [`LiquidityManager`]
 /// to provide liquidity services to clients.
 pub struct LiquidityProviderConfig {
-    provider: String,
+    pub provider: String,
 }
 
 /// The main interface into LSP functionality.
@@ -72,28 +72,6 @@ where
             provider_config,
         }
     }
-
-    fn handle_lsps_message(
-        &self,
-        msg: LSPSMessage,
-        sender_node_id: &PublicKey,
-    ) -> Result<(), lightning::ln::msgs::LightningError> {
-        match msg {
-            LSPSMessage::Invalid => {
-                return Err(LightningError { err: format!("{} did not understand a message we previously sent, maybe they don't support a protocol we are trying to use?", sender_node_id), action: ErrorAction::IgnoreAndLog(Level::Error)});
-            }
-            LSPSMessage::LSPS0(msg) => {
-                self.lsps0_message_handler
-                    .handle_message(msg, sender_node_id)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn enqueue_message(&self, node_id: PublicKey, msg: LSPSMessage) {
-        let mut pending_msgs = self.pending_messages.lock().unwrap();
-        pending_msgs.push((node_id, msg));
-    }
 }
 
 impl<ES: Deref> CustomMessageReader for LiquidityManager<ES>
@@ -123,13 +101,34 @@ where
         msg: Self::CustomMessage,
         sender_node_id: &PublicKey,
     ) -> Result<(), lightning::ln::msgs::LightningError> {
-        let mut request_id_to_method_map = self.request_id_to_method_map.lock().unwrap();
+        let mut request_id_to_method_map = if let Ok(map) = self.request_id_to_method_map.lock() {
+            map
+        } else {
+            return Err(LightningError {
+                err: format!("could not map request id to method for {}", sender_node_id),
+                action: ErrorAction::IgnoreAndLog(Level::Error),
+            });
+        };
 
         match LSPSMessage::from_str_with_id_map(&msg.payload, &mut request_id_to_method_map) {
-            Ok(msg) => self.handle_lsps_message(msg, sender_node_id),
-            Err(_) => {
-                self.enqueue_message(*sender_node_id, LSPSMessage::Invalid);
+            Ok(LSPSMessage::Invalid) => {
+                Err(LightningError { err: format!("{} did not understand a message we previously sent, maybe they don't support a protocol we are trying to use?", sender_node_id), action: ErrorAction::IgnoreAndLog(Level::Error)})
+            }
+            Ok(LSPSMessage::LSPS0(msg)) => {
+                self.lsps0_message_handler
+                    .handle_message(msg, sender_node_id)?;
                 Ok(())
+            }
+            _ => {
+                if let Ok(mut pending_msgs) = self.pending_messages.lock() {
+                    pending_msgs.push((*sender_node_id, LSPSMessage::Invalid));
+                    Ok(())
+                } else {
+                    Err(LightningError {
+                        err: "Fail to get pending messages".to_string(),
+                        action: ErrorAction::IgnoreAndLog(Level::Error),
+                    })
+                }
             }
         }
     }
