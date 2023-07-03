@@ -1,3 +1,7 @@
+#![allow(clippy::drop_non_drop)]
+// NOTE: lightning macro does not follow clippy
+// Disable clippy only on macro when following issue fixed
+// https://github.com/rust-lang/rust-clippy/issues/407
 use lightning::impl_writeable_msg;
 use lightning::ln::wire;
 use serde::de;
