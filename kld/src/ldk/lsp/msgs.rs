@@ -26,6 +26,10 @@ const LSPS0_LISTPROTOCOLS_METHOD_NAME: &str = "lsps0.listprotocols";
 
 pub const LSPS_MESSAGE_TYPE: u16 = 37913;
 
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(default)]
+struct EmptyObject {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawLSPSMessage {
     pub payload: String,
@@ -49,10 +53,6 @@ pub struct ResponseError {
     pub data: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
-#[serde(default)]
-pub struct ListProtocolsRequest {}
-
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ListProtocolsResponse {
     pub protocols: Vec<u16>,
@@ -60,13 +60,13 @@ pub struct ListProtocolsResponse {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LSPS0Request {
-    ListProtocols(ListProtocolsRequest),
+    ListProtocols,
 }
 
 impl LSPS0Request {
     pub fn method(&self) -> &str {
         match self {
-            LSPS0Request::ListProtocols(_) => "lsps0.listprotocols",
+            LSPS0Request::ListProtocols => "lsps0.listprotocols",
         }
     }
 }
@@ -144,8 +144,8 @@ impl Serialize for LSPSMessage {
                 jsonrpc_object.serialize_field(JSONRPC_ID_FIELD_KEY, &request_id.0)?;
 
                 match request {
-                    LSPS0Request::ListProtocols(params) => {
-                        jsonrpc_object.serialize_field(JSONRPC_PARAMS_FIELD_KEY, params)?
+                    LSPS0Request::ListProtocols => {
+                        jsonrpc_object.serialize_field(JSONRPC_PARAMS_FIELD_KEY, &EmptyObject {})?
                     }
                 };
             }
@@ -229,7 +229,7 @@ impl<'de, 'a> Visitor<'de> for LSPSMessageVisitor<'a> {
 
                     Ok(LSPSMessage::LSPS0(LSPS0Message::Request(
                         RequestId(id),
-                        LSPS0Request::ListProtocols(ListProtocolsRequest {}),
+                        LSPS0Request::ListProtocols,
                     )))
                 }
                 _ => Err(de::Error::custom(format!(
@@ -298,7 +298,7 @@ mod tests {
             msg,
             LSPSMessage::LSPS0(LSPS0Message::Request(
                 RequestId("request:id:xyz123".to_string()),
-                LSPS0Request::ListProtocols(ListProtocolsRequest {})
+                LSPS0Request::ListProtocols
             ))
         );
     }
@@ -307,7 +307,7 @@ mod tests {
     fn serializes_request() {
         let request = LSPSMessage::LSPS0(LSPS0Message::Request(
             RequestId("request:id:xyz123".to_string()),
-            LSPS0Request::ListProtocols(ListProtocolsRequest {}),
+            LSPS0Request::ListProtocols,
         ));
         let json = serde_json::to_string(&request).unwrap();
         assert_eq!(

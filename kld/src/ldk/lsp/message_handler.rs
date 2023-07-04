@@ -50,7 +50,7 @@ where
 {
     pending_messages: Arc<Mutex<Vec<(PublicKey, LSPSMessage)>>>,
     request_id_to_method_map: Mutex<HashMap<String, String>>,
-    lsps0_message_handler: LSPS0MessageHandler<ES>,
+    pub(crate) lsps0_message_handler: LSPS0MessageHandler<ES>,
     provider_config: Option<LiquidityProviderConfig>,
 }
 

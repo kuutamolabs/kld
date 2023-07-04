@@ -105,6 +105,8 @@ pub trait LightningInterface: Send + Sync {
     async fn list_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>>;
 
     async fn list_payments(&self, bolt11: Option<Invoice>) -> Result<Vec<Payment>>;
+
+    async fn lsp_list_protocols(&self, node_id: Option<PublicKey>) -> Result<Vec<String>>;
 }
 
 pub struct Peer {

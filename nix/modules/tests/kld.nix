@@ -57,6 +57,7 @@
     db1.wait_until_succeeds("curl -s http://127.0.0.1:9273/metrics")
 
     db1.wait_until_succeeds("kld-cli get-info")
+    db1.wait_until_succeeds("kld-cli lsp-list-protocols")
 
     # test if we can interact with the bitcoin node
     db1.succeed("kld-bitcoin-cli createwallet testwallet >&2")

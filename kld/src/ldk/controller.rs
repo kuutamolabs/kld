@@ -28,6 +28,7 @@ use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
 use crate::ldk::lsp::message_handler::{LiquidityManager, LiquidityProviderConfig};
+use crate::ldk::lsp::msgs;
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
@@ -422,6 +423,26 @@ impl LightningInterface for Controller {
             .fetch_payments(invoice.map(|i| i.payment_hash))
             .await
     }
+
+    async fn lsp_list_protocols(&self, node_id: Option<PublicKey>) -> Result<Vec<String>> {
+        if let Some(_node_id) = node_id {
+            bail!("Query lsp protocols from other node are not implemented now")
+        } else {
+            match self
+                .liquidity_manager
+                .lsps0_message_handler
+                .handle_request(msgs::LSPS0Request::ListProtocols)
+            {
+                Ok(msgs::LSPS0Response::ListProtocols(resp)) => {
+                    // NOTE
+                    // protocol bytes will map to exactly protocol name in future (undefinded now)
+                    let protocols = resp.protocols.into_iter().map(|u| u.to_string()).collect();
+                    Ok(protocols)
+                }
+                _ => unreachable!("Should be ListProtocols response"),
+            }
+        }
+    }
 }
 
 pub(crate) struct AsyncAPIRequests {
@@ -488,6 +509,7 @@ pub struct Controller {
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
+    liquidity_manager: Arc<LiquidityManager<Arc<KeysManager>>>,
 }
 
 impl Controller {
@@ -666,7 +688,7 @@ impl Controller {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
-            custom_message_handler: liquidity_manager,
+            custom_message_handler: liquidity_manager.clone(),
         };
         let peer_manager = Arc::new(PeerManager::new(
             lightning_msg_handler,
@@ -749,6 +771,7 @@ impl Controller {
             wallet,
             async_api_requests,
             background_processor: Arc::new(Mutex::new(Some(background_processor))),
+            liquidity_manager,
         })
     }
 

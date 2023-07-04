@@ -3,6 +3,7 @@ use std::{
     str::FromStr,
 };
 
+use bitcoin::secp256k1::PublicKey;
 use bitcoin::Transaction;
 use serde::{
     de::{self, Visitor},
@@ -76,6 +77,10 @@ pub mod routes {
     pub const GENERATE_INVOICE: &str = "/v1/invoice/genInvoice";
     /// List the invoices on the node
     pub const LIST_INVOICES: &str = "/v1/invoice/listInvoices";
+
+    /// --- LSP ---
+    /// List Protocols
+    pub const LSP_LIST_PROTOCOLS: &str = "/v1/lsp/listProtocols";
 }
 
 #[derive(Serialize, Deserialize)]
@@ -550,6 +555,12 @@ pub struct ListPaysParams {
 pub struct ListInvoiceParams {
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub label: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LspListProtocolsParams {
+    pub node_id: Option<PublicKey>,
 }
 
 fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>

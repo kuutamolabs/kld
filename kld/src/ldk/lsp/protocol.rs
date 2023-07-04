@@ -7,8 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::ldk::lsp::message_handler::ProtocolMessageHandler;
 use crate::ldk::lsp::msgs::{
-    LSPS0Message, LSPS0Request, LSPS0Response, LSPSMessage, ListProtocolsRequest,
-    ListProtocolsResponse, RequestId, ResponseError,
+    LSPS0Message, LSPS0Request, LSPS0Response, LSPSMessage, ListProtocolsResponse, ResponseError,
 };
 use crate::ldk::lsp::utils;
 
@@ -40,7 +39,7 @@ where
     pub fn list_protocols(&self, counterparty_node_id: PublicKey) {
         let msg = LSPS0Message::Request(
             utils::generate_request_id(&self.entropy_source),
-            LSPS0Request::ListProtocols(ListProtocolsRequest {}),
+            LSPS0Request::ListProtocols,
         );
 
         self.enqueue_message(counterparty_node_id, msg);
@@ -53,22 +52,16 @@ where
             .push((counterparty_node_id, message.into()));
     }
 
-    fn handle_request(
+    pub(crate) fn handle_request(
         &self,
-        request_id: RequestId,
         request: LSPS0Request,
-        counterparty_node_id: &PublicKey,
-    ) -> Result<(), lightning::ln::msgs::LightningError> {
+    ) -> Result<LSPS0Response, lightning::ln::msgs::LightningError> {
         match request {
-            LSPS0Request::ListProtocols(_) => {
-                let msg = LSPS0Message::Response(
-                    request_id,
-                    LSPS0Response::ListProtocols(ListProtocolsResponse {
-                        protocols: self.protocols.clone(),
-                    }),
-                );
-                self.enqueue_message(*counterparty_node_id, msg);
-                Ok(())
+            LSPS0Request::ListProtocols => {
+                let resp = LSPS0Response::ListProtocols(ListProtocolsResponse {
+                    protocols: self.protocols.clone(),
+                });
+                Ok(resp)
             }
         }
     }
@@ -112,7 +105,10 @@ where
     ) -> Result<(), LightningError> {
         match message {
             LSPS0Message::Request(request_id, request) => {
-                self.handle_request(request_id, request, counterparty_node_id)
+                let resp = self.handle_request(request)?;
+                let msg = LSPS0Message::Response(request_id, resp);
+                self.enqueue_message(*counterparty_node_id, msg);
+                Ok(())
             }
             LSPS0Message::Response(_, response) => {
                 self.handle_response(response, counterparty_node_id)
@@ -124,6 +120,7 @@ where
 #[cfg(test)]
 mod tests {
 
+    use crate::ldk::lsp::msgs::RequestId;
     use std::sync::Arc;
 
     use super::*;
@@ -147,10 +144,8 @@ mod tests {
             pending_messages.clone(),
         ));
 
-        let list_protocols_request = LSPS0Message::Request(
-            RequestId("xyz123".to_string()),
-            LSPS0Request::ListProtocols(ListProtocolsRequest {}),
-        );
+        let list_protocols_request =
+            LSPS0Message::Request(RequestId("xyz123".to_string()), LSPS0Request::ListProtocols);
         let counterparty_node_id = utils::parse_pubkey(
             "027100442c3b79f606f80f322d98d499eefcb060599efc5d4ecb00209c2cb54190",
         )
@@ -202,7 +197,7 @@ mod tests {
             *message,
             LSPSMessage::LSPS0(LSPS0Message::Request(
                 RequestId("00000000000000000000000000000000".to_string()),
-                LSPS0Request::ListProtocols(ListProtocolsRequest {})
+                LSPS0Request::ListProtocols
             ))
         );
     }

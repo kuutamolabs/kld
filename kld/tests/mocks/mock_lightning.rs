@@ -319,4 +319,8 @@ impl LightningInterface for MockLightning {
     async fn keysend_payment(&self, _payee: NodeId, _amount: MillisatAmount) -> Result<Payment> {
         Ok(self.payment.clone())
     }
+
+    async fn lsp_list_protocols(&self, _node_id: Option<PublicKey>) -> Result<Vec<String>> {
+        Ok(Vec::new())
+    }
 }

@@ -3,6 +3,7 @@ mod client;
 use crate::client::Api;
 use anyhow::Result;
 use api::FeeRate;
+use bitcoin::secp256k1::PublicKey;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -165,6 +166,12 @@ enum Command {
         #[arg(long)]
         bolt11: Option<String>,
     },
+    /// LSP method - List Protocols for a node
+    LspListProtocols {
+        /// Node ID to query, if not provide then query on the local node
+        #[arg(long)]
+        node_id: Option<PublicKey>,
+    },
 }
 
 fn main() {
@@ -220,6 +227,7 @@ fn run_command(args: Args) -> Result<()> {
         Command::ListInvoices { label } => api.list_invoices(label)?,
         Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
         Command::ListPayments { bolt11 } => api.list_payments(bolt11)?,
+        Command::LspListProtocols { node_id } => api.lsp_list_protocols(node_id)?,
     };
     if output != "null" {
         println!("{output}");

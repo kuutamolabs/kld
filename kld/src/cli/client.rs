@@ -258,6 +258,16 @@ impl Api {
         deserialize::<Vec<Payment>>(response)
     }
 
+    pub fn lsp_list_protocols(&self, node_id: Option<PublicKey>) -> Result<String> {
+        let route = if let Some(node_id) = node_id {
+            format!("{}?node_id={node_id}", routes::LSP_LIST_PROTOCOLS)
+        } else {
+            routes::LSP_LIST_PROTOCOLS.to_string()
+        };
+        let response = self.request(Method::GET, &route).send()?;
+        deserialize::<Vec<String>>(response)
+    }
+
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
         self.client
             .request(method, format!("https://{}{}", self.host, route))
