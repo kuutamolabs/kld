@@ -29,6 +29,7 @@ impl Api {
     pub fn new(host: &str, cert_path: &str, macaroon_path: &str) -> Result<Api> {
         let macaroon = read_file(macaroon_path)?;
         let cert = Certificate::from_pem(&read_file(cert_path)?)?;
+        // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl)
         let client = ClientBuilder::new()
             .add_root_certificate(cert)
             .use_native_tls()
