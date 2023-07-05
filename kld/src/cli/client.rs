@@ -31,6 +31,7 @@ impl Api {
         let cert = Certificate::from_pem(&read_file(cert_path)?)?;
         // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl). Also turn off SNI as this requires host names as well.
         let client = ClientBuilder::new()
+            .danger_accept_invalid_certs(true)
             .tls_sni(false)
             .add_root_certificate(cert)
             .use_native_tls()
