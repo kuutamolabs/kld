@@ -178,7 +178,7 @@ in
       ];
     };
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 ];
+    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 2244 ];
 
     users.users.kld = {
       isSystemUser = true;
