@@ -299,7 +299,9 @@ pub fn main() -> Result<()> {
                     dry_update(&args, dry_update_args, &config, &flake)
                 }
                 Command::Update(ref update_args) => update(&args, update_args, &config, &flake),
-                Command::Rollback(ref rollback_args) => rollback(&args, rollback_args, &config, &flake),
+                Command::Rollback(ref rollback_args) => {
+                    rollback(&args, rollback_args, &config, &flake)
+                }
                 Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
                 Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
                 Command::SystemInfo(ref args) => system_info(args, &config),

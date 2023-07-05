@@ -20,7 +20,8 @@ in
     kuutamo.kld.publicAddresses = [ ]
       ++ lib.optional (cfg ? ipv4_address) "${cfg.ipv4_address}:9234"
       ++ lib.optional (cfg ? ipv6_address) "[${cfg.ipv6_address}]:9234";
-    kuutamo.kld.restApiAddress = "0.0.0.0:2244";
+    kuutamo.kld.exposeRestApi = cfg.expose_rest_api or false;
+    kuutamo.kld.restApiPort = cfg.rest_api_port or 2244;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;

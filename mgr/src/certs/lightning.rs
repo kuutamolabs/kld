@@ -114,7 +114,7 @@ fn create_or_update_cert(
         return Ok(());
     }
     let cert_conf = cert_path.with_file_name("cert.conf");
-let mut conf = r#"[req]
+    let mut conf = r#"[req]
 req_extensions = v3_req
 distinguished_name = req_distinguished_name
 [req_distinguished_name]
@@ -126,7 +126,8 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 IP.1 = 127.0.0.1
 IP.2 = ::1
-"#.to_string();
+"#
+    .to_string();
     let mut ip_num = 3;
     if let Some(ip) = host.ipv4_address {
         conf += &format!("IP.{ip_num} = {ip}\n");
@@ -135,10 +136,7 @@ IP.2 = ::1
     if let Some(ip) = host.ipv6_address {
         conf += &format!("IP.{ip_num} = {ip}\n");
     }
-    std::fs::write(
-        &cert_conf,
-        conf
-    )?;
+    std::fs::write(&cert_conf, conf)?;
     openssl(&[
         "req",
         "-new",
