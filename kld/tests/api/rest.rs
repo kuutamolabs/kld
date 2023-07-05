@@ -811,11 +811,15 @@ async fn test_list_invoice_unpaid() -> Result<()> {
 async fn test_list_payments() -> Result<()> {
     let context = create_api_server().await?;
     let payment = &LIGHTNING.payment;
-    let response: Vec<Payment> = admin_request(&context, Method::GET, routes::LIST_PAYMENTS)?
-        .send()
-        .await?
-        .json()
-        .await?;
+    let response: Vec<Payment> = admin_request(
+        &context,
+        Method::GET,
+        &format!("{}?direction={}", routes::LIST_PAYMENTS, payment.direction),
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
     let payment_response = response.get(0).context("expected payment")?;
     assert_eq!(payment.bolt11, payment_response.bolt11);
     assert_eq!(payment.status.to_string(), payment_response.status);

@@ -545,6 +545,8 @@ pub struct GenerateInvoice {
 pub struct ListPaysParams {
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub invoice: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub direction: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

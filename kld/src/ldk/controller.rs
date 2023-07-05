@@ -1,7 +1,7 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::invoice::Invoice;
-use crate::database::payment::Payment;
+use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{MillisatAmount, Service};
 
@@ -425,9 +425,13 @@ impl LightningInterface for Controller {
         Ok(payment)
     }
 
-    async fn list_payments(&self, invoice: Option<Invoice>) -> Result<Vec<Payment>> {
+    async fn list_payments(
+        &self,
+        invoice: Option<Invoice>,
+        direction: Option<PaymentDirection>,
+    ) -> Result<Vec<Payment>> {
         self.database
-            .fetch_payments(invoice.map(|i| i.payment_hash))
+            .fetch_payments(invoice.map(|i| i.payment_hash), direction)
             .await
     }
 

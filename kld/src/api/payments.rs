@@ -5,7 +5,10 @@ use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
-use crate::{database::invoice::Invoice, ldk::LightningInterface};
+use crate::{
+    database::{invoice::Invoice, payment::PaymentDirection},
+    ldk::LightningInterface,
+};
 
 use super::{bad_request, internal_server, ApiError};
 
@@ -78,8 +81,13 @@ pub(crate) async fn list_payments(
         .map(|i| i.try_into())
         .transpose()
         .map_err(bad_request)?;
+    let direction = params
+        .direction
+        .map(|d| PaymentDirection::from_str(&d))
+        .transpose()
+        .map_err(bad_request)?;
     let payments: Vec<Payment> = lightning_interface
-        .list_payments(invoice)
+        .list_payments(invoice, direction)
         .await
         .map_err(internal_server)?
         .into_iter()

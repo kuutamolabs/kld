@@ -255,7 +255,11 @@ async fn test_cli_pay_invoice() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_list_payments() -> Result<()> {
-    let output = run_cli("list-payments", &["--bolt11", "bolt11"]).await?;
+    let output = run_cli(
+        "list-payments",
+        &["--bolt11", "bolt11", "--direction", "inbound"],
+    )
+    .await?;
     let _: Vec<Payment> = deserialize(&output.stdout)?;
     Ok(())
 }
