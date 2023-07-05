@@ -6,7 +6,10 @@ use lightning::{
 };
 
 use crate::{
-    database::{invoice::Invoice, payment::Payment},
+    database::{
+        invoice::Invoice,
+        payment::{Payment, PaymentDirection},
+    },
     MillisatAmount,
 };
 
@@ -104,7 +107,11 @@ pub trait LightningInterface: Send + Sync {
 
     async fn list_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>>;
 
-    async fn list_payments(&self, bolt11: Option<Invoice>) -> Result<Vec<Payment>>;
+    async fn list_payments(
+        &self,
+        bolt11: Option<Invoice>,
+        direction: Option<PaymentDirection>,
+    ) -> Result<Vec<Payment>>;
 
     async fn estimated_channel_liquidity_range(
         &self,

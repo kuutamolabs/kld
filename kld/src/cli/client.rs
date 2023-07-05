@@ -250,13 +250,22 @@ impl Api {
         deserialize::<PaymentResponse>(response)
     }
 
-    pub fn list_payments(&self, bolt11: Option<String>) -> Result<String> {
-        let route = if let Some(bolt11) = bolt11 {
-            format!("{}?{bolt11}", routes::LIST_PAYMENTS)
-        } else {
-            routes::LIST_PAYMENTS.to_string()
-        };
-        let response = self.request(Method::GET, &route).send()?;
+    pub fn list_payments(
+        &self,
+        bolt11: Option<String>,
+        direction: Option<String>,
+    ) -> Result<String> {
+        let mut params = vec![];
+        if let Some(bolt11) = bolt11 {
+            params.push(("bolt11", bolt11));
+        }
+        if let Some(direction) = direction {
+            params.push(("direction", direction));
+        }
+        let response = self
+            .request(Method::GET, routes::LIST_PAYMENTS)
+            .query(&params)
+            .send()?;
         deserialize::<Vec<Payment>>(response)
     }
 

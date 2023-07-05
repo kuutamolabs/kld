@@ -117,7 +117,7 @@ pub async fn test_invoice_payments() -> Result<()> {
         assert_eq!(1, result.len());
 
         let result = database
-            .fetch_payments(None)
+            .fetch_payments(None, None)
             .await?
             .into_iter()
             .find(|p| p.id == payment.id)
@@ -128,7 +128,7 @@ pub async fn test_invoice_payments() -> Result<()> {
         database.persist_payment(&payment).await?;
 
         let result = database
-            .fetch_payments(Some(payment.hash))
+            .fetch_payments(Some(payment.hash), Some(PaymentDirection::Inbound))
             .await?
             .into_iter()
             .find(|p| p.id == payment.id)

@@ -3,8 +3,8 @@ use crate::logger::KldLogger;
 use crate::to_i64;
 
 use super::invoice::Invoice;
-use super::payment::Payment;
-use super::DurableConnection;
+use super::payment::{Payment, PaymentDirection};
+use super::{DurableConnection, Params};
 use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::Hash;
@@ -33,6 +33,7 @@ use lightning::util::ser::Writeable;
 use log::{debug, error, info};
 use once_cell::sync::OnceCell;
 
+use super::peer::Peer;
 use crate::settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -43,8 +44,6 @@ use std::time::SystemTime;
 use std::{fs, io};
 use tokio::runtime::Handle;
 use tokio_postgres::Row;
-
-use super::peer::Peer;
 
 pub struct LdkDatabase {
     settings: Arc<Settings>,
@@ -132,6 +131,7 @@ impl LdkDatabase {
     }
 
     pub async fn delete_peer(&self, public_key: &PublicKey) -> Result<()> {
+        debug!("Delete peer");
         self.durable_connection
             .get()
             .await
@@ -149,20 +149,40 @@ impl LdkDatabase {
             "Persist invoice with hash: {}",
             invoice.payment_hash.0.to_hex()
         );
+        let query = "
+            UPSERT INTO invoices (
+                payment_hash,
+                label,
+                bolt11,
+                payee_pub_key,
+                expiry,
+                amount,
+                timestamp
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)";
         self.durable_connection
             .get()
             .await
             .execute(
-                "UPSERT INTO invoices (payment_hash, label, bolt11, payee_pub_key, expiry, amount, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                &[&invoice.payment_hash.0.as_ref(), &invoice.label, &invoice.bolt11.to_string(), &invoice.payee_pub_key.encode(), &(invoice.bolt11.expiry_time().as_secs() as i64), &invoice.amount.map(|a| a as i64), &invoice.timestamp],
+                query,
+                &[
+                    &invoice.payment_hash.0.as_ref(),
+                    &invoice.label,
+                    &invoice.bolt11.to_string(),
+                    &invoice.payee_pub_key.encode(),
+                    &(invoice.bolt11.expiry_time().as_secs() as i64),
+                    &invoice.amount.map(|a| a as i64),
+                    &invoice.timestamp,
+                ],
             )
             .await?;
         Ok(())
     }
 
     pub async fn fetch_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>> {
+        debug!("Fetching invoices from database");
         let connection = self.durable_connection.get().await;
-        let query = "
+        let mut params = Params::new();
+        let mut query = "
             SELECT
                 i.label as invoice_label,
                 i.payment_hash,
@@ -182,16 +202,14 @@ impl LdkDatabase {
                 p.timestamp,
                 p.label
             FROM invoices i
-            LEFT OUTER JOIN payments p ON i.payment_hash = p.hash";
-        let rows = if let Some(label) = label {
-            let query = &format!("{query} WHERE i.label = $1");
-            connection.query(query, &[&label]).await?
-        } else {
-            connection.query(query, &[]).await?
-        };
-
+            LEFT OUTER JOIN payments p ON i.payment_hash = p.hash"
+            .to_string();
+        if let Some(label) = &label {
+            params.push(label);
+            query.push_str(&format!(" WHERE i.label = ${}", params.count()));
+        }
         let mut invoices: HashMap<PaymentHash, Invoice> = HashMap::new();
-        for row in rows {
+        for row in connection.query(&query, &params.to_params()).await? {
             let payment_hash: Vec<u8> = row.get("payment_hash");
             let payment_hash = PaymentHash(payment_hash.as_slice().try_into()?);
             let payment = if row.try_get::<&str, Vec<u8>>("id").is_ok() {
@@ -230,21 +248,51 @@ impl LdkDatabase {
 
     pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
         debug!("Persist payment: {}", payment.hash.0.to_hex());
+        let statement = "
+            UPSERT INTO payments (
+                id,
+                hash,
+                preimage,
+                secret,
+                label,
+                status,
+                amount,
+                fee,
+                direction,
+                timestamp
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+            .to_string();
         self.durable_connection
             .get()
             .await
             .execute(
-                "UPSERT INTO payments (id, hash, preimage, secret, label, status, amount, fee, direction, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-                &[&payment.id.0.as_ref(), &payment.hash.0.as_ref(), &payment.preimage.as_ref().map(|x| x.0.as_ref()), &payment.secret.as_ref().map(|s| s.0.as_ref()), &payment.label, &payment.status, &(payment.amount as i64), &payment.fee.map(|f| f as i64).as_ref(), &payment.direction, &payment.timestamp],
+                &statement,
+                &[
+                    &payment.id.0.as_ref(),
+                    &payment.hash.0.as_ref(),
+                    &payment.preimage.as_ref().map(|x| x.0.as_ref()),
+                    &payment.secret.as_ref().map(|s| s.0.as_ref()),
+                    &payment.label,
+                    &payment.status,
+                    &(payment.amount as i64),
+                    &payment.fee.map(|f| f as i64).as_ref(),
+                    &payment.direction,
+                    &payment.timestamp,
+                ],
             )
             .await?;
         Ok(())
     }
 
-    pub async fn fetch_payments(&self, payment_hash: Option<PaymentHash>) -> Result<Vec<Payment>> {
-        let mut payments = vec![];
+    pub async fn fetch_payments(
+        &self,
+        payment_hash: Option<PaymentHash>,
+        direction: Option<PaymentDirection>,
+    ) -> Result<Vec<Payment>> {
         let connection = self.durable_connection.get().await;
-        let query = "
+        let mut payments = vec![];
+        let mut params = Params::new();
+        let mut query = "
             SELECT
                 p.id,
                 p.hash,
@@ -257,17 +305,22 @@ impl LdkDatabase {
                 p.direction,
                 p.timestamp,
                 i.bolt11
-            FROM payments p
-            LEFT OUTER JOIN invoices i
-            ON p.hash = i.payment_hash";
-
-        let rows = if let Some(hash) = payment_hash {
-            let query = &format!("{query} WHERE p.hash = $1");
-            connection.query(query, &[&hash.0.as_ref()]).await?
-        } else {
-            connection.query(query, &[]).await?
-        };
-        for row in rows {
+            FROM payments as p
+            LEFT OUTER JOIN invoices i ON p.hash = i.payment_hash
+            WHERE 1 = 1"
+            .to_string();
+        if let Some(hash) = &payment_hash {
+            params.push(hash.0.as_ref());
+            query.push_str(&format!(" AND p.hash = ${}", params.count()));
+        }
+        if let Some(direction) = direction {
+            params.push(direction);
+            query.push_str(&format!(" AND p.direction = ${}", params.count()));
+        }
+        for row in connection
+            .query(&query.to_string(), &params.to_params())
+            .await?
+        {
             let id: &[u8] = row.get("id");
             let hash: &[u8] = row.get("hash");
             let preimage: Option<&[u8]> = row.get("preimage");

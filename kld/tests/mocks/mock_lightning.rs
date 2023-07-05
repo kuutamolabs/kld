@@ -308,7 +308,11 @@ impl LightningInterface for MockLightning {
         Ok(payment)
     }
 
-    async fn list_payments(&self, _bolt11: Option<Invoice>) -> Result<Vec<Payment>> {
+    async fn list_payments(
+        &self,
+        _bolt11: Option<Invoice>,
+        _direction: Option<PaymentDirection>,
+    ) -> Result<Vec<Payment>> {
         Ok(vec![self.payment.clone()])
     }
 
