@@ -21,6 +21,7 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
+use super::codegen::get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse;
 use super::internal_server;
 use super::ApiError;
 
@@ -190,4 +191,27 @@ pub(crate) async fn close_channel(
     } else {
         Err(ApiError::NotFound(channel_id))
     }
+}
+
+pub(crate) async fn local_remote_balance(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+) -> Result<impl IntoResponse, ApiError> {
+    let mut response = GetV1ChannelLocalRemoteBalResponse {
+        inactive_balance: 0,
+        local_balance: 0,
+        pending_balance: 0,
+        remote_balance: 0,
+    };
+    for channel in lightning_interface.list_channels() {
+        if channel.is_usable {
+            response.local_balance += channel.balance_msat as i64;
+            response.remote_balance +=
+                ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64;
+        } else if channel.is_channel_ready {
+            response.inactive_balance += channel.balance_msat as i64;
+        } else {
+            response.pending_balance += channel.balance_msat as i64;
+        }
+    }
+    Ok(Json(response))
 }

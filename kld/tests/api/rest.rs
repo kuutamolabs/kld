@@ -11,6 +11,7 @@ use futures::FutureExt;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
+use kld::api::codegen::get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::MacaroonAuth;
@@ -314,6 +315,13 @@ pub async fn test_unauthorized() -> Result<()> {
             .await?
             .status()
     );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)
+            .send()
+            .await?
+            .status()
+    );
     Ok(())
 }
 
@@ -421,7 +429,7 @@ async fn test_list_funds_readonly() -> Result<()> {
     assert_eq!(ChannelState::Usable, channel.state);
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
     assert_eq!(1000000, channel.channel_sat);
-    assert_eq!(10001, channel.our_amount_msat);
+    assert_eq!(100000, channel.our_amount_msat);
     assert_eq!(1000000000, channel.amount_msat);
     assert_eq!(TEST_TX_ID, channel.funding_txid);
     assert_eq!(2, channel.funding_output);
@@ -443,9 +451,9 @@ async fn test_list_channels_readonly() -> Result<()> {
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
     assert_eq!(TEST_TX_ID, channel.funding_txid);
     assert!(!channel.private);
-    assert_eq!(10001, channel.msatoshi_to_us);
+    assert_eq!(100000, channel.msatoshi_to_us);
     assert_eq!(1000000000, channel.msatoshi_total);
-    assert_eq!(999989999, channel.msatoshi_to_them);
+    assert_eq!(999900000, channel.msatoshi_to_them);
     assert_eq!(5000, channel.their_channel_reserve_satoshis);
     assert_eq!(Some(10000), channel.our_channel_reserve_satoshis);
     assert_eq!(100000, channel.spendable_msatoshi);
@@ -896,6 +904,22 @@ async fn test_estimate_liquidity() -> Result<()> {
     .await?;
     assert_eq!(100, response.minimum);
     assert_eq!(100000, response.maximum);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_local_remote_balance() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: GetV1ChannelLocalRemoteBalResponse =
+        readonly_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    assert_eq!(0, response.inactive_balance);
+    assert_eq!(0, response.pending_balance);
+    assert_eq!(100000, response.local_balance);
+    assert_eq!(999900000, response.remote_balance);
     Ok(())
 }
 

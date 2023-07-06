@@ -9,8 +9,11 @@ use api::{
     WalletTransfer, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
-use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
+use kld::api::codegen::{
+    get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse,
+    get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
+};
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder, Response},
     header::{HeaderValue, CONTENT_TYPE},
@@ -278,6 +281,13 @@ impl Api {
             .request_with_body(Method::GET, routes::ESTIMATE_CHANNEL_LIQUIDITY, body)
             .send()?;
         deserialize::<GetV1EstimateChannelLiquidityResponse>(response)
+    }
+
+    pub fn local_remote_balance(&self) -> Result<String> {
+        let response = self
+            .request(Method::GET, routes::LOCAL_REMOTE_BALANCE)
+            .send()?;
+        deserialize::<GetV1ChannelLocalRemoteBalResponse>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
