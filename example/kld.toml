@@ -75,8 +75,9 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # The communication port of kld
 # kld_rest_api_port = 2244
 
-# Expose communication port of kld when extenal using kld-cli
-# kld_expose_rest_api = false
+# The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
+# use on the node.
+kld_api_ip_access_list = []
 
 # The configure for host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
@@ -150,7 +151,8 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # The communication port of kld
 # kld_rest_api_port = 2244
 
-# Expose communication port of kld when extenal using kld-cli
-# kld_expose_rest_api = false
+# The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
+# use on the node.
+kld_api_ip_access_list = []
 
 

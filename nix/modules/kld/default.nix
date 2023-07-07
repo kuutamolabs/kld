@@ -144,11 +144,11 @@ in
         Port to bind to for the REST API
       '';
     };
-    exposeRestApi = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
+    apiIpAccessList = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
       description = lib.mDoc ''
-        Expose REST API or not
+        Expose REST API to specific machines
       '';
     };
 
@@ -186,8 +186,8 @@ in
     };
 
     networking.firewall.allowedTCPPorts = [ ]
-      ++ lib.optionals cfg.openFirewall [ cfg.peerPort ]
-      ++ lib.optionals cfg.exposeRestApi [ cfg.restApiPort ];
+      ++ lib.optionals cfg.openFirewall [ cfg.peerPort ];
+    networking.firewall.extraCommands = lib.concatMapStrings (ip: "iptables -A nixos-fw -p tcp --source " + ip + " --dport ${toString cfg.restApiPort} -j nixos-fw-accept || true") cfg.apiIpAccessList;
 
     users.users.kld = {
       isSystemUser = true;
@@ -218,7 +218,7 @@ in
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
-        KLD_REST_API_ADDRESS = if cfg.exposeRestApi then "0.0.0.0:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
+        KLD_REST_API_ADDRESS = if lib.lists.any (_: true) cfg.apiIpAccessList then "0.0.0.0:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
         KLD_CERTS_DIR = lib.mkDefault "/var/lib/kld/certs";
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;

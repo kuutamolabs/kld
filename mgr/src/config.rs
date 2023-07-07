@@ -226,10 +226,11 @@ struct HostConfig {
     #[toml_example(default = 2244)]
     #[serde(default)]
     kld_rest_api_port: Option<u16>,
-    /// Expose communication port of kld when extenal using kld-cli
+    /// The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
+    /// use on the node.
     #[serde(default)]
-    #[toml_example(default = false)]
-    kld_expose_rest_api: Option<bool>,
+    #[toml_example(default = [])]
+    kld_api_ip_access_list: Vec<IpAddr>,
 
     #[serde(flatten)]
     #[toml_example(skip)]
@@ -300,8 +301,8 @@ pub struct Host {
 
     /// The communication port of kld
     pub rest_api_port: Option<u16>,
-    /// Expose communication port of kld when extenal using kld-cli
-    pub expose_rest_api: Option<bool>,
+    /// The ip addresses list will allow to communicate with kld
+    pub api_ip_access_list: Vec<IpAddr>,
 }
 
 impl Host {
@@ -621,12 +622,12 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         disks,
         bitcoind_disks,
         cockroach_peers: vec![],
-        kld_log_level: host.kld_log_level.clone(),
+        kld_log_level: host.kld_log_level.to_owned(),
         kmonitor_config,
         telegraf_has_monitoring,
         telegraf_config_hash,
-        kld_node_alias: host.kld_node_alias.clone(),
-        expose_rest_api: host.kld_expose_rest_api,
+        kld_node_alias: host.kld_node_alias.to_owned(),
+        api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
     })
 }
@@ -885,7 +886,7 @@ fn test_validate_host() -> Result<()> {
             kmonitor_config: None,
             telegraf_has_monitoring: false,
             telegraf_config_hash: "13646096770106105413".to_string(),
-            expose_rest_api: None,
+            api_ip_access_list: Vec::new(),
             rest_api_port: None
         }
     );

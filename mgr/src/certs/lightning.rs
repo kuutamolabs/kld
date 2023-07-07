@@ -159,7 +159,7 @@ IP.1 = 127.0.0.1
 IP.2 = ::1
 "#
     .to_string();
-    if host.expose_rest_api.unwrap_or_default() {
+    if !host.api_ip_access_list.is_empty() {
         let mut ip_num = 3;
         if let Some(ip) = host.ipv4_address {
             conf += &format!("IP.{ip_num} = {ip}\n");
