@@ -128,13 +128,15 @@ IP.1 = 127.0.0.1
 IP.2 = ::1
 "#
     .to_string();
-    let mut ip_num = 3;
-    if let Some(ip) = host.ipv4_address {
-        conf += &format!("IP.{ip_num} = {ip}\n");
-        ip_num = 4;
-    }
-    if let Some(ip) = host.ipv6_address {
-        conf += &format!("IP.{ip_num} = {ip}\n");
+    if host.expose_rest_api.unwrap_or_default() {
+        let mut ip_num = 3;
+        if let Some(ip) = host.ipv4_address  {
+            conf += &format!("IP.{ip_num} = {ip}\n");
+            ip_num += 1;
+        }
+        if let Some(ip) = host.ipv6_address {
+            conf += &format!("IP.{ip_num} = {ip}\n");
+        }
     }
     std::fs::write(&cert_conf, conf)?;
     openssl(&[
