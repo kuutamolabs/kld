@@ -1,7 +1,10 @@
 use super::{cert_is_atleast_valid_for, openssl, CertRenewPolicy};
 use crate::Host;
 use anyhow::{Context, Result};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+use std::net::IpAddr;
 use std::path::Path;
 
 fn create_tls_key(ca_key_path: &Path) -> Result<()> {
@@ -103,16 +106,44 @@ fn create_or_update_ca_cert(
 }
 
 fn create_or_update_cert(
-    key_path: &Path,
-    cert_path: &Path,
+    cert_dir: &Path,
     ca_key_path: &Path,
     ca_cert_path: &Path,
     policy: &CertRenewPolicy,
     host: &Host,
 ) -> Result<()> {
-    if cert_path.exists() && cert_is_atleast_valid_for(cert_path, policy.cert_renew_seconds) {
+    let key_path = cert_dir.join(format!("{}.key", host.name));
+    let cert_path = cert_dir.join(format!("{}.pem", host.name));
+    let ip_hash_path = cert_dir.join(format!("{}-ip.hash", host.name));
+
+    let ip_hash = calculate_hash_for_address_in_san(
+        host.api_ip_access_list.is_empty(),
+        vec![&host.ipv4_address, &host.ipv6_address],
+    );
+    let ip_hash_confirmed = std::fs::read_to_string(&ip_hash_path)
+        .map(|s| s.parse() == Ok(ip_hash))
+        .unwrap_or_default();
+
+    if !ip_hash_confirmed {
+        std::fs::write(&ip_hash_path, ip_hash.to_string())?;
+    }
+
+    if !key_path.exists() {
+        create_tls_key(&key_path).with_context(|| {
+            format!(
+                "Failed to create key for lightning certificate: {}",
+                host.name
+            )
+        })?
+    }
+
+    if ip_hash_confirmed
+        && cert_path.exists()
+        && cert_is_atleast_valid_for(&cert_path, policy.cert_renew_seconds)
+    {
         return Ok(());
     }
+
     let cert_conf = cert_path.with_file_name("cert.conf");
     let mut conf = r#"[req]
 req_extensions = v3_req
@@ -130,7 +161,7 @@ IP.2 = ::1
     .to_string();
     if host.expose_rest_api.unwrap_or_default() {
         let mut ip_num = 3;
-        if let Some(ip) = host.ipv4_address  {
+        if let Some(ip) = host.ipv4_address {
             conf += &format!("IP.{ip_num} = {ip}\n");
             ip_num += 1;
         }
@@ -207,22 +238,8 @@ pub fn create_or_update_lightning_certs(
     })?;
 
     for h in hosts.values() {
-        let key_path = cert_dir.join(format!("{}.key", h.name));
-        let cert_path = cert_dir.join(format!("{}.pem", h.name));
-        if !key_path.exists() {
-            create_tls_key(&key_path).with_context(|| {
-                format!("Failed to create key for lightning certificate: {}", h.name)
-            })?
-        }
-        create_or_update_cert(
-            &key_path,
-            &cert_path,
-            &ca_key_path,
-            &ca_cert_path,
-            renew_policy,
-            h,
-        )
-        .with_context(|| format!("Failed to create lightning certificate: {}", h.name))?
+        create_or_update_cert(cert_dir, &ca_key_path, &ca_cert_path, renew_policy, h)
+            .with_context(|| format!("Failed to create lightning certificate: {}", h.name))?
     }
 
     Ok(())
@@ -298,4 +315,14 @@ mod tests {
 
         Ok(())
     }
+}
+
+/// Expose service and change on address will be detect, such that the san of cert can be updated
+fn calculate_hash_for_address_in_san(internal_only: bool, addrs: Vec<&Option<IpAddr>>) -> u64 {
+    let mut s = DefaultHasher::new();
+    internal_only.hash(&mut s);
+    for addr in addrs {
+        addr.hash(&mut s);
+    }
+    s.finish()
 }
