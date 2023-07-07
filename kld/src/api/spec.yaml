@@ -51,15 +51,19 @@ paths:
             properties:
               localBalance:
                 type: integer
+                minimum: 0
                 description: localBalance
               remoteBalance:
                 type: integer
+                minimum: 0
                 description: remoteBalance
               pendingBalance:
                 type: integer
+                minimum: 0
                 description: pendingBalance
               inactiveBalance:
                 type: integer
+                minimum: 0
                 description: inactiveBalance
             required:
               - localBalance

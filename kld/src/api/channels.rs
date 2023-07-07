@@ -196,12 +196,7 @@ pub(crate) async fn close_channel(
 pub(crate) async fn local_remote_balance(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let mut response = GetV1ChannelLocalRemoteBalResponse {
-        inactive_balance: 0,
-        local_balance: 0,
-        pending_balance: 0,
-        remote_balance: 0,
-    };
+    let mut response = GetV1ChannelLocalRemoteBalResponse::default();
     for channel in lightning_interface.list_channels() {
         if channel.is_usable {
             response.local_balance += channel.balance_msat as i64;
