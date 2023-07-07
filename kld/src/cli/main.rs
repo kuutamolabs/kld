@@ -177,6 +177,8 @@ enum Command {
         #[arg(long)]
         target: String,
     },
+    /// Fetch the aggregate local and remote channel balances (msat) of the node
+    LocalRemoteBalance,
 }
 
 fn main() {
@@ -235,6 +237,7 @@ fn run_command(args: Args) -> Result<()> {
         Command::EstimateChannelLiquidity { scid, target } => {
             api.estimate_channel_liquidity(scid, target)?
         }
+        Command::LocalRemoteBalance => api.local_remote_balance()?,
     };
     if output != "null" {
         println!("{output}");

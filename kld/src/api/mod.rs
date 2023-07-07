@@ -17,7 +17,9 @@ use serde_json::json;
 use self::utility::get_info;
 use crate::{
     api::{
-        channels::{close_channel, list_channels, open_channel, set_channel_fee},
+        channels::{
+            close_channel, list_channels, local_remote_balance, open_channel, set_channel_fee,
+        },
         invoices::{generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
         network::{
@@ -97,6 +99,7 @@ impl RestApi {
             .route(routes::FEE_RATES, get(fee_rates))
             .route(routes::LIST_INVOICES, get(list_invoices))
             .route(routes::LIST_PAYMENTS, get(list_payments))
+            .route(routes::LOCAL_REMOTE_BALANCE, get(local_remote_balance))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()

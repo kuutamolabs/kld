@@ -10,7 +10,10 @@ use api::{
     SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
-use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
+use kld::api::codegen::{
+    get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse,
+    get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
+};
 
 use serde::de;
 
@@ -277,6 +280,13 @@ async fn test_cli_estimate_channel_liquidity() -> Result<()> {
     )
     .await?;
     let _: GetV1EstimateChannelLiquidityResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_local_remote_balance() -> Result<()> {
+    let output = run_cli("local-remote-balance", &[]).await?;
+    let _: GetV1ChannelLocalRemoteBalResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 
