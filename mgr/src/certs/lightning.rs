@@ -1,11 +1,16 @@
 use super::{cert_is_atleast_valid_for, openssl, CertRenewPolicy};
 use crate::Host;
+
 use anyhow::{Context, Result};
-use std::collections::hash_map::DefaultHasher;
+use slice_as_array::{slice_as_array, slice_as_array_transmute};
 use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
+use std::collections::HashSet;
+use std::fs;
 use std::net::IpAddr;
 use std::path::Path;
+use x509_parser::extensions::GeneralName;
+use x509_parser::extensions::ParsedExtension;
+use x509_parser::pem::Pem;
 
 fn create_tls_key(ca_key_path: &Path) -> Result<()> {
     let p = ca_key_path.display().to_string();
@@ -114,18 +119,18 @@ fn create_or_update_cert(
 ) -> Result<()> {
     let key_path = cert_dir.join(format!("{}.key", host.name));
     let cert_path = cert_dir.join(format!("{}.pem", host.name));
-    let ip_hash_path = cert_dir.join(format!("{}-ip.hash", host.name));
+    let current_san = san_from_cert(&cert_path)?;
 
-    let ip_hash = calculate_hash_for_address_in_san(
-        host.api_ip_access_list.is_empty(),
-        vec![&host.ipv4_address, &host.ipv6_address],
-    );
-    let ip_hash_confirmed = std::fs::read_to_string(&ip_hash_path)
-        .map(|s| s.parse() == Ok(ip_hash))
-        .unwrap_or_default();
-
-    if !ip_hash_confirmed {
-        std::fs::write(&ip_hash_path, ip_hash.to_string())?;
+    let mut has_new_ip = false;
+    if let Some(ipv4) = host.ipv4_address {
+        if !current_san.contains(&ipv4) && !host.api_ip_access_list.is_empty() {
+            has_new_ip = true;
+        }
+    }
+    if let Some(ipv6) = host.ipv4_address {
+        if !current_san.contains(&ipv6) && !host.api_ip_access_list.is_empty() {
+            has_new_ip = true;
+        }
     }
 
     if !key_path.exists() {
@@ -137,7 +142,7 @@ fn create_or_update_cert(
         })?
     }
 
-    if ip_hash_confirmed
+    if !has_new_ip
         && cert_path.exists()
         && cert_is_atleast_valid_for(&cert_path, policy.cert_renew_seconds)
     {
@@ -317,12 +322,30 @@ mod tests {
     }
 }
 
-/// Expose service and change on address will be detect, such that the san of cert can be updated
-fn calculate_hash_for_address_in_san(internal_only: bool, addrs: Vec<&Option<IpAddr>>) -> u64 {
-    let mut s = DefaultHasher::new();
-    internal_only.hash(&mut s);
-    for addr in addrs {
-        addr.hash(&mut s);
+/// Parse subject alternative name from certificate
+fn san_from_cert(cert_path: &Path) -> Result<HashSet<IpAddr>> {
+    let mut sans = HashSet::new();
+    if let Ok(data) = fs::read(cert_path) {
+        for pem in Pem::iter_from_buffer(&data) {
+            let pem = pem?;
+            let x509 = pem.parse_x509()?;
+            for ext in x509.extensions() {
+                if let ParsedExtension::SubjectAlternativeName(san) = ext.parsed_extension() {
+                    for name in san.general_names.iter() {
+                        if let GeneralName::IPAddress(byte) = name {
+                            #[allow(clippy::transmute_ptr_to_ref)]
+                            if let Some(ipv4_byte) = slice_as_array!(byte, [u8; 4]) {
+                                sans.insert(IpAddr::from(*ipv4_byte));
+                            }
+                            #[allow(clippy::transmute_ptr_to_ref)]
+                            if let Some(ipv6_byte) = slice_as_array!(byte, [u8; 16]) {
+                                sans.insert(IpAddr::from(*ipv6_byte));
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    s.finish()
+    Ok(sans)
 }

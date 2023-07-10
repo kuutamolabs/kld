@@ -28,3 +28,5 @@ reqwest = { version = "0.11.16", features = ["blocking"], default-features = fal
 url = { version = "2.0", features = ["serde"] }
 base64 = "0.21.0"
 toml-example = { version = "0.10.0", default-features = false }
+x509-parser = "0.15.0"
+slice_as_array = "1.1.0"
