@@ -4,7 +4,7 @@
 flake = "github:kuutamolabs/lightning-knd"
 
 # Directory where the secrets are stored i.e. certificates
-secret_directory = ""
+secret_directory = "secrets"
 
 # The default values of host will use if any corresponding value is not provided in following hosts
 [host_defaults]
