@@ -190,9 +190,9 @@ in
     networking.firewall.extraCommands = lib.concatMapStrings
       (ip:
         if lib.hasInfix ":" ip then ''
-          ip6tables -A nixos-fw -p tcp --source " + ip + " --dport ${toString cfg.restApiPort} -j nixos-fw-accept
+          ip6tables -A nixos-fw -p tcp --source ${ip} --dport ${toString cfg.restApiPort} -j nixos-fw-accept
         '' else ''
-          iptables -A nixos-fw -p tcp --source " + ip + " --dport ${toString cfg.restApiPort} -j nixos-fw-accept
+          iptables -A nixos-fw -p tcp --source ${ip} --dport ${toString cfg.restApiPort} -j nixos-fw-accept
         '')
       cfg.apiIpAccessList;
 
@@ -225,7 +225,7 @@ in
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
-        KLD_REST_API_ADDRESS = if cfg.apiIpAccessList != [ ] then "0.0.0.0:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
+        KLD_REST_API_ADDRESS = if cfg.apiIpAccessList != [ ] then "[::]:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
         KLD_CERTS_DIR = lib.mkDefault "/var/lib/kld/certs";
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
