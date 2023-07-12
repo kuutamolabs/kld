@@ -168,6 +168,14 @@ in
         The alias of this lightning node
       '';
     };
+
+    presetMnemonic = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Preset mnemonic before kld init
+      '';
+    };
   };
 
   config = {

@@ -405,7 +405,11 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     Ok(global)
 }
 
-fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
+fn validate_host(
+    name: &str,
+    host: &HostConfig,
+    default: &HostConfig,
+) -> Result<Host> {
     if !host.others.is_empty() {
         bail!(
             "{} are not allowed fields",
@@ -665,7 +669,10 @@ pub struct Config {
 }
 
 /// Parse toml configuration
-pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
+pub fn parse_config(
+    content: &str,
+    working_directory: &Path,
+) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
     let mut hosts = config
         .hosts
@@ -797,14 +804,18 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"))?;
+    parse_config(TEST_CONFIG, Path::new("/"), false)?;
 
     Ok(())
 }
 
 #[test]
 pub fn test_parse_config_with_redundant_filds() {
-    let parse_result = parse_config(&format!("{}\nredundant = 111", TEST_CONFIG), Path::new("/"));
+    let parse_result = parse_config(
+        &format!("{}\nredundant = 111", TEST_CONFIG),
+        Path::new("/"),
+        false,
+    );
     assert!(parse_result.is_err());
 }
 
