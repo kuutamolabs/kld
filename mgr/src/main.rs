@@ -86,7 +86,7 @@ struct SystemInfoArgs {
 enum Command {
     /// Generate NixOS configuration
     GenerateConfig(GenerateConfigArgs),
-    /// Generate kneard.toml example
+    /// Generate kld.toml example
     GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
