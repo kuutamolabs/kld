@@ -78,17 +78,6 @@ pub struct ConfigFile {
     hosts: HashMap<String, HostConfig>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct NearKeyFile {
-    pub account_id: String,
-    pub public_key: String,
-    // Credential files generated which near cli works with have private_key
-    // rather than secret_key field.  To make it possible to read those from
-    // neard add private_key as an alias to this field so either will work.
-    #[serde(alias = "private_key")]
-    pub secret_key: String,
-}
-
 fn default_secret_directory() -> PathBuf {
     PathBuf::from("secrets")
 }
