@@ -69,6 +69,7 @@
           kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
           kuutamo.kld.certPath = "/var/lib/secrets/kld/kld.pem";
           kuutamo.kld.keyPath = "/var/lib/secrets/kld/kld.key";
+          kuutamo.kld.mnemonicPath = "/var/lib/secrets/mnemonic";
           kuutamo.kld.cockroachdb.clientCertPath = "/var/lib/secrets/kld/client.kld.crt";
           kuutamo.kld.cockroachdb.clientKeyPath = "/var/lib/secrets/kld/client.kld.key";
           kuutamo.cockroachdb.rootClientCertPath = "/var/lib/secrets/cockroachdb/client.root.crt";

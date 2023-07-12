@@ -15,6 +15,7 @@ disks = ["/dev/vdb", "/dev/vdc"]
 bitcoind_disks = []
 telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
+kld_preset_mnemonic = false
 
 [[cockroach_peers]]
 name = "db-00"

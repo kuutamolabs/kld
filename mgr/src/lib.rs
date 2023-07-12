@@ -22,7 +22,7 @@ pub mod logging;
 mod nixos_rebuild;
 mod reboot;
 mod rollback;
-mod secrets;
+pub mod secrets;
 mod ssh;
 mod update;
 

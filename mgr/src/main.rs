@@ -7,6 +7,7 @@ use clap::Parser;
 use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
+use mgr::secrets::generate_mnemonic_and_macaroons;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::env;
@@ -34,6 +35,10 @@ struct InstallArgs {
     /// Do not reboot after installation
     #[clap(long, action)]
     no_reboot: bool,
+
+    /// The mnemonic will automatically generate when kld first init
+    #[clap(long, default_value = "false")]
+    generate_secret_on_remote: bool,
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -269,8 +274,35 @@ pub fn main() -> Result<()> {
 
     let res = match args.action {
         Command::GenerateExample => Ok(println!("{}", ConfigFile::toml_example())),
-        _ => {
-            let config = mgr::load_configuration(&args.config).with_context(|| {
+        Command::Install(ref install_args) => {
+            let config =
+                mgr::load_configuration(&args.config, !install_args.generate_secret_on_remote)
+                    .with_context(|| {
+                        format!(
+                            "failed to parse configuration file: {}",
+                            &args.config.display()
+                        )
+                    })?;
+            create_or_update_lightning_certs(
+                &config.global.secret_directory.join("lightning"),
+                &config.hosts,
+                &CertRenewPolicy::default(),
+            )
+            .context("failed to create or update lightning certificates")?;
+            create_or_update_cockroachdb_certs(
+                &config.global.secret_directory.join("cockroachdb"),
+                &config.hosts,
+                &CertRenewPolicy::default(),
+            )
+            .context("failed to create or update cockroachdb certificates")?;
+            if !install_args.generate_secret_on_remote {
+                generate_mnemonic_and_macaroons(&config.global.secret_directory)?;
+            }
+            let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
+            install(&args, install_args, &config, &flake)
+        }
+        Command::Update(ref update_args) => {
+            let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()
@@ -290,15 +322,23 @@ pub fn main() -> Result<()> {
             .context("failed to create or update cockroachdb certificates")?;
 
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
+            update(&args, update_args, &config, &flake)
+        }
+        _ => {
+            let config = mgr::load_configuration(&args.config, false).with_context(|| {
+                format!(
+                    "failed to parse configuration file: {}",
+                    &args.config.display()
+                )
+            })?;
+            let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             match args.action {
                 Command::GenerateConfig(ref config_args) => {
                     generate_config(&args, config_args, &config, &flake)
                 }
-                Command::Install(ref install_args) => install(&args, install_args, &config, &flake),
                 Command::DryUpdate(ref dry_update_args) => {
                     dry_update(&args, dry_update_args, &config, &flake)
                 }
-                Command::Update(ref update_args) => update(&args, update_args, &config, &flake),
                 Command::Rollback(ref rollback_args) => {
                     rollback(&args, rollback_args, &config, &flake)
                 }
