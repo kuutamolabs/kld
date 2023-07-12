@@ -11,5 +11,8 @@
 result
 result-*
 .direnv/
-mgr/kld.toml
-mgr
+
+# config files
+mgr/kld*.toml
+mgr/secrets
+mgr/secrets*
