@@ -1,8 +1,16 @@
 use super::{cert_is_atleast_valid_for, openssl, CertRenewPolicy};
 use crate::Host;
+
 use anyhow::{Context, Result};
+use slice_as_array::{slice_as_array, slice_as_array_transmute};
 use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::fs;
+use std::net::IpAddr;
 use std::path::Path;
+use x509_parser::extensions::GeneralName;
+use x509_parser::extensions::ParsedExtension;
+use x509_parser::pem::Pem;
 
 fn create_tls_key(ca_key_path: &Path) -> Result<()> {
     let p = ca_key_path.display().to_string();
@@ -103,19 +111,46 @@ fn create_or_update_ca_cert(
 }
 
 fn create_or_update_cert(
-    key_path: &Path,
-    cert_path: &Path,
+    cert_dir: &Path,
     ca_key_path: &Path,
     ca_cert_path: &Path,
     policy: &CertRenewPolicy,
+    host: &Host,
 ) -> Result<()> {
-    if cert_path.exists() && cert_is_atleast_valid_for(cert_path, policy.cert_renew_seconds) {
+    let key_path = cert_dir.join(format!("{}.key", host.name));
+    let cert_path = cert_dir.join(format!("{}.pem", host.name));
+    let current_san = san_from_cert(&cert_path)?;
+
+    let mut has_new_ip = false;
+    if let Some(ipv4) = host.ipv4_address {
+        if !current_san.contains(&ipv4) && !host.api_ip_access_list.is_empty() {
+            has_new_ip = true;
+        }
+    }
+    if let Some(ipv6) = host.ipv4_address {
+        if !current_san.contains(&ipv6) && !host.api_ip_access_list.is_empty() {
+            has_new_ip = true;
+        }
+    }
+
+    if !key_path.exists() {
+        create_tls_key(&key_path).with_context(|| {
+            format!(
+                "Failed to create key for lightning certificate: {}",
+                host.name
+            )
+        })?
+    }
+
+    if !has_new_ip
+        && cert_path.exists()
+        && cert_is_atleast_valid_for(&cert_path, policy.cert_renew_seconds)
+    {
         return Ok(());
     }
+
     let cert_conf = cert_path.with_file_name("cert.conf");
-    std::fs::write(
-        &cert_conf,
-        r#"[req]
+    let mut conf = r#"[req]
 req_extensions = v3_req
 distinguished_name = req_distinguished_name
 [req_distinguished_name]
@@ -127,8 +162,19 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 IP.1 = 127.0.0.1
 IP.2 = ::1
-"#,
-    )?;
+"#
+    .to_string();
+    if !host.api_ip_access_list.is_empty() {
+        let mut ip_num = 3;
+        if let Some(ip) = host.ipv4_address {
+            conf += &format!("IP.{ip_num} = {ip}\n");
+            ip_num += 1;
+        }
+        if let Some(ip) = host.ipv6_address {
+            conf += &format!("IP.{ip_num} = {ip}\n");
+        }
+    }
+    std::fs::write(&cert_conf, conf)?;
     openssl(&[
         "req",
         "-new",
@@ -197,21 +243,8 @@ pub fn create_or_update_lightning_certs(
     })?;
 
     for h in hosts.values() {
-        let key_path = cert_dir.join(format!("{}.key", h.name));
-        let cert_path = cert_dir.join(format!("{}.pem", h.name));
-        if !key_path.exists() {
-            create_tls_key(&key_path).with_context(|| {
-                format!("Failed to create key for lightning certificate: {}", h.name)
-            })?
-        }
-        create_or_update_cert(
-            &key_path,
-            &cert_path,
-            &ca_key_path,
-            &ca_cert_path,
-            renew_policy,
-        )
-        .with_context(|| format!("Failed to create lightning certificate: {}", h.name))?
+        create_or_update_cert(cert_dir, &ca_key_path, &ca_cert_path, renew_policy, h)
+            .with_context(|| format!("Failed to create lightning certificate: {}", h.name))?
     }
 
     Ok(())
@@ -287,4 +320,32 @@ mod tests {
 
         Ok(())
     }
+}
+
+/// Parse subject alternative name from certificate
+fn san_from_cert(cert_path: &Path) -> Result<HashSet<IpAddr>> {
+    let mut sans = HashSet::new();
+    if let Ok(data) = fs::read(cert_path) {
+        for pem in Pem::iter_from_buffer(&data) {
+            let pem = pem?;
+            let x509 = pem.parse_x509()?;
+            for ext in x509.extensions() {
+                if let ParsedExtension::SubjectAlternativeName(san) = ext.parsed_extension() {
+                    for name in san.general_names.iter() {
+                        if let GeneralName::IPAddress(byte) = name {
+                            #[allow(clippy::transmute_ptr_to_ref)]
+                            if let Some(ipv4_byte) = slice_as_array!(byte, [u8; 4]) {
+                                sans.insert(IpAddr::from(*ipv4_byte));
+                            }
+                            #[allow(clippy::transmute_ptr_to_ref)]
+                            if let Some(ipv6_byte) = slice_as_array!(byte, [u8; 16]) {
+                                sans.insert(IpAddr::from(*ipv6_byte));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(sans)
 }

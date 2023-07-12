@@ -18,7 +18,7 @@ let
 
   kld-cli = pkgs.runCommand "kld-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/kld-cli $out/bin/kld-cli \
-      --add-flags "--target ${cfg.restApiAddress} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
+      --add-flags "--target 127.0.0.1:${toString cfg.restApiPort} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
   '';
 
   bitcoin-cli-flags = [
@@ -137,11 +137,18 @@ in
         Address and port to bind to for exporting metrics
       '';
     };
-    restApiAddress = lib.mkOption {
-      type = lib.types.str;
-      default = "127.0.0.1:2244";
+    restApiPort = lib.mkOption {
+      type = lib.types.port;
+      default = 2244;
       description = lib.mDoc ''
-        Address and port to bind to for the REST API
+        Port to bind to for the REST API
+      '';
+    };
+    apiIpAccessList = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = lib.mDoc ''
+        Expose REST API to specific machines
       '';
     };
 
@@ -178,7 +185,16 @@ in
       ];
     };
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 ];
+    networking.firewall.allowedTCPPorts = [ ]
+      ++ lib.optionals cfg.openFirewall [ cfg.peerPort ];
+    networking.firewall.extraCommands = lib.concatMapStrings
+      (ip:
+        if lib.hasInfix ":" ip then ''
+          ip6tables -A nixos-fw -p tcp --source ${ip} --dport ${toString cfg.restApiPort} -j nixos-fw-accept
+        '' else ''
+          iptables -A nixos-fw -p tcp --source ${ip} --dport ${toString cfg.restApiPort} -j nixos-fw-accept
+        '')
+      cfg.apiIpAccessList;
 
     users.users.kld = {
       isSystemUser = true;
@@ -209,7 +225,7 @@ in
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
-        KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
+        KLD_REST_API_ADDRESS = if cfg.apiIpAccessList != [ ] then "[::]:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
         KLD_CERTS_DIR = lib.mkDefault "/var/lib/kld/certs";
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
