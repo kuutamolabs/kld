@@ -10,15 +10,15 @@ use api::{
 use bitcoin::Address;
 use hyper::Method;
 use kld::database::payment::PaymentStatus;
-use test_utils::{bitcoin, cockroach, kld, poll, test_settings, TEST_ADDRESS};
+use test_utils::{bitcoin, cockroach, electrs, kld, poll, test_settings, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Does not pass in CI, needs a powerful machine or BDK bug fixing"]
 pub async fn test_start() -> Result<()> {
     let mut settings_0 = test_settings!("start");
     let cockroach = cockroach!(settings_0);
     let bitcoin = bitcoin!(settings_0);
+    let electrs = electrs!(&bitcoin, settings_0);
     generate_blocks(
         &settings_0,
         START_N_BLOCKS,
@@ -29,7 +29,7 @@ pub async fn test_start() -> Result<()> {
 
     settings_0.node_id = "start0".to_owned();
     settings_0.database_name = "start0".to_owned();
-    let kld_0 = kld!(&bitcoin, &cockroach, settings_0);
+    let kld_0 = kld!(&bitcoin, &cockroach, &electrs, settings_0);
 
     let pid = kld_0.call_exporter("pid").await?;
     assert_eq!(pid, kld_0.pid().unwrap().to_string());
@@ -59,7 +59,7 @@ pub async fn test_start() -> Result<()> {
     let mut settings_1 = settings_0.clone();
     settings_1.node_id = "start1".to_owned();
     settings_1.database_name = "start1".to_owned();
-    let kld_1 = kld!(&bitcoin, &cockroach, settings_1);
+    let kld_1 = kld!(&bitcoin, &cockroach, &electrs, settings_1);
 
     let _info_0: GetInfo = kld_0
         .call_rest_api(Method::GET, routes::GET_INFO, ())
@@ -143,6 +143,7 @@ pub async fn test_manual() -> Result<()> {
     let mut settings = test_settings!("manual");
     let cockroach = cockroach!(settings);
     let bitcoin = bitcoin!(settings);
+    let electrs = electrs!(&bitcoin, settings);
 
     generate_blocks(
         &settings,
@@ -151,7 +152,7 @@ pub async fn test_manual() -> Result<()> {
         false,
     )
     .await?;
-    let _kld = kld!(&bitcoin, &cockroach, settings);
+    let _kld = kld!(&bitcoin, &cockroach, &electrs, settings);
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;
     Ok(())

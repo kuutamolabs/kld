@@ -11,8 +11,6 @@ use crate::{
     ports::get_available_port,
 };
 
-const NETWORK: &str = "regtest";
-
 pub struct BitcoinManager {
     manager: Manager,
     pub p2p_port: u16,
@@ -26,7 +24,8 @@ impl BitcoinManager {
             "-server",
             "-noconnect",
             "-rpcthreads=16",
-            &format!("-chain={NETWORK}"),
+            "-listen",
+            &format!("-chain={}", &self.network),
             &format!("-datadir={}", &self.manager.storage_dir),
             &format!("-port={}", &self.p2p_port.to_string()),
             &format!("-rpcport={}", &self.rpc_port.to_string()),
@@ -35,30 +34,26 @@ impl BitcoinManager {
     }
 
     pub fn cookie_path(&self) -> String {
-        cookie_path(&self.manager)
+        let dir = if self.network == "mainnet" {
+            self.manager.storage_dir.clone()
+        } else {
+            format!("{}/{}", self.manager.storage_dir, self.network)
+        };
+        format!("{dir}/.cookie")
     }
 
-    pub fn test_bitcoin(output_dir: &str, instance: &str) -> BitcoinManager {
+    pub fn test_bitcoin(output_dir: &str, settings: &Settings) -> BitcoinManager {
         let p2p_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
 
-        let manager = Manager::new(output_dir, "bitcoind", instance);
+        let manager = Manager::new(output_dir, "bitcoind", &settings.node_id);
         BitcoinManager {
             manager,
             p2p_port,
             rpc_port,
-            network: NETWORK.to_string(),
+            network: settings.bitcoin_network.to_string(),
         }
     }
-}
-
-fn cookie_path(manager: &Manager) -> String {
-    let dir = if NETWORK == "mainnet" {
-        manager.storage_dir.clone()
-    } else {
-        format!("{}/{}", manager.storage_dir, NETWORK)
-    };
-    format!("{dir}/.cookie")
 }
 
 pub struct BitcoindCheck(pub Settings);
@@ -85,10 +80,8 @@ macro_rules! bitcoin {
     ($settings:expr) => {{
         let mut bitcoind = test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(
             env!("CARGO_TARGET_TMPDIR"),
-            &$settings.node_id,
+            &$settings,
         );
-        $settings.bitcoin_network =
-            kld::settings::Network::from_str(&bitcoind.network).map_err(|e| anyhow::anyhow!(e))?;
         $settings.bitcoind_rpc_port = bitcoind.rpc_port;
         $settings.bitcoin_cookie_path = bitcoind.cookie_path();
         bitcoind

@@ -176,7 +176,6 @@ in
       testnet = cfg.network == "testnet";
       rpc.port = 8332;
       extraConfig = ''
-        txindex=1
         rpcthreads=16
       '';
       extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
