@@ -4,6 +4,7 @@
 , openssl
 , bitcoind
 , cockroachdb
+, electrs
 , pkg-config
 , self
 }:
