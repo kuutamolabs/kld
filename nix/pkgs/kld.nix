@@ -49,7 +49,7 @@ craneLib.buildPackage {
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoToml cargoArtifacts buildInputs cargoExtraArgs outputHashes;
-      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
+      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb electrs ];
     };
     inherit cargoArtifacts;
   };
