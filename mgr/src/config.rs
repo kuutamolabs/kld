@@ -78,17 +78,6 @@ pub struct ConfigFile {
     hosts: HashMap<String, HostConfig>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct NearKeyFile {
-    pub account_id: String,
-    pub public_key: String,
-    // Credential files generated which near cli works with have private_key
-    // rather than secret_key field.  To make it possible to read those from
-    // neard add private_key as an alias to this field so either will work.
-    #[serde(alias = "private_key")]
-    pub secret_key: String,
-}
-
 fn default_secret_directory() -> PathBuf {
     PathBuf::from("secrets")
 }
@@ -448,7 +437,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         }
         // FIXME: this is currently an unstable feature
         //if address.is_global() {
-        //    warn!("ipv4_address provided for hosts.{} is not a public ipv4 address: {}. This might not work with near mainnet", name, address);
+        //    warn!("ipv4_address provided for hosts.{} is not a public ipv4 address: {}.", name, address);
         //}
         Some(address)
     } else {
@@ -502,7 +491,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
 
         // FIXME: this is currently an unstable feature
         //if ipv6_address.is_global() {
-        //    warn!("ipv6_address provided for hosts.{} is not a public ipv6 address: {}. This might not work with near mainnet", name, ipv6_address);
+        //    warn!("ipv6_address provided for hosts.{} is not a public ipv6 address: {}.", name, ipv6_address);
         //}
 
         (Some(ipv6_address), mask)
@@ -739,7 +728,7 @@ fn decode_token(s: String) -> Result<(String, String)> {
 #[cfg(test)]
 pub(crate) const TEST_CONFIG: &str = r#"
 [global]
-flake = "github:myfork/near-staking-knd"
+flake = "github:myfork/lightning-knd"
 
 [host_defaults]
 public_ssh_keys = [
@@ -773,7 +762,7 @@ pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
     let config = parse_config(TEST_CONFIG, Path::new("/"))?;
-    assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
+    assert_eq!(config.global.flake, "github:myfork/lightning-knd");
 
     let hosts = &config.hosts;
     assert_eq!(hosts.len(), 3);
