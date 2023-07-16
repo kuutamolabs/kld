@@ -41,11 +41,17 @@ pub async fn test_start() -> Result<()> {
 
     generate_blocks(
         &settings_0,
-        101, // Coinbase not spendable for 100 blocks.
+        1,
         &bitcoin::Address::from_str(&address.address)?,
         false,
     )
     .await?;
+    generate_blocks(
+        &settings_0,
+        100, // Coinbase not spendable for 100 blocks.
+        &Address::from_str(TEST_ADDRESS)?,
+        false,
+    ).await?;
 
     poll!(
         120,
