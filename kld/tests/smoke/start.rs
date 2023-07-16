@@ -51,7 +51,8 @@ pub async fn test_start() -> Result<()> {
         100, // Coinbase not spendable for 100 blocks.
         &Address::from_str(TEST_ADDRESS)?,
         false,
-    ).await?;
+    )
+    .await?;
 
     poll!(
         120,
