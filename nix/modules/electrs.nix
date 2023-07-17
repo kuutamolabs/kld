@@ -1,13 +1,12 @@
 { config, lib, pkgs, ... }:
 let
   cfg = config.kuutamo.electrs;
-  inherit (config.kuutamo.kld) network;
-  bitcoind-instance = "kld-${network}";
-  bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
+  kldNetwork = config.kuutamo.kld.network;
+  bitcoinCfg = config.services.bitcoind."kld-${kldNetwork}";
   bitcoinCookieDir =
-    if network == "regtest" then
+    if kldNetwork == "regtest" then
       "${bitcoinCfg.dataDir}/regtest"
-    else if network == "testnet" then
+    else if kldNetwork == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
     else bitcoinCfg.dataDir;
 in
@@ -33,6 +32,11 @@ in
       default = 4224;
       description = "Prometheus monitoring port.";
     };
+    network = lib.mkOption {
+      type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
+      default = "bitcoin";
+      description = lib.mdDoc "Bitcoin network to use.";
+    };
   };
   config = {
     users.users.electrs = {
@@ -51,7 +55,7 @@ in
         ExecStart = ''
           ${pkgs.electrs}/bin/electrs \
           --log-filters=INFO \
-          --network=${network} \
+          --network=${cfg.network} \
           --db-dir=${cfg.dataDir} \
           --cookie-file=/var/lib/electrs/.cookie \
           --electrum-rpc-addr=${cfg.address}:${toString cfg.port} \

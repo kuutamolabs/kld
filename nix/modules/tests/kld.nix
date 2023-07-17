@@ -27,6 +27,8 @@
       kuutamo.kld.keyPath = ./kld-certs/kld.key;
       kuutamo.kld.network = "regtest";
 
+      kuutamo.electrs.network = "regtest";
+
       kuutamo.telegraf = {
         configHash = "";
         hasMonitoring = false;
