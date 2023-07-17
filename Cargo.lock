@@ -240,9 +240,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
 
 [[package]]
+name = "base64-compat"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a8d4d2746f89841e49230dd26917df1876050f95abafafbe34f47cb534b88d7"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "bdk"
 version = "0.28.0"
-source = "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#fa0973f58286383232048b6809f2bc5dc70c2de9"
+source = "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#39d8626e8c40455b6089975fda79000941094910"
 dependencies = [
  "async-trait",
  "bdk-macros",
@@ -328,9 +337,10 @@ dependencies = [
 [[package]]
 name = "bitcoincore-rpc"
 version = "0.16.0"
-source = "git+https://github.com/JosephGoulden/rust-bitcoincore-rpc?branch=jsonrpc#755d2cc5ddadd5713f0980374b4b02e023264ffe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0261b2bb7617e0c91b452a837bbd1291fd34ad6990cb8e3ffc28239cc045b5ca"
 dependencies = [
- "bitcoincore-rpc-json 0.16.0 (git+https://github.com/JosephGoulden/rust-bitcoincore-rpc?branch=jsonrpc)",
+ "bitcoincore-rpc-json",
  "jsonrpc",
  "log",
  "serde",
@@ -342,16 +352,6 @@ name = "bitcoincore-rpc-json"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c231bea28e314879c5aef240f6052e8a72a369e3c9f9b20d9bfbb33ad18029b2"
-dependencies = [
- "bitcoin",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "bitcoincore-rpc-json"
-version = "0.16.0"
-source = "git+https://github.com/JosephGoulden/rust-bitcoincore-rpc?branch=jsonrpc#755d2cc5ddadd5713f0980374b4b02e023264ffe"
 dependencies = [
  "bitcoin",
  "serde",
@@ -1205,12 +1205,13 @@ dependencies = [
 
 [[package]]
 name = "jsonrpc"
-version = "0.14.1"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8128f36b47411cd3f044be8c1f5cc0c9e24d1d1bfdc45f0a57897b32513053f2"
+checksum = "7f8423b78fc94d12ef1a4a9d13c348c9a78766dda0cc18817adf0faf77e670c8"
 dependencies = [
- "base64 0.13.1",
+ "base64-compat",
  "serde",
+ "serde_derive",
  "serde_json",
 ]
 
@@ -1227,7 +1228,7 @@ dependencies = [
  "bdk",
  "bincode",
  "bitcoin",
- "bitcoincore-rpc-json 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoincore-rpc-json",
  "bitvec",
  "bytes",
  "chrono",
@@ -1381,9 +1382,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.19"
+version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
+checksum = "518ef76f2f87365916b142844c16d8fefd85039bc5699050210a7778ee1cd1de"
 
 [[package]]
 name = "macaroon"
