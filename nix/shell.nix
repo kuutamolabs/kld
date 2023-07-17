@@ -18,7 +18,7 @@
           pkgs.just
           pkgs.jq
           pkgs.nix-update
-          pkgs.electrs
+
           # rust dev
           pkgs.rust-analyzer
           pkgs.cargo-watch

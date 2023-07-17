@@ -48,8 +48,7 @@ impl KldManager {
         let macaroon = fs::read(format!(
             "{}/macaroons/admin.macaroon",
             self.manager.storage_dir
-        ))
-        .unwrap();
+        ))?;
 
         let res = self
             .rest_client
@@ -83,7 +82,7 @@ impl KldManager {
         cockroach: &CockroachManager,
         electrs: &ElectrsManager,
         settings: &Settings,
-    ) -> KldManager {
+    ) -> Result<KldManager> {
         let exporter_address = format!(
             "127.0.0.1:{}",
             get_available_port().expect("Cannot find free port")
@@ -94,7 +93,7 @@ impl KldManager {
         );
         let peer_port = get_available_port().expect("Cannot find free port");
 
-        let manager = Manager::new(output_dir, "kld", &settings.node_id);
+        let manager = Manager::new(output_dir, "kld", &settings.node_id)?;
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
@@ -138,14 +137,14 @@ impl KldManager {
 
         let client = https_client();
 
-        KldManager {
+        Ok(KldManager {
             manager,
             bin_path: bin_path.to_string(),
             exporter_address,
             rest_api_address,
             peer_port,
             rest_client: client,
-        }
+        })
     }
 }
 
@@ -178,7 +177,7 @@ macro_rules! kld {
             $electrs,
             &$settings,
         )
-        .await;
+        .await?;
         $settings.rest_api_address = kld.rest_api_address.clone();
         $settings.exporter_address = kld.exporter_address.clone();
         $settings.peer_port = kld.peer_port;

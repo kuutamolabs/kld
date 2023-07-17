@@ -38,12 +38,12 @@ impl ElectrsManager {
         bitcoin: &BitcoinManager,
         output_dir: &str,
         settings: &Settings,
-    ) -> ElectrsManager {
+    ) -> Result<ElectrsManager> {
         let monitoring_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
 
-        let manager = Manager::new(output_dir, "electrs", &settings.node_id);
-        ElectrsManager {
+        let manager = Manager::new(output_dir, "electrs", &settings.node_id)?;
+        Ok(ElectrsManager {
             manager,
             rpc_address: format!("127.0.0.1:{rpc_port}"),
             monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
@@ -51,7 +51,7 @@ impl ElectrsManager {
             bitcoin_p2p_addr: format!("127.0.0.1:{}", bitcoin.p2p_port),
             bitcoin_cookie_path: bitcoin.cookie_path(),
             bitcoin_network: settings.bitcoin_network.to_string(),
-        }
+        })
     }
 }
 
@@ -76,7 +76,7 @@ macro_rules! electrs {
             $bitcoin,
             env!("CARGO_TARGET_TMPDIR"),
             &$settings,
-        );
+        )?;
         $settings.electrs_url = electrs.rpc_address.clone();
         electrs
             .start(test_utils::electrs_manager::ElectrsCheck(

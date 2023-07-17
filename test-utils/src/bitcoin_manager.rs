@@ -42,17 +42,17 @@ impl BitcoinManager {
         format!("{dir}/.cookie")
     }
 
-    pub fn test_bitcoin(output_dir: &str, settings: &Settings) -> BitcoinManager {
+    pub fn test_bitcoin(output_dir: &str, settings: &Settings) -> Result<BitcoinManager> {
         let p2p_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
 
-        let manager = Manager::new(output_dir, "bitcoind", &settings.node_id);
-        BitcoinManager {
+        let manager = Manager::new(output_dir, "bitcoind", &settings.node_id)?;
+        Ok(BitcoinManager {
             manager,
             p2p_port,
             rpc_port,
             network: settings.bitcoin_network.to_string(),
-        }
+        })
     }
 }
 
@@ -81,7 +81,7 @@ macro_rules! bitcoin {
         let mut bitcoind = test_utils::bitcoin_manager::BitcoinManager::test_bitcoin(
             env!("CARGO_TARGET_TMPDIR"),
             &$settings,
-        );
+        )?;
         $settings.bitcoind_rpc_port = bitcoind.rpc_port;
         $settings.bitcoin_cookie_path = bitcoind.cookie_path();
         bitcoind

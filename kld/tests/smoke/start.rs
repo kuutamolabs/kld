@@ -59,8 +59,8 @@ pub async fn test_start() -> Result<()> {
         kld_0
             .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
             .await?
-            .total_balance
-            > 0
+            .conf_balance
+            == 5000000000
     );
 
     let mut settings_1 = settings_0.clone();

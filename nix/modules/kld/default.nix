@@ -15,6 +15,7 @@ let
     else bitcoinCfg.dataDir;
 
   cockroachCfg = config.kuutamo.cockroachdb;
+  electrsCfg = config.kuutamo.electrs;
 
   kld-cli = pkgs.runCommand "kld-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/kld-cli $out/bin/kld-cli \
@@ -174,6 +175,12 @@ in
     services.bitcoind.${bitcoind-instance} = {
       enable = true;
       testnet = cfg.network == "testnet";
+      port =
+        if cfg.network == "regtest" then
+          18444
+        else if cfg.network == "testnet" then
+          18333
+        else 8333;
       rpc.port = 8332;
       extraConfig = ''
         rpcthreads=16
@@ -211,6 +218,7 @@ in
         "cockroachdb.service"
         "cockroachdb-setup.service"
         "bitcoind.service"
+        "electrs.service"
       ];
       environment = {
         KLD_LOG_LEVEL = lib.mkDefault cfg.logLevel;
@@ -230,6 +238,7 @@ in
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
         KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
+        KLD_ELECTRS_URL = lib.mkDefault "${electrsCfg.address}:${toString electrsCfg.port}";
       } // lib.optionalAttrs (cfg.publicAddresses != [ ]) { KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses; };
 
       path = [

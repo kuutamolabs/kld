@@ -1,68 +1,71 @@
-{ config, pkgs, lib, ... }:
+{ config, lib, pkgs, ... }:
 let
-  kld_metrics = if config.kuutamo ? kld then [ "http://localhost:2233/metrics" ] else [ ];
+  cfg = config.kuutamo.electrs;
+  inherit (config.kuutamo.kld) network;
+  bitcoind-instance = "kld-${network}";
+  bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
+  bitcoinCookieDir =
+    if network == "regtest" then
+      "${bitcoinCfg.dataDir}/regtest"
+    else if network == "testnet" then
+      "${bitcoinCfg.dataDir}/testnet3"
+    else bitcoinCfg.dataDir;
 in
 {
-  options = {
-    kuutamo.telegraf.configHash = lib.mkOption {
+  options.kuutamo.electrs = {
+    address = lib.mkOption {
       type = lib.types.str;
-      default = "";
-      description = "telegraf config hash";
+      default = "127.0.0.1";
+      description = "Address to listen for RPC connections.";
     };
-
-    kuutamo.telegraf.hasMonitoring = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "has monitoring setting or not";
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 50001;
+      description = "Port to listen for RPC connections.";
     };
-    kuutamo.telegraf.hostname = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      description = "the hostname tag on metrics";
+    dataDir = lib.mkOption {
+      type = lib.types.path;
+      default = "/var/lib/electrs";
+      description = "The data directory for electrs.";
+    };
+    monitoringPort = lib.mkOption {
+      type = lib.types.port;
+      default = 4224;
+      description = "Prometheus monitoring port.";
     };
   };
   config = {
-    services.telegraf = {
-      enable = true;
-      environmentFiles =
-        if config.kuutamo.telegraf.hasMonitoring then [
-          /var/lib/secrets/telegraf
-          (pkgs.writeText "monitoring-configHash" config.kuutamo.telegraf.configHash)
-        ] else [ ];
-      extraConfig = {
-        agent.interval = "60s";
-        agent.round_interval = true;
-        agent.metric_batch_size = 10000;
-        agent.collection_offset = "5s";
-        agent.flush_interval = "60s";
-        agent.flush_jitter = "40s";
-        inputs = {
-          cpu = {
-            tags = {
-              host = config.kuutamo.telegraf.hostname;
-            };
-          };
-          prometheus.insecure_skip_verify = true;
-          prometheus.urls = [
-            "https://${config.kuutamo.cockroachdb.http.address}:${toString config.kuutamo.cockroachdb.http.port}/_status/vars"
-          ] ++ kld_metrics;
-          prometheus.tags = {
-            host = config.kuutamo.telegraf.hostname;
-          };
-        };
-        outputs = {
-          prometheus_client = {
-            # Not expose,
-            # just for debug and let telegraf service running if not following monitoring settings
-            listen = ":9273";
-          };
-          http = lib.mkIf config.kuutamo.telegraf.hasMonitoring {
-            url = "$MONITORING_URL";
-            data_format = "prometheusremotewrite";
-            username = "$MONITORING_USERNAME";
-            password = "$MONITORING_PASSWORD";
-          };
-        };
+    users.users.electrs = {
+      isSystemUser = true;
+      group = "electrs";
+    };
+    users.groups.electrs = { };
+
+    systemd.services.electrs = {
+      wantedBy = [ "multi-user.target" ];
+      after = [ "bitcoind.service" ];
+      serviceConfig = {
+        ExecStartPre = "+${pkgs.writeShellScript "setup" ''
+          install -m400 -o electrs ${bitcoinCookieDir}/.cookie /var/lib/electrs/.cookie
+        ''}";
+        ExecStart = ''
+          ${pkgs.electrs}/bin/electrs \
+          --log-filters=INFO \
+          --network=${network} \
+          --db-dir=${cfg.dataDir} \
+          --cookie-file=/var/lib/electrs/.cookie \
+          --electrum-rpc-addr=${cfg.address}:${toString cfg.port} \
+          --monitoring-addr=${cfg.address}:${toString cfg.monitoringPort} \
+          --daemon-dir='${bitcoinCfg.dataDir}' \
+          --daemon-rpc-addr=127.0.0.1:${toString bitcoinCfg.rpc.port} \
+          --daemon-p2p-addr=127.0.0.1:${toString bitcoinCfg.port} \
+        '';
+        User = "electrs";
+        Group = "electrs";
+        Restart = "on-failure";
+        RestartSec = "10s";
+        ReadWritePaths = [ cfg.dataDir ];
+        StateDirectory = "electrs";
       };
     };
   };
