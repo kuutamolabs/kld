@@ -39,21 +39,21 @@ impl CockroachManager {
         self.manager.start("cockroach", args, check).await
     }
 
-    pub fn test_cockroach(output_dir: &str, instance: &str) -> CockroachManager {
+    pub fn test_cockroach(output_dir: &str, instance: &str) -> Result<CockroachManager> {
         let port = get_available_port().expect("Cannot find free node port for cockroach");
         let http_port = get_available_port().expect("Cannot find free http port for cockroach");
         let sql_port = get_available_port().expect("Cannot find free sql port for cockroach");
         let http_address = format!("127.0.0.1:{http_port}");
         let certs_dir = format!("{}/certs/cockroach", env!("CARGO_MANIFEST_DIR"));
 
-        let manager = Manager::new(output_dir, "cockroach", instance);
-        CockroachManager {
+        let manager = Manager::new(output_dir, "cockroach", instance)?;
+        Ok(CockroachManager {
             manager,
             port,
             sql_port,
             http_address,
             certs_dir,
-        }
+        })
     }
 
     pub fn kill(&mut self) {
@@ -107,7 +107,7 @@ macro_rules! cockroach {
         let mut cockroach = test_utils::cockroach_manager::CockroachManager::test_cockroach(
             env!("CARGO_TARGET_TMPDIR"),
             &$settings.node_id,
-        );
+        )?;
         $settings.database_port = cockroach.sql_port.to_string();
         cockroach
             .start(test_utils::cockroach_manager::CockroachCheck(
