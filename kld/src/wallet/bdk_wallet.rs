@@ -193,41 +193,37 @@ impl<
         let blockchain = self.blockchain.clone();
         let electrs_url = self.settings.electrs_url.clone();
         tokio::task::spawn_blocking(move || loop {
-            // ElectrumBlockchain will not be instantiated if electrs is down. So within this loop we can keep trying to connect and get in sync.
-            match blockchain.get_or_try_init(|| -> Result<ElectrumBlockchain, anyhow::Error> {
-                let client = Client::new(&electrs_url)?;
-                Ok(ElectrumBlockchain::from(client))
-            }) {
-                Ok(blockchain) => {
-                    if let Ok(height) = blockchain.get_height() {
-                        if let Ok(guard) = wallet_clone.try_lock() {
-                            let database = guard.database();
-                            if let Ok(synctime) = database.get_sync_time() {
-                                let sync_height = synctime
-                                    .map(|time| time.block_time.height as u64)
-                                    .unwrap_or_default();
-                                if sync_height < height as u64 {
-                                    drop(database);
-                                    info!("Starting wallet sync from {sync_height} to {height}");
-                                    if let Err(e) = guard.sync(
-                                        blockchain,
-                                        SyncOptions {
-                                            progress: Some(Box::new(log_progress())),
-                                        },
-                                    ) {
-                                        error!("Wallet sync with electrs failed: {e:}");
-                                    } else {
-                                        info!("Wallet is synchronised to blockchain");
-                                    }
-                                }
-                            }
-                        }
-                    }
+            let sync = || -> Result<()> {
+                // ElectrumBlockchain will not be instantiated if electrs is down. So within this loop we can keep trying to connect and get in sync.
+                let blockchain = blockchain.get_or_try_init(
+                    || -> Result<ElectrumBlockchain, anyhow::Error> {
+                        let client = Client::new(&electrs_url)?;
+                        Ok(ElectrumBlockchain::from(client))
+                    },
+                )?;
+                let height = blockchain.get_height()?;
+                let guard = wallet_clone.try_lock().unwrap();
+                let database = guard.database();
+                let synctime = database.get_sync_time()?;
+                let sync_height = synctime
+                    .map(|time| time.block_time.height as u64)
+                    .unwrap_or_default();
+                if sync_height < height as u64 {
+                    drop(database);
+                    info!("Starting wallet sync from {sync_height} to {height}");
+                    guard.sync(
+                        blockchain,
+                        SyncOptions {
+                            progress: Some(Box::new(log_progress())),
+                        },
+                    )?;
                 }
-                Err(e) => {
-                    error!("{e}")
-                }
-            }
+                Ok(())
+            };
+            match sync() {
+                Ok(_) => info!("Wallet is synchronised to blockchain"),
+                Err(e) => error!("Failed to sync wallet: {e}"),
+            };
             std::thread::sleep(Duration::from_secs(10));
         });
     }
