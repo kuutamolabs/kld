@@ -49,7 +49,6 @@ async-trait = "0.1.68"
 clap = { version = "4.3.10", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
 thiserror = "1.0"
-uuid = { version = "1.4.0", features = [ "v4", "fast-rng" ] }
 
 # database
 bitvec = "1.0.1"

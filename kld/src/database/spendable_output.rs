@@ -1,25 +1,44 @@
 use std::io::Cursor;
 
 use anyhow::Result;
+use bitcoin::{hashes::Hash, Txid};
 use lightning::{
     chain::keysinterface::SpendableOutputDescriptor,
     util::ser::{Readable, Writeable},
 };
 use postgres_types::{FromSql, ToSql};
 use tokio_postgres::Row;
-use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub struct SpendableOutput {
-    pub id: Uuid,
+    pub txid: Txid,
+    pub vout: u16,
+    pub value: u64,
     pub descriptor: SpendableOutputDescriptor,
     pub status: SpendableOutputStatus,
 }
 
 impl SpendableOutput {
     pub fn new(descriptor: SpendableOutputDescriptor) -> Self {
+        let (txid, vout, value) = match &descriptor {
+            SpendableOutputDescriptor::StaticOutput { outpoint, output } => {
+                (outpoint.txid, outpoint.index, output.value)
+            }
+            SpendableOutputDescriptor::DelayedPaymentOutput(descriptor) => (
+                descriptor.outpoint.txid,
+                descriptor.outpoint.index,
+                descriptor.output.value,
+            ),
+            SpendableOutputDescriptor::StaticPaymentOutput(descriptor) => (
+                descriptor.outpoint.txid,
+                descriptor.outpoint.index,
+                descriptor.output.value,
+            ),
+        };
         SpendableOutput {
-            id: Uuid::new_v4(),
+            txid,
+            vout,
+            value,
             descriptor,
             status: SpendableOutputStatus::Unspent,
         }
@@ -28,8 +47,11 @@ impl SpendableOutput {
     pub fn from_row(row: Row) -> Result<SpendableOutput> {
         let bytes: Vec<u8> = row.get("descriptor");
         let descriptor = SpendableOutputDescriptor::read(&mut Cursor::new(bytes)).unwrap();
+        let bytes: Vec<u8> = row.get("txid");
         Ok(SpendableOutput {
-            id: row.get("id"),
+            txid: Txid::from_slice(&bytes)?,
+            vout: row.get::<&str, i64>("vout") as u16,
+            value: row.get::<&str, i64>("value") as u64,
             descriptor,
             status: row.get("status"),
         })

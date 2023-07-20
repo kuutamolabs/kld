@@ -146,20 +146,28 @@ impl LdkDatabase {
     }
 
     pub async fn persist_spendable_output(&self, output: SpendableOutput) -> Result<()> {
-        debug!("Persist spendable output with ID {}", output.id);
+        debug!("Persist spendable output {}:{}", output.txid, output.vout);
         let statement = "
             UPSERT INTO spendable_outputs (
-                id,
+                txid,
+                vout,
+                value,
                 descriptor,
                 status
-            ) VALUES ($1, $2, $3)"
+            ) VALUES ($1, $2, $3, $4, $5)"
             .to_string();
         self.durable_connection
             .get()
             .await
             .execute(
                 &statement,
-                &[&output.id, &output.serialize()?, &output.status],
+                &[
+                    &output.txid.as_ref(),
+                    &(output.vout as i64),
+                    &(output.value as i64),
+                    &output.serialize()?,
+                    &output.status,
+                ],
             )
             .await?;
         Ok(())
@@ -168,7 +176,9 @@ impl LdkDatabase {
     pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutput>> {
         let statement = "
             SELECT
-                id,
+                txid,
+                vout,
+                value,
                 descriptor,
                 status
             FROM
