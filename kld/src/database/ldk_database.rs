@@ -4,6 +4,7 @@ use crate::to_i64;
 
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
+use super::spendable_output::SpendableOutput;
 use super::{DurableConnection, Params};
 use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::hashes::hex::ToHex;
@@ -142,6 +143,51 @@ impl LdkDatabase {
             )
             .await?;
         Ok(())
+    }
+
+    pub async fn persist_spendable_output(&self, output: SpendableOutput) -> Result<()> {
+        debug!("Persist spendable output with ID {}", output.id);
+        let statement = "
+            UPSERT INTO spendable_outputs (
+                id,
+                descriptor,
+                status
+            ) VALUES ($1, $2, $3)"
+            .to_string();
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                &statement,
+                &[&output.id, &output.serialize()?, &output.status],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutput>> {
+        let statement = "
+            SELECT
+                id,
+                descriptor,
+                status
+            FROM
+                spendable_outputs
+            "
+        .to_string();
+
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(&statement, &[])
+            .await?;
+
+        let mut outputs = vec![];
+        for row in rows {
+            outputs.push(SpendableOutput::from_row(row)?);
+        }
+        Ok(outputs)
     }
 
     pub async fn persist_invoice(&self, invoice: &Invoice) -> Result<()> {

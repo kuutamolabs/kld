@@ -602,7 +602,6 @@ impl Controller {
             scorer.clone(),
         ));
 
-        // Initialize the ChannelManager
         let mut channelmonitors = database
             .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
             .await?;
@@ -611,6 +610,7 @@ impl Controller {
             .channel_handshake_limits
             .force_announced_channel_preference = false;
         user_config.channel_handshake_config.announced_channel = true;
+        user_config.channel_handshake_limits.max_funding_satoshis = u64::MAX;
 
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
@@ -775,7 +775,10 @@ impl Controller {
         channel_manager: Arc<ChannelManager>,
         channelmonitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
     ) -> BlockSourceResult<()> {
-        // Sync ChannelMonitors and ChannelManager to chain tip
+        info!(
+            "Syncing ChannelManager and {} ChannelMonitors to chain tip",
+            channelmonitors.len()
+        );
         let mut chain_listener_channel_monitors = Vec::new();
         let mut cache = UnboundedCache::new();
 
@@ -811,8 +814,7 @@ impl Controller {
             chain_listeners,
         )
         .await?;
-
-        // Give ChannelMonitors to ChainMonitor
+        info!("Chain listeners synchronised. Registering ChannelMonitors with ChainMonitor");
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
             chain_monitor.watch_channel(funding_outpoint, channel_monitor);
         }

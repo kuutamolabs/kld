@@ -49,10 +49,11 @@ async-trait = "0.1.68"
 clap = { version = "4.3.10", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
 thiserror = "1.0"
+uuid = { version = "1.4.0", features = [ "v4", "fast-rng" ] }
 
 # database
 bitvec = "1.0.1"
-tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
+tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-1"] }
 postgres-openssl = "0.5.0"
 postgres-types = { version = "0.2.5", features = [ "derive" ] }
 openssl = "0.10.55"

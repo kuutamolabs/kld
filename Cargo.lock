@@ -1234,6 +1234,7 @@ dependencies = [
  "tokio-util",
  "tower-http",
  "url",
+ "uuid 1.4.1",
 ]
 
 [[package]]
@@ -1803,7 +1804,8 @@ dependencies = [
  "fallible-iterator",
  "postgres-derive",
  "postgres-protocol",
- "uuid",
+ "uuid 0.8.2",
+ "uuid 1.4.1",
 ]
 
 [[package]]
@@ -2516,11 +2518,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.2",
  "bitcoin",
  "kld",
  "lightning",
- "lightning-block-sync",
  "openssl",
  "postgres-openssl",
  "rand",
@@ -2929,6 +2929,16 @@ name = "uuid"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+
+[[package]]
+name = "uuid"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
+dependencies = [
+ "getrandom",
+ "rand",
+]
 
 [[package]]
 name = "vcpkg"
