@@ -1,7 +1,7 @@
 use std::{str::FromStr, time::Duration};
 
-use crate::{generate_blocks, START_N_BLOCKS};
-use anyhow::Result;
+use crate::START_N_BLOCKS;
+use anyhow::{Context, Result};
 use api::{
     routes, Channel, ChannelState, FundChannel, FundChannelResponse, GenerateInvoice,
     GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, NewAddress, NewAddressResponse,
@@ -18,55 +18,61 @@ pub async fn test_start() -> Result<()> {
     let mut settings_0 = test_settings!("start");
     let cockroach = cockroach!(settings_0);
     let bitcoin = bitcoin!(settings_0);
-    let electrs = electrs!(&bitcoin, settings_0);
-    generate_blocks(
-        &settings_0,
-        START_N_BLOCKS,
-        &Address::from_str(TEST_ADDRESS)?,
-        false,
-    )
-    .await?;
+    bitcoin
+        .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
+        .await?;
 
     settings_0.node_id = "start0".to_owned();
     settings_0.database_name = "start0".to_owned();
-    let kld_0 = kld!(&bitcoin, &cockroach, &electrs, settings_0);
-
+    let electrs_0 = electrs!(&bitcoin, settings_0);
+    let kld_0 = kld!(&bitcoin, &cockroach, &electrs_0, settings_0);
     let pid = kld_0.call_exporter("pid").await?;
     assert_eq!(pid, kld_0.pid().unwrap().to_string());
-    assert!(kld_0.call_exporter("metrics").await.is_ok());
+
+    let mut settings_1 = settings_0.clone();
+    settings_1.node_id = "start1".to_owned();
+    settings_1.database_name = "start1".to_owned();
+    let electrs_1 = electrs!(&bitcoin, settings_1);
+    let kld_1 = kld!(&bitcoin, &cockroach, &electrs_1, settings_1);
 
     let address: NewAddressResponse = kld_0
         .call_rest_api(Method::GET, routes::NEW_ADDR, NewAddress::default())
         .await?;
 
-    generate_blocks(
-        &settings_0,
-        1,
-        &bitcoin::Address::from_str(&address.address)?,
-        false,
-    )
-    .await?;
-    generate_blocks(
-        &settings_0,
-        100, // Coinbase not spendable for 100 blocks.
-        &Address::from_str(TEST_ADDRESS)?,
-        false,
-    )
-    .await?;
+    bitcoin
+        .generate_blocks(1, &bitcoin::Address::from_str(&address.address)?, false)
+        .await?;
+    bitcoin
+        .generate_blocks(
+            100, // Coinbase not spendable for 100 blocks.
+            &Address::from_str(TEST_ADDRESS)?,
+            false,
+        )
+        .await?;
+
+    let balance = 5000000000;
+    let channel_amount = 1000000;
+    let push_amount_msat = 1000000;
+    let fee_rate_kb = 1000;
+    let tx_size_bytes = 153;
+    let keysend_amount_msat = 20000000;
+    let invoice_amount_msat = 50000000;
+    let open_channel_fee = fee_rate_kb / 1000 * tx_size_bytes;
+    let kld0_open_channel_expected_balance = balance - channel_amount - open_channel_fee;
+    let _kld0_close_channel_expected_balance = balance
+        - open_channel_fee
+        - (push_amount_msat + keysend_amount_msat + invoice_amount_msat) / 1000;
+    let _kld1_close_channel_expected_balance =
+        push_amount_msat + keysend_amount_msat + invoice_amount_msat;
 
     poll!(
-        120,
+        60,
         kld_0
             .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
             .await?
             .conf_balance
-            == 5000000000
+            == balance
     );
-
-    let mut settings_1 = settings_0.clone();
-    settings_1.node_id = "start1".to_owned();
-    settings_1.database_name = "start1".to_owned();
-    let kld_1 = kld!(&bitcoin, &cockroach, &electrs, settings_1);
 
     let _info_0: GetInfo = kld_0
         .call_rest_api(Method::GET, routes::GET_INFO, ())
@@ -78,8 +84,9 @@ pub async fn test_start() -> Result<()> {
 
     let fund_channel = FundChannel {
         id: format!("{}@127.0.0.1:{}", info_1.id, kld_1.peer_port),
-        satoshis: "1000000".to_string(),
-        push_msat: Some("10000".to_string()),
+        satoshis: channel_amount.to_string(),
+        push_msat: Some(push_amount_msat.to_string()),
+        fee_rate: Some(api::FeeRate::PerKb(fee_rate_kb as u32)),
         ..Default::default()
     };
 
@@ -87,16 +94,21 @@ pub async fn test_start() -> Result<()> {
         .call_rest_api(Method::POST, routes::OPEN_CHANNEL, fund_channel)
         .await?;
 
-    generate_blocks(
-        &settings_0,
-        10,
-        &bitcoin::Address::from_str(&address.address)?,
-        true,
-    )
-    .await?;
+    bitcoin
+        .generate_blocks(10, &bitcoin::Address::from_str(TEST_ADDRESS)?, true)
+        .await?;
 
     poll!(
-        120,
+        60,
+        kld_0
+            .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
+            .await?
+            .conf_balance
+            == kld0_open_channel_expected_balance
+    );
+
+    poll!(
+        60,
         kld_1
             .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
             .await?
@@ -104,10 +116,14 @@ pub async fn test_start() -> Result<()> {
             .map(|c| &c.state)
             == Some(&ChannelState::Usable)
     );
+    let channels = kld_1
+        .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
+        .await?;
+    let channel = channels.get(0).context("expected channel")?;
 
     let keysend = KeysendRequest {
         pubkey: info_1.id,
-        amount: 10000,
+        amount: keysend_amount_msat,
         ..Default::default()
     };
     let keysend_response: PaymentResponse = kld_0
@@ -119,7 +135,7 @@ pub async fn test_start() -> Result<()> {
     );
 
     let generate_invoice = GenerateInvoice {
-        amount: 1000,
+        amount: invoice_amount_msat,
         label: "label".to_string(),
         description: "description".to_string(),
         ..Default::default()
@@ -134,12 +150,33 @@ pub async fn test_start() -> Result<()> {
     let payment: PaymentResponse = kld_0
         .call_rest_api(Method::POST, routes::PAY_INVOICE, pay_invoice)
         .await?;
-    assert_eq!("succeeded", payment.status);
+    assert_eq!(payment.status, PaymentStatus::Succeeded.to_string());
 
     let invoices: Vec<Invoice> = kld_1
         .call_rest_api(Method::GET, routes::LIST_INVOICES, ())
         .await?;
     assert_eq!(1, invoices.len());
+
+    kld_0
+        .call_rest_api(
+            Method::DELETE,
+            &routes::CLOSE_CHANNEL.replace(":id", &channel.short_channel_id),
+            (),
+        )
+        .await?;
+
+    bitcoin
+        .generate_blocks(10, &Address::from_str(TEST_ADDRESS)?, true)
+        .await?;
+
+    poll!(
+        60,
+        kld_1
+            .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
+            .await?
+            .total_balance
+            > 0
+    );
 
     Ok(())
 }
@@ -152,13 +189,9 @@ pub async fn test_manual() -> Result<()> {
     let bitcoin = bitcoin!(settings);
     let electrs = electrs!(&bitcoin, settings);
 
-    generate_blocks(
-        &settings,
-        START_N_BLOCKS,
-        &Address::from_str(TEST_ADDRESS)?,
-        false,
-    )
-    .await?;
+    bitcoin
+        .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
+        .await?;
     let _kld = kld!(&bitcoin, &cockroach, &electrs, settings);
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;

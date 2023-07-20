@@ -52,7 +52,7 @@ thiserror = "1.0"
 
 # database
 bitvec = "1.0.1"
-tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
+tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-1"] }
 postgres-openssl = "0.5.0"
 postgres-types = { version = "0.2.5", features = [ "derive" ] }
 openssl = "0.10.55"
