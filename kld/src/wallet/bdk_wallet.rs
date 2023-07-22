@@ -1,24 +1,21 @@
 use std::{
-    str::FromStr,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use crate::settings::{Network, Settings};
-use anyhow::{bail, Result};
+use crate::settings::Settings;
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     blockchain::{log_progress, ElectrumBlockchain, GetHeight},
     database::{BatchDatabase, BatchOperations, Database},
     electrum_client::Client,
+    template::Bip84,
     wallet::AddressInfo,
-    Balance, FeeRate, LocalUtxo, SignOptions, SyncOptions, TransactionDetails,
+    Balance, FeeRate, KeychainKind, LocalUtxo, SignOptions, SyncOptions, TransactionDetails,
 };
-use bitcoin::{
-    util::bip32::{ChildNumber, DerivationPath},
-    Address, OutPoint, Script, Transaction,
-};
+use bitcoin::{Address, OutPoint, Script, Transaction};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
@@ -145,27 +142,10 @@ impl<
         database: D,
     ) -> Result<Wallet<D, B>> {
         let xprivkey = ExtendedPrivKey::new_master(settings.bitcoin_network.into(), seed)?;
-        let native_segwit_base_path = "m/84";
-
-        let coin_type = match settings.bitcoin_network {
-            Network::Main => 0,
-            _ => 1,
-        };
-
-        let base_path = DerivationPath::from_str(native_segwit_base_path)?;
-        let derivation_path = base_path.extend([ChildNumber::from_hardened_idx(coin_type)?]);
-        let receive_descriptor_template = bdk::descriptor!(wpkh((
-            xprivkey,
-            derivation_path.extend([ChildNumber::Normal { index: 0 }])
-        )))?;
-        let change_descriptor_template = bdk::descriptor!(wpkh((
-            xprivkey,
-            derivation_path.extend([ChildNumber::Normal { index: 1 }])
-        )))?;
 
         let bdk_wallet = Arc::new(Mutex::new(bdk::Wallet::new(
-            receive_descriptor_template,
-            Some(change_descriptor_template),
+            Bip84(xprivkey, KeychainKind::External),
+            Some(Bip84(xprivkey, KeychainKind::Internal)),
             settings.bitcoin_network.into(),
             database,
         )?));
@@ -193,41 +173,40 @@ impl<
         let blockchain = self.blockchain.clone();
         let electrs_url = self.settings.electrs_url.clone();
         tokio::task::spawn_blocking(move || loop {
-            // ElectrumBlockchain will not be instantiated if electrs is down. So within this loop we can keep trying to connect and get in sync.
-            match blockchain.get_or_try_init(|| -> Result<ElectrumBlockchain, anyhow::Error> {
-                let client = Client::new(&electrs_url)?;
-                Ok(ElectrumBlockchain::from(client))
-            }) {
-                Ok(blockchain) => {
-                    if let Ok(height) = blockchain.get_height() {
-                        if let Ok(guard) = wallet_clone.try_lock() {
-                            let database = guard.database();
-                            if let Ok(synctime) = database.get_sync_time() {
-                                let sync_height = synctime
-                                    .map(|time| time.block_time.height as u64)
-                                    .unwrap_or_default();
-                                if sync_height < height as u64 {
-                                    drop(database);
-                                    info!("Starting wallet sync from {sync_height} to {height}");
-                                    if let Err(e) = guard.sync(
-                                        blockchain,
-                                        SyncOptions {
-                                            progress: Some(Box::new(log_progress())),
-                                        },
-                                    ) {
-                                        error!("Wallet sync with electrs failed: {e:}");
-                                    } else {
-                                        info!("Wallet is synchronised to blockchain");
-                                    }
-                                }
-                            }
-                        }
-                    }
+            let sync = || -> Result<()> {
+                // ElectrumBlockchain will not be instantiated if electrs is down. So within this loop we can keep trying to connect and get in sync.
+                let blockchain = blockchain.get_or_try_init(
+                    || -> Result<ElectrumBlockchain, anyhow::Error> {
+                        let client = Client::new(&electrs_url)?;
+                        Ok(ElectrumBlockchain::from(client))
+                    },
+                )?;
+                let height = blockchain.get_height()?;
+                let guard = wallet_clone
+                    .lock()
+                    .map_err(|_| anyhow!("wallet lock is poisened"))?;
+                let database = guard.database();
+                let synctime = database.get_sync_time()?;
+                let sync_height = synctime
+                    .map(|time| time.block_time.height as u64)
+                    .unwrap_or_default();
+                if sync_height < height as u64 {
+                    drop(database);
+                    info!("Starting wallet sync from {sync_height} to {height}");
+                    guard.sync(
+                        blockchain,
+                        SyncOptions {
+                            progress: Some(Box::new(log_progress())),
+                        },
+                    )?;
+                    info!("Wallet is synchronised with electrs");
                 }
-                Err(e) => {
-                    error!("{e}")
-                }
-            }
+                Ok(())
+            };
+            if let Err(e) = sync() {
+                error!("Failed to sync wallet: {e}");
+            };
+
             std::thread::sleep(Duration::from_secs(10));
         });
     }

@@ -1,10 +1,11 @@
-use std::{cell::OnceCell, time::Duration};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
 use kld::settings::Settings;
+use once_cell::sync::OnceCell;
 
 use crate::{
     manager::{Check, Manager},

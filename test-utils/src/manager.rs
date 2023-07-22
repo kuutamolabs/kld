@@ -27,7 +27,7 @@ impl Manager {
             std::thread::sleep(Duration::from_secs(1));
             count += 1;
             if count == 10 {
-                anyhow::bail!("Timed out polling for result");
+                anyhow::bail!("Timed out trying to delete dir");
             }
         }
         fs::create_dir_all(&storage_dir)?;
