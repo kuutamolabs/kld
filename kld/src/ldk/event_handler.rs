@@ -192,6 +192,7 @@ impl EventHandler {
                 via_user_channel_id: _,
                 onion_fields: _,
                 claim_deadline,
+                ..
             } => {
                 info!(
                     "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
@@ -497,7 +498,7 @@ impl EventHandler {
                             "EVENT: Sending spendable output to {}",
                             destination_address.address
                         );
-                        self.bitcoind_client.broadcast_transaction(&spending_tx)
+                        self.bitcoind_client.broadcast_transactions(&[&spending_tx])
                     }
                     Err(_) => {
                         error!("Failed to build spending transaction");
@@ -511,6 +512,7 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
             } => {}
+            Event::BumpTransaction(_) => todo!(),
         }
     }
 }

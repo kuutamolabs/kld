@@ -42,8 +42,10 @@ impl MockBitcoindClient {
 }
 
 impl BroadcasterInterface for MockBitcoindClient {
-    fn broadcast_transaction(&self, tx: &Transaction) {
-        self.broadcast_transactions.lock().unwrap().push(tx.txid())
+    fn broadcast_transactions(&self, txs: &[&Transaction]) {
+        for tx in txs {
+            self.broadcast_transactions.lock().unwrap().push(tx.txid())
+        }
     }
 }
 
@@ -82,6 +84,7 @@ impl FeeEstimator for MockBitcoindClient {
             ConfirmationTarget::Background => 500,
             ConfirmationTarget::Normal => 2000,
             ConfirmationTarget::HighPriority => 10000,
+            ConfirmationTarget::MempoolMinimum => 500,
         }
     }
 }

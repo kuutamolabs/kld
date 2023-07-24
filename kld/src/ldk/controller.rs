@@ -380,17 +380,12 @@ impl LightningInterface for Controller {
         let payment_id = Payment::new_id();
         let inflight_htlcs = self.channel_manager.compute_inflight_htlcs();
         let route_params = RouteParameters {
-            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40),
+            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40, false),
             final_value_msat: amount,
         };
         let route = self
             .router
-            .find_route(
-                &self.identity_pubkey(),
-                &route_params,
-                None,
-                &inflight_htlcs,
-            )
+            .find_route(&self.identity_pubkey(), &route_params, None, inflight_htlcs)
             .map_err(lightning_error)?;
         let hash = self
             .channel_manager
@@ -605,6 +600,7 @@ impl Controller {
                     keys_manager.clone(),
                     user_config,
                     chain_params,
+                    getinfo_resp.blocks as u32,
                 );
                 (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
@@ -647,6 +643,8 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
+            Arc::new(lightning::onion_message::DefaultMessageRouter {}),
+            IgnoringMessageHandler {},
             IgnoringMessageHandler {},
         ));
         let ephemeral_bytes: [u8; 32] = random();

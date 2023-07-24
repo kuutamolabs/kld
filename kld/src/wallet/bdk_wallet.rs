@@ -102,7 +102,7 @@ impl<
                     "Transferring {} sats to {address} with txid {}",
                     tx_details.sent, tx_details.txid
                 );
-                self.bitcoind_client.broadcast_transaction(&tx);
+                self.bitcoind_client.broadcast_transactions(&[&tx]);
                 Ok((tx, tx_details))
             }
             Err(_) => bail!("Wallet is still syncing with chain"),
