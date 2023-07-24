@@ -1204,12 +1204,12 @@ dependencies = [
  "http",
  "hyper",
  "lazy_static",
- "lightning",
+ "lightning 0.0.115",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
  "lightning-net-tokio",
- "lightning-rapid-gossip-sync",
+ "lightning-rapid-gossip-sync 0.0.116",
  "log",
  "macaroon",
  "mime 0.4.0-a.0",
@@ -1272,14 +1272,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.116"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90a0f2155316f1570446a0447c993480673f840748c8ed25bbc59dfc442ac770"
+dependencies = [
+ "bitcoin",
+]
+
+[[package]]
 name = "lightning-background-processor"
 version = "0.0.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "721b05b9848a09d5b943915449b5ffb31e24708007763640cf9d79b124a17e19"
 dependencies = [
  "bitcoin",
- "lightning",
- "lightning-rapid-gossip-sync",
+ "lightning 0.0.115",
+ "lightning-rapid-gossip-sync 0.0.115",
 ]
 
 [[package]]
@@ -1290,7 +1299,7 @@ checksum = "7c60cf241b3c219ee865aad91eab85a879b23c1756a335a5a311790ad6c1c3d2"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
- "lightning",
+ "lightning 0.0.115",
  "serde_json",
 ]
 
@@ -1303,7 +1312,7 @@ dependencies = [
  "bech32",
  "bitcoin",
  "bitcoin_hashes",
- "lightning",
+ "lightning 0.0.115",
  "num-traits",
  "secp256k1",
 ]
@@ -1315,7 +1324,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4561ec5d4df2dd410a8b80955791fcfb007ef9210395db6e914b9527397b868c"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.115",
  "tokio",
 ]
 
@@ -1326,7 +1335,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd84d74a9b3892db22a60ac11dfc12e76b257b3174db6743e818ecc24834f3be"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.115",
+]
+
+[[package]]
+name = "lightning-rapid-gossip-sync"
+version = "0.0.116"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a07af5814234924e623bca499e003fca1864024d5bd984e752230f73a131584"
+dependencies = [
+ "bitcoin",
+ "lightning 0.0.116",
 ]
 
 [[package]]
@@ -2519,7 +2538,7 @@ dependencies = [
  "async-trait",
  "bitcoin",
  "kld",
- "lightning",
+ "lightning 0.0.115",
  "once_cell",
  "openssl",
  "postgres-openssl",
