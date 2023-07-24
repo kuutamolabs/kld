@@ -14,11 +14,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1678807659,
-        "narHash": "sha256-hqEXfX9fg5xIQ2BhDS/mwH9/ccZAql335w8AwCjWbqA=",
+        "lastModified": 1690189068,
+        "narHash": "sha256-gp7PLf9cH4STrwTrm863m+UqmjydJhrrQ6q/Y6MayTE=",
         "owner": "Mic92",
         "repo": "crane",
-        "rev": "b21c96e2435d0f177f1b795f5b2a16ce6b08c1b3",
+        "rev": "956f4aa364f72f72691ce88068ed3e39ae878f4f",
         "type": "github"
       },
       "original": {
