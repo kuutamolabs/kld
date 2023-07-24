@@ -2,6 +2,7 @@ pub mod invoice;
 mod ldk_database;
 pub mod payment;
 pub mod peer;
+pub mod spendable_output;
 mod wallet_database;
 
 use std::{

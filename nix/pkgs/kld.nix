@@ -4,6 +4,7 @@
 , openssl
 , bitcoind
 , cockroachdb
+, electrs
 , pkg-config
 , self
 }:
@@ -26,8 +27,7 @@ let
   nativeBuildInputs = [ pkg-config ];
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
-    "https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result" = "sha256-7uK8gVQUk3zFMCu6OxQRKqY3aK39GA+MuAefagSXrtk=";
-    "https://github.com/JosephGoulden/rust-bitcoincore-rpc?branch=jsonrpc" = "sha256-S4Fwm3WAwpddvEz0cIyaIT39PKp4wZrRvJZj6THgt9o=";
+    "https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result" = "sha256-Z48LIgN8/qfgGvzjPQnn39xK3nVsCWF9uIm0xwCTDhA=";
     "https://github.com/hyperium/mime" = "sha256-Zdhw4wWK2ZJrv62YoJMdTHaQhIyKxtG2UCu/m3mQwy0=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {
@@ -50,7 +50,7 @@ craneLib.buildPackage {
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoToml cargoArtifacts buildInputs cargoExtraArgs outputHashes;
-      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb ];
+      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb electrs ];
     };
     inherit cargoArtifacts;
   };

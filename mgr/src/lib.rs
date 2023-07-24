@@ -1,4 +1,4 @@
-//! A module for deploying and updating nixos-based validators.
+//! A module for deploying and updating nixos-based nodes.
 
 pub use config::{load_configuration, Config, Host};
 pub use dry_update::dry_update;

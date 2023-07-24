@@ -53,6 +53,9 @@ pub struct Settings {
     #[arg(long, default_value = "127.0.0.1:2244", env = "KLD_REST_API_ADDRESS")]
     pub rest_api_address: String,
 
+    #[arg(long, default_value = "127.0.0.1:60001", env = "KLD_ELECTRS_URL")]
+    pub electrs_url: String,
+
     #[arg(long, default_value = "127.0.0.1", env = "KLD_DATABASE_HOST")]
     pub database_host: String,
     #[arg(long, default_value = "10000", env = "KLD_DATABASE_PORT")]

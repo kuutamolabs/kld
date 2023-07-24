@@ -19,6 +19,9 @@
         };
       default = self.nixosModules.kld;
 
+      electrs = { ... }: {
+        imports = [ ./electrs.nix ];
+      };
       cockroachdb = { pkgs, ... }: {
         imports = [ ./cockroachdb.nix ];
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
@@ -75,6 +78,7 @@
           kuutamo.cockroachdb.rootClientCertPath = "/var/lib/secrets/cockroachdb/client.root.crt";
           kuutamo.cockroachdb.rootClientKeyPath = "/var/lib/secrets/cockroachdb/client.root.key";
         }
+        self.nixosModules.electrs
       ];
     };
   };

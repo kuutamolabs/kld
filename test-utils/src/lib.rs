@@ -1,5 +1,6 @@
 pub mod bitcoin_manager;
 pub mod cockroach_manager;
+pub mod electrs_manager;
 pub mod kld_manager;
 mod manager;
 pub mod ports;

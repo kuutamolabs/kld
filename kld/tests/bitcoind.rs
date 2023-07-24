@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bitcoin::Address;
-use kld::bitcoind::{bitcoind_interface::BitcoindInterface, BitcoindClient};
+use kld::bitcoind::bitcoind_interface::BitcoindInterface;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{BlockData, BlockSource};
 use test_utils::{bitcoin, test_settings, TEST_ADDRESS};
@@ -10,9 +10,8 @@ use test_utils::{bitcoin, test_settings, TEST_ADDRESS};
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_bitcoind_client() -> Result<()> {
     let mut settings = test_settings!("client");
-    let _bitcoind = bitcoin!(settings);
-    let client = &BitcoindClient::new(&settings).await?;
-
+    let bitcoind = bitcoin!(settings);
+    let client = bitcoind.client.get().context("expected client")?;
     let n_blocks = 3;
     client
         .generate_to_address(n_blocks, &Address::from_str(TEST_ADDRESS).unwrap())

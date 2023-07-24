@@ -29,9 +29,8 @@ bitcoincore-rpc-json = "0.16.0"
 rust-bip39 = "1.0.0"
 hex = "0.4"
 base64 = "0.21.2"
-# see https://github.com/bitcoindevkit/bdk/pull/850, rebased to 0.27.1 release
-#bdk = { version = "0.26.0", features = [ "rpc" ] }
-bdk = { git = "https://github.com/JosephGoulden/bdk", branch = "backport-begin-batch-result", features = [ "rpc" ] }
+# see https://github.com/bitcoindevkit/bdk/pull/850, rebased to 0.28.0 release
+bdk = { git = "https://github.com/JosephGoulden/bdk", branch = "backport-begin-batch-result", features = [ "electrum" ] }
 anyhow = { version = "1.0.71", features = [ "backtrace" ] }
 futures = "0.3"
 chrono = "0.4"
@@ -46,14 +45,14 @@ serde_json = "1.0"
 axum = { version = "0.6.18", features = ["ws", "headers"] }
 axum-server = { version = "0.5", features = ["tls-rustls"] }
 tower-http = { version = "0.4.1", features = [ "cors" ] }
-async-trait = "0.1.68"
-clap = { version = "4.3.10", features = ["derive", "env"] }
+async-trait = "0.1.71"
+clap = { version = "4.3.16", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
 thiserror = "1.0"
 
 # database
 bitvec = "1.0.1"
-tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
+tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-1"] }
 postgres-openssl = "0.5.0"
 postgres-types = { version = "0.2.5", features = [ "derive" ] }
 openssl = "0.10.55"

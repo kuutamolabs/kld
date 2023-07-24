@@ -5,6 +5,7 @@
     db1 = { self, ... }: {
       imports = [
         self.nixosModules.kld
+        self.nixosModules.electrs
         self.nixosModules.telegraf
       ];
       # use the same name as the cert
@@ -28,6 +29,8 @@
       kuutamo.kld.mnemonicPath = ./secrets/mnemonic;
       kuutamo.kld.presetMnemonic = true;
 
+      kuutamo.electrs.network = "regtest";
+
       kuutamo.telegraf = {
         configHash = "";
         hasMonitoring = false;
@@ -50,10 +53,12 @@
     # wait for our service to start
     db1.wait_for_unit("cockroachdb.service")
     db1.wait_for_unit("bitcoind-kld-regtest.service")
+    db1.wait_for_unit("electrs.service")
     db1.wait_for_unit("kld.service")
 
     # check monitoring endpoints
     db1.wait_until_succeeds("curl -s -k https://127.0.0.1:8080/_status/vars")
+    db1.wait_until_succeeds("curl -s http://127.0.0.1:4224")
     db1.wait_until_succeeds("curl -s http://127.0.0.1:2233/metrics")
     db1.wait_for_unit("telegraf.service")
     db1.wait_until_succeeds("curl -s http://127.0.0.1:9273/metrics")
