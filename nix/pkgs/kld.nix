@@ -50,6 +50,12 @@ craneLib.buildPackage {
     # having the tests seperate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoToml cargoArtifacts buildInputs cargoExtraArgs outputHashes;
+      # FIXME: this copy shouldn't be necessary, but for some reason it tries to recompile openssl and fails
+      preBuild = ''
+        rm -rf ./target
+        cp -r ${cargoArtifacts} ./target
+        chmod -R u+w ./target
+      '';
       nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb electrs ];
     };
     inherit cargoArtifacts;
