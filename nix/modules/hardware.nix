@@ -29,5 +29,22 @@
     boot.loader.grub.enable = true;
     boot.loader.grub.efiSupport = true;
     boot.loader.grub.efiInstallAsRemovable = true;
+
+    # initrd networking for unlocking LUKS
+    boot.initrd.network = {
+      enable = true;
+      ssh = {
+        enable = true;
+        authorizedKeys = config.users.extraUsers.root.openssh.authorizedKeys.keys;
+        port = 22;
+        hostKeys = [
+          "/var/lib/secrets/disk_encryption/rsa.key"
+          "/var/lib/secrets/disk_encryption/ed25519.key"
+        ];
+      };
+    };
+    boot.kernelParams = [
+      "ip=${if config.kuutamo.network.ipv4.address == null then "dhcp" else config.kuutamo.network.ipv4.address}"
+    ];
   };
 }
