@@ -15,7 +15,6 @@ use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use kld::logger::KldLogger;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::Filter;
 use lightning::ln::channelmanager::PaymentId;
@@ -26,7 +25,7 @@ use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
 };
-use lightning::sign::{InMemorySigner, KeysManager};
+use lightning::sign::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::util::persist::Persister;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
