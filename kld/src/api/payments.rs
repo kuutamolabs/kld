@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc, time::UNIX_EPOCH};
+use std::{str::FromStr, sync::Arc};
 
 use api::{KeysendRequest, ListPaysParams, PayInvoice, Payment, PaymentResponse};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
@@ -24,11 +24,7 @@ pub(crate) async fn keysend(
     let response = PaymentResponse {
         destination: keysend_request.pubkey,
         payment_hash: payment.hash.0.encode_hex::<String>(),
-        created_at: payment
-            .timestamp
-            .duration_since(UNIX_EPOCH)
-            .map_err(internal_server)?
-            .as_secs(),
+        created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: Some(keysend_request.amount),
         amount_sent_msat: keysend_request.amount * 1000,
@@ -55,11 +51,7 @@ pub(crate) async fn pay_invoice(
     let response = PaymentResponse {
         destination,
         payment_hash: payment.hash.0.encode_hex::<String>(),
-        created_at: payment
-            .timestamp
-            .duration_since(UNIX_EPOCH)
-            .map_err(internal_server)?
-            .as_secs(),
+        created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: amount,
         amount_sent_msat: payment.amount,

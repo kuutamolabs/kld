@@ -18,7 +18,9 @@ pub trait WalletInterface {
         utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)>;
 
-    fn new_address(&self) -> Result<AddressInfo>;
+    fn new_external_address(&self) -> Result<AddressInfo>;
+
+    fn new_internal_address(&self) -> Result<AddressInfo>;
 
     fn list_utxos(&self) -> Result<Vec<(LocalUtxo, TransactionDetails)>>;
 }

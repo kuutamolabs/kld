@@ -16,9 +16,11 @@ pub mod routes {
     /// NO-OP
     pub const ROOT: &str = "/";
     /// Sign
-    pub const SIGN: &str = "/v1/signmessage";
+    pub const SIGN: &str = "/v1/utility/signMessage";
     /// Get node information.
     pub const GET_INFO: &str = "/v1/getinfo";
+    /// Get node routing fees.
+    pub const GET_FEES: &str = "/v1/getFees";
     /// Estimate channel liquidity range to a particular node.
     pub const ESTIMATE_CHANNEL_LIQUIDITY: &str = "/v1/estimateChannelLiquidity";
     /// Websocket
@@ -37,7 +39,7 @@ pub mod routes {
 
     /// --- Channels ---
     /// Get the list of channels open on the node.
-    pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
+    pub const LIST_CHANNELS: &str = "/v1/channel/listPeerChannels";
     /// Open channel with a connected peer node.
     pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
     /// Update channel fee policy.
@@ -45,17 +47,19 @@ pub mod routes {
     /// Close an existing channel with a peer.
     pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel/:id";
     /// Fetch aggregate channel local and remote balances.
-    pub const LOCAL_REMOTE_BALANCE: &str = "/v1/channel/localRemoteBal";
+    pub const LOCAL_REMOTE_BALANCE: &str = "/v1/channel/localremotebal";
+    /// Fetch the list of the forwarded htlcs.
+    pub const LIST_FORWARDS: &str = "/v1/channel/listForwards";
 
     /// --- Network ---
     /// Look up a node on the network.
-    pub const LIST_NETWORK_NODE: &str = "/v1/network/listnode/:id";
+    pub const LIST_NETWORK_NODE: &str = "/v1/network/listNode/:id";
     /// Return list of all nodes on the network
-    pub const LIST_NETWORK_NODES: &str = "/v1/network/listnode";
+    pub const LIST_NETWORK_NODES: &str = "/v1/network/listNode";
     /// Look up a channel on the network
-    pub const LIST_NETWORK_CHANNEL: &str = "/v1/network/listchannel/:id";
+    pub const LIST_NETWORK_CHANNEL: &str = "/v1/network/listChannel/:id";
     /// Return list of all channels on the network
-    pub const LIST_NETWORK_CHANNELS: &str = "/v1/network/listchannel";
+    pub const LIST_NETWORK_CHANNELS: &str = "/v1/network/listChannel";
     /// Return feerate estimates, either satoshi-per-kw or satoshi-per-kb
     pub const FEE_RATES: &str = "/v1/network/feeRates/:style";
 
@@ -73,7 +77,7 @@ pub mod routes {
     /// Pay a  bolt11 invoice.
     pub const PAY_INVOICE: &str = "/v1/pay";
     /// List payments.
-    pub const LIST_PAYMENTS: &str = "/v1/pay/listPays";
+    pub const LIST_PAYMENTS: &str = "/v1/pay/listPayments";
 
     /// --- Invoices ---
     /// Generate a bolt11 invoice.
@@ -107,6 +111,7 @@ pub struct GetInfo {
     pub api_version: String,
     pub network: String,
     pub address: Vec<String>,
+    pub fees_collected_msat: u64,
 }
 
 #[derive(Serialize, Deserialize)]

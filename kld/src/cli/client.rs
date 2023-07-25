@@ -9,10 +9,12 @@ use api::{
     WalletTransfer, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
-use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::{
-    get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse,
+    get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
+    get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
+    get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
+    get_v1_get_fees_response::GetV1GetFeesResponse,
 };
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder, Response},
@@ -286,7 +288,21 @@ impl Api {
         let response = self
             .request(Method::GET, routes::LOCAL_REMOTE_BALANCE)
             .send()?;
-        deserialize::<GetV1ChannelLocalRemoteBalResponse>(response)
+        deserialize::<GetV1ChannelLocalremotebalResponse>(response)
+    }
+
+    pub fn get_fees(&self) -> Result<String> {
+        let response = self.request(Method::GET, routes::GET_FEES).send()?;
+        deserialize::<GetV1GetFeesResponse>(response)
+    }
+
+    pub fn list_forwards(&self, status: Option<String>) -> Result<String> {
+        let mut params = vec![];
+        if let Some(status) = status {
+            params.push(("status", status));
+        }
+        let response = self.request(Method::GET, routes::LIST_FORWARDS).send()?;
+        deserialize::<Vec<GetV1ChannelListForwardsResponseItem>>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

@@ -13,6 +13,7 @@
         projectRootFile = "flake.lock";
 
         programs.rustfmt.enable = true;
+        programs.yamlfmt.enable = true;
 
         settings.formatter = {
           nix = {

@@ -89,10 +89,7 @@ pub(crate) async fn list_invoices(
             paid_at: invoice
                 .payments
                 .first()
-                .map(|p| p.timestamp.duration_since(UNIX_EPOCH))
-                .transpose()
-                .map_err(internal_server)?
-                .map(|d| d.as_secs() as u32),
+                .map(|p| p.timestamp.unix_timestamp() as u32),
             description,
             expires_at: invoice.bolt11.expires_at().map(|d| d.as_secs()),
         });
