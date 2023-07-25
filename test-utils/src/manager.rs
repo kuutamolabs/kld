@@ -3,6 +3,7 @@ use std::{
     fs::{self, File},
     io::Read,
     os::unix::prelude::{AsRawFd, FromRawFd},
+    path::Path,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
@@ -16,18 +17,26 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(output_dir: &str, name: &str, instance: &str) -> Self {
+    pub fn new(output_dir: &str, name: &str, instance: &str) -> Result<Self> {
         let instance_name = format!("{name}_{instance}");
         let storage_dir = format!("{output_dir}/{instance_name}");
-        // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
-        let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
-        fs::create_dir_all(&storage_dir).unwrap_or_default();
+        let mut count = 0;
+        while Path::new(&storage_dir).exists() {
+            // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
+            let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
+            std::thread::sleep(Duration::from_secs(1));
+            count += 1;
+            if count == 10 {
+                anyhow::bail!("Timed out trying to delete dir");
+            }
+        }
+        fs::create_dir_all(&storage_dir)?;
 
-        Manager {
+        Ok(Manager {
             process: None,
             storage_dir,
             instance_name,
-        }
+        })
     }
 
     pub async fn start(&mut self, command: &str, args: &[&str], check: impl Check) -> Result<()> {

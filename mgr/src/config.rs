@@ -78,17 +78,6 @@ pub struct ConfigFile {
     hosts: HashMap<String, HostConfig>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct NearKeyFile {
-    pub account_id: String,
-    pub public_key: String,
-    // Credential files generated which near cli works with have private_key
-    // rather than secret_key field.  To make it possible to read those from
-    // neard add private_key as an alias to this field so either will work.
-    #[serde(alias = "private_key")]
-    pub secret_key: String,
-}
-
 fn default_secret_directory() -> PathBuf {
     PathBuf::from("secrets")
 }
@@ -222,6 +211,16 @@ struct HostConfig {
     #[serde(default)]
     self_monitoring_password: Option<String>,
 
+    /// The communication port of kld
+    #[toml_example(default = 2244)]
+    #[serde(default)]
+    kld_rest_api_port: Option<u16>,
+    /// The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
+    /// use on the node.
+    #[serde(default)]
+    #[toml_example(default = [])]
+    kld_api_ip_access_list: Vec<IpAddr>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -288,6 +287,11 @@ pub struct Host {
 
     /// Hash for monitoring config
     pub telegraf_config_hash: String,
+
+    /// The communication port of kld
+    pub rest_api_port: Option<u16>,
+    /// The ip addresses list will allow to communicate with kld
+    pub api_ip_access_list: Vec<IpAddr>,
 }
 
 impl Host {
@@ -433,7 +437,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         }
         // FIXME: this is currently an unstable feature
         //if address.is_global() {
-        //    warn!("ipv4_address provided for hosts.{} is not a public ipv4 address: {}. This might not work with near mainnet", name, address);
+        //    warn!("ipv4_address provided for hosts.{} is not a public ipv4 address: {}.", name, address);
         //}
         Some(address)
     } else {
@@ -487,7 +491,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
 
         // FIXME: this is currently an unstable feature
         //if ipv6_address.is_global() {
-        //    warn!("ipv6_address provided for hosts.{} is not a public ipv6 address: {}. This might not work with near mainnet", name, ipv6_address);
+        //    warn!("ipv6_address provided for hosts.{} is not a public ipv6 address: {}.", name, ipv6_address);
         //}
 
         (Some(ipv6_address), mask)
@@ -607,11 +611,13 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         disks,
         bitcoind_disks,
         cockroach_peers: vec![],
-        kld_log_level: host.kld_log_level.clone(),
+        kld_log_level: host.kld_log_level.to_owned(),
         kmonitor_config,
         telegraf_has_monitoring,
         telegraf_config_hash,
-        kld_node_alias: host.kld_node_alias.clone(),
+        kld_node_alias: host.kld_node_alias.to_owned(),
+        api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
+        rest_api_port: host.kld_rest_api_port,
     })
 }
 
@@ -722,7 +728,7 @@ fn decode_token(s: String) -> Result<(String, String)> {
 #[cfg(test)]
 pub(crate) const TEST_CONFIG: &str = r#"
 [global]
-flake = "github:myfork/near-staking-knd"
+flake = "github:myfork/lightning-knd"
 
 [host_defaults]
 public_ssh_keys = [
@@ -756,7 +762,7 @@ pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
     let config = parse_config(TEST_CONFIG, Path::new("/"))?;
-    assert_eq!(config.global.flake, "github:myfork/near-staking-knd");
+    assert_eq!(config.global.flake, "github:myfork/lightning-knd");
 
     let hosts = &config.hosts;
     assert_eq!(hosts.len(), 3);
@@ -869,6 +875,8 @@ fn test_validate_host() -> Result<()> {
             kmonitor_config: None,
             telegraf_has_monitoring: false,
             telegraf_config_hash: "13646096770106105413".to_string(),
+            api_ip_access_list: Vec::new(),
+            rest_api_port: None
         }
     );
 

@@ -1,8 +1,3 @@
-use std::{
-    fmt::{self, Display},
-    time::SystemTime,
-};
-
 use bitcoin::hashes::Hash;
 use lightning::{
     events::PaymentFailureReason,
@@ -10,6 +5,12 @@ use lightning::{
 };
 use postgres_types::{FromSql, ToSql};
 use rand::random;
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+    time::SystemTime,
+};
+use thiserror::Error;
 
 use crate::MillisatAmount;
 
@@ -58,6 +59,33 @@ pub enum PaymentDirection {
     Inbound,
     #[postgres(name = "outbound")]
     Outbound,
+}
+
+#[derive(Error, Debug)]
+pub enum DeserializeError {
+    #[error("unable to deserialize {0}")]
+    PaymentDirection(String),
+}
+
+impl Display for PaymentDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PaymentDirection::Inbound => f.write_str("inbound"),
+            PaymentDirection::Outbound => f.write_str("outbound"),
+        }
+    }
+}
+
+impl FromStr for PaymentDirection {
+    type Err = DeserializeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "inbound" => Ok(PaymentDirection::Inbound),
+            "outbound" => Ok(PaymentDirection::Outbound),
+            _ => Err(DeserializeError::PaymentDirection(s.to_string())),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

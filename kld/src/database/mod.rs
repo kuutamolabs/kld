@@ -2,6 +2,7 @@ pub mod invoice;
 mod ldk_database;
 pub mod payment;
 pub mod peer;
+pub mod spendable_output;
 mod wallet_database;
 
 use std::{
@@ -11,6 +12,7 @@ use std::{
 
 use async_trait::async_trait;
 pub use ldk_database::LdkDatabase;
+use postgres_types::ToSql;
 use tokio::{sync::OwnedRwLockReadGuard, task::JoinHandle};
 pub use wallet_database::WalletDatabase;
 
@@ -193,4 +195,35 @@ impl Drop for DurableConnection {
 mod embedded {
     use refinery::embed_migrations;
     embed_migrations!("src/database/sql");
+}
+
+pub struct Params<'a> {
+    vec: Vec<Box<(dyn ToSql + Sync + Send + 'a)>>,
+}
+
+impl<'a> Default for Params<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'a> Params<'a> {
+    pub fn new() -> Params<'a> {
+        Params { vec: vec![] }
+    }
+
+    pub fn push(&mut self, x: impl ToSql + Sync + Send + 'a) {
+        self.vec.push(Box::new(x))
+    }
+
+    pub fn count(&self) -> usize {
+        self.vec.len()
+    }
+
+    pub fn to_params(&self) -> Vec<&(dyn ToSql + Sync)> {
+        self.vec
+            .iter()
+            .map(|x| x.as_ref() as &(dyn ToSql + Sync))
+            .collect()
+    }
 }

@@ -19,6 +19,8 @@ pub mod routes {
     pub const SIGN: &str = "/v1/signmessage";
     /// Get node information.
     pub const GET_INFO: &str = "/v1/getinfo";
+    /// Estimate channel liquidity range to a particular node.
+    pub const ESTIMATE_CHANNEL_LIQUIDITY: &str = "/v1/estimateChannelLiquidity";
     /// Websocket
     pub const WEBSOCKET: &str = "/v1/ws";
 
@@ -42,6 +44,8 @@ pub mod routes {
     pub const SET_CHANNEL_FEE: &str = "/v1/channel/setChannelFee";
     /// Close an existing channel with a peer.
     pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel/:id";
+    /// Fetch aggregate channel local and remote balances.
+    pub const LOCAL_REMOTE_BALANCE: &str = "/v1/channel/localRemoteBal";
 
     /// --- Network ---
     /// Look up a node on the network.
@@ -543,6 +547,8 @@ pub struct GenerateInvoice {
 pub struct ListPaysParams {
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub invoice: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub direction: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

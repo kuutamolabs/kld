@@ -11,6 +11,10 @@ pub mod prometheus;
 pub mod settings;
 pub mod wallet;
 
+// For api codegen
+#[macro_use]
+extern crate serde;
+
 pub const VERSION: &str = concat!("KLD v", env!("CARGO_PKG_VERSION"));
 
 pub type MillisatAmount = u64;

@@ -4,6 +4,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use anyhow::anyhow;
 use anyhow::Result;
 use futures::Future;
 use futures::FutureExt;
@@ -65,10 +66,16 @@ async fn cockroach() -> Result<&'static (
                 create_database(&settings).await;
                 let settings = Arc::new(settings);
                 let settings_clone = settings.clone();
-                std::thread::spawn(|| CONNECTION_RUNTIME.enter());
-                let durable_connection = CONNECTION_RUNTIME
-                    .spawn(async { Arc::new(DurableConnection::new_migrate(settings_clone).await) })
-                    .await?;
+                let durable_connection = std::thread::spawn(|| async {
+                    CONNECTION_RUNTIME
+                        .spawn(async {
+                            Arc::new(DurableConnection::new_migrate(settings_clone).await)
+                        })
+                        .await
+                })
+                .join()
+                .map_err(|_| anyhow!("connection failed"))?
+                .await?;
                 poll!(3, durable_connection.is_connected().await);
                 Ok((settings, durable_connection, Mutex::new(cockroach)))
             })

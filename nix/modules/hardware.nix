@@ -21,7 +21,7 @@
 
     # Enable raid support specifically, this will disable srvos's
     # systemd-initrd as well, which currently is not compatible with mdraid.
-    boot.initrd.services.swraid.enable = true;
+    boot.swraid.enable = true;
     systemd.services.mdmonitor.enable = false;
 
     # for mdraid 1.1
