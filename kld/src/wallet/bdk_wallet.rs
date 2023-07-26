@@ -102,7 +102,7 @@ impl<
         }
     }
 
-    fn new_address(&self) -> Result<AddressInfo> {
+    fn new_external_address(&self) -> Result<AddressInfo> {
         let address = self
             .wallet
             .lock()
@@ -111,6 +111,14 @@ impl<
         Ok(address)
     }
 
+    fn new_internal_address(&self) -> Result<AddressInfo> {
+        let address = self
+            .wallet
+            .lock()
+            .unwrap()
+            .get_internal_address(bdk::wallet::AddressIndex::LastUnused)?;
+        Ok(address)
+    }
     fn list_utxos(&self) -> Result<Vec<(LocalUtxo, TransactionDetails)>> {
         let mut result = vec![];
         match self.wallet.try_lock() {

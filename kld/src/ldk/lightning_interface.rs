@@ -7,6 +7,7 @@ use lightning::{
 
 use crate::{
     database::{
+        forward::{Forward, ForwardStatus, TotalForwards},
         invoice::Invoice,
         payment::{Payment, PaymentDirection},
     },
@@ -118,6 +119,10 @@ pub trait LightningInterface: Send + Sync {
         scid: u64,
         target: &NodeId,
     ) -> Result<Option<(u64, u64)>>;
+
+    async fn fetch_forwards(&self, status: Option<ForwardStatus>) -> Result<Vec<Forward>>;
+
+    async fn fetch_total_forwards(&self) -> Result<TotalForwards>;
 }
 
 pub struct Peer {

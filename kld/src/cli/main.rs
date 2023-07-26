@@ -179,6 +179,14 @@ enum Command {
     },
     /// Fetch the aggregate local and remote channel balances (msat) of the node
     LocalRemoteBalance,
+    /// Get node routing fees.
+    GetFees,
+    /// Fetch a list of the forwarded htlcs.
+    ListForwards {
+        /// The status of the forwards (succeeded, failed)
+        #[arg(long)]
+        status: Option<String>,
+    },
 }
 
 fn main() {
@@ -238,6 +246,8 @@ fn run_command(args: Args) -> Result<()> {
             api.estimate_channel_liquidity(scid, target)?
         }
         Command::LocalRemoteBalance => api.local_remote_balance()?,
+        Command::GetFees => api.get_fees()?,
+        Command::ListForwards { status } => api.list_forwards(status)?,
     };
     if output != "null" {
         println!("{output}");

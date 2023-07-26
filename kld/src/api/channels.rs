@@ -3,6 +3,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::api::NetAddress;
+use crate::database::forward::ForwardStatus;
+use crate::ldk::htlc_destination_to_string;
 use api::Channel;
 use api::ChannelFee;
 use api::ChannelState;
@@ -11,9 +13,11 @@ use api::FundChannelResponse;
 use api::SetChannelFee;
 use api::SetChannelFeeResponse;
 use axum::extract::Path;
+use axum::extract::Query;
 use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
+use lightning::events::HTLCDestination;
 use lightning::ln::channelmanager::ChannelDetails;
 
 use crate::api::bad_request;
@@ -21,7 +25,10 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
-use super::codegen::get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse;
+use super::codegen::get_v1_channel_list_forwards_response::{
+    GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
+};
+use super::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use super::internal_server;
 use super::ApiError;
 
@@ -196,7 +203,7 @@ pub(crate) async fn close_channel(
 pub(crate) async fn local_remote_balance(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let mut response = GetV1ChannelLocalRemoteBalResponse::default();
+    let mut response = GetV1ChannelLocalremotebalResponse::default();
     for channel in lightning_interface.list_channels() {
         if channel.is_usable {
             response.local_balance += channel.balance_msat as i64;
@@ -208,5 +215,73 @@ pub(crate) async fn local_remote_balance(
             response.pending_balance += channel.balance_msat as i64;
         }
     }
+    Ok(Json(response))
+}
+
+// Paperclip generates an enum but we need a struct to work with axum so have to make query params this way for now.
+#[derive(Serialize, Deserialize)]
+pub struct ListForwardsQueryParams {
+    pub status: Option<GetV1ChannelListForwardsResponseItemStatus>,
+}
+
+pub(crate) async fn list_forwards(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Query(params): Query<ListForwardsQueryParams>,
+) -> Result<impl IntoResponse, ApiError> {
+    let status = match params.status {
+        None => None,
+        Some(GetV1ChannelListForwardsResponseItemStatus::Settled) => Some(ForwardStatus::Succeeded),
+        Some(GetV1ChannelListForwardsResponseItemStatus::Offered) => Some(ForwardStatus::Succeeded),
+        _ => Some(ForwardStatus::Failed),
+    };
+    let mut response = vec![];
+    for forward in lightning_interface
+        .fetch_forwards(status)
+        .await
+        .map_err(internal_server)?
+    {
+        response.push(GetV1ChannelListForwardsResponseItem {
+            failcode: match forward.htlc_destination {
+                Some(HTLCDestination::NextHopChannel {
+                    node_id: _,
+                    channel_id: _,
+                }) => Some("NextHopChannel".to_string()),
+                Some(HTLCDestination::UnknownNextHop {
+                    requested_forward_scid: _,
+                }) => Some("UnknownNextHop".to_string()),
+                Some(HTLCDestination::InvalidForward {
+                    requested_forward_scid: _,
+                }) => Some("InvalidFormat".to_string()),
+                Some(HTLCDestination::FailedPayment { payment_hash: _ }) => {
+                    Some("FailedPayment".to_string())
+                }
+                None => None,
+            },
+            failreason: forward
+                .htlc_destination
+                .as_ref()
+                .map(htlc_destination_to_string),
+            fee_msat: forward.fee.map(|x| x as i64),
+            in_channel: forward.inbound_channel_id.encode_hex(),
+            in_msat: forward.amount.map(|x| x as i64),
+            out_channel: forward.outbound_channel_id.map(|x| x.encode_hex()),
+            out_msat: forward
+                .amount
+                .and_then(|a| forward.fee.map(|f| (a - f) as i64)),
+            payment_hash: match forward.htlc_destination {
+                Some(HTLCDestination::FailedPayment { payment_hash }) => {
+                    Some(payment_hash.0.encode_hex())
+                }
+                _ => None,
+            },
+            received_time: forward.timestamp.unix_timestamp(),
+            resolved_time: Some(forward.timestamp.unix_timestamp()),
+            status: match forward.status {
+                ForwardStatus::Succeeded => GetV1ChannelListForwardsResponseItemStatus::Settled,
+                ForwardStatus::Failed => GetV1ChannelListForwardsResponseItemStatus::Failed,
+            },
+        });
+    }
+
     Ok(Json(response))
 }

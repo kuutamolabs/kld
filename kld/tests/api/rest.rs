@@ -8,13 +8,17 @@ use std::{fs, sync::Arc};
 use anyhow::{Context, Result};
 use axum::http::HeaderValue;
 use futures::FutureExt;
+use hex::ToHex;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
-use kld::api::codegen::get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse;
+use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
+use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
+use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
 use kld::api::MacaroonAuth;
+use kld::database::payment::PaymentStatus;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
 use once_cell::sync::Lazy;
@@ -318,6 +322,20 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::GET_FEES)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_FORWARDS)
             .send()
             .await?
             .status()
@@ -831,7 +849,7 @@ async fn test_list_payments() -> Result<()> {
     let payment_response = response.get(0).context("expected payment")?;
     assert_eq!(payment.bolt11, payment_response.bolt11);
     assert_eq!(payment.status.to_string(), payment_response.status);
-    assert!(payment_response.payment_preimage.is_some());
+    assert!(payment_response.payment_preimage.is_none());
     assert_eq!(
         payment.amount.to_string(),
         payment_response.amount_sent_msat
@@ -877,12 +895,12 @@ async fn test_keysend_admin() -> Result<()> {
             .await?;
     assert_eq!(TEST_PUBLIC_KEY, response.destination);
     assert_eq!(64, response.payment_hash.len());
-    assert_eq!(64, response.payment_preimage.len());
-    assert_eq!(0, response.created_at);
+    assert!(response.payment_preimage.is_empty());
+    assert!(response.created_at > 0);
     assert_eq!(1, response.parts);
     assert_eq!(Some(1000), response.amount_msat);
     assert_eq!(1000000, response.amount_sent_msat);
-    assert_eq!("succeeded", response.status);
+    assert_eq!(PaymentStatus::Pending.to_string(), response.status);
     Ok(())
 }
 
@@ -910,7 +928,7 @@ async fn test_estimate_liquidity() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_local_remote_balance() -> Result<()> {
     let context = create_api_server().await?;
-    let response: GetV1ChannelLocalRemoteBalResponse =
+    let response: GetV1ChannelLocalremotebalResponse =
         readonly_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)?
             .send()
             .await?
@@ -920,6 +938,52 @@ async fn test_local_remote_balance() -> Result<()> {
     assert_eq!(0, response.pending_balance);
     assert_eq!(100000, response.local_balance);
     assert_eq!(999900000, response.remote_balance);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_get_fees() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: GetV1GetFeesResponse = readonly_request(&context, Method::GET, routes::GET_FEES)?
+        .send()
+        .await?
+        .json()
+        .await?;
+    assert_eq!(3000, response.fee_collected);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fetch_forwards() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: Vec<GetV1ChannelListForwardsResponseItem> =
+        readonly_request(&context, Method::GET, routes::LIST_FORWARDS)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    assert_eq!(1, response.len());
+    let forward: &GetV1ChannelListForwardsResponseItem =
+        response.first().context("expected forward")?;
+    assert_eq!(Some(5000000), forward.in_msat);
+    assert_eq!(Some(3000), forward.fee_msat);
+    assert_eq!(
+        LIGHTNING.forward.inbound_channel_id.encode_hex::<String>(),
+        forward.in_channel
+    );
+    assert_eq!(
+        LIGHTNING
+            .forward
+            .outbound_channel_id
+            .map(|x| x.encode_hex()),
+        forward.out_channel
+    );
+    assert_eq!(Some(4997000), forward.out_msat);
+    assert_eq!(None, forward.payment_hash);
+    assert!(forward.received_time > 0);
+    assert!(forward.resolved_time.is_some());
+    assert_eq!(None, forward.failcode);
+    assert_eq!(None, forward.failreason);
     Ok(())
 }
 

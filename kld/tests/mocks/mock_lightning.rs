@@ -1,10 +1,10 @@
 use std::{
     net::{SocketAddrV4, SocketAddrV6},
     str::FromStr,
-    time::{Duration, UNIX_EPOCH},
+    time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{
@@ -14,11 +14,14 @@ use bitcoin::{
     Network, Txid,
 };
 use hex::FromHex;
-use kld::api::NetAddress;
+use kld::{
+    api::NetAddress,
+    database::forward::{Forward, ForwardStatus, TotalForwards},
+};
 use kld::{
     database::{
         invoice::Invoice,
-        payment::{Payment, PaymentDirection, PaymentStatus},
+        payment::{Payment, PaymentDirection},
     },
     ldk::{LightningInterface, OpenChannelResult, Peer, PeerStatus},
     MillisatAmount,
@@ -26,16 +29,16 @@ use kld::{
 use lightning::{
     chain::transaction::OutPoint,
     ln::{
-        channelmanager::{ChannelCounterparty, ChannelDetails, PaymentId},
+        channelmanager::{ChannelCounterparty, ChannelDetails},
         features::{Features, InitFeatures},
-        PaymentHash, PaymentPreimage, PaymentSecret,
+        PaymentPreimage, PaymentSecret,
     },
     routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
 
 use lightning_invoice::{Currency, InvoiceBuilder};
-use rand::random;
+
 use test_utils::{
     TEST_ALIAS, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
 };
@@ -50,6 +53,7 @@ pub struct MockLightning {
     pub ipv4_address: NetAddress,
     pub invoice: Invoice,
     pub payment: Payment,
+    pub forward: Forward,
 }
 
 impl Default for MockLightning {
@@ -112,19 +116,9 @@ impl Default for MockLightning {
             .unwrap();
         let invoice =
             kld::database::invoice::Invoice::new(Some("label".to_string()), invoice).unwrap();
-        let payment = Payment {
-            id: PaymentId(random()),
-            hash: PaymentHash(random()),
-            preimage: Some(PaymentPreimage(random())),
-            secret: Some(PaymentSecret(random())),
-            label: Some("label".to_string()),
-            status: PaymentStatus::Succeeded,
-            amount: 100000,
-            fee: Some(2323),
-            direction: PaymentDirection::Outbound,
-            timestamp: UNIX_EPOCH,
-            bolt11: Some(invoice.bolt11.to_string()),
-        };
+        let payment = Payment::of_invoice_outbound(&invoice, Some("label".to_string()));
+        let forward = Forward::success([3u8; 32], [4u8; 32], 5000000, 3000);
+
         Self {
             num_peers: 5,
             num_nodes: 6,
@@ -135,6 +129,7 @@ impl Default for MockLightning {
             ipv4_address: socket_addr.into(),
             invoice,
             payment,
+            forward,
         }
     }
 }
@@ -332,5 +327,17 @@ impl LightningInterface for MockLightning {
         _target: &NodeId,
     ) -> Result<Option<(u64, u64)>> {
         Ok(Some((100, 100000)))
+    }
+
+    async fn fetch_total_forwards(&self) -> Result<TotalForwards> {
+        Ok(TotalForwards {
+            count: 1,
+            amount: self.forward.amount.context("expected amount")?,
+            fee: self.forward.fee.context("expected fee")?,
+        })
+    }
+
+    async fn fetch_forwards(&self, _status: Option<ForwardStatus>) -> Result<Vec<Forward>> {
+        Ok(vec![self.forward.clone()])
     }
 }

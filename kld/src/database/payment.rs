@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use bitcoin::hashes::Hash;
 use lightning::{
     events::PaymentFailureReason,
@@ -8,13 +9,14 @@ use rand::random;
 use std::{
     fmt::{self, Display},
     str::FromStr,
-    time::SystemTime,
 };
 use thiserror::Error;
+use time::{OffsetDateTime, PrimitiveDateTime};
+use tokio_postgres::Row;
 
 use crate::MillisatAmount;
 
-use super::invoice::Invoice;
+use super::{invoice::Invoice, microsecond_timestamp};
 
 #[derive(Debug, ToSql, FromSql, PartialEq, Clone, Copy)]
 #[postgres(name = "payment_status")]
@@ -102,7 +104,7 @@ pub struct Payment {
     pub fee: Option<MillisatAmount>,
     pub direction: PaymentDirection,
     // The time that the payment was sent/received.
-    pub timestamp: SystemTime,
+    pub timestamp: OffsetDateTime,
     // The bolt11 invoice with corresponding payment hash. Useful when querying payments.
     pub bolt11: Option<String>,
 }
@@ -127,7 +129,7 @@ impl Payment {
             amount,
             fee: None,
             direction: PaymentDirection::Inbound,
-            timestamp: SystemTime::now(),
+            timestamp: microsecond_timestamp(),
             bolt11: None,
         }
     }
@@ -143,7 +145,7 @@ impl Payment {
             amount,
             fee: None,
             direction: PaymentDirection::Outbound,
-            timestamp: SystemTime::now(),
+            timestamp: microsecond_timestamp(),
             bolt11: None,
         }
     }
@@ -164,7 +166,7 @@ impl Payment {
             amount,
             fee: None,
             direction: PaymentDirection::Inbound,
-            timestamp: SystemTime::now(),
+            timestamp: microsecond_timestamp(),
             bolt11: None,
         }
     }
@@ -180,7 +182,7 @@ impl Payment {
             amount: invoice.bolt11.amount_milli_satoshis().unwrap_or_default(),
             fee: None,
             direction: PaymentDirection::Outbound,
-            timestamp: SystemTime::now(),
+            timestamp: microsecond_timestamp(),
             bolt11: Some(invoice.bolt11.to_string()),
         }
     }
@@ -200,5 +202,40 @@ impl Payment {
             Some(PaymentFailureReason::RouteNotFound) => PaymentStatus::RouteNotFound,
             _ => PaymentStatus::Error,
         };
+    }
+}
+
+impl TryFrom<&Row> for Payment {
+    type Error = anyhow::Error;
+
+    fn try_from(row: &Row) -> std::result::Result<Self, Self::Error> {
+        let id: &[u8] = row.get("id");
+        let hash: &[u8] = row.get("hash");
+        let preimage: Option<&[u8]> = row.get("preimage");
+        let secret: Option<&[u8]> = row.get("secret");
+        let label: Option<String> = row.get("label");
+
+        let preimage = match preimage {
+            Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
+            None => None,
+        };
+        let secret = match secret {
+            Some(bytes) => Some(PaymentSecret(bytes.try_into().context("bad secret")?)),
+            None => None,
+        };
+
+        Ok(Payment {
+            id: PaymentId(id.try_into().context("bad ID")?),
+            hash: PaymentHash(hash.try_into().context("bad hash")?),
+            preimage,
+            secret,
+            label,
+            status: row.get("status"),
+            amount: row.get::<&str, i64>("amount") as u64,
+            fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
+            direction: row.get("direction"),
+            timestamp: row.get::<&str, PrimitiveDateTime>("timestamp").assume_utc(),
+            bolt11: row.get("bolt11"),
+        })
     }
 }
