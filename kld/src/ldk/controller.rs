@@ -631,7 +631,7 @@ impl Controller {
                     keys_manager.clone(),
                     user_config,
                     chain_params,
-                    getinfo_resp.blocks as u32,
+                    0,
                 );
                 (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
