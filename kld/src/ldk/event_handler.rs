@@ -4,7 +4,6 @@ use std::time::{Duration, SystemTime};
 use anyhow::anyhow;
 
 use bitcoin::blockdata::locktime::PackedLockTime;
-use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::database::payment::Payment;
@@ -12,10 +11,10 @@ use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning::chain::BestBlock;
 use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
 use lightning::sign::KeysManager;
+use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -499,14 +498,18 @@ impl EventHandler {
                     .bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
 
+                let best_block_height = self
+                    .bitcoind_client
+                    .get_best_block()
+                    .await
+                    .map(|r| r.1.unwrap_or_default())
+                    .unwrap_or_default();
                 match self.keys_manager.spend_spendable_outputs(
                     output_descriptors,
                     Vec::new(),
                     destination_address.script_pubkey(),
                     tx_feerate,
-                    Some(PackedLockTime(
-                        BestBlock::from_network(Network::Bitcoin).height(),
-                    )),
+                    Some(PackedLockTime(best_block_height)),
                     &Secp256k1::new(),
                 ) {
                     Ok(spending_tx) => {
