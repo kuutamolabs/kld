@@ -301,7 +301,10 @@ impl Api {
         if let Some(status) = status {
             params.push(("status", status));
         }
-        let response = self.request(Method::GET, routes::LIST_FORWARDS).send()?;
+        let response = self
+            .request(Method::GET, routes::LIST_FORWARDS)
+            .query(&params)
+            .send()?;
         deserialize::<Vec<GetV1ChannelListForwardsResponseItem>>(response)
     }
 

@@ -183,7 +183,7 @@ enum Command {
     GetFees,
     /// Fetch a list of the forwarded htlcs.
     ListForwards {
-        /// The status of the forwards (settled, failed)
+        /// The status of the forwards (succeeded, failed)
         #[arg(long)]
         status: Option<String>,
     },
