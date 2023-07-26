@@ -9,6 +9,7 @@ mod peers;
 mod utility;
 mod wallet;
 mod ws;
+
 pub use netaddress::NetAddress;
 
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
@@ -17,7 +18,9 @@ use serde_json::json;
 use self::utility::get_info;
 use crate::{
     api::{
-        channels::{close_channel, list_channels, open_channel, set_channel_fee},
+        channels::{
+            close_channel, list_channels, local_remote_balance, open_channel, set_channel_fee,
+        },
         invoices::{generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
         network::{
@@ -26,7 +29,7 @@ use crate::{
         },
         payments::{keysend, list_payments, pay_invoice},
         peers::{connect_peer, disconnect_peer, list_peers},
-        utility::sign,
+        utility::{estimate_channel_liquidity_range, sign},
         wallet::{get_balance, list_funds, new_address, transfer},
         ws::ws_handler,
     },
@@ -79,10 +82,13 @@ impl RestApi {
     ) -> Result<()> {
         let cors = CorsLayer::permissive();
         let handle = Handle::new();
-
         let readonly_routes = Router::new()
             .route(routes::ROOT, get(root))
             .route(routes::GET_INFO, get(get_info))
+            .route(
+                routes::ESTIMATE_CHANNEL_LIQUIDITY,
+                get(estimate_channel_liquidity_range),
+            )
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_FUNDS, get(list_funds))
             .route(routes::LIST_CHANNELS, get(list_channels))
@@ -94,6 +100,7 @@ impl RestApi {
             .route(routes::FEE_RATES, get(fee_rates))
             .route(routes::LIST_INVOICES, get(list_invoices))
             .route(routes::LIST_PAYMENTS, get(list_payments))
+            .route(routes::LOCAL_REMOTE_BALANCE, get(local_remote_balance))
             .layer(from_fn(readonly_auth));
 
         let lsp_routers = Router::new()
@@ -218,4 +225,10 @@ pub fn bad_request(e: impl Into<anyhow::Error>) -> ApiError {
     let anyhow_err = e.into();
     info!("{}", anyhow_err);
     ApiError::BadRequest(anyhow_err.into())
+}
+
+#[allow(clippy::all)]
+pub mod codegen {
+    #![allow(dead_code)]
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 }

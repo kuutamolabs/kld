@@ -15,10 +15,11 @@ let
     else bitcoinCfg.dataDir;
 
   cockroachCfg = config.kuutamo.cockroachdb;
+  electrsCfg = config.kuutamo.electrs;
 
   kld-cli = pkgs.runCommand "kld-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/kld-cli $out/bin/kld-cli \
-      --add-flags "--target ${cfg.restApiAddress} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
+      --add-flags "--target 127.0.0.1:${toString cfg.restApiPort} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
   '';
 
   bitcoin-cli-flags = [
@@ -137,11 +138,18 @@ in
         Address and port to bind to for exporting metrics
       '';
     };
-    restApiAddress = lib.mkOption {
-      type = lib.types.str;
-      default = "127.0.0.1:2244";
+    restApiPort = lib.mkOption {
+      type = lib.types.port;
+      default = 2244;
       description = lib.mDoc ''
-        Address and port to bind to for the REST API
+        Port to bind to for the REST API
+      '';
+    };
+    apiIpAccessList = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = lib.mDoc ''
+        Expose REST API to specific machines
       '';
     };
 
@@ -167,9 +175,14 @@ in
     services.bitcoind.${bitcoind-instance} = {
       enable = true;
       testnet = cfg.network == "testnet";
+      port =
+        if cfg.network == "regtest" then
+          18444
+        else if cfg.network == "testnet" then
+          18333
+        else 8333;
       rpc.port = 8332;
       extraConfig = ''
-        txindex=1
         rpcthreads=16
       '';
       extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
@@ -178,7 +191,16 @@ in
       ];
     };
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ 9234 ];
+    networking.firewall.allowedTCPPorts = [ ]
+      ++ lib.optionals cfg.openFirewall [ cfg.peerPort ];
+    networking.firewall.extraCommands = lib.concatMapStrings
+      (ip:
+        if lib.hasInfix ":" ip then ''
+          ip6tables -A nixos-fw -p tcp --source ${ip} --dport ${toString cfg.restApiPort} -j nixos-fw-accept
+        '' else ''
+          iptables -A nixos-fw -p tcp --source ${ip} --dport ${toString cfg.restApiPort} -j nixos-fw-accept
+        '')
+      cfg.apiIpAccessList;
 
     users.users.kld = {
       isSystemUser = true;
@@ -196,11 +218,13 @@ in
         "cockroachdb.service"
         "cockroachdb-setup.service"
         "bitcoind.service"
+        "electrs.service"
       ];
       environment = {
         KLD_LOG_LEVEL = lib.mkDefault cfg.logLevel;
         KLD_PEER_PORT = lib.mkDefault (toString cfg.peerPort);
         KLD_NODE_ALIAS = lib.mkDefault cfg.nodeAlias;
+        KLD_NODE_ID = lib.mkDefault cfg.nodeId;
         KLD_DATABASE_HOST = lib.mkDefault "localhost";
         KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.sql.port);
         KLD_DATABASE_USER = lib.mkDefault "kld";
@@ -209,12 +233,13 @@ in
         KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
         KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
-        KLD_REST_API_ADDRESS = lib.mkDefault cfg.restApiAddress;
+        KLD_REST_API_ADDRESS = if cfg.apiIpAccessList != [ ] then "[::]:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
         KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
         KLD_CERTS_DIR = lib.mkDefault "/var/lib/kld/certs";
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
         KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
+        KLD_ELECTRS_URL = lib.mkDefault "${electrsCfg.address}:${toString electrsCfg.port}";
       } // lib.optionalAttrs (cfg.publicAddresses != [ ]) { KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses; };
 
       path = [

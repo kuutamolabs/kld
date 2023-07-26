@@ -1,0 +1,76 @@
+swagger: "2.0"
+info:
+  version: 0.0.1
+  title: KLD REST API
+basePath: /
+paths:
+  /v1/estimateChannelLiquidity:
+    get:
+      description: Estimate channel liquidity
+      operationId: estimateChannelLiquidity
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          required:
+            - scid
+            - target
+          type: object
+          properties:
+            scid:
+              type: integer
+            target:
+              type: string
+      responses:
+        "200":
+          schema:
+            required:
+              - minimum
+              - maximum
+            type: object
+            properties:
+              minimum:
+                type: integer
+              maximum:
+                type: integer
+
+  /v1/channel/localRemoteBal:
+    get:
+      tags:
+        - Channel Management
+      description: Fetches the aggregate local and remote channel balance on the node (msat)
+      operationId: localremotebal
+      security:
+        - MacaroonAuth: []
+      responses:
+        "200":
+          description: Local-Remote balance returned successfully
+          schema:
+            type: object
+            properties:
+              localBalance:
+                type: integer
+                minimum: 0
+                description: localBalance
+              remoteBalance:
+                type: integer
+                minimum: 0
+                description: remoteBalance
+              pendingBalance:
+                type: integer
+                minimum: 0
+                description: pendingBalance
+              inactiveBalance:
+                type: integer
+                minimum: 0
+                description: inactiveBalance
+            required:
+              - localBalance
+              - remoteBalance
+              - pendingBalance
+              - inactiveBalance
+        "400":
+          description: Bad request
+        "500":
+          description: Server error

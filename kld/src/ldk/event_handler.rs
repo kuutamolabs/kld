@@ -4,18 +4,18 @@ use std::time::{Duration, SystemTime};
 use anyhow::anyhow;
 
 use bitcoin::blockdata::locktime::PackedLockTime;
-use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::database::payment::Payment;
+use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use crate::settings::Settings;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning::chain::BestBlock;
 use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
 use lightning::sign::KeysManager;
+use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -208,6 +208,7 @@ impl EventHandler {
                 via_user_channel_id: _,
                 onion_fields: _,
                 claim_deadline,
+                ..
             } => {
                 info!(
                     "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
@@ -279,10 +280,15 @@ impl EventHandler {
                 fee_paid_msat,
             } => {
                 info!(
-                    "EVENT: Payment with id {:?} sent successfully with fee {}",
-                    payment_id,
+                    "EVENT: Payment with hash {}{} sent successfully{}",
+                    payment_hash.0.encode_hex::<String>(),
+                    if let Some(id) = payment_id {
+                        format!(" and ID {}", id.0.encode_hex::<String>())
+                    } else {
+                        "".to_string()
+                    },
                     if let Some(fee) = fee_paid_msat {
-                        format!(" (fee {fee} msat)")
+                        format!(" with fee {fee} msat")
                     } else {
                         "".to_string()
                     },
@@ -487,6 +493,12 @@ impl EventHandler {
                 });
             }
             Event::SpendableOutputs { outputs } => {
+                let mut spendable_outputs: Vec<SpendableOutput> =
+                    outputs.into_iter().map(SpendableOutput::new).collect();
+                for spendable_output in &spendable_outputs {
+                    info!("EVENT: New {:?}", spendable_output);
+                    self.persist_spendable_output(spendable_output.clone());
+                }
                 let destination_address = match self.wallet.new_address() {
                     Ok(a) => a,
                     Err(e) => {
@@ -494,26 +506,38 @@ impl EventHandler {
                         return;
                     }
                 };
-                let output_descriptors = &outputs.iter().collect::<Vec<_>>();
+                let output_descriptors = &spendable_outputs
+                    .iter()
+                    .map(|o| &o.descriptor)
+                    .collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client
-                    .get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
+                    .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
+
+                let best_block_height = self
+                    .bitcoind_client
+                    .get_best_block()
+                    .await
+                    .map(|r| r.1.unwrap_or_default())
+                    .unwrap_or_default();
                 match self.keys_manager.spend_spendable_outputs(
                     output_descriptors,
                     Vec::new(),
                     destination_address.script_pubkey(),
                     tx_feerate,
-                    Some(PackedLockTime(
-                        BestBlock::from_network(Network::Bitcoin).height(),
-                    )),
+                    Some(PackedLockTime(best_block_height)),
                     &Secp256k1::new(),
                 ) {
                     Ok(spending_tx) => {
                         info!(
-                            "EVENT: Sending spendable output to {}",
+                            "Sending spendable output to {}",
                             destination_address.address
                         );
-                        self.bitcoind_client.broadcast_transaction(&spending_tx)
+                        self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
+                        for spendable_output in spendable_outputs.iter_mut() {
+                            spendable_output.status = SpendableOutputStatus::Spent;
+                            self.persist_spendable_output(spendable_output.clone());
+                        }
                     }
                     Err(_) => {
                         error!("Failed to build spending transaction");
@@ -527,6 +551,16 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
             } => {}
+            Event::BumpTransaction(_) => todo!(),
         }
+    }
+
+    fn persist_spendable_output(&self, spendable_output: SpendableOutput) {
+        let database = self.ldk_database.clone();
+        self.runtime_handle.spawn(async move {
+            if let Err(e) = database.persist_spendable_output(spendable_output).await {
+                error!("{e}");
+            }
+        });
     }
 }

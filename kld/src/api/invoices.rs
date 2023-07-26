@@ -57,8 +57,8 @@ pub(crate) async fn list_invoices(
         .map_err(internal_server)?;
     for invoice in invoices {
         let description = match invoice.bolt11.description() {
-            lightning_invoice::InvoiceDescription::Direct(d) => d.to_string(),
-            lightning_invoice::InvoiceDescription::Hash(h) => h.0.encode_hex(),
+            lightning_invoice::Bolt11InvoiceDescription::Direct(d) => d.to_string(),
+            lightning_invoice::Bolt11InvoiceDescription::Hash(h) => h.0.encode_hex(),
         };
         let amount_received_msat = invoice
             .payments

@@ -9,6 +9,11 @@ use api::{
     WalletTransfer, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
+use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
+use kld::api::codegen::{
+    get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse,
+    get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
+};
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder, Response},
     header::{HeaderValue, CONTENT_TYPE},
@@ -27,9 +32,8 @@ impl Api {
     pub fn new(host: &str, cert_path: &str, macaroon_path: &str) -> Result<Api> {
         let macaroon = read_file(macaroon_path)?;
         let cert = Certificate::from_pem(&read_file(cert_path)?)?;
-        // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl). Also turn off SNI as this requires host names as well.
+        // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl)
         let client = ClientBuilder::new()
-            .tls_sni(false)
             .add_root_certificate(cert)
             .use_native_tls()
             .timeout(None)
@@ -248,13 +252,22 @@ impl Api {
         deserialize::<PaymentResponse>(response)
     }
 
-    pub fn list_payments(&self, bolt11: Option<String>) -> Result<String> {
-        let route = if let Some(bolt11) = bolt11 {
-            format!("{}?{bolt11}", routes::LIST_PAYMENTS)
-        } else {
-            routes::LIST_PAYMENTS.to_string()
-        };
-        let response = self.request(Method::GET, &route).send()?;
+    pub fn list_payments(
+        &self,
+        bolt11: Option<String>,
+        direction: Option<String>,
+    ) -> Result<String> {
+        let mut params = vec![];
+        if let Some(bolt11) = bolt11 {
+            params.push(("bolt11", bolt11));
+        }
+        if let Some(direction) = direction {
+            params.push(("direction", direction));
+        }
+        let response = self
+            .request(Method::GET, routes::LIST_PAYMENTS)
+            .query(&params)
+            .send()?;
         deserialize::<Vec<Payment>>(response)
     }
 
@@ -266,6 +279,24 @@ impl Api {
         };
         let response = self.request(Method::GET, &route).send()?;
         deserialize::<Vec<String>>(response)
+    }
+
+    pub fn estimate_channel_liquidity(&self, scid: u64, target: String) -> Result<String> {
+        let body = GetV1EstimateChannelLiquidityBody {
+            scid: scid as i64,
+            target,
+        };
+        let response = self
+            .request_with_body(Method::GET, routes::ESTIMATE_CHANNEL_LIQUIDITY, body)
+            .send()?;
+        deserialize::<GetV1EstimateChannelLiquidityResponse>(response)
+    }
+
+    pub fn local_remote_balance(&self) -> Result<String> {
+        let response = self
+            .request(Method::GET, routes::LOCAL_REMOTE_BALANCE)
+            .send()?;
+        deserialize::<GetV1ChannelLocalRemoteBalResponse>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

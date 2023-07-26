@@ -52,7 +52,7 @@ pub(crate) type ChannelManager =
 
 pub(crate) type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;
 
-pub(crate) type Scorer = ProbabilisticScorer<Arc<NetworkGraph>, Arc<KldLogger>>;
+pub type Scorer = ProbabilisticScorer<Arc<NetworkGraph>, Arc<KldLogger>>;
 
 pub(crate) type KldRouter = DefaultRouter<
     Arc<NetworkGraph>,

@@ -132,39 +132,51 @@ enum Command {
     },
     /// Generate a bolt11 invoice for receiving a payment.
     GenerateInvoice {
-        // Amount in milli satoshis
+        /// Amount in milli satoshis
         #[arg(long)]
         amount: u64,
-        // Unique label for the invoice
+        /// Unique label for the invoice
         #[arg(long)]
         label: String,
-        // Description for the invoice
+        /// Description for the invoice
         #[arg(long)]
         description: String,
-        // Expiry time period for the invoice (seconds)
+        /// Expiry time period for the invoice (seconds)
         #[arg(long)]
         expiry: Option<u32>,
     },
     /// List all invoices
     ListInvoices {
-        // Label of the invoice
+        /// Label of the invoice
         #[arg(long)]
         label: Option<String>,
     },
     /// Pay an invoice
     PayInvoice {
-        // The invoice to pay
+        /// The invoice to pay
         #[arg(long)]
         bolt11: String,
-        // Label for the payment
+        /// Label for the payment
         #[arg(long)]
         label: Option<String>,
     },
     /// List all payments
     ListPayments {
-        // Bolt11 invoice of payment
+        /// Bolt11 invoice of payment
         #[arg(long)]
         bolt11: Option<String>,
+        /// Direction (inbound/outbound)
+        #[arg(long)]
+        direction: Option<String>,
+    },
+    /// Esimate channel liquidity to a target node
+    EstimateChannelLiquidity {
+        /// Short channel ID
+        #[arg(long)]
+        scid: u64,
+        /// Bolt11 invoice of payment
+        #[arg(long)]
+        target: String,
     },
     /// LSP method - List Protocols for a node
     LspListProtocols {
@@ -172,6 +184,8 @@ enum Command {
         #[arg(long)]
         node_id: Option<PublicKey>,
     },
+    /// Fetch the aggregate local and remote channel balances (msat) of the node
+    LocalRemoteBalance,
 }
 
 fn main() {
@@ -226,8 +240,12 @@ fn run_command(args: Args) -> Result<()> {
         } => api.generate_invoice(amount, label, description, expiry)?,
         Command::ListInvoices { label } => api.list_invoices(label)?,
         Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
-        Command::ListPayments { bolt11 } => api.list_payments(bolt11)?,
+        Command::ListPayments { bolt11, direction } => api.list_payments(bolt11, direction)?,
         Command::LspListProtocols { node_id } => api.lsp_list_protocols(node_id)?,
+        Command::EstimateChannelLiquidity { scid, target } => {
+            api.estimate_channel_liquidity(scid, target)?
+        }
+        Command::LocalRemoteBalance => api.local_remote_balance()?,
     };
     if output != "null" {
         println!("{output}");

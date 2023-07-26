@@ -72,6 +72,13 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # The http basic auth password to access self monitoring server
 # self_monitoring_password = ""
 
+# The communication port of kld
+# kld_rest_api_port = 2244
+
+# The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
+# use on the node.
+kld_api_ip_access_list = []
+
 # The configure for host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
@@ -140,5 +147,12 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 
 # The http basic auth password to access self monitoring server
 # self_monitoring_password = ""
+
+# The communication port of kld
+# kld_rest_api_port = 2244
+
+# The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
+# use on the node.
+kld_api_ip_access_list = []
 
 

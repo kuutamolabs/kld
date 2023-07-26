@@ -1,5 +1,6 @@
 use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::{create_database, CockroachManager};
+use crate::electrs_manager::ElectrsManager;
 use crate::https_client;
 use crate::manager::{Check, Manager};
 use crate::ports::get_available_port;
@@ -47,8 +48,7 @@ impl KldManager {
         let macaroon = fs::read(format!(
             "{}/macaroons/admin.macaroon",
             self.manager.storage_dir
-        ))
-        .unwrap();
+        ))?;
 
         let res = self
             .rest_client
@@ -80,9 +80,9 @@ impl KldManager {
         bin_path: &str,
         bitcoin: &BitcoinManager,
         cockroach: &CockroachManager,
-        instance: &str,
+        electrs: &ElectrsManager,
         settings: &Settings,
-    ) -> KldManager {
+    ) -> Result<KldManager> {
         let exporter_address = format!(
             "127.0.0.1:{}",
             get_available_port().expect("Cannot find free port")
@@ -93,7 +93,7 @@ impl KldManager {
         );
         let peer_port = get_available_port().expect("Cannot find free port");
 
-        let manager = Manager::new(output_dir, "kld", instance);
+        let manager = Manager::new(output_dir, "kld", &settings.node_id)?;
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
@@ -105,7 +105,10 @@ impl KldManager {
             "KLD_MNEMONIC_PATH",
             format!("{}/mnemonic", &manager.storage_dir),
         );
-        set_var("KLD_WALLET_NAME", format!("kld-wallet-{}", instance));
+        set_var(
+            "KLD_WALLET_NAME",
+            format!("kld-wallet-{}", &settings.node_id),
+        );
         set_var("KLD_PEER_PORT", peer_port.to_string());
         set_var("KLD_EXPORTER_ADDRESS", &exporter_address);
         set_var("KLD_REST_API_ADDRESS", &rest_api_address);
@@ -128,19 +131,20 @@ impl KldManager {
             "KLD_DATABASE_CLIENT_CERT_PATH",
             format!("{certs_dir}/cockroach/client.root.crt"),
         );
-        set_var("KLD_LOG_LEVEL", "info");
+        set_var("KLD_LOG_LEVEL", "debug");
         set_var("KLD_NODE_ALIAS", "kld-00-alias");
+        set_var("KLD_ELECTRS_URL", electrs.rpc_address.clone());
 
         let client = https_client();
 
-        KldManager {
+        Ok(KldManager {
             manager,
             bin_path: bin_path.to_string(),
             exporter_address,
             rest_api_address,
             peer_port,
             rest_client: client,
-        }
+        })
     }
 }
 
@@ -164,16 +168,16 @@ impl Check for KldCheck {
 
 #[macro_export]
 macro_rules! kld {
-    ($bitcoin:expr, $cockroach:expr, $settings:expr) => {{
+    ($bitcoin:expr, $cockroach:expr, $electrs:expr, $settings:expr) => {{
         let mut kld = test_utils::kld_manager::KldManager::test_kld(
             env!("CARGO_TARGET_TMPDIR"),
             env!("CARGO_BIN_EXE_kld"),
             $bitcoin,
             $cockroach,
-            &$settings.node_id,
+            $electrs,
             &$settings,
         )
-        .await;
+        .await?;
         $settings.rest_api_address = kld.rest_api_address.clone();
         $settings.exporter_address = kld.exporter_address.clone();
         $settings.peer_port = kld.peer_port;

@@ -1,7 +1,7 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::invoice::Invoice;
-use crate::database::payment::Payment;
+use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{MillisatAmount, Service};
 
@@ -12,6 +12,7 @@ use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
+use hex::ToHex;
 use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::BestBlock;
@@ -52,8 +53,8 @@ use super::event_handler::EventHandler;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
-    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LightningInterface,
-    NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus,
+    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter,
+    LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
 };
 
 #[async_trait]
@@ -346,6 +347,10 @@ impl LightningInterface for Controller {
         )
         .map_err(sign_or_creation_error)?;
         let invoice = Invoice::new(Some(label), bolt11)?;
+        info!(
+            "Generated invoice with payment hash {}",
+            invoice.payment_hash.0.encode_hex::<String>()
+        );
         self.database.persist_invoice(&invoice).await?;
         Ok(invoice)
     }
@@ -356,6 +361,7 @@ impl LightningInterface for Controller {
 
     async fn pay_invoice(&self, invoice: Invoice, label: Option<String>) -> Result<Payment> {
         let payment = Payment::of_invoice_outbound(&invoice, label);
+
         let route_params = RouteParameters {
             payment_params: PaymentParameters::from_node_id(invoice.payee_pub_key, 40),
             final_value_msat: invoice.amount.context("amount missing from invoice")?,
@@ -369,6 +375,10 @@ impl LightningInterface for Controller {
                 channelmanager::Retry::Timeout(Duration::from_secs(60)),
             )
             .map_err(retryable_send_failure)?;
+        info!(
+            "Initiated payment of invoice with hash {}",
+            invoice.payment_hash.0.encode_hex::<String>()
+        );
         self.database.persist_invoice(&invoice).await?;
         self.database.persist_payment(&payment).await?;
         let receiver = self
@@ -385,17 +395,12 @@ impl LightningInterface for Controller {
         let payment_id = Payment::new_id();
         let inflight_htlcs = self.channel_manager.compute_inflight_htlcs();
         let route_params = RouteParameters {
-            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40),
+            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40, false),
             final_value_msat: amount,
         };
         let route = self
             .router
-            .find_route(
-                &self.identity_pubkey(),
-                &route_params,
-                None,
-                &inflight_htlcs,
-            )
+            .find_route(&self.identity_pubkey(), &route_params, None, inflight_htlcs)
             .map_err(lightning_error)?;
         let hash = self
             .channel_manager
@@ -407,6 +412,10 @@ impl LightningInterface for Controller {
             )
             .map_err(payment_send_failure)?;
         let payment = Payment::spontaneous_outbound(payment_id, hash, amount);
+        info!(
+            "Initiated keysend payment with hash {}",
+            payment.hash.0.encode_hex::<String>()
+        );
         self.database.persist_payment(&payment).await?;
         let receiver = self
             .async_api_requests
@@ -418,9 +427,13 @@ impl LightningInterface for Controller {
         Ok(payment)
     }
 
-    async fn list_payments(&self, invoice: Option<Invoice>) -> Result<Vec<Payment>> {
+    async fn list_payments(
+        &self,
+        invoice: Option<Invoice>,
+        direction: Option<PaymentDirection>,
+    ) -> Result<Vec<Payment>> {
         self.database
-            .fetch_payments(invoice.map(|i| i.payment_hash))
+            .fetch_payments(invoice.map(|i| i.payment_hash), direction)
             .await
     }
 
@@ -442,6 +455,18 @@ impl LightningInterface for Controller {
                 _ => unreachable!("Should be ListProtocols response"),
             }
         }
+    }
+
+    async fn estimated_channel_liquidity_range(
+        &self,
+        scid: u64,
+        target: &NodeId,
+    ) -> Result<Option<(u64, u64)>> {
+        Ok(self
+            .scorer
+            .lock()
+            .map_err(|e| anyhow!("failed to aquire lock on scorer {}", e))?
+            .estimated_channel_liquidity_range(scid, target))
     }
 }
 
@@ -506,6 +531,7 @@ pub struct Controller {
     keys_manager: Arc<KeysManager>,
     network_graph: Arc<NetworkGraph>,
     router: Arc<KldRouter>,
+    scorer: Arc<Mutex<Scorer>>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
@@ -606,7 +632,6 @@ impl Controller {
             ProbabilisticScoringFeeParameters::default(),
         ));
 
-        // Initialize the ChannelManager
         let mut channelmonitors = database
             .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
             .await?;
@@ -615,6 +640,7 @@ impl Controller {
             .channel_handshake_limits
             .force_announced_channel_preference = false;
         user_config.channel_handshake_config.announced_channel = true;
+        user_config.channel_handshake_limits.max_funding_satoshis = u64::MAX;
 
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
@@ -637,6 +663,7 @@ impl Controller {
                     keys_manager.clone(),
                     user_config,
                     chain_params,
+                    0,
                 );
                 (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
@@ -679,6 +706,8 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
+            Arc::new(lightning::onion_message::DefaultMessageRouter {}),
+            IgnoringMessageHandler {},
             IgnoringMessageHandler {},
             // TODO let lsp support onion
             // liquidity_manager,
@@ -721,7 +750,7 @@ impl Controller {
             GossipSync::p2p(gossip_sync),
             peer_manager.clone(),
             KldLogger::global(),
-            Some(scorer),
+            Some(scorer.clone()),
         );
 
         let bitcoind_client_clone = bitcoind_client.clone();
@@ -768,6 +797,7 @@ impl Controller {
             keys_manager,
             network_graph,
             router,
+            scorer,
             wallet,
             async_api_requests,
             background_processor: Arc::new(Mutex::new(Some(background_processor))),
@@ -783,7 +813,10 @@ impl Controller {
         channel_manager: Arc<ChannelManager>,
         channelmonitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
     ) -> BlockSourceResult<()> {
-        // Sync ChannelMonitors and ChannelManager to chain tip
+        info!(
+            "Syncing ChannelManager and {} ChannelMonitors to chain tip",
+            channelmonitors.len()
+        );
         let mut chain_listener_channel_monitors = Vec::new();
         let mut cache = UnboundedCache::new();
 
@@ -819,8 +852,7 @@ impl Controller {
             chain_listeners,
         )
         .await?;
-
-        // Give ChannelMonitors to ChainMonitor
+        info!("Chain listeners synchronised. Registering ChannelMonitors with ChainMonitor");
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
             chain_monitor.watch_channel(funding_outpoint, channel_monitor);
         }

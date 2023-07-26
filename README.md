@@ -172,7 +172,7 @@ Although monitoring is not mandatory for deploying a node, it is highly recommen
 
 To set up monitoring for your node, you can use the Kuutamo monitoring token. The process is simple - just obtain the token and configure your node to send metrics to the Kuutamo monitor. By default, the token file name is `kuutamo-monitoring.token`, and the default monitoring server is `https://mimir.monitoring-00-cluster.kuutamo.computer`.
 
-If you have multiple hosts in `kneard.toml` and want to use different tokens for each host, you can set the `kuutamo_monitoring_token_file` field for each host to point to the desired token file.
+If you have multiple hosts in `kld.toml` and want to use different tokens for each host, you can set the `kuutamo_monitoring_token_file` field for each host to point to the desired token file.
 
 Alternatively, if you prefer to self-monitor the node, you can customize your monitor server by setting the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host. The `self_monitoring_url` should implement [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
 

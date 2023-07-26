@@ -2,17 +2,21 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use anyhow::{anyhow, Context, Result};
+use bitcoin::hashes::hex::FromHex;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
-use bitcoin::Network;
+use bitcoin::{Network, TxOut, Txid};
 use kld::database::invoice::Invoice;
 use kld::database::payment::{Payment, PaymentDirection, PaymentStatus};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
+use kld::ldk::Scorer;
 
+use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use kld::logger::KldLogger;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
+use lightning::chain::transaction::OutPoint;
 use lightning::chain::Filter;
 use lightning::ln::channelmanager::PaymentId;
 use lightning::ln::msgs::NetAddress;
@@ -22,11 +26,11 @@ use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
 };
-use lightning::sign::{InMemorySigner, KeysManager};
+use lightning::sign::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::util::persist::Persister;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
-use test_utils::{poll, random_public_key, TEST_PRIVATE_KEY};
+use test_utils::{poll, random_public_key, TEST_PRIVATE_KEY, TEST_TX_ID};
 
 use super::with_cockroach;
 
@@ -119,7 +123,7 @@ pub async fn test_invoice_payments() -> Result<()> {
         assert_eq!(1, result.len());
 
         let result = database
-            .fetch_payments(None)
+            .fetch_payments(None, None)
             .await?
             .into_iter()
             .find(|p| p.id == payment.id)
@@ -130,7 +134,7 @@ pub async fn test_invoice_payments() -> Result<()> {
         database.persist_payment(&payment).await?;
 
         let result = database
-            .fetch_payments(Some(payment.hash))
+            .fetch_payments(Some(payment.hash), Some(PaymentDirection::Inbound))
             .await?
             .into_iter()
             .find(|p| p.id == payment.id)
@@ -256,7 +260,31 @@ pub async fn test_scorer() -> Result<()> {
     .await
 }
 
-type Scorer = ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>;
+#[tokio::test(flavor = "multi_thread")]
+pub async fn test_spendable_outputs() -> Result<()> {
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
+
+        let output = TxOut::default();
+        let outpoint = OutPoint {
+            txid: Txid::from_hex(TEST_TX_ID)?,
+            index: 2,
+        };
+        let descriptor = SpendableOutputDescriptor::StaticOutput { outpoint, output };
+        let mut spendable_output = SpendableOutput::new(descriptor);
+        database
+            .persist_spendable_output(spendable_output.clone())
+            .await?;
+
+        spendable_output.status = SpendableOutputStatus::Spent;
+        database.persist_spendable_output(spendable_output).await?;
+
+        let spendable_outputs = database.fetch_spendable_outputs().await?;
+        assert_eq!(1, spendable_outputs.len());
+        Ok(())
+    })
+    .await
+}
 
 type KldTestChainMonitor = ChainMonitor<
     InMemorySigner,

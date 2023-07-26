@@ -76,10 +76,11 @@ impl Default for MockLightning {
             channel_value_satoshis: 1000000,
             unspendable_punishment_reserve: Some(10000),
             user_channel_id: 3434232,
-            balance_msat: 10001,
+            balance_msat: 100000,
             outbound_capacity_msat: 100000,
+            next_outbound_htlc_minimum_msat: 1,
             next_outbound_htlc_limit_msat: 500,
-            inbound_capacity_msat: 200000,
+            inbound_capacity_msat: 999900000,
             confirmations_required: Some(3),
             confirmations: Some(10),
             force_close_spend_delay: Some(6),
@@ -91,6 +92,7 @@ impl Default for MockLightning {
             inbound_htlc_maximum_msat: Some(300000),
             config: None,
             feerate_sat_per_1000_weight: Some(10210),
+            channel_shutdown_state: None,
         };
         let socket_addr: SocketAddrV4 = "127.0.0.1:5555".parse().unwrap();
         let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY).unwrap();
@@ -308,7 +310,11 @@ impl LightningInterface for MockLightning {
         Ok(payment)
     }
 
-    async fn list_payments(&self, _bolt11: Option<Invoice>) -> Result<Vec<Payment>> {
+    async fn list_payments(
+        &self,
+        _bolt11: Option<Invoice>,
+        _direction: Option<PaymentDirection>,
+    ) -> Result<Vec<Payment>> {
         Ok(vec![self.payment.clone()])
     }
 
@@ -322,5 +328,13 @@ impl LightningInterface for MockLightning {
 
     async fn lsp_list_protocols(&self, _node_id: Option<PublicKey>) -> Result<Vec<String>> {
         Ok(Vec::new())
+    }
+
+    async fn estimated_channel_liquidity_range(
+        &self,
+        _scid: u64,
+        _target: &NodeId,
+    ) -> Result<Option<(u64, u64)>> {
+        Ok(Some((100, 100000)))
     }
 }
