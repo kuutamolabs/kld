@@ -10,6 +10,7 @@ use kld::database::invoice::Invoice;
 use kld::database::payment::{Payment, PaymentDirection, PaymentStatus};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
+use kld::ldk::Scorer;
 
 use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use kld::logger::KldLogger;
@@ -284,8 +285,6 @@ pub async fn test_spendable_outputs() -> Result<()> {
     })
     .await
 }
-
-type Scorer = ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>;
 
 type KldTestChainMonitor = ChainMonitor<
     InMemorySigner,
