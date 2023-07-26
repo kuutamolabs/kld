@@ -78,6 +78,7 @@ impl Default for MockLightning {
             user_channel_id: 3434232,
             balance_msat: 100000,
             outbound_capacity_msat: 100000,
+            next_outbound_htlc_minimum_msat: 1,
             next_outbound_htlc_limit_msat: 500,
             inbound_capacity_msat: 999900000,
             confirmations_required: Some(3),
@@ -91,6 +92,7 @@ impl Default for MockLightning {
             inbound_htlc_maximum_msat: Some(300000),
             config: None,
             feerate_sat_per_1000_weight: Some(10210),
+            channel_shutdown_state: None,
         };
         let socket_addr: SocketAddrV4 = "127.0.0.1:5555".parse().unwrap();
         let private_key = SecretKey::from_slice(&TEST_PRIVATE_KEY).unwrap();

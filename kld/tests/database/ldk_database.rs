@@ -10,20 +10,23 @@ use kld::database::invoice::Invoice;
 use kld::database::payment::{Payment, PaymentDirection, PaymentStatus};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
+use kld::ldk::Scorer;
 
 use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use kld::logger::KldLogger;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::Filter;
 use lightning::ln::channelmanager::PaymentId;
 use lightning::ln::msgs::NetAddress;
 use lightning::ln::{PaymentPreimage, PaymentSecret};
-use lightning::routing::gossip::{NetworkGraph, NodeId};
+use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::DefaultRouter;
-use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
+use lightning::routing::scoring::{
+    ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
+};
+use lightning::sign::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::util::persist::Persister;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
@@ -159,9 +162,17 @@ pub async fn test_network_graph() -> Result<()> {
                 Arc<KeysManager>,
                 Arc<KeysManager>,
                 Arc<dyn FeeEstimator>,
-                Arc<DefaultRouter<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>, &TestScorer>>,
+                Arc<
+                    DefaultRouter<
+                        Arc<NetworkGraph<Arc<KldLogger>>>,
+                        Arc<KldLogger>,
+                        Arc<Mutex<Scorer>>,
+                        ProbabilisticScoringFeeParameters,
+                        Scorer,
+                    >,
+                >,
                 Arc<KldLogger>,
-                TestScorer,
+                Mutex<Scorer>,
             >>::persist_graph(database, network_graph)
         };
         persist(&database, &network_graph)?;
@@ -183,7 +194,7 @@ pub async fn test_scorer() -> Result<()> {
 
         let network_graph = Arc::new(NetworkGraph::new(Network::Regtest, KldLogger::global()));
         let scorer = Mutex::new(ProbabilisticScorer::new(
-            ProbabilisticScoringParameters::default(),
+            ProbabilisticScoringDecayParameters::default(),
             network_graph.clone(),
             KldLogger::global(),
         ));
@@ -196,9 +207,17 @@ pub async fn test_scorer() -> Result<()> {
                 Arc<KeysManager>,
                 Arc<KeysManager>,
                 Arc<dyn FeeEstimator>,
-                Arc<DefaultRouter<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>, &TestScorer>>,
+                Arc<
+                    DefaultRouter<
+                        Arc<NetworkGraph<Arc<KldLogger>>>,
+                        Arc<KldLogger>,
+                        Arc<Mutex<Scorer>>,
+                        ProbabilisticScoringFeeParameters,
+                        Scorer,
+                    >,
+                >,
                 Arc<KldLogger>,
-                TestScorer,
+                Mutex<Scorer>,
             >>::persist_scorer(database, scorer)
         };
 
@@ -207,7 +226,7 @@ pub async fn test_scorer() -> Result<()> {
             3,
             database
                 .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
+                    ProbabilisticScoringDecayParameters::default(),
                     network_graph.clone()
                 )
                 .await?
@@ -216,24 +235,19 @@ pub async fn test_scorer() -> Result<()> {
 
         let timestamp = database
             .fetch_scorer(
-                ProbabilisticScoringParameters::default(),
+                ProbabilisticScoringDecayParameters::default(),
                 network_graph.clone(),
             )
             .await?
             .map(|s| s.1)
             .ok_or(anyhow!("missing timestamp"))?;
 
-        scorer
-            .lock()
-            .unwrap()
-            .add_banned(&NodeId::from_pubkey(&random_public_key()));
-
         persist(&database, &scorer)?;
         poll!(
             3,
             database
                 .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
+                    ProbabilisticScoringDecayParameters::default(),
                     network_graph.clone()
                 )
                 .await?
@@ -271,8 +285,6 @@ pub async fn test_spendable_outputs() -> Result<()> {
     })
     .await
 }
-
-type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>>;
 
 type KldTestChainMonitor = ChainMonitor<
     InMemorySigner,

@@ -3,7 +3,7 @@ use std::io::Cursor;
 use anyhow::Result;
 use bitcoin::{hashes::Hash, Txid};
 use lightning::{
-    chain::keysinterface::SpendableOutputDescriptor,
+    sign::SpendableOutputDescriptor,
     util::ser::{Readable, Writeable},
 };
 use postgres_types::{FromSql, ToSql};

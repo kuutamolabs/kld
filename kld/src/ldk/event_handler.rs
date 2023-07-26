@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 
+use bitcoin::blockdata::locktime::PackedLockTime;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::database::payment::Payment;
@@ -10,9 +11,10 @@ use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning::chain::keysinterface::KeysManager;
 use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
+use lightning::sign::KeysManager;
+use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -190,6 +192,7 @@ impl EventHandler {
                 via_user_channel_id: _,
                 onion_fields: _,
                 claim_deadline,
+                ..
             } => {
                 info!(
                     "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
@@ -495,11 +498,18 @@ impl EventHandler {
                     .bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
 
+                let best_block_height = self
+                    .bitcoind_client
+                    .get_best_block()
+                    .await
+                    .map(|r| r.1.unwrap_or_default())
+                    .unwrap_or_default();
                 match self.keys_manager.spend_spendable_outputs(
                     output_descriptors,
                     Vec::new(),
                     destination_address.script_pubkey(),
                     tx_feerate,
+                    Some(PackedLockTime(best_block_height)),
                     &Secp256k1::new(),
                 ) {
                     Ok(spending_tx) => {
@@ -507,7 +517,7 @@ impl EventHandler {
                             "Sending spendable output to {}",
                             destination_address.address
                         );
-                        self.bitcoind_client.broadcast_transaction(&spending_tx);
+                        self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
                         for spendable_output in spendable_outputs.iter_mut() {
                             spendable_output.status = SpendableOutputStatus::Spent;
                             self.persist_spendable_output(spendable_output.clone());
@@ -525,6 +535,7 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
             } => {}
+            Event::BumpTransaction(_) => todo!(),
         }
     }
 

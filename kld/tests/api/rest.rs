@@ -778,7 +778,7 @@ async fn test_generate_invoice() -> Result<()> {
         .await?
         .json()
         .await?;
-    let bolt11 = lightning_invoice::Invoice::from_str(&response.bolt11)?;
+    let bolt11 = lightning_invoice::Bolt11Invoice::from_str(&response.bolt11)?;
     assert_eq!(bolt11.payment_hash().to_string(), response.payment_hash);
     assert!(response.expires_at > expiry);
     Ok(())

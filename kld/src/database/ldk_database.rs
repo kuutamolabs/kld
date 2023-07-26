@@ -14,9 +14,6 @@ use bitcoin::{BlockHash, Txid};
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
-use lightning::chain::keysinterface::{
-    EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner,
-};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
 use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs, PaymentId};
@@ -25,8 +22,9 @@ use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::Router;
 use lightning::routing::scoring::{
-    ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore,
+    ProbabilisticScorer, ProbabilisticScoringDecayParameters, WriteableScore,
 };
+use lightning::sign::{EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner};
 use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
@@ -539,7 +537,7 @@ where
 
     pub async fn fetch_scorer(
         &self,
-        params: ProbabilisticScoringParameters,
+        params: ProbabilisticScoringDecayParameters,
         graph: Arc<NetworkGraph<Arc<KldLogger>>>,
     ) -> Result<
         Option<(
@@ -558,7 +556,7 @@ where
                 let timestamp: SystemTime = row.get(1);
                 let scorer = ProbabilisticScorer::read(
                     &mut Cursor::new(bytes),
-                    (params.clone(), graph.clone(), KldLogger::global()),
+                    (params, graph.clone(), KldLogger::global()),
                 )
                 .expect("Unable to deserialize scorer");
                 (scorer, timestamp)
