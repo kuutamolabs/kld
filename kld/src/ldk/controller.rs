@@ -53,8 +53,8 @@ use super::event_handler::EventHandler;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
-    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter,
-    LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
+    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LightningInterface,
+    NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
 };
 
 #[async_trait]
