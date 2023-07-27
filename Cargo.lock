@@ -1132,6 +1132,7 @@ dependencies = [
  "http",
  "hyper",
  "lazy_static",
+ "ldk-lsp-client",
  "lightning",
  "lightning-background-processor",
  "lightning-block-sync",
@@ -1171,6 +1172,19 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
+name = "ldk-lsp-client"
+version = "0.1.0"
+source = "git+https://github.com/kuutamolabs/ldk-lsp-client.git?rev=0e0aeb0#0e0aeb01fb02616cea351e17722946ab91257e4a"
+dependencies = [
+ "bitcoin",
+ "lightning",
+ "lightning-invoice",
+ "lightning-net-tokio",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "libc"

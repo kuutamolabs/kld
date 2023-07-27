@@ -3,11 +3,11 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 use crate::api::NetAddress;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::{peer::Peer, LdkDatabase};
-use crate::ldk::lsp::message_handler::LiquidityManager;
 use crate::logger::KldLogger;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
+use ldk_lsp_client::LiquidityManager;
 use lightning::sign::KeysManager;
 use lightning::{
     ln::{channelmanager::SimpleArcChannelManager, peer_handler},
@@ -18,7 +18,7 @@ use lightning_net_tokio::SocketDescriptor;
 use log::{error, info, warn};
 use tokio::task::JoinHandle;
 
-use super::{ChainMonitor, ChannelManager};
+use super::{ChainMonitor, ChannelManager, KldRouter};
 
 pub(crate) type PeerManager = peer_handler::PeerManager<
     SocketDescriptor,
@@ -32,7 +32,18 @@ pub(crate) type PeerManager = peer_handler::PeerManager<
     >,
     Arc<SimpleArcOnionMessenger<KldLogger>>,
     Arc<KldLogger>,
-    Arc<LiquidityManager<Arc<KeysManager>>>,
+    Arc<
+        LiquidityManager<
+            Arc<KeysManager>,
+            Arc<ChainMonitor>,
+            Arc<BitcoindClient>,
+            Arc<BitcoindClient>,
+            Arc<KldRouter>,
+            Arc<KeysManager>,
+            Arc<KldLogger>,
+            Arc<KeysManager>,
+        >,
+    >,
     Arc<KeysManager>,
 >;
 

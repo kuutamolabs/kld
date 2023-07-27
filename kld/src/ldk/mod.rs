@@ -2,7 +2,6 @@ pub mod channel_utils;
 pub mod controller;
 mod event_handler;
 pub mod lightning_interface;
-pub mod lsp;
 mod peer_manager;
 
 use std::sync::{Arc, Mutex};

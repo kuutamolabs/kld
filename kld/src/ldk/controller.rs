@@ -29,11 +29,10 @@ use lightning::routing::scoring::{
 use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
-use crate::ldk::lsp::message_handler::{LiquidityManager, LiquidityProviderConfig};
-use crate::ldk::lsp::msgs;
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
+use ldk_lsp_client::{msgs, LiquidityManager, LiquidityProviderConfig};
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
@@ -442,11 +441,11 @@ impl LightningInterface for Controller {
         if let Some(_node_id) = node_id {
             bail!("Query lsp protocols from other node are not implemented now")
         } else {
-            match self
-                .liquidity_manager
-                .lsps0_message_handler
-                .handle_request(msgs::LSPS0Request::ListProtocols)
-            {
+            match self.liquidity_manager.lsps0_message_handler.handle_request(
+                msgs::RequestId("self-request".to_string()),
+                msgs::LSPS0Request::ListProtocols(msgs::ListProtocolsRequest {}),
+                &self.identity_pubkey(),
+            ) {
                 Ok(msgs::LSPS0Response::ListProtocols(resp)) => {
                     // NOTE
                     // protocol bytes will map to exactly protocol name in future (undefinded now)
@@ -544,7 +543,18 @@ pub struct Controller {
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
-    liquidity_manager: Arc<LiquidityManager<Arc<KeysManager>>>,
+    liquidity_manager: Arc<
+        LiquidityManager<
+            Arc<KeysManager>,
+            Arc<ChainMonitor>,
+            Arc<BitcoindClient>,
+            Arc<BitcoindClient>,
+            Arc<KldRouter>,
+            Arc<KeysManager>,
+            Arc<KldLogger>,
+            Arc<KeysManager>,
+        >,
+    >,
 }
 
 impl Controller {
@@ -601,12 +611,6 @@ impl Controller {
             seed,
             current_time.as_secs(),
             current_time.subsec_nanos(),
-        ));
-        let liquidity_manager = Arc::new(LiquidityManager::new(
-            keys_manager.clone(),
-            Some(LiquidityProviderConfig {
-                provider: "kuutamo-lsp-node".into(),
-            }),
         ));
 
         let network_graph = Arc::new(
@@ -697,6 +701,11 @@ impl Controller {
             }
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
+        let liquidity_manager = Arc::new(LiquidityManager::new(
+            keys_manager.clone(),
+            Some(LiquidityProviderConfig {}),
+            channel_manager.clone(),
+        ));
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
