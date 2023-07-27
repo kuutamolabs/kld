@@ -11,7 +11,6 @@ If you want to put it into production and would like to discuss SRE overlay supp
 
 - 1 or 3 server(s)/node(s): Any Linux OS
 - 1 workstation/local machine: Any Linux OS, MacOS.
-- Nix
 
 ## Components
 
