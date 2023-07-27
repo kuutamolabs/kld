@@ -110,6 +110,10 @@ public_ssh_keys = [
  "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAA you@computer",
 ]
 
+# The example RISE1 server in OVH, deployed with a Ubuntu image
+# will be configured with 'ubuntu' as the admin user
+install_ssh_user = "ubuntu"
+
 # This allows us to specify different disks for the bitcoin datebase.
 # The example RISE1 server in OVH has 2x4TB HDD and 2x500GB NVMe
 # Here we specify the bitcoin DB should be on the 4TB disks.
