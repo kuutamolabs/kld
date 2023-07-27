@@ -14,15 +14,15 @@ If you want to put it into production and would like to discuss SRE overlay supp
 
 ## Components
 
-- `kld-mgr` - A CLI tool that will SSH to your server(s) to perform the initial deployment and support ongoing infrasturcture operations (e.g upgrades)
-- `kld-cli` - A CLI tool that will talk to the `kld` API to support LSP operations (e.g channel open)
+- `kld-mgr` - A CLI tool that will SSH to your server(s) to perform the initial deployment and support ongoing infrastructure operations (e.g. upgrades)
+- `kld-cli` - A CLI tool that will talk to the `kld` API to support LSP operations (e.g. channel open)
 - `kld` - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
 - `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
-- `telegraf` - an agent for collecting and sending metrics to any url that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+- `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 
 The server(s) will run `kld` and `cockroachdb`.
 The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s), therefore in production this should be executed on a hardended, trusted, machine.
-`kld-cli` - is available to run on the server(s) and can be run on the local machine.
+`kld-cli` - is available on the server(s) and can be run on the local machine.
 
 ## Nix quickstart
 
@@ -69,7 +69,7 @@ $ kld-mgr --help
 ```
 
 Answer ‘y’ to the four questions asked.
-After some downloading you should see the help output.
+After some downloading, you should see the help output.
 
 ```
 $ nix run github:kuutamolabs/lightning-knd#kld-mgr -- help
@@ -99,7 +99,7 @@ Options:
 
 ## 3 server cluster
 
-1. Create a new directory and in it put your kld.toml - copy the below and edit:
+1. Create a new directory, and in it, put your `kld.toml` file - you can copy the minimal template below to get started:
 
 ```toml
 [global]
