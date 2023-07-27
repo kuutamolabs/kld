@@ -99,7 +99,7 @@ Options:
 
 ## 3 server cluster
 
-1. Create a new directory, and in it, put your `kld.toml` file - you can copy the minimal template below to get started:
+1. Create a new directory, and in it, put your `kld.toml` file - Copy and edit the minimal template below to get started:
 
 ```toml
 [global]
