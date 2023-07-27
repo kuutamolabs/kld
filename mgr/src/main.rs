@@ -36,7 +36,8 @@ struct InstallArgs {
     #[clap(long, action)]
     no_reboot: bool,
 
-    /// The mnemonic will automatically generate when kld first init
+    /// The mnemonic phrases and macaroons will automatically generate on remote server when kld first initialize.
+    /// This benefits when you own your remote server and can physically backup mnemonic phrases and macaroons without any copy through the internet
     #[clap(long, default_value = "false")]
     generate_secret_on_remote: bool,
 }
