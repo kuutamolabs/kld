@@ -1,3 +1,4 @@
+pub mod forward;
 pub mod invoice;
 mod ldk_database;
 pub mod payment;
@@ -13,6 +14,7 @@ use std::{
 use async_trait::async_trait;
 pub use ldk_database::LdkDatabase;
 use postgres_types::ToSql;
+use time::{OffsetDateTime, PrimitiveDateTime};
 use tokio::{sync::OwnedRwLockReadGuard, task::JoinHandle};
 pub use wallet_database::WalletDatabase;
 
@@ -197,21 +199,12 @@ mod embedded {
     embed_migrations!("src/database/sql");
 }
 
+#[derive(Default)]
 pub struct Params<'a> {
     vec: Vec<Box<(dyn ToSql + Sync + Send + 'a)>>,
 }
 
-impl<'a> Default for Params<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<'a> Params<'a> {
-    pub fn new() -> Params<'a> {
-        Params { vec: vec![] }
-    }
-
     pub fn push(&mut self, x: impl ToSql + Sync + Send + 'a) {
         self.vec.push(Box::new(x))
     }
@@ -226,4 +219,15 @@ impl<'a> Params<'a> {
             .map(|x| x.as_ref() as &(dyn ToSql + Sync))
             .collect()
     }
+}
+
+pub fn microsecond_timestamp() -> OffsetDateTime {
+    let timestamp = OffsetDateTime::now_utc();
+    timestamp
+        .replace_nanosecond(timestamp.microsecond() * 1000)
+        .unwrap()
+}
+
+pub fn to_primative(offset: &OffsetDateTime) -> PrimitiveDateTime {
+    PrimitiveDateTime::new(offset.date(), offset.time())
 }

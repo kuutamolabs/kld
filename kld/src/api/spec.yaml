@@ -9,19 +9,19 @@ paths:
       description: Estimate channel liquidity
       operationId: estimateChannelLiquidity
       parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          required:
-            - scid
-            - target
-          type: object
-          properties:
-            scid:
-              type: integer
-            target:
-              type: string
+        - in: body
+          name: body
+          required: true
+          schema:
+            required:
+              - scid
+              - target
+            type: object
+            properties:
+              scid:
+                type: integer
+              target:
+                type: string
       responses:
         "200":
           schema:
@@ -34,8 +34,31 @@ paths:
                 type: integer
               maximum:
                 type: integer
-
-  /v1/channel/localRemoteBal:
+  /v1/getFees:
+    get:
+      tags:
+        - General Information
+      description: Gets the routing fee collected by the node
+      operationId: getfees
+      security:
+        - MacaroonAuth: []
+      responses:
+        "200":
+          description: Routing fee returned successfully
+          schema:
+            type: object
+            properties:
+              feeCollected:
+                type: integer
+                minimum: 0
+                description: feeCollected
+            required:
+              - feeCollected
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
+  /v1/channel/localremotebal:
     get:
       tags:
         - Channel Management
@@ -70,6 +93,70 @@ paths:
               - remoteBalance
               - pendingBalance
               - inactiveBalance
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
+  /v1/channel/listForwards:
+    get:
+      tags:
+        - Channel Management
+      description: Fetch the list of the forwarded htlcs
+      operationId: listforwards
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: query
+          name: status
+          description: status of the HTLC
+          enum: [offered, settled, local_failed, failed]
+          type: string
+      responses:
+        "200":
+          description: List of forwarded htlcs are returned per the params specified
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                in_channel:
+                  type: string
+                  description: in_channel
+                in_msat:
+                  type: integer
+                  description: in_msat
+                status:
+                  type: string
+                  description: status of the HTLC
+                  enum: [offered, settled, local_failed, failed]
+                received_time:
+                  type: integer
+                  description: the UNIX timestamp when this was received
+                out_channel:
+                  type: string
+                  description: the channel that the HTLC was forwarded to
+                payment_hash:
+                  type: string
+                  description: payment hash sought by HTLC (always 64 characters)
+                fee_msat:
+                  type: integer
+                  description: If out_channel is present, the amount this paid in fees
+                out_msat:
+                  type: integer
+                  description: If out_channel is present, the amount we sent out the out_channel
+                resolved_time:
+                  type: integer
+                  description: If status is "settled" or "failed", the UNIX timestamp when this was resolved
+                failcode:
+                  type: string
+                  description: If status is "local_failed" or "failed", the numeric onion code returned
+                failreason:
+                  type: string
+                  description: If status is "local_failed" or "failed", the name of the onion code returned
+              required:
+                - in_channel
+                - status
+                - received_time
         "400":
           description: Bad request
         "500":

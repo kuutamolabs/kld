@@ -10,11 +10,13 @@ use std::sync::{Arc, Mutex};
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
+use hex::ToHex;
 use lightning::{
     chain::{chainmonitor, Filter},
+    events::HTLCDestination,
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},
-        msgs::LightningError,
+        msgs::{DecodeError, LightningError},
     },
     onion_message::SimpleArcOnionMessenger,
     routing::{
@@ -136,5 +138,42 @@ pub fn payment_send_failure(error: PaymentSendFailure) -> anyhow::Error {
             }
             anyhow!("Payment failed: Partial failure. Check logs for more details.")
         }
+    }
+}
+
+pub fn decode_error(error: DecodeError) -> anyhow::Error {
+    match error {
+        DecodeError::UnknownVersion => anyhow!("Unknown version"),
+        DecodeError::UnknownRequiredFeature => anyhow!("Unknown required feature"),
+        DecodeError::InvalidValue => anyhow!("Invalid value"),
+        DecodeError::ShortRead => anyhow!("Short read"),
+        DecodeError::BadLengthDescriptor => anyhow!("Bad length descriptor"),
+        DecodeError::Io(e) => anyhow!(e),
+        DecodeError::UnsupportedCompression => anyhow!("Unsupported compression"),
+    }
+}
+
+pub fn htlc_destination_to_string(destination: &HTLCDestination) -> String {
+    match destination {
+        HTLCDestination::NextHopChannel {
+            node_id: _,
+            channel_id,
+        } => format!("Next hop channel ID {}", channel_id.encode_hex::<String>()),
+        HTLCDestination::UnknownNextHop {
+            requested_forward_scid,
+        } => format!(
+            "Unknown next hop to requested SCID {}",
+            requested_forward_scid
+        ),
+        HTLCDestination::InvalidForward {
+            requested_forward_scid,
+        } => format!(
+            "Invalid forward to requested SCID {}",
+            requested_forward_scid
+        ),
+        HTLCDestination::FailedPayment { payment_hash } => format!(
+            "Failed payment with hash {}",
+            payment_hash.0.encode_hex::<String>()
+        ),
     }
 }

@@ -38,11 +38,19 @@ impl WalletInterface for MockWallet {
         Ok((self.transaction.clone(), details))
     }
 
-    fn new_address(&self) -> Result<AddressInfo> {
+    fn new_external_address(&self) -> Result<AddressInfo> {
         Ok(AddressInfo {
-            address: Address::from_str(TEST_ADDRESS).unwrap(),
+            address: Address::from_str(TEST_ADDRESS)?,
             index: 1,
             keychain: KeychainKind::External,
+        })
+    }
+
+    fn new_internal_address(&self) -> Result<AddressInfo> {
+        Ok(AddressInfo {
+            address: Address::from_str(TEST_ADDRESS)?,
+            index: 1,
+            keychain: KeychainKind::Internal,
         })
     }
 

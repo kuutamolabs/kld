@@ -14,6 +14,7 @@ use crate::VERSION;
 
 use super::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use super::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
+use super::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
 use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn get_info(
@@ -24,6 +25,11 @@ pub(crate) async fn get_info(
         .synced()
         .await
         .map_err(internal_server)?;
+    let fees_collected_msat = lightning_interface
+        .fetch_total_forwards()
+        .await
+        .map_err(internal_server)?
+        .fee;
     let info = GetInfo {
         id: lightning_interface.identity_pubkey().to_string(),
         alias: lightning_interface.alias(),
@@ -50,6 +56,7 @@ pub(crate) async fn get_info(
             .into_iter()
             .map(|a| a.to_string())
             .collect(),
+        fees_collected_msat,
     };
     Ok(Json(info))
 }
@@ -88,4 +95,17 @@ pub(crate) async fn estimate_channel_liquidity_range(
         })),
         None => Err(ApiError::NotFound(body.scid.to_string())),
     }
+}
+
+pub(crate) async fn get_fees(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+) -> Result<impl IntoResponse, ApiError> {
+    let total_forwards = lightning_interface
+        .fetch_total_forwards()
+        .await
+        .map_err(internal_server)?;
+    let response = GetV1GetFeesResponse {
+        fee_collected: total_forwards.fee as i64,
+    };
+    Ok(Json(response))
 }

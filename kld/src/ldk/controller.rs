@@ -1,5 +1,6 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::database::forward::{Forward, ForwardStatus, TotalForwards};
 use crate::database::invoice::Invoice;
 use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
@@ -467,6 +468,14 @@ impl LightningInterface for Controller {
             .lock()
             .map_err(|e| anyhow!("failed to aquire lock on scorer {}", e))?
             .estimated_channel_liquidity_range(scid, target))
+    }
+
+    async fn fetch_total_forwards(&self) -> Result<TotalForwards> {
+        self.database.fetch_total_forwards().await
+    }
+
+    async fn fetch_forwards(&self, status: Option<ForwardStatus>) -> Result<Vec<Forward>> {
+        self.database.fetch_forwards(status).await
     }
 }
 
