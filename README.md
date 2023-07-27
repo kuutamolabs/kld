@@ -4,7 +4,7 @@ In the world of software, you usually need to decide between using a managed Saa
 
 # Lighting Service Provider (LSP) node cluster
 
-*Nota bene*: kuutamo is bleeding edge decentralized financial infrastructure. Use with caution and only with funds you are prepared to lose.
+**Nota bene**: kuutamo is bleeding edge decentralized financial infrastructure. Use with caution and only with funds you are prepared to lose.
 If you want to put it into production and would like to discuss SRE overlay support, please get in touch with us at [opencore-support@kuutamo.co](mailto:opencore-support@kuutamo.co)
 
 ## Prerequisites
