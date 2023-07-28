@@ -10,6 +10,7 @@ use api::{
 };
 use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
+    get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
@@ -306,6 +307,13 @@ impl Api {
             .query(&params)
             .send()?;
         deserialize::<Vec<GetV1ChannelListForwardsResponseItem>>(response)
+    }
+
+    pub fn channel_history(&self) -> Result<String> {
+        let response = self
+            .request(Method::GET, routes::LIST_CHANNEL_HISTORY)
+            .send()?;
+        deserialize::<Vec<GetV1ChannelHistoryResponseItem>>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {

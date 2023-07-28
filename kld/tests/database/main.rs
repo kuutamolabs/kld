@@ -80,9 +80,7 @@ async fn cockroach() -> Result<&'static (
 }
 
 pub async fn teardown() {
-    let count = COCKROACH_REF_COUNT.fetch_sub(1, Ordering::AcqRel);
-    println!("COUNT {count}");
-    if count == 1 {
+    if COCKROACH_REF_COUNT.fetch_sub(1, Ordering::AcqRel) == 1 {
         if let Ok((_, connection, cockroach)) = cockroach().await {
             connection.disconnect();
             let mut lock = cockroach.lock().unwrap();

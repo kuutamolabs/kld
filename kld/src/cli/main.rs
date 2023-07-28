@@ -187,6 +187,8 @@ enum Command {
         #[arg(long)]
         status: Option<String>,
     },
+    /// Fetch a list of historic (closed) channels
+    ChannelHistory,
 }
 
 fn main() {
@@ -248,6 +250,7 @@ fn run_command(args: Args) -> Result<()> {
         Command::LocalRemoteBalance => api.local_remote_balance()?,
         Command::GetFees => api.get_fees()?,
         Command::ListForwards { status } => api.list_forwards(status)?,
+        Command::ChannelHistory => api.channel_history()?,
     };
     if output != "null" {
         println!("{output}");

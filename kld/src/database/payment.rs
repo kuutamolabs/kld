@@ -11,12 +11,12 @@ use std::{
     str::FromStr,
 };
 use thiserror::Error;
-use time::{OffsetDateTime, PrimitiveDateTime};
+use time::OffsetDateTime;
 use tokio_postgres::Row;
 
 use crate::MillisatAmount;
 
-use super::{invoice::Invoice, microsecond_timestamp};
+use super::{invoice::Invoice, microsecond_timestamp, RowExt};
 
 #[derive(Debug, ToSql, FromSql, PartialEq, Clone, Copy)]
 #[postgres(name = "payment_status")]
@@ -231,10 +231,10 @@ impl TryFrom<&Row> for Payment {
             secret,
             label,
             status: row.get("status"),
-            amount: row.get::<&str, i64>("amount") as u64,
+            amount: row.get_u64("amount"),
             fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
             direction: row.get("direction"),
-            timestamp: row.get::<&str, PrimitiveDateTime>("timestamp").assume_utc(),
+            timestamp: row.get_timestamp("timestamp"),
             bolt11: row.get("bolt11"),
         })
     }

@@ -1,14 +1,12 @@
-use std::io::Cursor;
+use crate::MillisatAmount;
 
-use crate::{ldk::decode_error, MillisatAmount};
-
-use lightning::{events::HTLCDestination, util::ser::MaybeReadable};
+use lightning::events::HTLCDestination;
 use postgres_types::{FromSql, ToSql};
-use time::{OffsetDateTime, PrimitiveDateTime};
+use time::OffsetDateTime;
 use tokio_postgres::Row;
 use uuid::Uuid;
 
-use super::microsecond_timestamp;
+use super::{microsecond_timestamp, RowExt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Forward {
@@ -59,12 +57,6 @@ impl TryFrom<Row> for Forward {
     type Error = anyhow::Error;
 
     fn try_from(row: Row) -> std::result::Result<Self, Self::Error> {
-        let bytes: Option<&[u8]> = row.get("htlc_destination");
-        let htlc_destination = if let Some(bytes) = bytes {
-            HTLCDestination::read(&mut Cursor::new(bytes)).map_err(decode_error)?
-        } else {
-            None
-        };
         Ok(Forward {
             id: row.get("id"),
             inbound_channel_id: row.get::<&str, &[u8]>("inbound_channel_id").try_into()?,
@@ -79,8 +71,8 @@ impl TryFrom<Row> for Forward {
                 .get::<&str, Option<i64>>("fee")
                 .map(|x| x as MillisatAmount),
             status: row.get("status"),
-            htlc_destination,
-            timestamp: row.get::<&str, PrimitiveDateTime>("timestamp").assume_utc(),
+            htlc_destination: row.maybe_read_optional("htlc_destination")?,
+            timestamp: row.get_timestamp("timestamp"),
         })
     }
 }
@@ -97,9 +89,9 @@ pub enum ForwardStatus {
 impl From<Row> for TotalForwards {
     fn from(row: Row) -> Self {
         TotalForwards {
-            count: row.get::<&str, i64>("count") as u64,
-            amount: row.get::<&str, i64>("amount") as u64,
-            fee: row.get::<&str, i64>("fee") as u64,
+            count: row.get_u64("count"),
+            amount: row.get_u64("amount"),
+            fee: row.get_u64("fee"),
         }
     }
 }

@@ -50,6 +50,8 @@ pub mod routes {
     pub const LOCAL_REMOTE_BALANCE: &str = "/v1/channel/localremotebal";
     /// Fetch the list of the forwarded htlcs.
     pub const LIST_FORWARDS: &str = "/v1/channel/listForwards";
+    /// Fetch our channel history.
+    pub const LIST_CHANNEL_HISTORY: &str = "/v1/channel/history";
 
     /// --- Network ---
     /// Look up a node on the network.

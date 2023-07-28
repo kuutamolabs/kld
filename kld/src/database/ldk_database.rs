@@ -1,8 +1,9 @@
-use crate::database::to_primative;
+use crate::database::{microsecond_timestamp, to_primative};
 use crate::ldk::ChainMonitor;
 use crate::logger::KldLogger;
 use crate::to_i64;
 
+use super::channel::Channel;
 use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
@@ -18,6 +19,7 @@ use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
+use lightning::events::ClosureReason;
 use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
 use lightning::ln::PaymentHash;
@@ -141,6 +143,104 @@ impl LdkDatabase {
             )
             .await?;
         Ok(())
+    }
+
+    pub async fn persist_channel(&self, channel: Channel) -> Result<()> {
+        debug!("Persist channel {}", channel.id.to_hex());
+        let statement = "
+            INSERT INTO channels (
+                id,
+                scid,
+                user_channel_id,
+                counterparty,
+                funding_txo,
+                is_public,
+                is_outbound,
+                value,
+                type_features,
+                open_timestamp
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+            .to_string();
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                &statement,
+                &[
+                    &channel.id.as_ref(),
+                    &(channel.scid as i64),
+                    &(channel.user_channel_id as i64),
+                    &channel.counterparty.encode(),
+                    &channel.funding_txo.encode(),
+                    &channel.is_public,
+                    &channel.is_outbound,
+                    &(channel.value as i64),
+                    &channel.type_features.encode(),
+                    &to_primative(&channel.open_timestamp),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn close_channel(
+        &self,
+        channel_id: &[u8; 32],
+        closure_reason: &ClosureReason,
+    ) -> Result<()> {
+        debug!("Close channel {}", channel_id.to_hex());
+        let statement = "
+            UPDATE channels SET close_timestamp = $1, closure_reason = $2
+            WHERE id = $3"
+            .to_string();
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                &statement,
+                &[
+                    &to_primative(&microsecond_timestamp()),
+                    &closure_reason.encode(),
+                    &channel_id.as_ref(),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_channel_history(&self) -> Result<Vec<Channel>> {
+        let statement = "
+            SELECT
+                id,
+                scid,
+                user_channel_id,
+                counterparty,
+                funding_txo,
+                is_public,
+                is_outbound,
+                value,
+                type_features,
+                open_timestamp,
+                close_timestamp,
+                closure_reason
+            FROM
+                channels
+            WHERE close_timestamp IS NOT NULL
+            "
+        .to_string();
+
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(&statement, &[])
+            .await?;
+
+        let mut channels = vec![];
+        for row in rows {
+            channels.push(row.try_into()?);
+        }
+        Ok(channels)
     }
 
     pub async fn persist_spendable_output(&self, output: SpendableOutput) -> Result<()> {

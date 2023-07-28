@@ -161,3 +161,68 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  /v1/channel/history:
+    get:
+      tags:
+        - Channel Management
+      description: Fetch our channel history
+      operationId: channelhistory
+      security:
+        - MacaroonAuth: []
+      responses:
+        "200":
+          description: Channel history success
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: channel ID
+                scid:
+                  type: integer
+                  description: short channel ID
+                user_channel_id:
+                  type: integer
+                  description: user channel ID
+                counterparty:
+                  type: string
+                  description: counterparty public key
+                funding_txo:
+                  type: string
+                  description: funding transaction output
+                is_public:
+                  type: boolean
+                  description: is channel public or private
+                is_outbound:
+                  type: boolean
+                  description: is channel inbound or outbound
+                value:
+                  type: integer
+                  description: channel amount in sats
+                open_timestamp:
+                  type: integer
+                  description: time that the channel was opened
+                close_timestamp:
+                  type: integer
+                  description: time that the channel was closed
+                closure_reason:
+                  type: string
+                  description: reason the channel was closed
+              required:
+                - id
+                - scid
+                - user_channel_id
+                - counterparty
+                - funding_txo
+                - is_public
+                - is_outbound
+                - value
+                - open_timestamp
+                - close_timestamp
+                - closure_reason
+        "400":
+          description: Bad request
+        "500":
+          description: Server error

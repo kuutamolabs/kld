@@ -1,3 +1,4 @@
+pub mod channel;
 pub mod forward;
 pub mod invoice;
 mod ldk_database;
@@ -13,6 +14,7 @@ use std::{
 
 use async_trait::async_trait;
 pub use ldk_database::LdkDatabase;
+use lightning::util::ser::MaybeReadable;
 use postgres_types::ToSql;
 use time::{OffsetDateTime, PrimitiveDateTime};
 use tokio::{sync::OwnedRwLockReadGuard, task::JoinHandle};
@@ -23,9 +25,9 @@ use log::{error, info};
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use tokio::sync::RwLock as AsyncRwLock;
-use tokio_postgres::Client;
+use tokio_postgres::{Client, Row};
 
-use crate::settings::Settings;
+use crate::{ldk::decode_error, settings::Settings};
 
 use crate::{log_error, Service};
 
@@ -230,4 +232,43 @@ pub fn microsecond_timestamp() -> OffsetDateTime {
 
 pub fn to_primative(offset: &OffsetDateTime) -> PrimitiveDateTime {
     PrimitiveDateTime::new(offset.date(), offset.time())
+}
+
+pub trait RowExt {
+    fn get_u64(&self, column: &str) -> u64;
+    fn get_timestamp(&self, column: &str) -> OffsetDateTime;
+    fn get_timestamp_optional(&self, column: &str) -> Option<OffsetDateTime>;
+    fn maybe_read<T: MaybeReadable>(&self, column: &str) -> Result<T>;
+    fn maybe_read_optional<T: MaybeReadable>(&self, column: &str) -> Result<Option<T>>;
+}
+
+impl RowExt for Row {
+    fn get_u64(&self, column: &str) -> u64 {
+        self.get::<&str, i64>(column) as u64
+    }
+
+    fn maybe_read<T: MaybeReadable>(&self, column: &str) -> Result<T> {
+        T::read(&mut self.get::<&str, &[u8]>(column))
+            .map_err(decode_error)?
+            .context(format!("expected readable value for column {column}"))
+    }
+
+    fn maybe_read_optional<T: MaybeReadable>(&self, column: &str) -> Result<Option<T>> {
+        self.get::<&str, Option<&[u8]>>(column)
+            .map(|mut bytes| {
+                T::read(&mut bytes)
+                    .map_err(decode_error)?
+                    .context(format!("expected readable value for column {column}"))
+            })
+            .transpose()
+    }
+
+    fn get_timestamp(&self, column: &str) -> OffsetDateTime {
+        self.get::<&str, PrimitiveDateTime>(column).assume_utc()
+    }
+
+    fn get_timestamp_optional(&self, column: &str) -> Option<OffsetDateTime> {
+        self.get::<&str, Option<PrimitiveDateTime>>(column)
+            .map(|time| time.assume_utc())
+    }
 }
