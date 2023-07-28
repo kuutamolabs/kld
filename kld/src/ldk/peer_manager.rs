@@ -4,6 +4,7 @@ use crate::api::NetAddress;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::{peer::Peer, LdkDatabase};
 use crate::logger::KldLogger;
+use crate::settings::Settings;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
@@ -78,6 +79,9 @@ pub trait KuutamoPeerManger {
         database: Arc<LdkDatabase>,
         node_id: PublicKey,
     ) -> Result<()>;
+
+    /// broadcast the node alias and public addresses of current setting
+    fn broadcast_node_announcement_from_setting(&self, settings: Arc<Settings>);
 }
 
 #[async_trait]
@@ -203,6 +207,18 @@ impl KuutamoPeerManger for Arc<PeerManager> {
     ) -> Result<()> {
         self.disconnect_by_node_id(node_id);
         database.delete_peer(&node_id).await
+    }
+
+    fn broadcast_node_announcement_from_setting(&self, settings: Arc<Settings>) {
+        let mut alias = [0; 32];
+        alias[..settings.node_alias.len()].copy_from_slice(settings.node_alias.as_bytes());
+        let addresses: Vec<lightning::ln::msgs::NetAddress> = settings
+            .public_addresses
+            .clone()
+            .into_iter()
+            .map(|a| a.inner())
+            .collect();
+        self.broadcast_node_announcement([0; 3], alias, addresses);
     }
 }
 

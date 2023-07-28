@@ -755,8 +755,7 @@ impl Controller {
         let peer_port = settings.peer_port;
         let db = database.clone();
         let cm = channel_manager.clone();
-        let node_alias = settings.node_alias.clone();
-        let addresses = settings.public_addresses.clone();
+        let settings_clone = settings.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
@@ -780,7 +779,7 @@ impl Controller {
                 error!("could not listen on peer port: {e}");
             };
             peer_manager_clone.keep_channel_peers_connected(db, cm);
-            peer_manager_clone.regularly_broadcast_node_announcement(node_alias, addresses);
+            peer_manager_clone.broadcast_node_announcement_from_setting(settings_clone);
         });
 
         Ok(Controller {

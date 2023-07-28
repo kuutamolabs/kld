@@ -10,6 +10,7 @@ use crate::database::forward::Forward;
 use crate::database::payment::Payment;
 use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
+use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::settings::Settings;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
@@ -154,19 +155,9 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     channel_id.encode_hex::<String>(),
                 );
-                let mut alias = [0; 32];
-                alias[..self.settings.node_alias.len()]
-                    .copy_from_slice(self.settings.node_alias.as_bytes());
-                let addresses: Vec<lightning::ln::msgs::NetAddress> = self
-                    .settings
-                    .public_addresses
-                    .clone()
-                    .into_iter()
-                    .map(|a| a.inner())
-                    .collect();
                 info!("Broadcasting node announcement message");
                 self.peer_manager
-                    .broadcast_node_announcement([0; 3], alias, addresses);
+                    .broadcast_node_announcement_from_setting(self.settings.clone());
             }
             Event::ChannelClosed {
                 channel_id,
