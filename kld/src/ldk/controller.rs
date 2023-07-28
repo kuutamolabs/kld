@@ -775,6 +775,7 @@ impl Controller {
             wallet_clone.keep_sync_with_chain();
             if let Err(e) = peer_manager_clone.listen(peer_port).await {
                 error!("could not listen on peer port: {e}");
+                std::process::exit(1)
             };
             peer_manager_clone.keep_channel_peers_connected(db, cm);
             peer_manager_clone.broadcast_node_announcement_from_setting(settings_clone);
