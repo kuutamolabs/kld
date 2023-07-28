@@ -704,8 +704,6 @@ impl Controller {
             Arc::new(lightning::onion_message::DefaultMessageRouter {}),
             IgnoringMessageHandler {},
             IgnoringMessageHandler {},
-            // TODO let lsp support onion
-            // liquidity_manager,
         ));
         let ephemeral_bytes: [u8; 32] = random();
         let lightning_msg_handler = MessageHandler {
