@@ -180,7 +180,7 @@ enum Command {
     },
     /// LSP method - List Protocols for a node
     LspListProtocols {
-        /// Node ID to query, if not provide then query on the local node
+        /// Node ID to query. If not provided then query the local node
         #[arg(long)]
         node_id: Option<PublicKey>,
     },
