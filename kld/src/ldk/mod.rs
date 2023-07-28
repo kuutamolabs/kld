@@ -23,7 +23,7 @@ use lightning::{
         router::DefaultRouter,
         scoring::{ProbabilisticScorer, ProbabilisticScoringFeeParameters},
     },
-    sign::InMemorySigner,
+    sign::{InMemorySigner, KeysManager},
     util::errors::APIError,
 };
 use lightning_invoice::SignOrCreationError;
@@ -46,6 +46,17 @@ pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
     Arc<BitcoindClient>,
     Arc<KldLogger>,
     Arc<LdkDatabase>,
+>;
+
+pub(crate) type LiquidityManager = ldk_lsp_client::LiquidityManager<
+    Arc<KeysManager>,
+    Arc<ChainMonitor>,
+    Arc<BitcoindClient>,
+    Arc<BitcoindClient>,
+    Arc<KldRouter>,
+    Arc<KeysManager>,
+    Arc<KldLogger>,
+    Arc<KeysManager>,
 >;
 
 pub(crate) type ChannelManager =

@@ -32,7 +32,7 @@ use lightning::util::config::UserConfig;
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
-use ldk_lsp_client::{msgs, LiquidityManager, LiquidityProviderConfig};
+use ldk_lsp_client::LiquidityProviderConfig;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
@@ -54,7 +54,7 @@ use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
     sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LightningInterface,
-    NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
+    LiquidityManager, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
 };
 
 #[async_trait]
@@ -439,21 +439,9 @@ impl LightningInterface for Controller {
 
     async fn lsp_list_protocols(&self, node_id: Option<PublicKey>) -> Result<Vec<String>> {
         if let Some(_node_id) = node_id {
-            bail!("Query lsp protocols from other node are not implemented now")
+            bail!("Query lsp protocols from other node is not implemented now")
         } else {
-            match self.liquidity_manager.lsps0_message_handler.handle_request(
-                msgs::RequestId("self-request".to_string()),
-                msgs::LSPS0Request::ListProtocols(msgs::ListProtocolsRequest {}),
-                &self.identity_pubkey(),
-            ) {
-                Ok(msgs::LSPS0Response::ListProtocols(resp)) => {
-                    // NOTE
-                    // protocol bytes will map to exactly protocol name in future (undefinded now)
-                    let protocols = resp.protocols.into_iter().map(|u| u.to_string()).collect();
-                    Ok(protocols)
-                }
-                _ => unreachable!("Should be ListProtocols response"),
-            }
+            bail!("Query lsp protocols of the node is not implemented now")
         }
     }
 
@@ -543,18 +531,7 @@ pub struct Controller {
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
-    liquidity_manager: Arc<
-        LiquidityManager<
-            Arc<KeysManager>,
-            Arc<ChainMonitor>,
-            Arc<BitcoindClient>,
-            Arc<BitcoindClient>,
-            Arc<KldRouter>,
-            Arc<KeysManager>,
-            Arc<KldLogger>,
-            Arc<KeysManager>,
-        >,
-    >,
+    _liquidity_manager: Arc<LiquidityManager>,
 }
 
 impl Controller {
@@ -819,7 +796,7 @@ impl Controller {
             wallet,
             async_api_requests,
             background_processor: Arc::new(Mutex::new(Some(background_processor))),
-            liquidity_manager,
+            _liquidity_manager: liquidity_manager,
         })
     }
 
