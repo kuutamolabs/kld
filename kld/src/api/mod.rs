@@ -1,6 +1,5 @@
 mod channels;
 mod invoices;
-mod lsp;
 mod macaroon_auth;
 mod netaddress;
 mod network;
@@ -106,10 +105,6 @@ impl RestApi {
             .route(routes::LIST_FORWARDS, get(list_forwards))
             .layer(from_fn(readonly_auth));
 
-        let lsp_routers = Router::new()
-            .route(routes::LSP_LIST_PROTOCOLS, get(lsp::list_protocols))
-            .layer(from_fn(readonly_auth));
-
         let admin_routes = Router::new()
             .route(routes::SIGN, post(sign))
             .route(routes::OPEN_CHANNEL, post(open_channel))
@@ -127,7 +122,6 @@ impl RestApi {
 
         let routes = readonly_routes
             .merge(admin_routes)
-            .merge(lsp_routers)
             .fallback(handler_404)
             .layer(cors)
             .layer(Extension(bitcoind_api))

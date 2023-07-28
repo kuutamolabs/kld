@@ -3,7 +3,6 @@ mod client;
 use crate::client::Api;
 use anyhow::Result;
 use api::FeeRate;
-use bitcoin::secp256k1::PublicKey;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -178,12 +177,6 @@ enum Command {
         #[arg(long)]
         target: String,
     },
-    /// LSP method - List Protocols for a node
-    LspListProtocols {
-        /// Node ID to query. If not provided then query the local node
-        #[arg(long)]
-        node_id: Option<PublicKey>,
-    },
     /// Fetch the aggregate local and remote channel balances (msat) of the node
     LocalRemoteBalance,
     /// Get node routing fees.
@@ -249,7 +242,6 @@ fn run_command(args: Args) -> Result<()> {
         Command::ListInvoices { label } => api.list_invoices(label)?,
         Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
         Command::ListPayments { bolt11, direction } => api.list_payments(bolt11, direction)?,
-        Command::LspListProtocols { node_id } => api.lsp_list_protocols(node_id)?,
         Command::EstimateChannelLiquidity { scid, target } => {
             api.estimate_channel_liquidity(scid, target)?
         }

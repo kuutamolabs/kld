@@ -114,8 +114,6 @@ pub trait LightningInterface: Send + Sync {
         direction: Option<PaymentDirection>,
     ) -> Result<Vec<Payment>>;
 
-    async fn lsp_list_protocols(&self, node_id: Option<PublicKey>) -> Result<Vec<String>>;
-
     async fn estimated_channel_liquidity_range(
         &self,
         scid: u64,

@@ -437,14 +437,6 @@ impl LightningInterface for Controller {
             .await
     }
 
-    async fn lsp_list_protocols(&self, node_id: Option<PublicKey>) -> Result<Vec<String>> {
-        if let Some(_node_id) = node_id {
-            bail!("Query lsp protocols from other node is not implemented now")
-        } else {
-            bail!("Query lsp protocols of the node is not implemented now")
-        }
-    }
-
     async fn estimated_channel_liquidity_range(
         &self,
         scid: u64,

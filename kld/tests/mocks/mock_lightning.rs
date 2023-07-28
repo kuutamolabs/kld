@@ -321,10 +321,6 @@ impl LightningInterface for MockLightning {
         Ok(self.payment.clone())
     }
 
-    async fn lsp_list_protocols(&self, _node_id: Option<PublicKey>) -> Result<Vec<String>> {
-        Ok(Vec::new())
-    }
-
     async fn estimated_channel_liquidity_range(
         &self,
         _scid: u64,
