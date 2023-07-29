@@ -17,10 +17,9 @@ use kld::api::codegen::{
     get_v1_get_fees_response::GetV1GetFeesResponse,
 };
 
-use serde::de;
-
 use super::rest::create_api_server;
-use crate::api::rest::LIGHTNING;
+use crate::api::rest::mock_lightning;
+use serde::de;
 use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 #[tokio::test]
@@ -252,7 +251,7 @@ async fn test_cli_list_invoices() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_pay_invoice() -> Result<()> {
-    let bolt11 = LIGHTNING.invoice.bolt11.to_string();
+    let bolt11 = mock_lightning().invoice.bolt11.to_string();
     let output = run_cli("pay-invoice", &["--label", "a label", "--bolt11", &bolt11]).await?;
     let _: PaymentResponse = deserialize(&output.stdout)?;
     Ok(())

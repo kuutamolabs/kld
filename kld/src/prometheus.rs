@@ -1,7 +1,7 @@
 //! Prometheus http exporter
 
 use std::process;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
@@ -10,35 +10,17 @@ use futures::Future;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::info;
-use once_cell::sync::{Lazy, OnceCell};
 use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
 
 use crate::ldk::LightningInterface;
 use crate::Service;
 
-static START: OnceCell<Instant> = OnceCell::new();
-
-static UPTIME: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!("uptime", "Time in milliseconds how long daemon is running").unwrap()
-});
-
-static NODE_COUNT: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!("node_count", "The number of nodes in the lightning graph").unwrap()
-});
-
-static CHANNEL_COUNT: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!(
-        "channel_count",
-        "The number of channels in the lightning graph"
-    )
-    .unwrap()
-});
-
-static PEER_COUNT: Lazy<Gauge> =
-    Lazy::new(|| register_gauge!("peer_count", "The number of peers this node has").unwrap());
-
-static WALLET_BALANCE: Lazy<Gauge> =
-    Lazy::new(|| register_gauge!("wallet_balance", "The bitcoin wallet balance").unwrap());
+static START: OnceLock<Instant> = OnceLock::new();
+static UPTIME: OnceLock<Gauge> = OnceLock::new();
+static NODE_COUNT: OnceLock<Gauge> = OnceLock::new();
+static CHANNEL_COUNT: OnceLock<Gauge> = OnceLock::new();
+static PEER_COUNT: OnceLock<Gauge> = OnceLock::new();
+static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
 
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningInterface>,
@@ -59,11 +41,21 @@ async fn response_examples(
         }
         (&Method::GET, "/pid") => Ok(Response::new(Body::from(process::id().to_string()))),
         (&Method::GET, "/metrics") => {
-            UPTIME.set(START.get().unwrap().elapsed().as_millis() as f64);
-            NODE_COUNT.set(lightning_metrics.graph_num_nodes() as f64);
-            CHANNEL_COUNT.set(lightning_metrics.graph_num_channels() as f64);
-            PEER_COUNT.set(lightning_metrics.num_peers() as f64);
-            WALLET_BALANCE.set(lightning_metrics.wallet_balance() as f64);
+            if let Some(g) = UPTIME.get() {
+                g.set(START.get_or_init(Instant::now).elapsed().as_millis() as f64)
+            }
+            if let Some(g) = NODE_COUNT.get() {
+                g.set(lightning_metrics.graph_num_nodes() as f64)
+            }
+            if let Some(g) = CHANNEL_COUNT.get() {
+                g.set(lightning_metrics.graph_num_channels() as f64)
+            }
+            if let Some(g) = PEER_COUNT.get() {
+                g.set(lightning_metrics.num_peers() as f64)
+            }
+            if let Some(g) = WALLET_BALANCE.get() {
+                g.set(lightning_metrics.wallet_balance() as f64)
+            }
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
             let encoder = TextEncoder::new();
@@ -91,7 +83,37 @@ pub async fn start_prometheus_exporter(
     bitcoind: Arc<dyn Service>,
     quit_signal: Shared<impl Future<Output = ()>>,
 ) -> Result<()> {
-    START.set(Instant::now()).unwrap();
+    UPTIME
+        .set(register_gauge!(
+            "uptime",
+            "Time in milliseconds how long daemon is running"
+        )?)
+        .unwrap_or_default();
+    NODE_COUNT
+        .set(register_gauge!(
+            "node_count",
+            "The number of nodes in the lightning graph"
+        )?)
+        .unwrap_or_default();
+    CHANNEL_COUNT
+        .set(register_gauge!(
+            "channel_count",
+            "The number of channels in the lightning graph"
+        )?)
+        .unwrap_or_default();
+    PEER_COUNT
+        .set(register_gauge!(
+            "peer_count",
+            "The number of peers this node has"
+        )?)
+        .unwrap_or_default();
+    WALLET_BALANCE
+        .set(register_gauge!(
+            "wallet_balance",
+            "The bitcoin wallet balance"
+        )?)
+        .unwrap_or_default();
+
     let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
         let lightning_metrics_clone = lightning_metrics.clone();

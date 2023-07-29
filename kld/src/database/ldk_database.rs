@@ -32,7 +32,6 @@ use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
 use log::{debug, error, info};
-use once_cell::sync::OnceCell;
 
 use super::peer::Peer;
 use crate::settings::Settings;
@@ -40,7 +39,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 use std::{fs, io};
 use tokio::runtime::Handle;
@@ -50,7 +49,7 @@ pub struct LdkDatabase {
     durable_connection: Arc<DurableConnection>,
     // Persist graph/scorer gets called from a background thread in LDK so need a handle to the runtime.
     runtime: Handle,
-    chain_monitor: OnceCell<Arc<ChainMonitor>>,
+    chain_monitor: OnceLock<Arc<ChainMonitor>>,
 }
 
 impl LdkDatabase {
@@ -59,7 +58,7 @@ impl LdkDatabase {
             settings,
             durable_connection,
             runtime: Handle::current(),
-            chain_monitor: OnceCell::new(),
+            chain_monitor: OnceLock::new(),
         }
     }
 

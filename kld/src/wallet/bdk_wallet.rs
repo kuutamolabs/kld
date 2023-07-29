@@ -1,10 +1,10 @@
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::Duration,
 };
 
 use crate::settings::Settings;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
@@ -19,7 +19,6 @@ use bitcoin::{Address, OutPoint, Script, Transaction};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
-use once_cell::sync::OnceCell;
 
 use crate::Service;
 
@@ -33,7 +32,7 @@ pub struct Wallet<
     wallet: Arc<Mutex<bdk::Wallet<D>>>,
     bitcoind_client: Arc<B>,
     settings: Arc<Settings>,
-    blockchain: Arc<OnceCell<ElectrumBlockchain>>,
+    blockchain: Arc<OnceLock<ElectrumBlockchain>>,
 }
 
 #[async_trait]
@@ -161,7 +160,7 @@ impl<
             wallet: bdk_wallet,
             bitcoind_client,
             settings,
-            blockchain: Arc::new(OnceCell::new()),
+            blockchain: Arc::new(OnceLock::new()),
         })
     }
 
@@ -183,12 +182,15 @@ impl<
         tokio::task::spawn_blocking(move || loop {
             let sync = || -> Result<()> {
                 // ElectrumBlockchain will not be instantiated if electrs is down. So within this loop we can keep trying to connect and get in sync.
-                let blockchain = blockchain.get_or_try_init(
-                    || -> Result<ElectrumBlockchain, anyhow::Error> {
-                        let client = Client::new(&electrs_url)?;
-                        Ok(ElectrumBlockchain::from(client))
-                    },
-                )?;
+                if blockchain.get().is_none() {
+                    let client = Client::new(&electrs_url)?;
+                    blockchain
+                        .set(ElectrumBlockchain::from(client))
+                        .map_err(|_| anyhow!("ElectrumBlockchain already set"))?;
+                }
+                let blockchain = blockchain
+                    .get()
+                    .context("ElectrumBlockchain should be set")?;
                 let height = blockchain.get_height()?;
                 let guard = wallet_clone
                     .lock()
@@ -268,14 +270,13 @@ impl<
 mod test {
     use std::{
         str::FromStr,
-        sync::{Arc, Mutex},
+        sync::{Arc, Mutex, OnceLock},
     };
 
     use crate::settings::Settings;
     use anyhow::Result;
     use bdk::{database::MemoryDatabase, wallet::get_funded_wallet, Balance};
     use bitcoin::Address;
-    use once_cell::sync::OnceCell;
     use test_utils::{TEST_ADDRESS, TEST_WPKH};
 
     use crate::{bitcoind::MockBitcoindClient, wallet::WalletInterface};
@@ -322,7 +323,7 @@ mod test {
             bitcoind_client: bitcoind_client.clone(),
             wallet: Arc::new(Mutex::new(bdk_wallet)),
             settings: Arc::new(Settings::default()),
-            blockchain: Arc::new(OnceCell::new()),
+            blockchain: Arc::new(OnceLock::new()),
         };
 
         let res = wallet
@@ -347,7 +348,7 @@ mod test {
             bitcoind_client: bitcoind_client.clone(),
             wallet: Arc::new(Mutex::new(bdk_wallet)),
             settings: Arc::new(Settings::default()),
-            blockchain: Arc::new(OnceCell::new()),
+            blockchain: Arc::new(OnceLock::new()),
         };
 
         let (tx, tx_details) = wallet
