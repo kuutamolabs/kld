@@ -37,6 +37,11 @@ in
       default = "bitcoin";
       description = lib.mdDoc "Bitcoin network to use.";
     };
+    logLevel = lib.mkOption {
+      type = lib.types.enum [ "error" "warn" "info" "debug" "trace" ];
+      default = "warn";
+      description = "Log level for Electrs";
+    };
   };
   config = {
     users.users.electrs = {
@@ -54,7 +59,7 @@ in
         ''}";
         ExecStart = ''
           ${pkgs.electrs}/bin/electrs \
-          --log-filters=INFO \
+          --log-filters=${cfg.logLevel} \
           --network=${cfg.network} \
           --db-dir=${cfg.dataDir} \
           --cookie-file=/var/lib/electrs/.cookie \
