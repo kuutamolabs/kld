@@ -12,19 +12,21 @@ use kld::database::DurableConnection;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
 use kld::Service;
+use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use test_utils::cockroach_manager::create_database;
 use test_utils::poll;
 use test_utils::test_settings;
 use test_utils::{cockroach, CockroachManager};
+use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
-use tokio::sync::OnceCell;
 
 mod ldk_database;
 mod wallet_database;
 
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
-static CONNECTION_RUNTIME: OnceCell<Runtime> = OnceCell::const_new();
+static CONNECTION_RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
 pub async fn with_cockroach<F, Fut>(test: F) -> Result<()>
 where
@@ -54,29 +56,31 @@ async fn cockroach() -> Result<&'static (
         Arc<Settings>,
         Arc<DurableConnection>,
         Mutex<CockroachManager>,
-    )> = OnceCell::const_new();
-    INSTANCE
-        .get_or_try_init(|| async move {
-            KldLogger::init("test", log::LevelFilter::Debug);
-            let mut settings = test_settings!("integration");
-            let cockroach = cockroach!(settings);
-            create_database(&settings).await;
-            let settings = Arc::new(settings);
-            let settings_clone = settings.clone();
-            let durable_connection = std::thread::spawn(|| async {
-                CONNECTION_RUNTIME
-                    .get_or_init(|| async { Runtime::new().unwrap() })
-                    .await
-                    .spawn(async { Arc::new(DurableConnection::new_migrate(settings_clone).await) })
-                    .await
+    )> = OnceCell::new();
+    INSTANCE.get_or_try_init(|| {
+        KldLogger::init("test", log::LevelFilter::Debug);
+        tokio::task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                let mut settings = test_settings!("integration");
+                let cockroach = cockroach!(settings);
+                create_database(&settings).await;
+                let settings = Arc::new(settings);
+                let settings_clone = settings.clone();
+                let durable_connection = std::thread::spawn(|| async {
+                    CONNECTION_RUNTIME
+                        .spawn(async {
+                            Arc::new(DurableConnection::new_migrate(settings_clone).await)
+                        })
+                        .await
+                })
+                .join()
+                .map_err(|_| anyhow!("connection failed"))?
+                .await?;
+                poll!(3, durable_connection.is_connected().await);
+                Ok((settings, durable_connection, Mutex::new(cockroach)))
             })
-            .join()
-            .map_err(|_| anyhow!("connection failed"))?
-            .await?;
-            poll!(3, durable_connection.is_connected().await);
-            Ok((settings, durable_connection, Mutex::new(cockroach)))
         })
-        .await
+    })
 }
 
 pub async fn teardown() {
