@@ -4,6 +4,8 @@ use lightning::{sign::SpendableOutputDescriptor, util::ser::Writeable};
 use postgres_types::{FromSql, ToSql};
 use tokio_postgres::Row;
 
+use crate::MillisatAmount;
+
 use super::RowExt;
 
 #[derive(Clone, Debug)]
@@ -56,8 +58,8 @@ impl TryFrom<Row> for SpendableOutput {
         Ok(SpendableOutput {
             txid: Txid::from_slice(bytes)?,
             vout: row.get::<&str, i64>("vout") as u16,
-            value: row.get_u64("value"),
-            descriptor: row.maybe_read("descriptor")?,
+            value: row.get::<&str, i64>("value") as MillisatAmount,
+            descriptor: row.read("descriptor")?,
             status: row.get("status"),
         })
     }

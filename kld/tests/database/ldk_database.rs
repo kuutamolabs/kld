@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context, Result};
 use bitcoin::hashes::hex::FromHex;
 use bitcoin::hashes::{sha256, Hash};
-use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
+use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::{Network, TxOut, Txid};
 use kld::database::channel::Channel;
 use kld::database::forward::{Forward, ForwardStatus};
@@ -26,7 +26,7 @@ use lightning::events::ClosureReason;
 use lightning::ln::features::ChannelTypeFeatures;
 use lightning::ln::msgs::NetAddress;
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
-use lightning::routing::gossip::NetworkGraph;
+use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
@@ -336,7 +336,7 @@ pub async fn test_channels() -> Result<()> {
             id: random(),
             scid: 111,
             user_channel_id: i64::MAX as u64,
-            counterparty: PublicKey::from_str(TEST_PUBLIC_KEY)?,
+            counterparty: NodeId::from_str(TEST_PUBLIC_KEY)?,
             funding_txo: OutPoint {
                 txid: Txid::from_hex(TEST_TX_ID)?,
                 index: 0,

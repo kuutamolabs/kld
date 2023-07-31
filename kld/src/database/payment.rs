@@ -231,8 +231,10 @@ impl TryFrom<&Row> for Payment {
             secret,
             label,
             status: row.get("status"),
-            amount: row.get_u64("amount"),
-            fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
+            amount: row.get::<&str, i64>("amount") as MillisatAmount,
+            fee: row
+                .get::<&str, Option<i64>>("fee")
+                .map(|f| f as MillisatAmount),
             direction: row.get("direction"),
             timestamp: row.get_timestamp("timestamp"),
             bolt11: row.get("bolt11"),

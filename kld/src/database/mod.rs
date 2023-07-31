@@ -235,25 +235,20 @@ pub fn to_primative(offset: &OffsetDateTime) -> PrimitiveDateTime {
 }
 
 pub trait RowExt {
-    fn get_u64(&self, column: &str) -> u64;
     fn get_timestamp(&self, column: &str) -> OffsetDateTime;
     fn get_timestamp_optional(&self, column: &str) -> Option<OffsetDateTime>;
-    fn maybe_read<T: MaybeReadable>(&self, column: &str) -> Result<T>;
-    fn maybe_read_optional<T: MaybeReadable>(&self, column: &str) -> Result<Option<T>>;
+    fn read<T: MaybeReadable>(&self, column: &str) -> Result<T>;
+    fn read_optional<T: MaybeReadable>(&self, column: &str) -> Result<Option<T>>;
 }
 
 impl RowExt for Row {
-    fn get_u64(&self, column: &str) -> u64 {
-        self.get::<&str, i64>(column) as u64
-    }
-
-    fn maybe_read<T: MaybeReadable>(&self, column: &str) -> Result<T> {
+    fn read<T: MaybeReadable>(&self, column: &str) -> Result<T> {
         T::read(&mut self.get::<&str, &[u8]>(column))
             .map_err(decode_error)?
             .context(format!("expected readable value for column {column}"))
     }
 
-    fn maybe_read_optional<T: MaybeReadable>(&self, column: &str) -> Result<Option<T>> {
+    fn read_optional<T: MaybeReadable>(&self, column: &str) -> Result<Option<T>> {
         self.get::<&str, Option<&[u8]>>(column)
             .map(|mut bytes| {
                 T::read(&mut bytes)

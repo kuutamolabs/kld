@@ -71,7 +71,7 @@ impl TryFrom<Row> for Forward {
                 .get::<&str, Option<i64>>("fee")
                 .map(|x| x as MillisatAmount),
             status: row.get("status"),
-            htlc_destination: row.maybe_read_optional("htlc_destination")?,
+            htlc_destination: row.read_optional("htlc_destination")?,
             timestamp: row.get_timestamp("timestamp"),
         })
     }
@@ -89,9 +89,9 @@ pub enum ForwardStatus {
 impl From<Row> for TotalForwards {
     fn from(row: Row) -> Self {
         TotalForwards {
-            count: row.get_u64("count"),
-            amount: row.get_u64("amount"),
-            fee: row.get_u64("fee"),
+            count: row.get::<&str, i64>("count") as MillisatAmount,
+            amount: row.get::<&str, i64>("amount") as MillisatAmount,
+            fee: row.get::<&str, i64>("fee") as MillisatAmount,
         }
     }
 }
