@@ -27,8 +27,8 @@ let
   nativeBuildInputs = [ pkg-config ];
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
-    "https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result" = "sha256-Z48LIgN8/qfgGvzjPQnn39xK3nVsCWF9uIm0xwCTDhA=";
-    "https://github.com/hyperium/mime" = "sha256-Zdhw4wWK2ZJrv62YoJMdTHaQhIyKxtG2UCu/m3mQwy0=";
+    "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#39d8626e8c40455b6089975fda79000941094910" = "sha256-Z48LIgN8/qfgGvzjPQnn39xK3nVsCWF9uIm0xwCTDhA=";
+    "git+https://github.com/hyperium/mime#938484de95445a2af931515d2b7252612c575da7" = "sha256-Zdhw4wWK2ZJrv62YoJMdTHaQhIyKxtG2UCu/m3mQwy0=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src cargoToml buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
