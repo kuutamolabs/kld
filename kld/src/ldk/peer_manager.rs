@@ -64,12 +64,6 @@ pub trait KuutamoPeerManger {
         channel_manager: Arc<ChannelManager>,
     );
 
-    // Regularly broadcast our node_announcement. This is only required (or possible) if we have
-    // some public channels, and is only useful if we have public listen address(es) to announce.
-    // In a production environment, this should occur only after the announcement of new channels
-    // to avoid churn in the global network graph.
-    fn regularly_broadcast_node_announcement(&self, node_alias: String, addresses: Vec<NetAddress>);
-
     fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)>;
 
     fn is_connected(&self, public_key: &PublicKey) -> bool;
@@ -166,25 +160,6 @@ impl KuutamoPeerManger for Arc<PeerManager> {
                     }
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        });
-    }
-
-    fn regularly_broadcast_node_announcement(
-        &self,
-        node_alias: String,
-        addresses: Vec<NetAddress>,
-    ) {
-        let mut alias = [0; 32];
-        alias[..node_alias.len()].copy_from_slice(node_alias.as_bytes());
-        let peer_manager = self.clone();
-        let addresses: Vec<lightning::ln::msgs::NetAddress> =
-            addresses.into_iter().map(|a| a.inner()).collect();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
-            loop {
-                interval.tick().await;
-                peer_manager.broadcast_node_announcement([0; 3], alias, addresses.clone());
             }
         });
     }
