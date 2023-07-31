@@ -27,7 +27,7 @@ let
 
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
-    "https://github.com/AlexanderThaller/format_serde_error" = "sha256-R4zD1dAfB8OmlfYUDsDjevMkjfIWGtwLRRYGGRvZ8F4=";
+    "git+https://github.com/AlexanderThaller/format_serde_error#b114501c468bfe4f0a8c3f48f84530414bdeeaa1" = "sha256-R4zD1dAfB8OmlfYUDsDjevMkjfIWGtwLRRYGGRvZ8F4=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
