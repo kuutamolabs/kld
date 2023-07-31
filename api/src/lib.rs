@@ -39,7 +39,9 @@ pub mod routes {
 
     /// --- Channels ---
     /// Get the list of channels open on the node.
-    pub const LIST_CHANNELS: &str = "/v1/channel/listPeerChannels";
+    pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
+    /// Get the list of channels for this nodes peers.
+    pub const LIST_PEER_CHANNELS: &str = "/v1/channel/listPeerChannels";
     /// Open channel with a connected peer node.
     pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
     /// Update channel fee policy.

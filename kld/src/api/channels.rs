@@ -20,6 +20,8 @@ use bitcoin::secp256k1::PublicKey;
 use hex::ToHex;
 use lightning::events::HTLCDestination;
 use lightning::ln::channelmanager::ChannelDetails;
+use lightning::ln::features::ChannelTypeFeatures;
+use lightning::util::config::MaxDustHTLCExposure;
 
 use crate::api::bad_request;
 use crate::ldk::LightningInterface;
@@ -29,6 +31,10 @@ use crate::to_string_empty;
 use super::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use super::codegen::get_v1_channel_list_forwards_response::{
     GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
+};
+use super::codegen::get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponseState;
+use super::codegen::get_v1_channel_list_peer_channels_response::{
+    GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseOpener,
 };
 use super::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use super::internal_server;
@@ -76,6 +82,72 @@ pub(crate) async fn list_channels(
         })
         .collect();
     Ok(Json(channels))
+}
+
+pub(crate) async fn list_peer_channels(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+) -> Result<impl IntoResponse, ApiError> {
+    let peers = lightning_interface
+        .list_peers()
+        .await
+        .map_err(internal_server)?;
+
+    let channels = lightning_interface.list_channels();
+    let mut response = vec![];
+    for channel in channels {
+        let config = channel
+            .config
+            .context("expected channel config")
+            .map_err(internal_server)?;
+
+        response.push(GetV1ChannelListPeerChannelsResponse {
+            alias: lightning_interface
+                .alias_of(&channel.counterparty.node_id)
+                .unwrap_or_default(),
+            channel_id: channel.channel_id.encode_hex(),
+            dust_limit_msat: match config.max_dust_htlc_exposure {
+                MaxDustHTLCExposure::FixedLimitMsat(x) => x as i64,
+                MaxDustHTLCExposure::FeeRateMultiplier(x) => x as i64,
+            },
+            features: channel
+                .channel_type
+                .map(format_features)
+                .unwrap_or_default(),
+            fee_base_msat: config.forwarding_fee_base_msat as i64,
+            fee_proportional_millionths: config.forwarding_fee_proportional_millionths as i64,
+            funding: None,
+            funding_txid: channel.funding_txo.map(|x| x.txid.to_string()),
+            htlcs: None,
+            opener: if channel.is_outbound {
+                GetV1ChannelListPeerChannelsResponseOpener::Local
+            } else {
+                GetV1ChannelListPeerChannelsResponseOpener::Remote
+            },
+            our_reserve_msat: channel.unspendable_punishment_reserve.map(|x| x as i64),
+            peer_connected: peers
+                .iter()
+                .find(|p| p.public_key == channel.counterparty.node_id)
+                .map(|p| p.status == PeerStatus::Connected)
+                .unwrap_or_default(),
+            peer_id: channel.counterparty.node_id.to_string(),
+            private: !channel.is_public,
+            receivable_msat: channel.inbound_capacity_msat as i64,
+            short_channel_id: channel.short_channel_id.map(|x| x.to_string()),
+            spendable_msat: channel.outbound_capacity_msat as i64,
+            state: if channel.is_usable {
+                GetV1ChannelListPeerChannelsResponseState::Usable
+            } else if channel.is_channel_ready {
+                GetV1ChannelListPeerChannelsResponseState::Ready
+            } else {
+                GetV1ChannelListPeerChannelsResponseState::Pending
+            },
+            their_reserve_msat: channel.counterparty.unspendable_punishment_reserve as i64,
+            to_them_msat: ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64,
+            to_us_msat: channel.balance_msat as i64,
+            total_msat: channel.channel_value_satoshis as i64 * 1000,
+        })
+    }
+    Ok(Json(response))
 }
 
 pub(crate) async fn open_channel(
@@ -323,4 +395,19 @@ pub(crate) async fn channel_history(
     }
 
     Ok(Json(response))
+}
+
+fn format_features(channel_type: ChannelTypeFeatures) -> Vec<String> {
+    channel_type
+        .to_string()
+        .split(", ")
+        .filter_map(|feature| {
+            let (k, v) = feature.split_once(": ")?;
+            match v {
+                "supported" => Some(k.to_string()),
+                "required" => Some(k.to_string()),
+                _ => None,
+            }
+        })
+        .collect()
 }

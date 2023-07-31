@@ -65,7 +65,7 @@ enum Command {
         public_key: String,
     },
     /// Fetch a list of this nodes open channels.
-    ListChannels,
+    ListPeerChannels,
     /// Open a channel with another node.
     OpenChannel {
         /// The public key of the node to open a channel with. Optionally provide host and port [id@host:port].
@@ -214,7 +214,7 @@ fn run_command(args: Args) -> Result<()> {
             fee_rate,
         } => api.withdraw(address, satoshis, fee_rate)?,
         Command::ListFunds => api.list_funds()?,
-        Command::ListChannels => api.list_channels()?,
+        Command::ListPeerChannels => api.list_peer_channels()?,
         Command::ListPeers => api.list_peers()?,
         Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
         Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,

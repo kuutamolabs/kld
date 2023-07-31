@@ -39,7 +39,10 @@ use lightning::{
         PaymentPreimage, PaymentSecret,
     },
     routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
-    util::{config::UserConfig, indexed_map::IndexedMap},
+    util::{
+        config::{ChannelConfig, UserConfig},
+        indexed_map::IndexedMap,
+    },
 };
 
 use lightning_invoice::{Currency, InvoiceBuilder};
@@ -66,6 +69,7 @@ impl Default for MockLightning {
         let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
         let mut channel_features = ChannelTypeFeatures::empty();
         channel_features.set_zero_conf_required();
+        channel_features.set_scid_privacy_optional();
 
         let channel = ChannelDetails {
             channel_id: [1u8; 32],
@@ -102,7 +106,7 @@ impl Default for MockLightning {
             is_public: true,
             inbound_htlc_minimum_msat: Some(300),
             inbound_htlc_maximum_msat: Some(300000),
-            config: None,
+            config: Some(ChannelConfig::default()),
             feerate_sat_per_1000_weight: Some(10210),
             channel_shutdown_state: None,
         };
