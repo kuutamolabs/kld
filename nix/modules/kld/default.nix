@@ -71,7 +71,8 @@ in
     };
 
     mnemonicPath = lib.mkOption {
-      type = lib.types.path;
+      type = lib.types.nullOr lib.types.path;
+      default = null;
       description = ''
         Path to the mnemonics
       '';
