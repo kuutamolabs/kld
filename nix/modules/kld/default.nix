@@ -277,7 +277,7 @@ in
           install -D -m400 -o kld ${cfg.caPath} /var/lib/kld/certs/ca.pem
           install -D -m400 -o kld ${cfg.cockroachdb.clientCertPath} /var/lib/kld/certs/client.kld.crt
           install -D -m400 -o kld ${cfg.cockroachdb.clientKeyPath} /var/lib/kld/certs/client.kld.key
-        '' + lib.optionalString cfg.presetMnemonic "install -D -m400 -o kld ${cfg.mnemonicPath} /var/lib/kld/mnemonic")
+        '' + lib.optionalString (cfg.mnemonicPath != null) "install -D -m400 -o kld ${cfg.mnemonicPath} /var/lib/kld/mnemonic")
         }";
         User = "kld";
         Group = "kld";
