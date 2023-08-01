@@ -1,11 +1,10 @@
-use std::time::Duration;
+use std::{sync::OnceLock, time::Duration};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
 use kld::settings::Settings;
-use once_cell::sync::OnceCell;
 
 use crate::{
     manager::{Check, Manager},
@@ -18,7 +17,7 @@ pub struct BitcoinManager {
     pub rpc_port: u16,
     pub network: String,
     pub settings: Settings,
-    pub client: OnceCell<BitcoindClient>,
+    pub client: OnceLock<BitcoindClient>,
 }
 
 impl BitcoinManager {
@@ -60,7 +59,7 @@ impl BitcoinManager {
             rpc_port,
             network: settings.bitcoin_network.to_string(),
             settings: settings.clone(),
-            client: OnceCell::new(),
+            client: OnceLock::new(),
         })
     }
 
