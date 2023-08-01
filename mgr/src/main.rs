@@ -38,6 +38,10 @@ struct InstallArgs {
 
     /// The mnemonic phrases and macaroons will automatically generate on remote server when kld first initialize.
     /// This benefits when you own your remote server and can physically backup mnemonic phrases and macaroons without any copy through the internet
+    /// When you first initialize KLD, mnemonic phrases and macaroons will automatically be
+    /// generated on your remote server. This is advantageous if you own your remote server,
+    /// as you can physically back up your mnemonic phrases and macaroons without the need to
+    /// transmit any copies over the internet.
     #[clap(long, default_value = "false")]
     generate_secret_on_remote: bool,
 }
