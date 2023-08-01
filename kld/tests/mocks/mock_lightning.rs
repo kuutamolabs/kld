@@ -16,7 +16,11 @@ use bitcoin::{
 use hex::FromHex;
 use kld::{
     api::NetAddress,
-    database::forward::{Forward, ForwardStatus, TotalForwards},
+    database::{
+        channel::Channel,
+        forward::{Forward, ForwardStatus, TotalForwards},
+        microsecond_timestamp,
+    },
 };
 use kld::{
     database::{
@@ -28,9 +32,10 @@ use kld::{
 };
 use lightning::{
     chain::transaction::OutPoint,
+    events::ClosureReason,
     ln::{
         channelmanager::{ChannelCounterparty, ChannelDetails},
-        features::{Features, InitFeatures},
+        features::{ChannelTypeFeatures, Features, InitFeatures},
         PaymentPreimage, PaymentSecret,
     },
     routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
@@ -48,7 +53,7 @@ pub struct MockLightning {
     pub num_nodes: usize,
     pub num_channels: usize,
     pub wallet_balance: u64,
-    pub channels: Vec<ChannelDetails>,
+    pub channel: ChannelDetails,
     pub public_key: PublicKey,
     pub ipv4_address: NetAddress,
     pub invoice: Invoice,
@@ -59,6 +64,9 @@ pub struct MockLightning {
 impl Default for MockLightning {
     fn default() -> Self {
         let public_key = PublicKey::from_str(TEST_PUBLIC_KEY).unwrap();
+        let mut channel_features = ChannelTypeFeatures::empty();
+        channel_features.set_zero_conf_required();
+
         let channel = ChannelDetails {
             channel_id: [1u8; 32],
             counterparty: ChannelCounterparty {
@@ -73,7 +81,7 @@ impl Default for MockLightning {
                 txid: Txid::from_str(TEST_TX_ID).unwrap(),
                 index: 2,
             }),
-            channel_type: None,
+            channel_type: Some(channel_features),
             short_channel_id: Some(TEST_SHORT_CHANNEL_ID),
             outbound_scid_alias: None,
             inbound_scid_alias: None,
@@ -124,7 +132,7 @@ impl Default for MockLightning {
             num_nodes: 6,
             num_channels: 7,
             wallet_balance: 8,
-            channels: vec![channel],
+            channel,
             public_key,
             ipv4_address: socket_addr.into(),
             invoice,
@@ -181,7 +189,7 @@ impl LightningInterface for MockLightning {
     }
 
     fn list_channels(&self) -> Vec<ChannelDetails> {
-        self.channels.clone()
+        vec![self.channel.clone()]
     }
 
     fn set_channel_fee(
@@ -339,5 +347,12 @@ impl LightningInterface for MockLightning {
 
     async fn fetch_forwards(&self, _status: Option<ForwardStatus>) -> Result<Vec<Forward>> {
         Ok(vec![self.forward.clone()])
+    }
+
+    async fn channel_history(&self) -> Result<Vec<Channel>> {
+        let mut channel: Channel = self.channel.clone().try_into()?;
+        channel.close_timestamp = Some(microsecond_timestamp());
+        channel.closure_reason = Some(ClosureReason::CooperativeClosure);
+        Ok(vec![channel])
     }
 }

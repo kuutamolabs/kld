@@ -13,6 +13,7 @@ use hex::ToHex;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
+use kld::api::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
 use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
@@ -22,6 +23,7 @@ use kld::api::MacaroonAuth;
 use kld::database::payment::PaymentStatus;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
+use lightning::events::ClosureReason;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -336,6 +338,13 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LIST_FORWARDS)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_CHANNEL_HISTORY)
             .send()
             .await?
             .status()
@@ -987,6 +996,39 @@ async fn test_fetch_forwards() -> Result<()> {
     assert!(forward.resolved_time.is_some());
     assert_eq!(None, forward.failcode);
     assert_eq!(None, forward.failreason);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_channel_history() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: Vec<GetV1ChannelHistoryResponseItem> =
+        readonly_request(&context, Method::GET, routes::LIST_CHANNEL_HISTORY)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    let channel = response.first().context("expected channel")?;
+    assert_eq!(
+        mock_lightning().channel.channel_id.encode_hex::<String>(),
+        channel.id
+    );
+    assert_eq!(TEST_SHORT_CHANNEL_ID as i64, channel.scid);
+    assert_eq!(
+        mock_lightning().channel.user_channel_id as i64,
+        channel.user_channel_id
+    );
+    assert_eq!(TEST_PUBLIC_KEY, channel.counterparty);
+    assert_eq!(format!("{TEST_TX_ID}:2"), channel.funding_txo);
+    assert!(channel.is_public);
+    assert!(channel.is_outbound);
+    assert!(channel.open_timestamp > 0);
+    assert!(channel.close_timestamp > 0);
+    assert_eq!(
+        channel.closure_reason,
+        ClosureReason::CooperativeClosure.to_string()
+    );
+    assert_eq!(channel.value, 1000000);
     Ok(())
 }
 

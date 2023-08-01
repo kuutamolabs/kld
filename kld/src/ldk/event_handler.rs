@@ -1,23 +1,24 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail, Context, Result};
 
 use bitcoin::blockdata::locktime::PackedLockTime;
 use bitcoin::secp256k1::Secp256k1;
 
+use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::database::forward::Forward;
 use crate::database::payment::Payment;
 use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use crate::ldk::peer_manager::KuutamoPeerManger;
+use crate::log_error;
 use crate::settings::Settings;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::events::{Event, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
 use lightning::sign::KeysManager;
-use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -74,13 +75,15 @@ impl EventHandler {
 impl lightning::events::EventHandler for EventHandler {
     fn handle_event(&self, event: lightning::events::Event) {
         tokio::task::block_in_place(move || {
-            self.runtime_handle.block_on(self.handle_event_async(event))
+            if let Err(e) = self.runtime_handle.block_on(self.handle_event_async(event)) {
+                log_error(&e)
+            }
         })
     }
 }
 
 impl EventHandler {
-    pub async fn handle_event_async(&self, event: lightning::events::Event) {
+    pub async fn handle_event_async(&self, event: lightning::events::Event) -> Result<()> {
         match event {
             Event::FundingGenerationReady {
                 temporary_channel_id,
@@ -89,20 +92,15 @@ impl EventHandler {
                 output_script,
                 user_channel_id,
             } => {
-                let (fee_rate, respond) = match self
+                let (fee_rate, respond) = self
                     .async_api_requests
                     .funding_transactions
-                    .get(&user_channel_id)
+                    .get(&(user_channel_id as u64))
                     .await
-                {
-                    Some(fee_rate) => fee_rate,
-                    None => {
-                        error!(
-                            "Can't find funding transaction for user_channel_id {user_channel_id}"
-                        );
-                        return;
-                    }
-                };
+                    .context(format!(
+                        "Can't find funding transaction for user_channel_id {user_channel_id}"
+                    ))?;
+
                 let funding_tx =
                     match self
                         .wallet
@@ -110,9 +108,8 @@ impl EventHandler {
                     {
                         Ok(tx) => tx,
                         Err(e) => {
-                            error!("Event::FundingGenerationReady: {e}");
-                            respond(Err(e));
-                            return;
+                            respond(Err(anyhow!("Failed funding transaction: {e}")));
+                            bail!(e);
                         }
                     };
 
@@ -126,12 +123,11 @@ impl EventHandler {
                     )
                     .map_err(ldk_error)
                 {
-                    error!("Event::FundingGenerationReady: {e}");
-                    respond(Err(e));
-                    return;
+                    respond(Err(anyhow!("Failed opening channel: {e}")));
+                    bail!(e);
                 }
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
-                respond(Ok(funding_tx))
+                respond(Ok(funding_tx));
             }
             Event::ChannelPending {
                 channel_id,
@@ -155,9 +151,18 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     channel_id.encode_hex::<String>(),
                 );
+                if let Some(channel_details) = self
+                    .channel_manager
+                    .list_channels()
+                    .iter()
+                    .find(|c| c.channel_id == channel_id)
+                {
+                    let channel = channel_details.clone().try_into()?;
+                    self.ldk_database.persist_channel(channel).await?;
+                }
                 info!("Broadcasting node announcement message");
                 self.peer_manager
-                    .broadcast_node_announcement_from_setting(self.settings.clone());
+                    .broadcast_node_announcement_from_settings(self.settings.clone());
             }
             Event::ChannelClosed {
                 channel_id,
@@ -171,10 +176,13 @@ impl EventHandler {
                 self.async_api_requests
                     .funding_transactions
                     .respond(
-                        &user_channel_id,
+                        &(user_channel_id as u64),
                         Err(anyhow!("Channel closed due to {reason}")),
                     )
                     .await;
+                self.ldk_database
+                    .close_channel(&channel_id, &reason)
+                    .await?;
             }
             Event::DiscardFunding {
                 channel_id,
@@ -184,7 +192,7 @@ impl EventHandler {
                     "EVENT: Funding discarded for channel: {}, txid: {}",
                     channel_id.encode_hex::<String>(),
                     transaction.txid()
-                )
+                );
             }
             Event::OpenChannelRequest { .. } => {
                 unreachable!(
@@ -240,7 +248,7 @@ impl EventHandler {
                 receiver_node_id: _,
             } => {
                 info!(
-                    "EVENT: Payment claimed with hash {} of {} millisatoshis",
+                    "EVENT: Payment claimed with hash {} of {} millisats",
                     payment_hash.0.encode_hex::<String>(),
                     amount_msat,
                 );
@@ -258,12 +266,10 @@ impl EventHandler {
                         Payment::spontaneous_inbound(payment_hash, preimage, amount_msat)
                     }
                 };
-                if let Err(e) = self.ldk_database.persist_payment(&payment).await {
-                    error!(
-                        "Failed to persist payment with hash {}: {e}",
-                        payment_hash.0.encode_hex::<String>()
-                    )
-                }
+                self.ldk_database
+                    .persist_payment(&payment)
+                    .await
+                    .context("Failed to persist payment")?;
             }
             Event::PaymentSent {
                 payment_id,
@@ -285,24 +291,21 @@ impl EventHandler {
                         "".to_string()
                     },
                 );
-                match payment_id {
-                    Some(id) => {
-                        if let Some((mut payment, respond)) =
-                            self.async_api_requests.payments.get(&id).await
-                        {
-                            payment.succeeded(Some(payment_preimage), fee_paid_msat);
-                            respond(Ok(payment));
-                        } else {
-                            error!("Can't find payment for {}", id.0.encode_hex::<String>());
-                        }
-                    }
-                    None => {
-                        error!(
-                            "Failed to update payment with hash {}",
-                            payment_hash.0.encode_hex::<String>()
-                        )
-                    }
-                }
+                let payment_id = payment_id.context(format!(
+                    "Failed to update payment with hash {}",
+                    payment_hash.0.encode_hex::<String>()
+                ))?;
+                let (mut payment, respond) = self
+                    .async_api_requests
+                    .payments
+                    .get(&payment_id)
+                    .await
+                    .context(format!(
+                        "Can't find payment for {}",
+                        payment_id.0.encode_hex::<String>()
+                    ))?;
+                payment.succeeded(Some(payment_preimage), fee_paid_msat);
+                respond(Ok(payment));
             }
             Event::PaymentPathSuccessful {
                 payment_id,
@@ -364,17 +367,17 @@ impl EventHandler {
                         .map(|r| format!(" for reason {r:?}"))
                         .unwrap_or_default()
                 );
-                if let Some((mut payment, respond)) =
-                    self.async_api_requests.payments.get(&payment_id).await
-                {
-                    payment.failed(reason);
-                    respond(Ok(payment));
-                } else {
-                    error!(
+                let (mut payment, respond) = self
+                    .async_api_requests
+                    .payments
+                    .get(&payment_id)
+                    .await
+                    .context(format!(
                         "Can't find payment for {}",
                         payment_id.0.encode_hex::<String>()
-                    );
-                }
+                    ))?;
+                payment.failed(reason);
+                respond(Ok(payment));
             }
             Event::PaymentForwarded {
                 prev_channel_id,
@@ -492,13 +495,7 @@ impl EventHandler {
                     info!("EVENT: New {:?}", spendable_output);
                     self.persist_spendable_output(spendable_output.clone());
                 }
-                let destination_address = match self.wallet.new_internal_address() {
-                    Ok(a) => a,
-                    Err(e) => {
-                        error!("Could not get new address: {}", e);
-                        return;
-                    }
-                };
+                let destination_address = self.wallet.new_internal_address()?;
                 let output_descriptors = &spendable_outputs
                     .iter()
                     .map(|o| &o.descriptor)
@@ -507,35 +504,27 @@ impl EventHandler {
                     .bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
 
-                let best_block_height = self
-                    .bitcoind_client
-                    .get_best_block()
-                    .await
-                    .map(|r| r.1.unwrap_or_default())
-                    .unwrap_or_default();
-                match self.keys_manager.spend_spendable_outputs(
-                    output_descriptors,
-                    Vec::new(),
-                    destination_address.script_pubkey(),
-                    tx_feerate,
-                    Some(PackedLockTime(best_block_height)),
-                    &Secp256k1::new(),
-                ) {
-                    Ok(spending_tx) => {
-                        info!(
-                            "Sending spendable output to {}",
-                            destination_address.address
-                        );
-                        self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
-                        for spendable_output in spendable_outputs.iter_mut() {
-                            spendable_output.status = SpendableOutputStatus::Spent;
-                            self.persist_spendable_output(spendable_output.clone());
-                        }
-                    }
-                    Err(_) => {
-                        error!("Failed to build spending transaction");
-                    }
-                };
+                let best_block_height = self.bitcoind_client.block_height().await?;
+                let spending_tx = self
+                    .keys_manager
+                    .spend_spendable_outputs(
+                        output_descriptors,
+                        Vec::new(),
+                        destination_address.script_pubkey(),
+                        tx_feerate,
+                        Some(PackedLockTime(best_block_height as u32)),
+                        &Secp256k1::new(),
+                    )
+                    .map_err(|()| anyhow!("Failed to build spending transaction"))?;
+                info!(
+                    "Sending spendable output to {}",
+                    destination_address.address
+                );
+                self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
+                for spendable_output in spendable_outputs.iter_mut() {
+                    spendable_output.status = SpendableOutputStatus::Spent;
+                    self.persist_spendable_output(spendable_output.clone());
+                }
             }
             Event::HTLCIntercepted {
                 intercept_id: _,
@@ -543,16 +532,17 @@ impl EventHandler {
                 payment_hash: _,
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
-            } => {}
-            Event::BumpTransaction(_) => todo!(),
-        }
+            } => unreachable!(),
+            Event::BumpTransaction(_) => unreachable!(),
+        };
+        Ok(())
     }
 
     fn persist_spendable_output(&self, spendable_output: SpendableOutput) {
         let database = self.ldk_database.clone();
         self.runtime_handle.spawn(async move {
             if let Err(e) = database.persist_spendable_output(spendable_output).await {
-                error!("{e}");
+                log_error(&e)
             }
         });
     }
@@ -561,7 +551,7 @@ impl EventHandler {
         let database = self.ldk_database.clone();
         self.runtime_handle.spawn(async move {
             if let Err(e) = database.persist_forward(forward).await {
-                error!("{e}");
+                log_error(&e)
             }
         });
     }

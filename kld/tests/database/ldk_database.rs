@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -6,11 +7,12 @@ use bitcoin::hashes::hex::FromHex;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::{Network, TxOut, Txid};
+use kld::database::channel::Channel;
 use kld::database::forward::{Forward, ForwardStatus};
 use kld::database::invoice::Invoice;
 use kld::database::payment::{Payment, PaymentDirection};
 use kld::database::peer::Peer;
-use kld::database::LdkDatabase;
+use kld::database::{microsecond_timestamp, LdkDatabase};
 use kld::ldk::Scorer;
 
 use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
@@ -20,9 +22,11 @@ use lightning::chain::chainmonitor::ChainMonitor;
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::Filter;
 
+use lightning::events::ClosureReason;
+use lightning::ln::features::ChannelTypeFeatures;
 use lightning::ln::msgs::NetAddress;
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
-use lightning::routing::gossip::NetworkGraph;
+use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
@@ -31,7 +35,7 @@ use lightning::sign::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::util::persist::Persister;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
-use test_utils::{poll, random_public_key, TEST_PRIVATE_KEY, TEST_TX_ID};
+use test_utils::{poll, random_public_key, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY, TEST_TX_ID};
 
 use super::with_cockroach;
 
@@ -314,6 +318,50 @@ pub async fn test_spendable_outputs() -> Result<()> {
 
         let spendable_outputs = database.fetch_spendable_outputs().await?;
         assert_eq!(1, spendable_outputs.len());
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+pub async fn test_channels() -> Result<()> {
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
+
+        let mut type_features = ChannelTypeFeatures::empty();
+        type_features.set_zero_conf_optional();
+        type_features.set_scid_privacy_required();
+
+        let channel = Channel {
+            id: random(),
+            scid: 111,
+            user_channel_id: i64::MAX as u64,
+            counterparty: NodeId::from_str(TEST_PUBLIC_KEY)?,
+            funding_txo: OutPoint {
+                txid: Txid::from_hex(TEST_TX_ID)?,
+                index: 0,
+            },
+            is_public: true,
+            is_outbound: true,
+            value: 1020120401,
+            type_features,
+            open_timestamp: microsecond_timestamp(),
+            close_timestamp: None,
+            closure_reason: None,
+        };
+        database.persist_channel(channel.clone()).await?;
+
+        let reason = ClosureReason::CooperativeClosure;
+        database.close_channel(&channel.id, &reason).await?;
+
+        let channels = database.fetch_channel_history().await?;
+        assert_eq!(1, channels.len());
+        let persisted_channel = channels.first().context("expected channel")?;
+        assert!(persisted_channel
+            .close_timestamp
+            .is_some_and(|t| t > channel.open_timestamp));
+        assert_eq!(persisted_channel.closure_reason, Some(reason));
+
         Ok(())
     })
     .await

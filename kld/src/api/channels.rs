@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::api::NetAddress;
 use crate::database::forward::ForwardStatus;
 use crate::ldk::htlc_destination_to_string;
+use anyhow::Context;
 use api::Channel;
 use api::ChannelFee;
 use api::ChannelState;
@@ -25,6 +26,7 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
+use super::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use super::codegen::get_v1_channel_list_forwards_response::{
     GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
 };
@@ -280,6 +282,43 @@ pub(crate) async fn list_forwards(
                 ForwardStatus::Succeeded => GetV1ChannelListForwardsResponseItemStatus::Settled,
                 ForwardStatus::Failed => GetV1ChannelListForwardsResponseItemStatus::Failed,
             },
+        });
+    }
+
+    Ok(Json(response))
+}
+
+pub(crate) async fn channel_history(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+) -> Result<impl IntoResponse, ApiError> {
+    let channel_history = lightning_interface
+        .channel_history()
+        .await
+        .map_err(internal_server)?;
+
+    let mut response = vec![];
+
+    for channel in channel_history {
+        response.push(GetV1ChannelHistoryResponseItem {
+            close_timestamp: channel
+                .close_timestamp
+                .context("expected close timestamp")
+                .map_err(internal_server)?
+                .unix_timestamp(),
+            closure_reason: channel
+                .closure_reason
+                .context("expected closure reason")
+                .map_err(internal_server)?
+                .to_string(),
+            counterparty: channel.counterparty.to_string(),
+            funding_txo: format!("{}:{}", channel.funding_txo.txid, channel.funding_txo.index),
+            id: channel.id.encode_hex(),
+            is_outbound: channel.is_outbound,
+            is_public: channel.is_public,
+            open_timestamp: channel.open_timestamp.unix_timestamp(),
+            scid: channel.scid as i64,
+            user_channel_id: channel.user_channel_id as i64,
+            value: channel.value as i64,
         });
     }
 

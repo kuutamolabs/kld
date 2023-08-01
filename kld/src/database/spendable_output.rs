@@ -1,15 +1,12 @@
-use std::io::Cursor;
-
 use anyhow::Result;
 use bitcoin::{hashes::Hash, Txid};
-use lightning::{
-    sign::SpendableOutputDescriptor,
-    util::ser::{Readable, Writeable},
-};
+use lightning::{sign::SpendableOutputDescriptor, util::ser::Writeable};
 use postgres_types::{FromSql, ToSql};
 use tokio_postgres::Row;
 
-use crate::ldk::decode_error;
+use crate::MillisatAmount;
+
+use super::RowExt;
 
 #[derive(Clone, Debug)]
 pub struct SpendableOutput {
@@ -57,15 +54,12 @@ impl TryFrom<Row> for SpendableOutput {
     type Error = anyhow::Error;
 
     fn try_from(row: Row) -> std::result::Result<Self, Self::Error> {
-        let bytes: &[u8] = row.get("descriptor");
-        let descriptor =
-            SpendableOutputDescriptor::read(&mut Cursor::new(bytes)).map_err(decode_error)?;
         let bytes: &[u8] = row.get("txid");
         Ok(SpendableOutput {
             txid: Txid::from_slice(bytes)?,
             vout: row.get::<&str, i64>("vout") as u16,
-            value: row.get::<&str, i64>("value") as u64,
-            descriptor,
+            value: row.get::<&str, i64>("value") as MillisatAmount,
+            descriptor: row.read("descriptor")?,
             status: row.get("status"),
         })
     }

@@ -1,5 +1,6 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::database::channel::Channel;
 use crate::database::forward::{Forward, ForwardStatus, TotalForwards};
 use crate::database::invoice::Invoice;
 use crate::database::payment::{Payment, PaymentDirection};
@@ -153,14 +154,14 @@ impl LightningInterface for Controller {
         if !self.peer_manager.is_connected(&their_network_key) {
             return Err(anyhow!("Peer not connected"));
         }
-        let user_channel_id: u128 = random();
+        let user_channel_id: u64 = random::<u64>() / 2; // To fit into the database INT
         let channel_id = self
             .channel_manager
             .create_channel(
                 their_network_key,
                 channel_value_satoshis,
                 push_msat.unwrap_or_default(),
-                user_channel_id,
+                user_channel_id as u128,
                 override_config,
             )
             .map_err(ldk_error)?;
@@ -456,10 +457,14 @@ impl LightningInterface for Controller {
     async fn fetch_forwards(&self, status: Option<ForwardStatus>) -> Result<Vec<Forward>> {
         self.database.fetch_forwards(status).await
     }
+
+    async fn channel_history(&self) -> Result<Vec<Channel>> {
+        self.database.fetch_channel_history().await
+    }
 }
 
 pub(crate) struct AsyncAPIRequests {
-    pub funding_transactions: AsyncSenders<u128, FeeRate, Result<Transaction>>,
+    pub funding_transactions: AsyncSenders<u64, FeeRate, Result<Transaction>>,
     pub payments: AsyncSenders<PaymentId, Payment, Result<Payment>>,
 }
 
@@ -675,6 +680,14 @@ impl Controller {
             Some(LiquidityProviderConfig {}),
             channel_manager.clone(),
         ));
+
+        // For anyone that has open channels from before adding channel history. This can be deleted when we have all updated.
+        for channel in channel_manager.list_channels() {
+            if let Err(e) = database.persist_channel(channel.try_into()?).await {
+                warn!("{e}");
+            }
+        }
+
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
@@ -770,7 +783,7 @@ impl Controller {
                 std::process::exit(1)
             };
             peer_manager_clone.keep_channel_peers_connected(db, cm);
-            peer_manager_clone.broadcast_node_announcement_from_setting(settings_clone);
+            peer_manager_clone.broadcast_node_announcement_from_settings(settings_clone);
         });
 
         Ok(Controller {

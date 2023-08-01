@@ -75,7 +75,7 @@ pub trait KuutamoPeerManger {
     ) -> Result<()>;
 
     /// broadcast the node alias and public addresses of current setting
-    fn broadcast_node_announcement_from_setting(&self, settings: Arc<Settings>);
+    fn broadcast_node_announcement_from_settings(&self, settings: Arc<Settings>);
 }
 
 #[async_trait]
@@ -184,7 +184,7 @@ impl KuutamoPeerManger for Arc<PeerManager> {
         database.delete_peer(&node_id).await
     }
 
-    fn broadcast_node_announcement_from_setting(&self, settings: Arc<Settings>) {
+    fn broadcast_node_announcement_from_settings(&self, settings: Arc<Settings>) {
         let mut alias = [0; 32];
         alias[..settings.node_alias.len()].copy_from_slice(settings.node_alias.as_bytes());
         let addresses: Vec<lightning::ln::msgs::NetAddress> = settings

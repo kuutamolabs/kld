@@ -11,6 +11,7 @@ use api::{
 };
 use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
+    get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
@@ -302,6 +303,13 @@ async fn test_cli_get_fees() -> Result<()> {
 async fn test_cli_list_forwards() -> Result<()> {
     let output = run_cli("list-forwards", &["--status", "settled"]).await?;
     let _: Vec<GetV1ChannelListForwardsResponseItem> = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_channel_history() -> Result<()> {
+    let output = run_cli("channel-history", &[]).await?;
+    let _: Vec<GetV1ChannelHistoryResponseItem> = deserialize(&output.stdout)?;
     Ok(())
 }
 
