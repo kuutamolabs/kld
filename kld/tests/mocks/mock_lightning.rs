@@ -9,11 +9,10 @@ use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{
     consensus::deserialize,
-    hashes::{sha256, Hash},
+    hashes::{hex::FromHex, sha256, Hash},
     secp256k1::{PublicKey, Secp256k1, SecretKey},
     Network, Txid,
 };
-use hex::FromHex;
 use kld::{
     api::NetAddress,
     database::{
@@ -227,8 +226,7 @@ impl LightningInterface for MockLightning {
         _fee_rate: Option<FeeRate>,
         _override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
-        let transaction =
-            deserialize::<bitcoin::Transaction>(&Vec::<u8>::from_hex(TEST_TX).unwrap()).unwrap();
+        let transaction = deserialize::<bitcoin::Transaction>(&Vec::<u8>::from_hex(TEST_TX)?)?;
         let txid = transaction.txid();
         Ok(OpenChannelResult {
             transaction,

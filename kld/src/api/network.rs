@@ -2,8 +2,7 @@ use crate::api::NetAddress;
 use anyhow::anyhow;
 use api::{FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
-use bitcoin::secp256k1::PublicKey;
-use hex::ToHex;
+use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use lightning::routing::gossip::{ChannelInfo, DirectedChannelInfo, NodeId, NodeInfo};
 use std::{str::FromStr, sync::Arc};
 
@@ -140,8 +139,8 @@ fn to_api_channel(
         .one_to_two
         .as_ref()
         .map(|channel_update| NetworkChannel {
-            source: directed_info.channel().node_one.as_slice().encode_hex(),
-            destination: directed_info.channel().node_two.as_slice().encode_hex(),
+            source: directed_info.channel().node_one.as_slice().to_hex(),
+            destination: directed_info.channel().node_two.as_slice().to_hex(),
             short_channel_id: *short_channel_id,
             public: true,
             satoshis: channel_info.capacity_sats.unwrap_or_default(),
@@ -164,9 +163,9 @@ fn to_api_channel(
 
 fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
     node_info.announcement_info.as_ref().map(|n| NetworkNode {
-        node_id: node_id.as_slice().encode_hex(),
+        node_id: node_id.as_slice().to_hex(),
         alias: n.alias.to_string(),
-        color: n.rgb.encode_hex(),
+        color: n.rgb.to_hex(),
         last_timestamp: n.last_update,
         features: n.features.to_string(),
         addresses: n

@@ -6,7 +6,7 @@ use std::{
 use anyhow::anyhow;
 use api::{GenerateInvoice, GenerateInvoiceResponse, Invoice, InvoiceStatus, ListInvoiceParams};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
-use hex::ToHex;
+use bitcoin::hashes::hex::ToHex;
 
 use crate::{ldk::LightningInterface, MillisatAmount};
 
@@ -30,7 +30,7 @@ pub(crate) async fn generate_invoice(
         .map_err(internal_server)?;
 
     let response = GenerateInvoiceResponse {
-        payment_hash: invoice.bolt11.payment_hash().encode_hex(),
+        payment_hash: invoice.bolt11.payment_hash().to_hex(),
         expires_at: invoice
             .bolt11
             .expires_at()
@@ -58,7 +58,7 @@ pub(crate) async fn list_invoices(
     for invoice in invoices {
         let description = match invoice.bolt11.description() {
             lightning_invoice::Bolt11InvoiceDescription::Direct(d) => d.to_string(),
-            lightning_invoice::Bolt11InvoiceDescription::Hash(h) => h.0.encode_hex(),
+            lightning_invoice::Bolt11InvoiceDescription::Hash(h) => h.0.to_hex(),
         };
         let amount_received_msat = invoice
             .payments
@@ -78,7 +78,7 @@ pub(crate) async fn list_invoices(
         response.push(Invoice {
             label: invoice.label,
             bolt11: invoice.bolt11.to_string(),
-            payment_hash: invoice.bolt11.payment_hash().encode_hex(),
+            payment_hash: invoice.bolt11.payment_hash().to_hex(),
             amount_msat: invoice.bolt11.amount_milli_satoshis(),
             status,
             amount_received_msat: if amount_received_msat > 0 {

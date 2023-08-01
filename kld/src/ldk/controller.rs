@@ -12,9 +12,9 @@ use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
 use async_trait::async_trait;
+use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
-use hex::ToHex;
 use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::BestBlock;
@@ -350,7 +350,7 @@ impl LightningInterface for Controller {
         let invoice = Invoice::new(Some(label), bolt11)?;
         info!(
             "Generated invoice with payment hash {}",
-            invoice.payment_hash.0.encode_hex::<String>()
+            invoice.payment_hash.0.to_hex()
         );
         self.database.persist_invoice(&invoice).await?;
         Ok(invoice)
@@ -378,7 +378,7 @@ impl LightningInterface for Controller {
             .map_err(retryable_send_failure)?;
         info!(
             "Initiated payment of invoice with hash {}",
-            invoice.payment_hash.0.encode_hex::<String>()
+            invoice.payment_hash.0.to_hex()
         );
         self.database.persist_invoice(&invoice).await?;
         self.database.persist_payment(&payment).await?;
@@ -415,7 +415,7 @@ impl LightningInterface for Controller {
         let payment = Payment::spontaneous_outbound(payment_id, hash, amount);
         info!(
             "Initiated keysend payment with hash {}",
-            payment.hash.0.encode_hex::<String>()
+            payment.hash.0.to_hex()
         );
         self.database.persist_payment(&payment).await?;
         let receiver = self
@@ -627,6 +627,7 @@ impl Controller {
             .channel_handshake_limits
             .force_announced_channel_preference = false;
         user_config.channel_handshake_config.announced_channel = true;
+        user_config.channel_handshake_config.our_max_accepted_htlcs = 200;
         user_config.channel_handshake_limits.max_funding_satoshis = u64::MAX;
 
         let (channel_manager_blockhash, channel_manager) = {

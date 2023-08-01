@@ -16,8 +16,8 @@ use api::SetChannelFeeResponse;
 use axum::extract::Path;
 use axum::extract::Query;
 use axum::{response::IntoResponse, Extension, Json};
+use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
-use hex::ToHex;
 use lightning::events::HTLCDestination;
 use lightning::ln::channelmanager::ChannelDetails;
 use lightning::ln::features::ChannelTypeFeatures;
@@ -66,7 +66,7 @@ pub(crate) async fn list_channels(
                 ChannelState::Pending
             },
             short_channel_id: to_string_empty!(c.short_channel_id),
-            channel_id: c.channel_id.encode_hex(),
+            channel_id: c.channel_id.to_hex(),
             funding_txid: to_string_empty!(c.funding_txo.map(|x| x.txid)),
             private: !c.is_public,
             msatoshi_to_us: c.balance_msat,
@@ -104,7 +104,7 @@ pub(crate) async fn list_peer_channels(
             alias: lightning_interface
                 .alias_of(&channel.counterparty.node_id)
                 .unwrap_or_default(),
-            channel_id: channel.channel_id.encode_hex(),
+            channel_id: channel.channel_id.to_hex(),
             dust_limit_msat: match config.max_dust_htlc_exposure {
                 MaxDustHTLCExposure::FixedLimitMsat(x) => x as i64,
                 MaxDustHTLCExposure::FeeRateMultiplier(x) => x as i64,
@@ -195,7 +195,7 @@ pub(crate) async fn open_channel(
     let response = FundChannelResponse {
         tx: result.transaction,
         txid: result.txid.to_string(),
-        channel_id: result.channel_id.encode_hex(),
+        channel_id: result.channel_id.to_hex(),
     };
     Ok(Json(response))
 }
@@ -225,13 +225,13 @@ pub(crate) async fn set_channel_fee(
                     base,
                     ppm,
                     peer_id: node_id.to_string(),
-                    channel_id: channel.channel_id.encode_hex(),
+                    channel_id: channel.channel_id.to_hex(),
                     short_channel_id: to_string_empty!(channel.short_channel_id),
                 });
             }
         }
     } else if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
-        c.channel_id.encode_hex::<String>() == channel_fee.id
+        c.channel_id.to_hex() == channel_fee.id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_fee.id
     }) {
         let (base, ppm) = lightning_interface
@@ -246,7 +246,7 @@ pub(crate) async fn set_channel_fee(
             base,
             ppm,
             peer_id: channel.counterparty.node_id.to_string(),
-            channel_id: channel.channel_id.encode_hex(),
+            channel_id: channel.channel_id.to_hex(),
             short_channel_id: to_string_empty!(channel.short_channel_id),
         });
     } else {
@@ -261,7 +261,7 @@ pub(crate) async fn close_channel(
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
-        c.channel_id.encode_hex::<String>() == channel_id
+        c.channel_id.to_hex() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
         lightning_interface
@@ -336,15 +336,15 @@ pub(crate) async fn list_forwards(
                 .as_ref()
                 .map(htlc_destination_to_string),
             fee_msat: forward.fee.map(|x| x as i64),
-            in_channel: forward.inbound_channel_id.encode_hex(),
+            in_channel: forward.inbound_channel_id.to_hex(),
             in_msat: forward.amount.map(|x| x as i64),
-            out_channel: forward.outbound_channel_id.map(|x| x.encode_hex()),
+            out_channel: forward.outbound_channel_id.map(|x| x.to_hex()),
             out_msat: forward
                 .amount
                 .and_then(|a| forward.fee.map(|f| (a - f) as i64)),
             payment_hash: match forward.htlc_destination {
                 Some(HTLCDestination::FailedPayment { payment_hash }) => {
-                    Some(payment_hash.0.encode_hex())
+                    Some(payment_hash.0.to_hex())
                 }
                 _ => None,
             },
@@ -384,7 +384,7 @@ pub(crate) async fn channel_history(
                 .to_string(),
             counterparty: channel.counterparty.to_string(),
             funding_txo: format!("{}:{}", channel.funding_txo.txid, channel.funding_txo.index),
-            id: channel.id.encode_hex(),
+            id: channel.id.to_hex(),
             is_outbound: channel.is_outbound,
             is_public: channel.is_public,
             open_timestamp: channel.open_timestamp.unix_timestamp(),

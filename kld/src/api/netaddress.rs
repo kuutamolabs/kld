@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use hex::ToHex;
+use bitcoin::hashes::hex::ToHex;
 pub use lightning;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -56,14 +56,14 @@ impl Display for NetAddress {
                 write!(f, "[{}]:{port}", Ipv6Addr::from(*addr))?
             }
             lightning::ln::msgs::NetAddress::OnionV2(bytes) => {
-                write!(f, "onionv2({})", bytes.encode_hex::<String>())?
+                write!(f, "onionv2({})", bytes.to_hex())?
             }
             lightning::ln::msgs::NetAddress::OnionV3 {
                 ed25519_pubkey,
                 checksum: _,
                 version: _,
                 port,
-            } => write!(f, "{}:{port}", ed25519_pubkey.encode_hex::<String>())?,
+            } => write!(f, "{}:{port}", ed25519_pubkey.to_hex())?,
             lightning::ln::msgs::NetAddress::Hostname { hostname, port } => {
                 write!(f, "{}:{port}", hostname.as_str())?
             }
