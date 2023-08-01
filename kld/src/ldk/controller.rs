@@ -29,8 +29,10 @@ use lightning::routing::scoring::{
 use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
+use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
+use ldk_lsp_client::LiquidityProviderConfig;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
 use lightning_block_sync::SpvClient;
@@ -51,8 +53,8 @@ use super::event_handler::EventHandler;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
-    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LdkPeerManager,
-    LightningInterface, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
+    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LightningInterface,
+    LiquidityManager, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
 };
 
 #[async_trait]
@@ -268,7 +270,7 @@ impl LightningInterface for Controller {
     ) -> Result<()> {
         if let Some(net_address) = peer_address {
             self.peer_manager
-                .connect_peer(public_key, net_address)
+                .connect_peer(self.database.clone(), public_key, net_address)
                 .await
         } else {
             let addresses: Vec<NetAddress> = self
@@ -283,7 +285,7 @@ impl LightningInterface for Controller {
             for address in addresses {
                 if let Err(e) = self
                     .peer_manager
-                    .connect_peer(public_key, address.clone())
+                    .connect_peer(self.database.clone(), public_key, address.clone())
                     .await
                 {
                     info!("Could not connect to {public_key}@{address}. {}", e);
@@ -296,7 +298,9 @@ impl LightningInterface for Controller {
     }
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()> {
-        self.peer_manager.disconnect_by_node_id(public_key).await
+        self.peer_manager
+            .disconnect_and_drop_by_node_id(self.database.clone(), public_key)
+            .await
     }
 
     fn public_addresses(&self) -> Vec<NetAddress> {
@@ -519,6 +523,7 @@ pub struct Controller {
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
+    _liquidity_manager: Arc<LiquidityManager>,
 }
 
 impl Controller {
@@ -665,6 +670,11 @@ impl Controller {
             }
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
+        let liquidity_manager = Arc::new(LiquidityManager::new(
+            keys_manager.clone(),
+            Some(LiquidityProviderConfig {}),
+            channel_manager.clone(),
+        ));
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
@@ -692,21 +702,15 @@ impl Controller {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
-            custom_message_handler: IgnoringMessageHandler {},
+            custom_message_handler: liquidity_manager.clone(),
         };
-        let ldk_peer_manager = Arc::new(LdkPeerManager::new(
+        let peer_manager = Arc::new(PeerManager::new(
             lightning_msg_handler,
             current_time.as_secs().try_into().unwrap(),
             &ephemeral_bytes,
             KldLogger::global(),
             keys_manager.clone(),
         ));
-        let peer_manager = Arc::new(PeerManager::new(
-            ldk_peer_manager.clone(),
-            channel_manager.clone(),
-            database.clone(),
-            settings.clone(),
-        )?);
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
 
@@ -719,6 +723,7 @@ impl Controller {
             database.clone(),
             peer_manager.clone(),
             async_api_requests.clone(),
+            settings.clone(),
         );
 
         // Background Processing
@@ -728,7 +733,7 @@ impl Controller {
             chain_monitor.clone(),
             channel_manager.clone(),
             GossipSync::p2p(gossip_sync),
-            ldk_peer_manager.clone(),
+            peer_manager.clone(),
             KldLogger::global(),
             Some(scorer.clone()),
         );
@@ -737,6 +742,10 @@ impl Controller {
         let channel_manager_clone = channel_manager.clone();
         let peer_manager_clone = peer_manager.clone();
         let wallet_clone = wallet.clone();
+        let peer_port = settings.peer_port;
+        let db = database.clone();
+        let cm = channel_manager.clone();
+        let settings_clone = settings.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
@@ -756,9 +765,12 @@ impl Controller {
             };
 
             wallet_clone.keep_sync_with_chain();
-            peer_manager_clone.listen().await;
-            peer_manager_clone.keep_channel_peers_connected();
-            peer_manager_clone.broadcast_node_announcement();
+            if let Err(e) = peer_manager_clone.listen(peer_port).await {
+                error!("could not listen on peer port: {e}");
+                std::process::exit(1)
+            };
+            peer_manager_clone.keep_channel_peers_connected(db, cm);
+            peer_manager_clone.broadcast_node_announcement_from_setting(settings_clone);
         });
 
         Ok(Controller {
@@ -774,6 +786,7 @@ impl Controller {
             wallet,
             async_api_requests,
             background_processor: Arc::new(Mutex::new(Some(background_processor))),
+            _liquidity_manager: liquidity_manager,
         })
     }
 

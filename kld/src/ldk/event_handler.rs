@@ -10,6 +10,8 @@ use crate::database::forward::Forward;
 use crate::database::payment::Payment;
 use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
+use crate::ldk::peer_manager::KuutamoPeerManger;
+use crate::settings::Settings;
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::events::{Event, PathFailure, PaymentPurpose};
@@ -37,6 +39,7 @@ pub(crate) struct EventHandler {
     ldk_database: Arc<LdkDatabase>,
     peer_manager: Arc<PeerManager>,
     async_api_requests: Arc<AsyncAPIRequests>,
+    settings: Arc<Settings>,
     runtime_handle: Handle,
 }
 
@@ -51,6 +54,7 @@ impl EventHandler {
         database: Arc<LdkDatabase>,
         peer_manager: Arc<PeerManager>,
         async_api_requests: Arc<AsyncAPIRequests>,
+        settings: Arc<Settings>,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -61,6 +65,7 @@ impl EventHandler {
             ldk_database: database,
             peer_manager,
             async_api_requests,
+            settings,
             runtime_handle: Handle::current(),
         }
     }
@@ -150,7 +155,9 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     channel_id.encode_hex::<String>(),
                 );
-                self.peer_manager.broadcast_node_announcement();
+                info!("Broadcasting node announcement message");
+                self.peer_manager
+                    .broadcast_node_announcement_from_setting(self.settings.clone());
             }
             Event::ChannelClosed {
                 channel_id,

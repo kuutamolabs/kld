@@ -29,6 +29,7 @@ let
   outputHashes = {
     "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#39d8626e8c40455b6089975fda79000941094910" = "sha256-Z48LIgN8/qfgGvzjPQnn39xK3nVsCWF9uIm0xwCTDhA=";
     "git+https://github.com/hyperium/mime#938484de95445a2af931515d2b7252612c575da7" = "sha256-Zdhw4wWK2ZJrv62YoJMdTHaQhIyKxtG2UCu/m3mQwy0=";
+    "git+https://github.com/lightningdevkit/ldk-lsp-client#2fa04786d6750a650f66c807f717b30b2e7694e3" = "sha256-vtDX0+9YSgOYndxM+R58mn/AI34rt0RAwwavCCKl3Lw=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {
     inherit src cargoToml buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
