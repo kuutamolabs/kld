@@ -253,30 +253,35 @@ impl FeeEstimator for BitcoindClient {
 }
 
 impl BroadcasterInterface for BitcoindClient {
-    fn broadcast_transaction(&self, tx: &Transaction) {
+    fn broadcast_transactions(&self, txs: &[&Transaction]) {
         // This may error due to RL calling `broadcast_transaction` with the same transaction
         // multiple times, but the error is safe to ignore.
         let client = self.client.clone();
-        let tx_serialized = json!(encode::serialize_hex(tx));
-        self.handle.spawn(async move {
-            match BitcoindClient::send_transaction_with_client(client, tx_serialized).await {
-                Ok(txid) => {
-                    info!("Broadcast transaction {txid}");
-                }
-                Err(e) => {
-                    let err_str = e.to_string();
-                    if !err_str.contains("Transaction already in block chain")
-                        && !err_str.contains("Inputs missing or spent")
-                        && !err_str.contains("bad-txns-inputs-missingorspent")
-                        && !err_str.contains("txn-mempool-conflict")
-                        && !err_str.contains("non-BIP68-final")
-                        && !err_str.contains("insufficient fee, rejecting replacement ")
-                    {
-                        error!("Broadcast transaction: {}", e);
+        for tx in txs {
+            let tx_serialized = json!(encode::serialize_hex(tx));
+            let client_cloned = client.clone();
+            self.handle.spawn(async move {
+                match BitcoindClient::send_transaction_with_client(client_cloned, tx_serialized)
+                    .await
+                {
+                    Ok(txid) => {
+                        info!("Broadcast transaction {txid}");
+                    }
+                    Err(e) => {
+                        let err_str = e.to_string();
+                        if !err_str.contains("Transaction already in block chain")
+                            && !err_str.contains("Inputs missing or spent")
+                            && !err_str.contains("bad-txns-inputs-missingorspent")
+                            && !err_str.contains("txn-mempool-conflict")
+                            && !err_str.contains("non-BIP68-final")
+                            && !err_str.contains("insufficient fee, rejecting replacement ")
+                        {
+                            error!("Broadcast transaction: {}", e);
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 }
 
@@ -344,6 +349,7 @@ impl Priorities {
             ConfirmationTarget::Background => self.background.clone(),
             ConfirmationTarget::Normal => self.normal.clone(),
             ConfirmationTarget::HighPriority => self.high.clone(),
+            ConfirmationTarget::MempoolMinimum => self.background.clone(),
         }
     }
 

@@ -13,7 +13,7 @@ pub struct Invoice {
     pub payment_hash: PaymentHash,
     // User generated id for the invoice.
     pub label: Option<String>,
-    pub bolt11: lightning_invoice::Invoice,
+    pub bolt11: lightning_invoice::Bolt11Invoice,
     // None if we are the payee.
     pub payee_pub_key: PublicKey,
     pub expiry: Option<u64>,
@@ -28,14 +28,14 @@ impl TryFrom<String> for Invoice {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-        let bolt11 = lightning_invoice::Invoice::from_str(&value)?;
+        let bolt11 = lightning_invoice::Bolt11Invoice::from_str(&value)?;
         bolt11.check_signature()?;
         Invoice::new(None, bolt11)
     }
 }
 
 impl Invoice {
-    pub fn new(label: Option<String>, bolt11: lightning_invoice::Invoice) -> Result<Self> {
+    pub fn new(label: Option<String>, bolt11: lightning_invoice::Bolt11Invoice) -> Result<Self> {
         let raw = bolt11.clone().into_signed_raw();
         let expiry = raw.expiry_time().map(|t| t.as_seconds());
         let payee_pub_key = raw.recover_payee_pub_key()?.0;
@@ -70,7 +70,7 @@ impl Invoice {
         Ok(Invoice {
             payment_hash,
             label,
-            bolt11: lightning_invoice::Invoice::from_str(&bolt11)?,
+            bolt11: lightning_invoice::Bolt11Invoice::from_str(&bolt11)?,
             payee_pub_key: PublicKey::from_slice(&payee_pub_key)?,
             expiry,
             amount: amount.map(|a| a as u64),

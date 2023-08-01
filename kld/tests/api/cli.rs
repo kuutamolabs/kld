@@ -11,14 +11,15 @@ use api::{
 };
 use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
-    get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse,
+    get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
+    get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
+    get_v1_get_fees_response::GetV1GetFeesResponse,
 };
 
-use serde::de;
-
 use super::rest::create_api_server;
-use crate::api::rest::LIGHTNING;
+use crate::api::rest::mock_lightning;
+use serde::de;
 use test_utils::{TEST_ADDRESS, TEST_PUBLIC_KEY, TEST_SHORT_CHANNEL_ID};
 
 #[tokio::test]
@@ -250,7 +251,7 @@ async fn test_cli_list_invoices() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_pay_invoice() -> Result<()> {
-    let bolt11 = LIGHTNING.invoice.bolt11.to_string();
+    let bolt11 = mock_lightning().invoice.bolt11.to_string();
     let output = run_cli("pay-invoice", &["--label", "a label", "--bolt11", &bolt11]).await?;
     let _: PaymentResponse = deserialize(&output.stdout)?;
     Ok(())
@@ -286,7 +287,21 @@ async fn test_cli_estimate_channel_liquidity() -> Result<()> {
 #[tokio::test]
 async fn test_cli_local_remote_balance() -> Result<()> {
     let output = run_cli("local-remote-balance", &[]).await?;
-    let _: GetV1ChannelLocalRemoteBalResponse = deserialize(&output.stdout)?;
+    let _: GetV1ChannelLocalremotebalResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_get_fees() -> Result<()> {
+    let output = run_cli("get-fees", &[]).await?;
+    let _: GetV1GetFeesResponse = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_list_forwards() -> Result<()> {
+    let output = run_cli("list-forwards", &["--status", "settled"]).await?;
+    let _: Vec<GetV1ChannelListForwardsResponseItem> = deserialize(&output.stdout)?;
     Ok(())
 }
 

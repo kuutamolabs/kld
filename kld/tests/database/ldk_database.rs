@@ -1,29 +1,33 @@
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use bitcoin::hashes::hex::FromHex;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::{Network, TxOut, Txid};
+use kld::database::forward::{Forward, ForwardStatus};
 use kld::database::invoice::Invoice;
-use kld::database::payment::{Payment, PaymentDirection, PaymentStatus};
+use kld::database::payment::{Payment, PaymentDirection};
 use kld::database::peer::Peer;
 use kld::database::LdkDatabase;
+use kld::ldk::Scorer;
 
 use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use kld::logger::KldLogger;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::Filter;
-use lightning::ln::channelmanager::PaymentId;
+
 use lightning::ln::msgs::NetAddress;
-use lightning::ln::{PaymentPreimage, PaymentSecret};
-use lightning::routing::gossip::{NetworkGraph, NodeId};
+use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
+use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::DefaultRouter;
-use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
+use lightning::routing::scoring::{
+    ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
+};
+use lightning::sign::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::util::persist::Persister;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
@@ -63,6 +67,49 @@ pub async fn test_peers() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+pub async fn test_forwards() -> Result<()> {
+    with_cockroach(|settings, durable_connection| async move {
+        let database = LdkDatabase::new(settings, durable_connection);
+
+        let amount = 1000000;
+        let fee = 100;
+        let forward_success = Forward::success([0u8; 32], [1u8; 32], amount, fee);
+        database.persist_forward(forward_success.clone()).await?;
+
+        let forward_fail = Forward::failure(
+            [3u8; 32],
+            lightning::events::HTLCDestination::FailedPayment {
+                payment_hash: PaymentHash([1u8; 32]),
+            },
+        );
+        database.persist_forward(forward_fail.clone()).await?;
+
+        let total = database.fetch_total_forwards().await?;
+        assert_eq!(1, total.count);
+        assert_eq!(amount, total.amount);
+        assert_eq!(fee, total.fee);
+
+        let forwards = database.fetch_forwards(None).await?;
+        assert_eq!(
+            forwards.first().context("expected success forward")?,
+            &forward_success
+        );
+        assert_eq!(
+            forwards.last().context("expected failed forward")?,
+            &forward_fail
+        );
+
+        let forwards = database
+            .fetch_forwards(Some(ForwardStatus::Succeeded))
+            .await?;
+        assert_eq!(1, forwards.len());
+
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
 pub async fn test_invoice_payments() -> Result<()> {
     with_cockroach(|settings, durable_connection| async move {
         let database = LdkDatabase::new(settings, durable_connection);
@@ -93,19 +140,7 @@ pub async fn test_invoice_payments() -> Result<()> {
             .context("expected invoice")?;
         assert_eq!(result, invoice);
 
-        let mut payment = Payment {
-            id: PaymentId(random()),
-            hash: invoice.payment_hash,
-            preimage: None,
-            secret: Some(PaymentSecret(random())),
-            label: Some("label".to_string()),
-            status: PaymentStatus::Succeeded,
-            amount: 1000,
-            fee: None,
-            direction: PaymentDirection::Inbound,
-            timestamp: SystemTime::UNIX_EPOCH,
-            bolt11: Some(invoice.bolt11.to_string()),
-        };
+        let mut payment = Payment::of_invoice_outbound(&invoice, Some("label".to_string()));
         database.persist_payment(&payment).await?;
 
         let result = database
@@ -119,24 +154,25 @@ pub async fn test_invoice_payments() -> Result<()> {
         let result = database.fetch_invoices(None).await?;
         assert_eq!(1, result.len());
 
-        let result = database
+        let stored_payments = database
             .fetch_payments(None, None)
             .await?
             .into_iter()
             .find(|p| p.id == payment.id)
             .context("expected payment")?;
-        assert_eq!(result, payment);
+        assert_eq!(stored_payments, payment);
 
         payment.succeeded(Some(PaymentPreimage(random())), Some(232));
         database.persist_payment(&payment).await?;
 
-        let result = database
-            .fetch_payments(Some(payment.hash), Some(PaymentDirection::Inbound))
-            .await?
-            .into_iter()
-            .find(|p| p.id == payment.id)
-            .context("expected payment")?;
-        assert_eq!(result, payment);
+        let stored_payments = database
+            .fetch_payments(Some(payment.hash), Some(PaymentDirection::Outbound))
+            .await?;
+        assert_eq!(1, stored_payments.len());
+        assert_eq!(
+            stored_payments.first().context("expected payment")?,
+            &payment
+        );
 
         Ok(())
     })
@@ -159,9 +195,17 @@ pub async fn test_network_graph() -> Result<()> {
                 Arc<KeysManager>,
                 Arc<KeysManager>,
                 Arc<dyn FeeEstimator>,
-                Arc<DefaultRouter<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>, &TestScorer>>,
+                Arc<
+                    DefaultRouter<
+                        Arc<NetworkGraph<Arc<KldLogger>>>,
+                        Arc<KldLogger>,
+                        Arc<Mutex<Scorer>>,
+                        ProbabilisticScoringFeeParameters,
+                        Scorer,
+                    >,
+                >,
                 Arc<KldLogger>,
-                TestScorer,
+                Mutex<Scorer>,
             >>::persist_graph(database, network_graph)
         };
         persist(&database, &network_graph)?;
@@ -183,7 +227,7 @@ pub async fn test_scorer() -> Result<()> {
 
         let network_graph = Arc::new(NetworkGraph::new(Network::Regtest, KldLogger::global()));
         let scorer = Mutex::new(ProbabilisticScorer::new(
-            ProbabilisticScoringParameters::default(),
+            ProbabilisticScoringDecayParameters::default(),
             network_graph.clone(),
             KldLogger::global(),
         ));
@@ -196,9 +240,17 @@ pub async fn test_scorer() -> Result<()> {
                 Arc<KeysManager>,
                 Arc<KeysManager>,
                 Arc<dyn FeeEstimator>,
-                Arc<DefaultRouter<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>, &TestScorer>>,
+                Arc<
+                    DefaultRouter<
+                        Arc<NetworkGraph<Arc<KldLogger>>>,
+                        Arc<KldLogger>,
+                        Arc<Mutex<Scorer>>,
+                        ProbabilisticScoringFeeParameters,
+                        Scorer,
+                    >,
+                >,
                 Arc<KldLogger>,
-                TestScorer,
+                Mutex<Scorer>,
             >>::persist_scorer(database, scorer)
         };
 
@@ -207,7 +259,7 @@ pub async fn test_scorer() -> Result<()> {
             3,
             database
                 .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
+                    ProbabilisticScoringDecayParameters::default(),
                     network_graph.clone()
                 )
                 .await?
@@ -216,24 +268,19 @@ pub async fn test_scorer() -> Result<()> {
 
         let timestamp = database
             .fetch_scorer(
-                ProbabilisticScoringParameters::default(),
+                ProbabilisticScoringDecayParameters::default(),
                 network_graph.clone(),
             )
             .await?
             .map(|s| s.1)
             .ok_or(anyhow!("missing timestamp"))?;
 
-        scorer
-            .lock()
-            .unwrap()
-            .add_banned(&NodeId::from_pubkey(&random_public_key()));
-
         persist(&database, &scorer)?;
         poll!(
             3,
             database
                 .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
+                    ProbabilisticScoringDecayParameters::default(),
                     network_graph.clone()
                 )
                 .await?
@@ -271,8 +318,6 @@ pub async fn test_spendable_outputs() -> Result<()> {
     })
     .await
 }
-
-type TestScorer = Mutex<ProbabilisticScorer<Arc<NetworkGraph<Arc<KldLogger>>>, Arc<KldLogger>>>;
 
 type KldTestChainMonitor = ChainMonitor<
     InMemorySigner,

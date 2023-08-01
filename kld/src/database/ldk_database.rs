@@ -1,12 +1,14 @@
+use crate::database::to_primative;
 use crate::ldk::ChainMonitor;
 use crate::logger::KldLogger;
 use crate::to_i64;
 
+use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
 use super::spendable_output::SpendableOutput;
 use super::{DurableConnection, Params};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
@@ -14,25 +16,22 @@ use bitcoin::{BlockHash, Txid};
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
-use lightning::chain::keysinterface::{
-    EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner,
-};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
-use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs, PaymentId};
+use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::NetAddress;
-use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
+use lightning::ln::PaymentHash;
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::Router;
 use lightning::routing::scoring::{
-    ProbabilisticScorer, ProbabilisticScoringParameters, WriteableScore,
+    ProbabilisticScorer, ProbabilisticScoringDecayParameters, WriteableScore,
 };
+use lightning::sign::{EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner};
 use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
 use log::{debug, error, info};
-use once_cell::sync::OnceCell;
 
 use super::peer::Peer;
 use crate::settings::Settings;
@@ -40,18 +39,17 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 use std::{fs, io};
 use tokio::runtime::Handle;
-use tokio_postgres::Row;
 
 pub struct LdkDatabase {
     settings: Arc<Settings>,
     durable_connection: Arc<DurableConnection>,
     // Persist graph/scorer gets called from a background thread in LDK so need a handle to the runtime.
     runtime: Handle,
-    chain_monitor: OnceCell<Arc<ChainMonitor>>,
+    chain_monitor: OnceLock<Arc<ChainMonitor>>,
 }
 
 impl LdkDatabase {
@@ -60,7 +58,7 @@ impl LdkDatabase {
             settings,
             durable_connection,
             runtime: Handle::current(),
-            chain_monitor: OnceCell::new(),
+            chain_monitor: OnceLock::new(),
         }
     }
 
@@ -165,7 +163,7 @@ impl LdkDatabase {
                     &output.txid.as_ref(),
                     &(output.vout as i64),
                     &(output.value as i64),
-                    &output.serialize()?,
+                    &output.serialize_descriptor()?,
                     &output.status,
                 ],
             )
@@ -195,7 +193,7 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
-            outputs.push(SpendableOutput::from_row(row)?);
+            outputs.push(row.try_into()?);
         }
         Ok(outputs)
     }
@@ -237,7 +235,7 @@ impl LdkDatabase {
     pub async fn fetch_invoices(&self, label: Option<String>) -> Result<Vec<Invoice>> {
         debug!("Fetching invoices from database");
         let connection = self.durable_connection.get().await;
-        let mut params = Params::new();
+        let mut params = Params::default();
         let mut query = "
             SELECT
                 i.label as invoice_label,
@@ -262,14 +260,14 @@ impl LdkDatabase {
             .to_string();
         if let Some(label) = &label {
             params.push(label);
-            query.push_str(&format!(" WHERE i.label = ${}", params.count()));
+            query.push_str(&format!("\nWHERE i.label = ${}", params.count()));
         }
         let mut invoices: HashMap<PaymentHash, Invoice> = HashMap::new();
         for row in connection.query(&query, &params.to_params()).await? {
             let payment_hash: Vec<u8> = row.get("payment_hash");
             let payment_hash = PaymentHash(payment_hash.as_slice().try_into()?);
-            let payment = if row.try_get::<&str, Vec<u8>>("id").is_ok() {
-                Some(parse_payment(&row)?)
+            let payment = if row.try_get::<&str, PaymentDirection>("direction").is_ok() {
+                Some(Payment::try_from(&row)?)
             } else {
                 None
             };
@@ -333,7 +331,7 @@ impl LdkDatabase {
                     &(payment.amount as i64),
                     &payment.fee.map(|f| f as i64).as_ref(),
                     &payment.direction,
-                    &payment.timestamp,
+                    &to_primative(&payment.timestamp),
                 ],
             )
             .await?;
@@ -347,7 +345,7 @@ impl LdkDatabase {
     ) -> Result<Vec<Payment>> {
         let connection = self.durable_connection.get().await;
         let mut payments = vec![];
-        let mut params = Params::new();
+        let mut params = Params::default();
         let mut query = "
             SELECT
                 p.id,
@@ -367,45 +365,116 @@ impl LdkDatabase {
             .to_string();
         if let Some(hash) = &payment_hash {
             params.push(hash.0.as_ref());
-            query.push_str(&format!(" AND p.hash = ${}", params.count()));
+            query.push_str(&format!("AND p.hash = ${}", params.count()));
         }
         if let Some(direction) = direction {
             params.push(direction);
-            query.push_str(&format!(" AND p.direction = ${}", params.count()));
+            query.push_str(&format!("AND p.direction = ${}", params.count()));
         }
         for row in connection
             .query(&query.to_string(), &params.to_params())
             .await?
         {
-            let id: &[u8] = row.get("id");
-            let hash: &[u8] = row.get("hash");
-            let preimage: Option<&[u8]> = row.get("preimage");
-            let secret: Option<&[u8]> = row.get("secret");
-
-            let preimage = match preimage {
-                Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
-                None => None,
-            };
-            let secret = match secret {
-                Some(bytes) => Some(PaymentSecret(bytes.try_into().context("bad secret")?)),
-                None => None,
-            };
-
-            payments.push(Payment {
-                id: PaymentId(id.try_into().context("bad ID")?),
-                hash: PaymentHash(hash.try_into().context("bad hash")?),
-                preimage,
-                secret,
-                label: row.get("label"),
-                status: row.get("status"),
-                amount: row.get::<&str, i64>("amount") as u64,
-                fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
-                direction: row.get("direction"),
-                timestamp: row.get("timestamp"),
-                bolt11: row.get("bolt11"),
-            })
+            payments.push(Payment::try_from(&row)?);
         }
         Ok(payments)
+    }
+
+    pub async fn persist_forward(&self, forward: Forward) -> Result<()> {
+        debug!("Persist forward with ID {}", forward.id);
+        let statement = "
+            UPSERT INTO forwards (
+                id,
+                inbound_channel_id,
+                outbound_channel_id,
+                amount,
+                fee,
+                status,
+                htlc_destination,
+                timestamp
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+            .to_string();
+
+        let htlc_destination = if let Some(htlc_destination) = forward.htlc_destination {
+            let mut bytes = vec![];
+            htlc_destination.write(&mut bytes)?;
+            Some(bytes)
+        } else {
+            None
+        };
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                &statement,
+                &[
+                    &forward.id,
+                    &forward.inbound_channel_id.as_ref(),
+                    &forward.outbound_channel_id.as_ref().map(|x| x.as_ref()),
+                    &(forward.amount.map(|x| x as i64)),
+                    &(forward.fee.map(|x| x as i64)),
+                    &forward.status,
+                    &htlc_destination,
+                    &to_primative(&forward.timestamp),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_forwards(&self, status: Option<ForwardStatus>) -> Result<Vec<Forward>> {
+        let mut statement = "
+            SELECT
+                id,
+                inbound_channel_id,
+                outbound_channel_id,
+                amount,
+                fee,
+                status,
+                htlc_destination,
+                timestamp
+            FROM
+                forwards
+            "
+        .to_string();
+        let mut params = Params::default();
+        if let Some(status) = status {
+            statement.push_str("WHERE status = $1");
+            params.push(status);
+        }
+        statement.push_str("ORDER BY timestamp ASC");
+        let mut forwards = vec![];
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(&statement, &params.to_params())
+            .await?;
+
+        for row in rows {
+            forwards.push(row.try_into()?);
+        }
+        Ok(forwards)
+    }
+
+    pub async fn fetch_total_forwards(&self) -> Result<TotalForwards> {
+        let statement = "
+            SELECT
+                count(*) AS count,
+                COALESCE(CAST(sum(amount) AS INT), 0) AS amount,
+                COALESCE(CAST(sum(fee) AS INT), 0) AS fee
+            FROM forwards
+            WHERE status = 'succeeded';
+            "
+        .to_string();
+
+        Ok(self
+            .durable_connection
+            .get()
+            .await
+            .query_one(&statement, &[])
+            .await?
+            .into())
     }
 
     pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
@@ -539,7 +608,7 @@ where
 
     pub async fn fetch_scorer(
         &self,
-        params: ProbabilisticScoringParameters,
+        params: ProbabilisticScoringDecayParameters,
         graph: Arc<NetworkGraph<Arc<KldLogger>>>,
     ) -> Result<
         Option<(
@@ -558,44 +627,13 @@ where
                 let timestamp: SystemTime = row.get(1);
                 let scorer = ProbabilisticScorer::read(
                     &mut Cursor::new(bytes),
-                    (params.clone(), graph.clone(), KldLogger::global()),
+                    (params, graph.clone(), KldLogger::global()),
                 )
                 .expect("Unable to deserialize scorer");
                 (scorer, timestamp)
             });
         Ok(scorer)
     }
-}
-
-fn parse_payment(row: &Row) -> Result<Payment> {
-    let id: &[u8] = row.get("id");
-    let hash: &[u8] = row.get("hash");
-    let preimage: Option<&[u8]> = row.get("preimage");
-    let secret: Option<&[u8]> = row.get("secret");
-    let label: Option<String> = row.get("label");
-
-    let preimage = match preimage {
-        Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
-        None => None,
-    };
-    let secret = match secret {
-        Some(bytes) => Some(PaymentSecret(bytes.try_into().context("bad secret")?)),
-        None => None,
-    };
-
-    Ok(Payment {
-        id: PaymentId(id.try_into().context("bad ID")?),
-        hash: PaymentHash(hash.try_into().context("bad hash")?),
-        preimage,
-        secret,
-        label,
-        status: row.get("status"),
-        amount: row.get::<&str, i64>("amount") as u64,
-        fee: row.get::<&str, Option<i64>>("fee").map(|f| f as u64),
-        direction: row.get("direction"),
-        timestamp: row.get("timestamp"),
-        bolt11: None,
-    })
 }
 
 impl<'a, M: Deref, T: Deref, ES: Deref, NS: Deref, SP: Deref, F: Deref, R: Deref, L: Deref, S>

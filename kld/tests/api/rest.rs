@@ -1,6 +1,7 @@
 use std::assert_eq;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::sync::OnceLock;
 use std::thread::spawn;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, sync::Arc};
@@ -8,16 +9,19 @@ use std::{fs, sync::Arc};
 use anyhow::{Context, Result};
 use axum::http::HeaderValue;
 use futures::FutureExt;
+use hex::ToHex;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
-use kld::api::codegen::get_v1_channel_local_remote_bal_response::GetV1ChannelLocalRemoteBalResponse;
+use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
+use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
+use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
 use kld::api::MacaroonAuth;
+use kld::database::payment::PaymentStatus;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
-use once_cell::sync::Lazy;
 use reqwest::RequestBuilder;
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -295,7 +299,7 @@ pub async fn test_unauthorized() -> Result<()> {
         StatusCode::UNAUTHORIZED,
         readonly_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || PayInvoice {
             label: Some("label".to_string()),
-            bolt11: LIGHTNING.invoice.bolt11.to_string()
+            bolt11: mock_lightning().invoice.bolt11.to_string()
         })?
         .send()
         .await?
@@ -318,6 +322,20 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::GET_FEES)
+            .send()
+            .await?
+            .status()
+    );
+    assert_eq!(
+        StatusCode::UNAUTHORIZED,
+        unauthorized_request(&context, Method::GET, routes::LIST_FORWARDS)
             .send()
             .await?
             .status()
@@ -384,7 +402,7 @@ async fn test_get_info_readonly() -> Result<()> {
         .json()
         .await?;
     assert_eq!(info.address, vec!["127.0.0.1:2312", "[2001:db8::1]:8080"]);
-    assert_eq!(LIGHTNING.num_peers, info.num_peers);
+    assert_eq!(mock_lightning().num_peers, info.num_peers);
     Ok(())
 }
 
@@ -778,7 +796,7 @@ async fn test_generate_invoice() -> Result<()> {
         .await?
         .json()
         .await?;
-    let bolt11 = lightning_invoice::Invoice::from_str(&response.bolt11)?;
+    let bolt11 = lightning_invoice::Bolt11Invoice::from_str(&response.bolt11)?;
     assert_eq!(bolt11.payment_hash().to_string(), response.payment_hash);
     assert!(response.expires_at > expiry);
     Ok(())
@@ -787,7 +805,7 @@ async fn test_generate_invoice() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_invoice_unpaid() -> Result<()> {
     let context = create_api_server().await?;
-    let invoice = &LIGHTNING.invoice;
+    let invoice = &mock_lightning().invoice;
     let response: Vec<Invoice> = admin_request(&context, Method::GET, routes::LIST_INVOICES)?
         .send()
         .await?
@@ -818,7 +836,7 @@ async fn test_list_invoice_unpaid() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_list_payments() -> Result<()> {
     let context = create_api_server().await?;
-    let payment = &LIGHTNING.payment;
+    let payment = &mock_lightning().payment;
     let response: Vec<Payment> = admin_request(
         &context,
         Method::GET,
@@ -831,7 +849,7 @@ async fn test_list_payments() -> Result<()> {
     let payment_response = response.get(0).context("expected payment")?;
     assert_eq!(payment.bolt11, payment_response.bolt11);
     assert_eq!(payment.status.to_string(), payment_response.status);
-    assert!(payment_response.payment_preimage.is_some());
+    assert!(payment_response.payment_preimage.is_none());
     assert_eq!(
         payment.amount.to_string(),
         payment_response.amount_sent_msat
@@ -841,7 +859,7 @@ async fn test_list_payments() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pay_invoice() -> Result<()> {
     let context = create_api_server().await?;
-    let invoice = &LIGHTNING.invoice.bolt11;
+    let invoice = &mock_lightning().invoice.bolt11;
     let request = PayInvoice {
         label: Some("test label".to_string()),
         bolt11: invoice.to_string(),
@@ -877,12 +895,12 @@ async fn test_keysend_admin() -> Result<()> {
             .await?;
     assert_eq!(TEST_PUBLIC_KEY, response.destination);
     assert_eq!(64, response.payment_hash.len());
-    assert_eq!(64, response.payment_preimage.len());
-    assert_eq!(0, response.created_at);
+    assert!(response.payment_preimage.is_empty());
+    assert!(response.created_at > 0);
     assert_eq!(1, response.parts);
     assert_eq!(Some(1000), response.amount_msat);
     assert_eq!(1000000, response.amount_sent_msat);
-    assert_eq!("succeeded", response.status);
+    assert_eq!(PaymentStatus::Pending.to_string(), response.status);
     Ok(())
 }
 
@@ -910,7 +928,7 @@ async fn test_estimate_liquidity() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_local_remote_balance() -> Result<()> {
     let context = create_api_server().await?;
-    let response: GetV1ChannelLocalRemoteBalResponse =
+    let response: GetV1ChannelLocalremotebalResponse =
         readonly_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)?
             .send()
             .await?
@@ -920,6 +938,55 @@ async fn test_local_remote_balance() -> Result<()> {
     assert_eq!(0, response.pending_balance);
     assert_eq!(100000, response.local_balance);
     assert_eq!(999900000, response.remote_balance);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_get_fees() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: GetV1GetFeesResponse = readonly_request(&context, Method::GET, routes::GET_FEES)?
+        .send()
+        .await?
+        .json()
+        .await?;
+    assert_eq!(3000, response.fee_collected);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fetch_forwards() -> Result<()> {
+    let context = create_api_server().await?;
+    let response: Vec<GetV1ChannelListForwardsResponseItem> =
+        readonly_request(&context, Method::GET, routes::LIST_FORWARDS)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    assert_eq!(1, response.len());
+    let forward: &GetV1ChannelListForwardsResponseItem =
+        response.first().context("expected forward")?;
+    assert_eq!(Some(5000000), forward.in_msat);
+    assert_eq!(Some(3000), forward.fee_msat);
+    assert_eq!(
+        mock_lightning()
+            .forward
+            .inbound_channel_id
+            .encode_hex::<String>(),
+        forward.in_channel
+    );
+    assert_eq!(
+        mock_lightning()
+            .forward
+            .outbound_channel_id
+            .map(|x| x.encode_hex()),
+        forward.out_channel
+    );
+    assert_eq!(Some(4997000), forward.out_msat);
+    assert_eq!(None, forward.payment_hash);
+    assert!(forward.received_time > 0);
+    assert!(forward.resolved_time.is_some());
+    assert_eq!(None, forward.failcode);
+    assert_eq!(None, forward.failreason);
     Ok(())
 }
 
@@ -968,9 +1035,17 @@ fn keysend_request() -> KeysendRequest {
     }
 }
 
-static API_RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
+static API_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
-static TEST_CONTEXT: Lazy<RwLock<Option<Arc<TestContext>>>> = Lazy::new(|| RwLock::new(None));
+static TEST_CONTEXT: OnceLock<RwLock<Option<Arc<TestContext>>>> = OnceLock::new();
+
+pub static LIGHTNING: OnceLock<Arc<MockLightning>> = OnceLock::new();
+
+pub fn mock_lightning() -> Arc<MockLightning> {
+    LIGHTNING
+        .get_or_init(|| Arc::new(MockLightning::default()))
+        .clone()
+}
 
 pub struct TestContext {
     pub settings: Settings,
@@ -979,10 +1054,17 @@ pub struct TestContext {
 }
 
 pub async fn create_api_server() -> Result<Arc<TestContext>> {
-    let mut context = TEST_CONTEXT.write().await;
+    let mut context = TEST_CONTEXT.get_or_init(|| RwLock::new(None)).write().await;
     if context.is_some() {
         drop(context); // release lock
-        return Ok(TEST_CONTEXT.read().await.as_ref().unwrap().clone());
+        return Ok(TEST_CONTEXT
+            .get()
+            .unwrap()
+            .read()
+            .await
+            .as_ref()
+            .unwrap()
+            .clone());
     }
     KldLogger::init("test", log::LevelFilter::Info);
     let rest_api_port = get_available_port().context("no port available")?;
@@ -999,18 +1081,20 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
 
     // Run the API with its own runtime in its own thread.
     spawn(move || {
-        API_RUNTIME.spawn(async {
-            bind_api_server(rest_api_address, certs_dir)
-                .await?
-                .serve(
-                    Arc::new(MockBitcoind::default()),
-                    LIGHTNING.clone(),
-                    Arc::new(MockWallet::default()),
-                    macaroon_auth,
-                    quit_signal().shared(),
-                )
-                .await
-        })
+        API_RUNTIME
+            .get_or_init(|| Runtime::new().unwrap())
+            .spawn(async {
+                bind_api_server(rest_api_address, certs_dir)
+                    .await?
+                    .serve(
+                        Arc::new(MockBitcoind::default()),
+                        mock_lightning(),
+                        Arc::new(MockWallet::default()),
+                        macaroon_auth,
+                        quit_signal().shared(),
+                    )
+                    .await
+            })
     });
 
     let new_context = TestContext {
@@ -1030,7 +1114,14 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
 
     *context = Some(Arc::new(new_context));
     drop(context); // release lock
-    Ok(TEST_CONTEXT.read().await.as_ref().unwrap().clone())
+    Ok(TEST_CONTEXT
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .as_ref()
+        .unwrap()
+        .clone())
 }
 
 fn admin_macaroon(settings: &Settings) -> Result<Vec<u8>> {
@@ -1042,8 +1133,6 @@ fn readonly_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     let path = format!("{}/macaroons/readonly.macaroon", settings.data_dir);
     fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
-
-pub static LIGHTNING: Lazy<Arc<MockLightning>> = Lazy::new(|| Arc::new(MockLightning::default()));
 
 fn unauthorized_request(context: &TestContext, method: Method, route: &str) -> RequestBuilder {
     let address = &context.settings.rest_api_address;

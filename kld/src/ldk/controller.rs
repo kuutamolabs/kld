@@ -1,5 +1,6 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
+use crate::database::forward::{Forward, ForwardStatus, TotalForwards};
 use crate::database::invoice::Invoice;
 use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
@@ -15,7 +16,6 @@ use bitcoin::{BlockHash, Network, Transaction};
 use hex::ToHex;
 use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
-use lightning::chain::keysinterface::{InMemorySigner, KeysManager};
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
 use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
@@ -23,7 +23,10 @@ use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
-use lightning::routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters};
+use lightning::routing::scoring::{
+    ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
+};
+use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
 
 use crate::logger::KldLogger;
@@ -388,17 +391,12 @@ impl LightningInterface for Controller {
         let payment_id = Payment::new_id();
         let inflight_htlcs = self.channel_manager.compute_inflight_htlcs();
         let route_params = RouteParameters {
-            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40),
+            payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40, false),
             final_value_msat: amount,
         };
         let route = self
             .router
-            .find_route(
-                &self.identity_pubkey(),
-                &route_params,
-                None,
-                &inflight_htlcs,
-            )
+            .find_route(&self.identity_pubkey(), &route_params, None, inflight_htlcs)
             .map_err(lightning_error)?;
         let hash = self
             .channel_manager
@@ -445,6 +443,14 @@ impl LightningInterface for Controller {
             .lock()
             .map_err(|e| anyhow!("failed to aquire lock on scorer {}", e))?
             .estimated_channel_liquidity_range(scid, target))
+    }
+
+    async fn fetch_total_forwards(&self) -> Result<TotalForwards> {
+        self.database.fetch_total_forwards().await
+    }
+
+    async fn fetch_forwards(&self, status: Option<ForwardStatus>) -> Result<Vec<Forward>> {
+        self.database.fetch_forwards(status).await
     }
 }
 
@@ -581,14 +587,14 @@ impl Controller {
         let scorer = Arc::new(Mutex::new(
             database
                 .fetch_scorer(
-                    ProbabilisticScoringParameters::default(),
+                    ProbabilisticScoringDecayParameters::default(),
                     network_graph.clone(),
                 )
                 .await?
                 .map(|s| s.0)
                 .unwrap_or_else(|| {
                     ProbabilisticScorer::new(
-                        ProbabilisticScoringParameters::default(),
+                        ProbabilisticScoringDecayParameters::default(),
                         network_graph.clone(),
                         KldLogger::global(),
                     )
@@ -600,6 +606,7 @@ impl Controller {
             KldLogger::global(),
             random_seed_bytes,
             scorer.clone(),
+            ProbabilisticScoringFeeParameters::default(),
         ));
 
         let mut channelmonitors = database
@@ -633,6 +640,7 @@ impl Controller {
                     keys_manager.clone(),
                     user_config,
                     chain_params,
+                    0,
                 );
                 (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
@@ -675,6 +683,8 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
+            Arc::new(lightning::onion_message::DefaultMessageRouter {}),
+            IgnoringMessageHandler {},
             IgnoringMessageHandler {},
         ));
         let ephemeral_bytes: [u8; 32] = random();
@@ -682,13 +692,13 @@ impl Controller {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
+            custom_message_handler: IgnoringMessageHandler {},
         };
         let ldk_peer_manager = Arc::new(LdkPeerManager::new(
             lightning_msg_handler,
             current_time.as_secs().try_into().unwrap(),
             &ephemeral_bytes,
             KldLogger::global(),
-            IgnoringMessageHandler {},
             keys_manager.clone(),
         ));
         let peer_manager = Arc::new(PeerManager::new(

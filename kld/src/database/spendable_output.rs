@@ -3,11 +3,13 @@ use std::io::Cursor;
 use anyhow::Result;
 use bitcoin::{hashes::Hash, Txid};
 use lightning::{
-    chain::keysinterface::SpendableOutputDescriptor,
+    sign::SpendableOutputDescriptor,
     util::ser::{Readable, Writeable},
 };
 use postgres_types::{FromSql, ToSql};
 use tokio_postgres::Row;
+
+use crate::ldk::decode_error;
 
 #[derive(Clone, Debug)]
 pub struct SpendableOutput {
@@ -44,23 +46,28 @@ impl SpendableOutput {
         }
     }
 
-    pub fn from_row(row: Row) -> Result<SpendableOutput> {
-        let bytes: Vec<u8> = row.get("descriptor");
-        let descriptor = SpendableOutputDescriptor::read(&mut Cursor::new(bytes)).unwrap();
-        let bytes: Vec<u8> = row.get("txid");
+    pub fn serialize_descriptor(&self) -> Result<Vec<u8>> {
+        let mut bytes = vec![];
+        self.descriptor.write(&mut bytes)?;
+        Ok(bytes)
+    }
+}
+
+impl TryFrom<Row> for SpendableOutput {
+    type Error = anyhow::Error;
+
+    fn try_from(row: Row) -> std::result::Result<Self, Self::Error> {
+        let bytes: &[u8] = row.get("descriptor");
+        let descriptor =
+            SpendableOutputDescriptor::read(&mut Cursor::new(bytes)).map_err(decode_error)?;
+        let bytes: &[u8] = row.get("txid");
         Ok(SpendableOutput {
-            txid: Txid::from_slice(&bytes)?,
+            txid: Txid::from_slice(bytes)?,
             vout: row.get::<&str, i64>("vout") as u16,
             value: row.get::<&str, i64>("value") as u64,
             descriptor,
             status: row.get("status"),
         })
-    }
-
-    pub fn serialize(&self) -> Result<Vec<u8>> {
-        let mut bytes = vec![];
-        self.descriptor.write(&mut bytes)?;
-        Ok(bytes)
     }
 }
 

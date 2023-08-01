@@ -3,22 +3,25 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 
+use bitcoin::blockdata::locktime::PackedLockTime;
 use bitcoin::secp256k1::Secp256k1;
 
+use crate::database::forward::Forward;
 use crate::database::payment::Payment;
 use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
-use lightning::chain::keysinterface::KeysManager;
-use lightning::events::{Event, HTLCDestination, PathFailure, PaymentPurpose};
+use lightning::events::{Event, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
+use lightning::sign::KeysManager;
+use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
 use crate::bitcoind::BitcoindClient;
-use crate::ldk::ldk_error;
+use crate::ldk::{htlc_destination_to_string, ldk_error};
 use crate::wallet::{Wallet, WalletInterface};
 
 use super::controller::AsyncAPIRequests;
@@ -190,6 +193,7 @@ impl EventHandler {
                 via_user_channel_id: _,
                 onion_fields: _,
                 claim_deadline,
+                ..
             } => {
                 info!(
                     "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
@@ -427,8 +431,27 @@ impl EventHandler {
                 } else {
                     "".to_string()
                 };
+                let id = if let (
+                    Some(inbound_channel_id),
+                    Some(outbound_channel_id),
+                    Some(amount),
+                    Some(fee),
+                ) = (
+                    prev_channel_id,
+                    next_channel_id,
+                    outbound_amount_forwarded_msat,
+                    fee_earned_msat,
+                ) {
+                    let forward =
+                        Forward::success(inbound_channel_id, outbound_channel_id, amount, fee);
+                    let id = forward.id.to_string();
+                    self.persist_forward(forward);
+                    format!(" with ID {id}")
+                } else {
+                    "".to_string()
+                };
                 info!(
-                    "EVENT: Forwarded payment{from_prev_str}{to_next_str} {amount_str},{fee_str} {from_onchain_str}",
+                    "EVENT: Forwarded payment{id}{from_prev_str}{to_next_str} {amount_str},{fee_str} {from_onchain_str}",
                 );
             }
             Event::ProbeSuccessful { .. } => {}
@@ -437,31 +460,13 @@ impl EventHandler {
                 prev_channel_id,
                 failed_next_destination,
             } => {
+                let forward = Forward::failure(prev_channel_id, failed_next_destination.clone());
+                let id = forward.id.to_string();
+                self.persist_forward(forward);
                 error!(
-                    "EVENT: Failed handling HTLC from channel {}. {}",
+                    "EVENT: Failed handling HTLC with ID {id} from channel {}. {}",
                     prev_channel_id.encode_hex::<String>(),
-                    match failed_next_destination {
-                        HTLCDestination::NextHopChannel {
-                            node_id: _,
-                            channel_id,
-                        } => format!("Next hop channel ID {}", channel_id.encode_hex::<String>()),
-                        HTLCDestination::UnknownNextHop {
-                            requested_forward_scid,
-                        } => format!(
-                            "Unknown next hop to requested SCID {}",
-                            requested_forward_scid
-                        ),
-                        HTLCDestination::InvalidForward {
-                            requested_forward_scid,
-                        } => format!(
-                            "Invalid forward to requested SCID {}",
-                            requested_forward_scid
-                        ),
-                        HTLCDestination::FailedPayment { payment_hash } => format!(
-                            "Failed payment with hash {}",
-                            payment_hash.0.encode_hex::<String>()
-                        ),
-                    }
+                    htlc_destination_to_string(&failed_next_destination)
                 );
             }
             Event::PendingHTLCsForwardable { time_forwardable } => {
@@ -480,7 +485,7 @@ impl EventHandler {
                     info!("EVENT: New {:?}", spendable_output);
                     self.persist_spendable_output(spendable_output.clone());
                 }
-                let destination_address = match self.wallet.new_address() {
+                let destination_address = match self.wallet.new_internal_address() {
                     Ok(a) => a,
                     Err(e) => {
                         error!("Could not get new address: {}", e);
@@ -495,11 +500,18 @@ impl EventHandler {
                     .bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
 
+                let best_block_height = self
+                    .bitcoind_client
+                    .get_best_block()
+                    .await
+                    .map(|r| r.1.unwrap_or_default())
+                    .unwrap_or_default();
                 match self.keys_manager.spend_spendable_outputs(
                     output_descriptors,
                     Vec::new(),
                     destination_address.script_pubkey(),
                     tx_feerate,
+                    Some(PackedLockTime(best_block_height)),
                     &Secp256k1::new(),
                 ) {
                     Ok(spending_tx) => {
@@ -507,7 +519,7 @@ impl EventHandler {
                             "Sending spendable output to {}",
                             destination_address.address
                         );
-                        self.bitcoind_client.broadcast_transaction(&spending_tx);
+                        self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
                         for spendable_output in spendable_outputs.iter_mut() {
                             spendable_output.status = SpendableOutputStatus::Spent;
                             self.persist_spendable_output(spendable_output.clone());
@@ -525,6 +537,7 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
             } => {}
+            Event::BumpTransaction(_) => todo!(),
         }
     }
 
@@ -532,6 +545,15 @@ impl EventHandler {
         let database = self.ldk_database.clone();
         self.runtime_handle.spawn(async move {
             if let Err(e) = database.persist_spendable_output(spendable_output).await {
+                error!("{e}");
+            }
+        });
+    }
+
+    fn persist_forward(&self, forward: Forward) {
+        let database = self.ldk_database.clone();
+        self.runtime_handle.spawn(async move {
+            if let Err(e) = database.persist_forward(forward).await {
                 error!("{e}");
             }
         });

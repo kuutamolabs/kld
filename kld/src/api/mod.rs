@@ -18,7 +18,8 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{
-            close_channel, list_channels, local_remote_balance, open_channel, set_channel_fee,
+            close_channel, list_channels, list_forwards, local_remote_balance, open_channel,
+            set_channel_fee,
         },
         invoices::{generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
@@ -28,7 +29,7 @@ use crate::{
         },
         payments::{keysend, list_payments, pay_invoice},
         peers::{connect_peer, disconnect_peer, list_peers},
-        utility::{estimate_channel_liquidity_range, sign},
+        utility::{estimate_channel_liquidity_range, get_fees, sign},
         wallet::{get_balance, list_funds, new_address, transfer},
         ws::ws_handler,
     },
@@ -100,6 +101,8 @@ impl RestApi {
             .route(routes::LIST_INVOICES, get(list_invoices))
             .route(routes::LIST_PAYMENTS, get(list_payments))
             .route(routes::LOCAL_REMOTE_BALANCE, get(local_remote_balance))
+            .route(routes::GET_FEES, get(get_fees))
+            .route(routes::LIST_FORWARDS, get(list_forwards))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()

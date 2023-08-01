@@ -16,12 +16,13 @@ doctest = false
 
 [dependencies]
 api = { path = "../api" }
-lightning = { version = "0.0.115", features = ["max_level_trace", "_test_utils"] }
-lightning-block-sync = { version = "0.0.115", features = [ "rpc-client" ] }
-lightning-invoice = { version = "0.23" }
-lightning-net-tokio = { version = "0.0.115" }
-lightning-background-processor = { version = "0.0.115", features = [ "futures" ] }
-lightning-rapid-gossip-sync = { version = "0.0.115" }
+
+lightning = { version = "0.0.116", features = ["max_level_trace", "_test_utils"] }
+lightning-block-sync = { version = "0.0.116", features = [ "rpc-client" ] }
+lightning-invoice = "0.24.0"
+lightning-net-tokio = "0.0.116"
+lightning-background-processor = { version = "0.0.116", features = [ "futures" ] }
+lightning-rapid-gossip-sync = "0.0.116"
 
 macaroon = "0.3.0"
 bitcoin = "0.29.2"
@@ -33,12 +34,10 @@ base64 = "0.21.2"
 bdk = { git = "https://github.com/JosephGoulden/bdk", branch = "backport-begin-batch-result", features = [ "electrum" ] }
 anyhow = { version = "1.0.71", features = [ "backtrace" ] }
 futures = "0.3"
-chrono = "0.4"
 rand = "0.8.5"
 log = { version = "0.4", features = ["std"] }
 tokio = { version = "1", features = [ "full" ] }
 prometheus = "0.13.2"
-once_cell = "1.18.0"
 hyper = { version = "0.14.27", features = [ "full" ] }
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
@@ -49,10 +48,12 @@ async-trait = "0.1.71"
 clap = { version = "4.3.16", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
 thiserror = "1.0"
+uuid = { version = "1.4.0", features = [ "v4", "fast-rng" ] }
+time = "0.3.24"
 
 # database
 bitvec = "1.0.1"
-tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-1"] }
+tokio-postgres = { version = "0.7.8", features = ["runtime", "with-bit-vec-0_6", "with-uuid-1", "with-time-0_3"] }
 postgres-openssl = "0.5.0"
 postgres-types = { version = "0.2.5", features = [ "derive" ] }
 openssl = "0.10.55"

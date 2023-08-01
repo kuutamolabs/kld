@@ -45,7 +45,7 @@ pub(crate) async fn new_address(
             return Err(bad_request(anyhow!("Unsupported address type")));
         }
     }
-    let address_info = wallet.new_address().map_err(internal_server)?;
+    let address_info = wallet.new_external_address().map_err(internal_server)?;
     let response = NewAddressResponse {
         address: address_info.address.to_string(),
     };

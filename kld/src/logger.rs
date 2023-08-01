@@ -1,7 +1,9 @@
 use lightning::util::logger::{Level, Logger};
 use log::{logger, LevelFilter, Log, Metadata, MetadataBuilder, Record};
-use once_cell::sync::OnceCell;
-use std::{process, sync::Arc};
+use std::{
+    process,
+    sync::{Arc, OnceLock},
+};
 
 /// A logger instance for logfmt format (https://www.brandur.org/logfmt)
 #[derive(Debug)]
@@ -10,7 +12,7 @@ pub struct KldLogger {
 }
 
 // LDK requires the Arc so may as well be global.
-static KLD_LOGGER: OnceCell<Arc<KldLogger>> = OnceCell::new();
+static KLD_LOGGER: OnceLock<Arc<KldLogger>> = OnceLock::new();
 
 impl KldLogger {
     pub fn init(node_id: &str, level_filter: LevelFilter) {
