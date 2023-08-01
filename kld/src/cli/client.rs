@@ -2,7 +2,7 @@ use std::{fs::File, io::Read};
 
 use anyhow::{anyhow, Result};
 use api::{
-    routes, Channel, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
+    routes, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
     NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, PayInvoice, Payment,
     PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
@@ -12,6 +12,7 @@ use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
+    get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
@@ -96,9 +97,11 @@ impl Api {
         deserialize::<ListFunds>(response)
     }
 
-    pub fn list_channels(&self) -> Result<String> {
-        let response = self.request(Method::GET, routes::LIST_CHANNELS).send()?;
-        deserialize::<Vec<Channel>>(response)
+    pub fn list_peer_channels(&self) -> Result<String> {
+        let response = self
+            .request(Method::GET, routes::LIST_PEER_CHANNELS)
+            .send()?;
+        deserialize::<Vec<GetV1ChannelListPeerChannelsResponse>>(response)
     }
 
     pub fn list_peers(&self) -> Result<String> {

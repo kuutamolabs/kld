@@ -97,6 +97,114 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  /v1/channel/listPeerChannels:
+    get:
+      tags:
+        - Channel Management
+      description: Returns data on channels that are known to the node
+      operationId: listpeerchannel
+      security:
+        - MacaroonAuth: []
+      responses:
+        "200":
+          description: An array of channels is returned
+          schema:
+            type: object
+            properties:
+              peer_id:
+                type: string
+                description: Pub key
+              peer_connected:
+                type: boolean
+                description: Peer connection status (true or false)
+              opener:
+                type: string
+                enum: [local, remote]
+                description: Who initiated the channel (local or remote)
+              short_channel_id:
+                type: string
+                description: Short Channel ID
+              channel_id:
+                type: string
+                description: Channel ID
+              funding_txid:
+                type: string
+                description: Channel funding transaction
+              private:
+                type: boolean
+                description: Private channel flag (true or false)
+              to_us_msat:
+                type: integer
+                description: Msatoshis to us
+              to_them_msat:
+                type: integer
+                description: Msatoshis to them
+              total_msat:
+                type: integer
+                description: Msatoshis total
+              their_reserve_msat:
+                type: integer
+                description: Their channel reserve Msats
+              our_reserve_msat:
+                type: integer
+                description: Our channel reserve Msats
+              spendable_msat:
+                type: integer
+                description: Spendable Msats
+              receivable_msat:
+                type: integer
+                description: Receivable Msats
+              funding:
+                type: object
+                description: Funding
+              state:
+                type: string
+                enum: [usable, ready, pending]
+                description: Channel connection status
+              fee_base_msat:
+                type: integer
+                description: Base Fee Msats
+              fee_proportional_millionths:
+                type: integer
+                description: Fee Proportion Millionth
+              dust_limit_msat:
+                type: integer
+                description: Dust limit Msats
+              htlcs:
+                type: array
+                items:
+                  type: object
+                description: List of HTLCs
+              features:
+                type: array
+                items:
+                  type: string
+                description: Features which apply to this channel
+              alias:
+                type: string
+                description: Alias of the node
+            required:
+              - peer_id
+              - peer_connected
+              - opener
+              - channel_id
+              - private
+              - to_us_msat
+              - to_them_msat
+              - total_msat
+              - their_reserve_msat
+              - spendable_msat
+              - receivable_msat
+              - state
+              - fee_base_msat
+              - fee_proportional_millionths
+              - dust_limit_msat
+              - features
+              - alias
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
   /v1/channel/listForwards:
     get:
       tags:

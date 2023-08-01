@@ -5,14 +5,15 @@ use std::{
 
 use anyhow::{bail, Result};
 use api::{
-    Channel, FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice,
-    ListFunds, NetworkChannel, NetworkNode, NewAddressResponse, Payment, PaymentResponse, Peer,
+    FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice, ListFunds,
+    NetworkChannel, NetworkNode, NewAddressResponse, Payment, PaymentResponse, Peer,
     SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
 use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
+    get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse,
@@ -77,9 +78,9 @@ async fn test_cli_list_funds() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_cli_list_channels() -> Result<()> {
-    let output = run_cli("list-channels", &[]).await?;
-    let _: Vec<Channel> = deserialize(&output.stdout)?;
+async fn test_cli_list_peer_channels() -> Result<()> {
+    let output = run_cli("list-peer-channels", &[]).await?;
+    let _: Vec<GetV1ChannelListPeerChannelsResponse> = deserialize(&output.stdout)?;
     Ok(())
 }
 
