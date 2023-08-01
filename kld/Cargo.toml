@@ -29,7 +29,6 @@ macaroon = "0.3.0"
 bitcoin = "0.29.2"
 bitcoincore-rpc-json = "0.16.0"
 rust-bip39 = "1.0.0"
-hex = "0.4"
 base64 = "0.21.2"
 # see https://github.com/bitcoindevkit/bdk/pull/850, rebased to 0.28.0 release
 bdk = { git = "https://github.com/JosephGoulden/bdk", branch = "backport-begin-batch-result", features = [ "electrum" ] }

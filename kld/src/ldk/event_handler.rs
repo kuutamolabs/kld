@@ -4,6 +4,7 @@ use std::time::{Duration, SystemTime};
 use anyhow::{anyhow, bail, Context, Result};
 
 use bitcoin::blockdata::locktime::PackedLockTime;
+use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
@@ -14,7 +15,6 @@ use crate::database::{LdkDatabase, WalletDatabase};
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::log_error;
 use crate::settings::Settings;
-use hex::ToHex;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::events::{Event, PathFailure, PaymentPurpose};
 use lightning::routing::gossip::NodeId;
@@ -138,7 +138,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is pending. OutPoint: {funding_txo}",
-                    channel_id.encode_hex::<String>(),
+                    channel_id.to_hex(),
                 );
             }
             Event::ChannelReady {
@@ -149,7 +149,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
-                    channel_id.encode_hex::<String>(),
+                    channel_id.to_hex(),
                 );
                 if let Some(channel_details) = self
                     .channel_manager
@@ -169,10 +169,7 @@ impl EventHandler {
                 reason,
                 user_channel_id,
             } => {
-                info!(
-                    "EVENT: Channel {}: {reason}.",
-                    channel_id.encode_hex::<String>()
-                );
+                info!("EVENT: Channel {}: {reason}.", channel_id.to_hex());
                 self.async_api_requests
                     .funding_transactions
                     .respond(
@@ -190,7 +187,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Funding discarded for channel: {}, txid: {}",
-                    channel_id.encode_hex::<String>(),
+                    channel_id.to_hex(),
                     transaction.txid()
                 );
             }
@@ -212,10 +209,10 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
-                    payment_hash.0.encode_hex::<String>(),
+                    payment_hash.0.to_hex(),
                     amount_msat,
                     if let Some(channel_id) = via_channel_id {
-                        format!("via channel ID {} ", channel_id.encode_hex::<String>())
+                        format!("via channel ID {} ", channel_id.to_hex())
                     } else {
                         String::new()
                     },
@@ -249,7 +246,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Payment claimed with hash {} of {} millisats",
-                    payment_hash.0.encode_hex::<String>(),
+                    payment_hash.0.to_hex(),
                     amount_msat,
                 );
                 let payment = match purpose {
@@ -279,9 +276,9 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Payment with hash {}{} sent successfully{}",
-                    payment_hash.0.encode_hex::<String>(),
+                    payment_hash.0.to_hex(),
                     if let Some(id) = payment_id {
-                        format!(" and ID {}", id.0.encode_hex::<String>())
+                        format!(" and ID {}", id.0.to_hex())
                     } else {
                         "".to_string()
                     },
@@ -293,17 +290,14 @@ impl EventHandler {
                 );
                 let payment_id = payment_id.context(format!(
                     "Failed to update payment with hash {}",
-                    payment_hash.0.encode_hex::<String>()
+                    payment_hash.0.to_hex()
                 ))?;
                 let (mut payment, respond) = self
                     .async_api_requests
                     .payments
                     .get(&payment_id)
                     .await
-                    .context(format!(
-                        "Can't find payment for {}",
-                        payment_id.0.encode_hex::<String>()
-                    ))?;
+                    .context(format!("Can't find payment for {}", payment_id.0.to_hex()))?;
                 payment.succeeded(Some(payment_preimage), fee_paid_msat);
                 respond(Ok(payment));
             }
@@ -315,9 +309,9 @@ impl EventHandler {
                 info!(
                     "EVENT: Payment path with {} hops successful for payment with ID {}{}",
                     path.hops.len(),
-                    payment_id.0.encode_hex::<String>(),
+                    payment_id.0.to_hex(),
                     payment_hash
-                        .map(|h| format!(" and hash {}", h.0.encode_hex::<String>()))
+                        .map(|h| format!(" and hash {}", h.0.to_hex()))
                         .unwrap_or_default()
                 );
             }
@@ -339,8 +333,8 @@ impl EventHandler {
                 };
                 info!(
                     "EVENT: Payment path failed for payment with hash {}{}. Payment failed {} {}. Path: {:?}",
-                    payment_hash.0.encode_hex::<String>(),
-                    payment_id.map(|id| format!(" and ID {}", id.0.encode_hex::<String>())).unwrap_or_default(),
+                    payment_hash.0.to_hex(),
+                    payment_id.map(|id| format!(" and ID {}", id.0.to_hex())).unwrap_or_default(),
                     if payment_failed_permanently {
                         "permanently"
                     } else {
@@ -361,8 +355,8 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Failed to send payment with ID {} and hash {}{}",
-                    payment_id.0.encode_hex::<String>(),
-                    payment_hash.0.encode_hex::<String>(),
+                    payment_id.0.to_hex(),
+                    payment_hash.0.to_hex(),
                     reason
                         .map(|r| format!(" for reason {r:?}"))
                         .unwrap_or_default()
@@ -372,10 +366,7 @@ impl EventHandler {
                     .payments
                     .get(&payment_id)
                     .await
-                    .context(format!(
-                        "Can't find payment for {}",
-                        payment_id.0.encode_hex::<String>()
-                    ))?;
+                    .context(format!("Can't find payment for {}", payment_id.0.to_hex()))?;
                 payment.failed(reason);
                 respond(Ok(payment));
             }
@@ -410,9 +401,7 @@ impl EventHandler {
                 };
                 let channel_str = |channel_id: &Option<[u8; 32]>| {
                     channel_id
-                        .map(|channel_id| {
-                            format!(" with channel {}", channel_id.encode_hex::<String>())
-                        })
+                        .map(|channel_id| format!(" with channel {}", channel_id.to_hex()))
                         .unwrap_or_default()
                 };
                 let from_prev_str = format!(
@@ -475,7 +464,7 @@ impl EventHandler {
                 self.persist_forward(forward);
                 error!(
                     "EVENT: Failed handling HTLC with ID {id} from channel {}. {}",
-                    prev_channel_id.encode_hex::<String>(),
+                    prev_channel_id.to_hex(),
                     htlc_destination_to_string(&failed_next_destination)
                 );
             }

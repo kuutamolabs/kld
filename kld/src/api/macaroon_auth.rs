@@ -1,4 +1,5 @@
 use base64::{engine::general_purpose, Engine};
+use bitcoin::hashes::hex::FromHex;
 use hyper::header;
 #[cfg(not(test))]
 use std::fs;
@@ -145,7 +146,7 @@ where
         let macaroon = Macaroon::deserialize(value).map(KldMacaroon);
 
         if macaroon.is_err() {
-            if let Ok(bytes) = hex::decode(value) {
+            if let Ok(bytes) = Vec::<u8>::from_hex(value) {
                 if let Ok(macaroon) = Macaroon::deserialize_binary(&bytes).map(KldMacaroon) {
                     return Ok(macaroon);
                 }

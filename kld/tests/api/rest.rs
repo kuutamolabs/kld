@@ -8,8 +8,8 @@ use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use axum::http::HeaderValue;
+use bitcoin::hashes::hex::ToHex;
 use futures::FutureExt;
-use hex::ToHex;
 use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
@@ -1020,17 +1020,14 @@ async fn test_fetch_forwards() -> Result<()> {
     assert_eq!(Some(5000000), forward.in_msat);
     assert_eq!(Some(3000), forward.fee_msat);
     assert_eq!(
-        mock_lightning()
-            .forward
-            .inbound_channel_id
-            .encode_hex::<String>(),
+        mock_lightning().forward.inbound_channel_id.to_hex(),
         forward.in_channel
     );
     assert_eq!(
         mock_lightning()
             .forward
             .outbound_channel_id
-            .map(|x| x.encode_hex()),
+            .map(|x| x.to_hex()),
         forward.out_channel
     );
     assert_eq!(Some(4997000), forward.out_msat);
@@ -1052,10 +1049,8 @@ async fn test_channel_history() -> Result<()> {
             .json()
             .await?;
     let channel = response.first().context("expected channel")?;
-    assert_eq!(
-        mock_lightning().channel.channel_id.encode_hex::<String>(),
-        channel.id
-    );
+    assert_eq!(mock_lightning().channel.channel_id.to_hex(), channel.id);
+    assert_eq!(mock_lightning().channel.channel_id.to_hex(), channel.id);
     assert_eq!(TEST_SHORT_CHANNEL_ID as i64, channel.scid);
     assert_eq!(
         mock_lightning().channel.user_channel_id as i64,

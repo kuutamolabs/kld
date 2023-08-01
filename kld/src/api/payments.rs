@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use api::{KeysendRequest, ListPaysParams, PayInvoice, Payment, PaymentResponse};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
-use hex::ToHex;
+use bitcoin::hashes::hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
 use crate::{
@@ -23,15 +23,12 @@ pub(crate) async fn keysend(
         .map_err(internal_server)?;
     let response = PaymentResponse {
         destination: keysend_request.pubkey,
-        payment_hash: payment.hash.0.encode_hex::<String>(),
+        payment_hash: payment.hash.0.to_hex(),
         created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: Some(keysend_request.amount),
         amount_sent_msat: keysend_request.amount * 1000,
-        payment_preimage: payment
-            .preimage
-            .map(|i| i.0.encode_hex::<String>())
-            .unwrap_or_default(),
+        payment_preimage: payment.preimage.map(|i| i.0.to_hex()).unwrap_or_default(),
         status: payment.status.to_string(),
     };
     Ok(Json(response))
@@ -50,15 +47,12 @@ pub(crate) async fn pay_invoice(
         .map_err(internal_server)?;
     let response = PaymentResponse {
         destination,
-        payment_hash: payment.hash.0.encode_hex::<String>(),
+        payment_hash: payment.hash.0.to_hex(),
         created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: amount,
         amount_sent_msat: payment.amount,
-        payment_preimage: payment
-            .preimage
-            .map(|i| i.0.encode_hex::<String>())
-            .unwrap_or_default(),
+        payment_preimage: payment.preimage.map(|i| i.0.to_hex()).unwrap_or_default(),
         status: payment.status.to_string(),
     };
     Ok(Json(response))
@@ -86,7 +80,7 @@ pub(crate) async fn list_payments(
         .map(|p| Payment {
             bolt11: p.bolt11,
             status: p.status.to_string(),
-            payment_preimage: p.preimage.map(|i| i.0.encode_hex()),
+            payment_preimage: p.preimage.map(|i| i.0.to_hex()),
             amount_sent_msat: p.amount.to_string(),
         })
         .collect();
