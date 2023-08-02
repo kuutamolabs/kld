@@ -23,7 +23,7 @@ mod nixos_rebuild;
 mod reboot;
 mod rollback;
 pub mod secrets;
-mod ssh;
+pub mod ssh;
 mod update;
 
 /// utils for deploy and control remote machines

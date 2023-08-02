@@ -22,7 +22,7 @@ pub struct Secrets {
 impl Secrets {
     pub fn new<'a, I>(secrets: I) -> Result<Self>
     where
-        I: Iterator<Item = &'a (PathBuf, String)>,
+        I: Iterator<Item = &'a (PathBuf, Vec<u8>)>,
     {
         let tmp_dir = Builder::new()
             .prefix("kuutamo-secrets.")
@@ -43,7 +43,7 @@ impl Secrets {
             let mut file = options.open(&secret_path).with_context(|| {
                 format!("Cannot open secret {} for writing.", secret_path.display())
             })?;
-            file.write_all(content.as_bytes()).with_context(|| {
+            file.write_all(content).with_context(|| {
                 format!(
                     "cannot write secret to temporary location at {}",
                     secret_path.display()
@@ -60,7 +60,7 @@ impl Secrets {
     // rsync -vrlF -e "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" "$extra_files" "${ssh_connection}:/mnt/"
     pub fn upload(&self, ssh_target: &str) -> Result<()> {
         // Do proper logging here?
-        println!("Upload secrets");
+        println!("Uploading secrets");
         let path = self
             .path()
             .to_str()
@@ -117,5 +117,14 @@ pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {
         readonly_macaroon.serialize(macaroon::Format::V2)?,
     )?;
 
+    Ok(())
+}
+
+pub fn generate_disk_encryption_key(key: &Path) -> Result<()> {
+    let output_file = format!("of={}", key.display());
+    let args = vec!["if=/dev/random", &output_file, "bs=32", "count=1"];
+    let status = Command::new("dd").args(&args).status();
+    status_to_pretty_err(status, "dd", &args)?;
+    println!("Generate disk encryption key: {}", key.display());
     Ok(())
 }

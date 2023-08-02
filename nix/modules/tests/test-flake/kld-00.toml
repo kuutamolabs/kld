@@ -16,7 +16,6 @@ bitcoind_disks = []
 telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
 kld_node_alias = "kld-00-alias"
-kld_preset_mnemonic = true
 
 [[cockroach_peers]]
 name = "db-00"

@@ -7,7 +7,8 @@ use clap::Parser;
 use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
-use mgr::secrets::generate_mnemonic_and_macaroons;
+use mgr::secrets::{generate_disk_encryption_key, generate_mnemonic_and_macaroons};
+use mgr::ssh::generate_key_pair;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::env;
@@ -298,6 +299,22 @@ pub fn main() -> Result<()> {
                 &CertRenewPolicy::default(),
             )
             .context("failed to create or update cockroachdb certificates")?;
+
+            // ssh server key for initrd sshd
+            let sshd_dir = config.global.secret_directory.join("sshd");
+            std::fs::create_dir_all(&sshd_dir)?;
+            for (name, _) in config.hosts.iter() {
+                let p = sshd_dir.join(name);
+                if !p.exists() {
+                    generate_key_pair(&p)?;
+                }
+            }
+
+            let disk_encryption_key = &config.global.secret_directory.join("disk_encryption_key");
+            if !disk_encryption_key.exists() {
+                generate_disk_encryption_key(disk_encryption_key)?;
+            }
+
             if !install_args.generate_secret_on_remote {
                 generate_mnemonic_and_macaroons(&config.global.secret_directory)?;
             }

@@ -300,63 +300,68 @@ impl Host {
         let lightning = secrets_dir.join("lightning");
         let cockroachdb = secrets_dir.join("cockroachdb");
         let mnemonic = secrets_dir.join("mnemonic");
-
         let mut secret_files = vec![
             // for kld
             (
                 PathBuf::from("/var/lib/secrets/kld/ca.pem"),
-                fs::read_to_string(lightning.join("ca.pem")).context("failed to read ca.pem")?,
+                fs::read(lightning.join("ca.pem")).context("failed to read ca.pem")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.pem"),
-                fs::read_to_string(lightning.join(format!("{}.pem", self.name)))
+                fs::read(lightning.join(format!("{}.pem", self.name)))
                     .context("failed to read kld.pem")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.key"),
-                fs::read_to_string(lightning.join(format!("{}.key", self.name)))
+                fs::read(lightning.join(format!("{}.key", self.name)))
                     .context("failed to read kld.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.crt"),
-                fs::read_to_string(cockroachdb.join("client.kld.crt"))
+                fs::read(cockroachdb.join("client.kld.crt"))
                     .context("failed to read client.kld.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.key"),
-                fs::read_to_string(cockroachdb.join("client.kld.key"))
+                fs::read(cockroachdb.join("client.kld.key"))
                     .context("failed to read client.kld.key")?,
             ),
             // for cockroachdb
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/ca.crt"),
-                fs::read_to_string(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
+                fs::read(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.crt"),
-                fs::read_to_string(cockroachdb.join("client.root.crt"))
+                fs::read(cockroachdb.join("client.root.crt"))
                     .context("failed to read client.root.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.key"),
-                fs::read_to_string(cockroachdb.join("client.root.key"))
+                fs::read(cockroachdb.join("client.root.key"))
                     .context("failed to read client.root.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.crt"),
-                fs::read_to_string(cockroachdb.join(format!("{}.node.crt", self.name)))
+                fs::read(cockroachdb.join(format!("{}.node.crt", self.name)))
                     .context("failed to read node.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.key"),
-                fs::read_to_string(cockroachdb.join(format!("{}.node.key", self.name)))
+                fs::read(cockroachdb.join(format!("{}.node.key", self.name)))
                     .context("failed to read node.key")?,
+            ),
+            // sshd server key
+            (
+                PathBuf::from("/var/lib/secrets/sshd_key"),
+                fs::read(secrets_dir.join("sshd").join(&self.name))
+                    .context("failed to read sshd server key")?,
             ),
         ];
         if mnemonic.exists() {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/mnemonic"),
-                fs::read_to_string(mnemonic).context("failed to read mnemonic")?,
+                fs::read(mnemonic).context("failed to read mnemonic")?,
             ))
         }
         if let Some(KmonitorConfig {
@@ -367,7 +372,7 @@ impl Host {
         {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/telegraf"),
-                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string()))
+                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into()
             ));
         }
 
@@ -405,11 +410,7 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     Ok(global)
 }
 
-fn validate_host(
-    name: &str,
-    host: &HostConfig,
-    default: &HostConfig,
-) -> Result<Host> {
+fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
     if !host.others.is_empty() {
         bail!(
             "{} are not allowed fields",
@@ -669,10 +670,7 @@ pub struct Config {
 }
 
 /// Parse toml configuration
-pub fn parse_config(
-    content: &str,
-    working_directory: &Path,
-) -> Result<Config> {
+pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
     let mut hosts = config
         .hosts
@@ -804,18 +802,14 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"), false)?;
+    parse_config(TEST_CONFIG, Path::new("/"))?;
 
     Ok(())
 }
 
 #[test]
 pub fn test_parse_config_with_redundant_filds() {
-    let parse_result = parse_config(
-        &format!("{}\nredundant = 111", TEST_CONFIG),
-        Path::new("/"),
-        false,
-    );
+    let parse_result = parse_config(&format!("{}\nredundant = 111", TEST_CONFIG), Path::new("/"));
     assert!(parse_result.is_err());
 }
 

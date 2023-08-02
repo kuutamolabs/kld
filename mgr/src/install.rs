@@ -45,12 +45,22 @@ pub fn install(
                 format!("{}@{}", host.install_ssh_user, host.ssh_hostname)
             };
 
+            let disk_encryption_key = secrets_dir.join("disk_encryption_key");
+            let disk_encryption_key_path = format!(
+                "./{}",
+                disk_encryption_key
+                    .to_str()
+                    .expect("Fail to get disk_encryption_key path")
+            );
             let secrets = host.secrets(secrets_dir).context("Failed to get secrets")?;
             let flake_uri = format!("{}#{}", flake.path().display(), host.name);
             let extra_files = format!("{}", secrets.path().display());
             let mut args = vec![
                 "--extra-files",
                 &extra_files,
+                "--disk-encryption-keys",
+                "/var/lib/disk_encryption_key",
+                &disk_encryption_key_path,
                 "--kexec",
                 kexec_url,
                 "--flake",

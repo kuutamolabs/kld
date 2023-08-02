@@ -10,7 +10,8 @@ let
 
   ESP = {
     name = "ESP";
-    end = "500M";
+    size = "500M";
+    type = "EF00";
     content = {
       type = "mdraid";
       name = "boot";
@@ -64,7 +65,8 @@ in
         content = {
           type = "luks";
           name = "root-encrypted";
-          settings.keyFile = "/run/diskKeyFile";
+          keyFile = "/var/lib/disk_encryption_key";
+          settings.preLVM = false;
           content = {
             type = "filesystem";
             format = "ext4";
