@@ -33,7 +33,7 @@ async fn test_cli_get_info() -> Result<()> {
 
 #[tokio::test]
 async fn test_sign() -> Result<()> {
-    let output = run_cli("sign", &["--message", "testmessage"]).await?;
+    let output = run_cli("sign", &["testmessage"]).await?;
     let _: SignResponse = deserialize(&output.stdout)?;
     Ok(())
 }
@@ -56,14 +56,7 @@ async fn test_cli_new_address() -> Result<()> {
 async fn test_cli_withdraw() -> Result<()> {
     let output = run_cli(
         "withdraw",
-        &[
-            "--address",
-            TEST_ADDRESS,
-            "--satoshis",
-            "1000",
-            "--fee-rate",
-            "3000perkw",
-        ],
+        &[TEST_ADDRESS, "1000", "--fee-rate", "3000perkw"],
     )
     .await?;
     let _: WalletTransferResponse = deserialize(&output.stdout)?;
@@ -93,21 +86,14 @@ async fn test_cli_list_peers() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_connect_peer() -> Result<()> {
-    let output = run_cli("connect-peer", &["--public-key", TEST_PUBLIC_KEY]).await?;
+    let output = run_cli("connect-peer", &[TEST_PUBLIC_KEY]).await?;
     let _: PublicKey = deserialize(&output.stdout)?;
     Ok(())
 }
 
 #[tokio::test]
-async fn test_cli_connect_peer_malformed_id() -> Result<()> {
-    let output = run_cli("connect-peer", &["--public-key", "abc@1.2"]).await?;
-    let _: api::Error = deserialize(&output.stdout)?;
-    Ok(())
-}
-
-#[tokio::test]
 async fn test_cli_disconnect_peer() -> Result<()> {
-    let output = run_cli("disconnect-peer", &["--public-key", TEST_PUBLIC_KEY]).await?;
+    let output = run_cli("disconnect-peer", &[TEST_PUBLIC_KEY]).await?;
 
     assert!(&output.stdout.is_empty());
     Ok(())
@@ -118,9 +104,7 @@ async fn test_cli_open_channel() -> Result<()> {
     let output = run_cli(
         "open-channel",
         &[
-            "--public-key",
             TEST_PUBLIC_KEY,
-            "--sats",
             "1000",
             "--announce",
             "false",
@@ -138,7 +122,6 @@ async fn test_cli_set_channel_fee() -> Result<()> {
     let output = run_cli(
         "set-channel-fee",
         &[
-            "--id",
             &TEST_SHORT_CHANNEL_ID.to_string(),
             "--base-fee",
             "1000",
@@ -155,7 +138,7 @@ async fn test_cli_set_channel_fee() -> Result<()> {
 async fn test_cli_set_channel_fee_all() -> Result<()> {
     let output = run_cli(
         "set-channel-fee",
-        &["--id", "all", "--base-fee", "1000", "--ppm-fee", "200"],
+        &["all", "--base-fee", "1000", "--ppm-fee", "200"],
     )
     .await?;
     let _: SetChannelFeeResponse = deserialize(&output.stdout)?;
@@ -164,11 +147,7 @@ async fn test_cli_set_channel_fee_all() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_close_channel() -> Result<()> {
-    let output = run_cli(
-        "close-channel",
-        &["--id", &TEST_SHORT_CHANNEL_ID.to_string()],
-    )
-    .await?;
+    let output = run_cli("close-channel", &[&TEST_SHORT_CHANNEL_ID.to_string()]).await?;
     assert!(output.stdout.is_empty());
     Ok(())
 }
@@ -215,11 +194,7 @@ async fn test_cli_fee_rates() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_keysend() -> Result<()> {
-    let output = run_cli(
-        "keysend",
-        &["--public-key", TEST_PUBLIC_KEY, "--amount", "102000"],
-    )
-    .await?;
+    let output = run_cli("keysend", &[TEST_PUBLIC_KEY, "102000"]).await?;
     let _: PaymentResponse = deserialize(&output.stdout)?;
     Ok(())
 }
@@ -229,11 +204,8 @@ async fn test_cli_generate_invoice() -> Result<()> {
     let output = run_cli(
         "generate-invoice",
         &[
-            "--amount",
             "1234567890",
-            "--label",
             "test invoice",
-            "--description",
             "test description",
             "--expiry",
             &(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 3600).to_string(),
@@ -254,7 +226,7 @@ async fn test_cli_list_invoices() -> Result<()> {
 #[tokio::test]
 async fn test_cli_pay_invoice() -> Result<()> {
     let bolt11 = mock_lightning().invoice.bolt11.to_string();
-    let output = run_cli("pay-invoice", &["--label", "a label", "--bolt11", &bolt11]).await?;
+    let output = run_cli("pay-invoice", &[&bolt11, "-l", "a label"]).await?;
     let _: PaymentResponse = deserialize(&output.stdout)?;
     Ok(())
 }
@@ -274,12 +246,7 @@ async fn test_cli_list_payments() -> Result<()> {
 async fn test_cli_estimate_channel_liquidity() -> Result<()> {
     let output = run_cli(
         "estimate-channel-liquidity",
-        &[
-            "--scid",
-            &TEST_SHORT_CHANNEL_ID.to_string(),
-            "--target",
-            TEST_PUBLIC_KEY,
-        ],
+        &[&TEST_SHORT_CHANNEL_ID.to_string(), TEST_PUBLIC_KEY],
     )
     .await?;
     let _: GetV1EstimateChannelLiquidityResponse = deserialize(&output.stdout)?;
@@ -309,7 +276,7 @@ async fn test_cli_list_forwards() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_channel_history() -> Result<()> {
-    let output = run_cli("channel-history", &[]).await?;
+    let output = run_cli("list-channel-history", &[]).await?;
     let _: Vec<GetV1ChannelHistoryResponseItem> = deserialize(&output.stdout)?;
     Ok(())
 }

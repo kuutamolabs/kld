@@ -49,7 +49,7 @@ fn kld_cli_version() -> Result<String> {
     let output = std::process::Command::new("kld-cli")
         .args(["-V"])
         .output()
-        .context("could not run bitcoind command")?;
+        .context("could not run kld-cli command")?;
     std::str::from_utf8(&output.stdout)?
         .split('\n')
         .next()

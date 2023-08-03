@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, str::FromStr};
 
 use anyhow::{anyhow, Result};
 use api::{
@@ -77,12 +77,12 @@ impl Api {
         &self,
         address: String,
         satoshis: String,
-        fee_rate: Option<FeeRate>,
+        fee_rate: Option<String>,
     ) -> Result<String> {
         let wallet_transfer = WalletTransfer {
             address,
             satoshis,
-            fee_rate,
+            fee_rate: fee_rate.map(|f| FeeRate::from_str(&f)).transpose()?,
             min_conf: None,
             utxos: vec![],
         };
@@ -129,12 +129,12 @@ impl Api {
         satoshis: String,
         push_msat: Option<String>,
         announce: Option<bool>,
-        fee_rate: Option<FeeRate>,
+        fee_rate: Option<String>,
     ) -> Result<String> {
         let open_channel = FundChannel {
             id,
             satoshis,
-            fee_rate,
+            fee_rate: fee_rate.map(|f| FeeRate::from_str(&f)).transpose()?,
             announce,
             min_conf: None,
             utxos: vec![],

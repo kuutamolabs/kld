@@ -1,198 +1,13 @@
 mod client;
+mod commands;
 
 use crate::client::Api;
 use anyhow::Result;
-use api::FeeRate;
-use clap::{Parser, Subcommand};
-
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// IP address or hostname of the target machine.
-    #[arg(short, long)]
-    target: String,
-    /// Path to the TLS cert of the target API.
-    #[arg(short, long)]
-    cert_path: String,
-    /// Path to the macaroon for authenticating with the API.
-    #[arg(short, long)]
-    macaroon_path: String,
-    /// Command to run.
-    #[clap(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand, Debug)]
-enum Command {
-    /// Fetch information about this lightning node.
-    GetInfo,
-    /// Creates a signature of the message using node's secret key (message limit 65536 chars)
-    Sign {
-        /// Message to be signed (max 65536 chars)
-        #[arg(long)]
-        message: String,
-    },
-    /// Fetch confirmed and unconfirmed on-chain balance.
-    GetBalance,
-    /// Generates new on-chain address for receiving funds.
-    NewAddress,
-    /// Send on-chain funds out of the wallet.
-    Withdraw {
-        /// The address to withdraw to.
-        #[arg(long)]
-        address: String,
-        /// The amount to withdraw (in Satoshis). The string "all" will empty the wallet.
-        #[arg(long)]
-        satoshis: String,
-        /// Fee rate [urgent/normal/slow/<sats>perkw/<sats>perkb]
-        #[arg(long)]
-        fee_rate: Option<FeeRate>,
-    },
-    /// Show available funds from the internal wallet.
-    ListFunds,
-    /// Fetch a list of this nodes peers.
-    ListPeers,
-    /// Connect with a network peer.
-    ConnectPeer {
-        /// The public key (id) of the node to connect to. Optionally provide host and port [id@host:port].
-        #[arg(long)]
-        public_key: String,
-    },
-    /// Disconnect from a network peer.
-    DisconnectPeer {
-        /// The public key of the node to disconnect from.
-        #[arg(long)]
-        public_key: String,
-    },
-    /// Fetch a list of this nodes open channels.
-    ListPeerChannels,
-    /// Open a channel with another node.
-    OpenChannel {
-        /// The public key of the node to open a channel with. Optionally provide host and port [id@host:port].
-        #[arg(long)]
-        public_key: String,
-        /// Amount of satoshis to commit to the channel.
-        #[arg(long)]
-        sats: String,
-        /// The number of satoshis to push to the other node side of the channel.
-        #[arg(long)]
-        push_msat: Option<String>,
-        /// Whether to announce the channel to the rest of the network (public - default) or not (private).
-        #[arg(long)]
-        announce: Option<bool>,
-        /// Fee rate [urgent/normal/slow/<sats>perkw/<sats>perkb]
-        #[arg(long)]
-        fee_rate: Option<FeeRate>,
-    },
-    /// Set channel fees.
-    SetChannelFee {
-        /// Channel ID, short channel ID or "all" for all channels.
-        #[arg(long)]
-        id: String,
-        /// Optional value in msats added as base fee to any routed payment.
-        #[arg(long)]
-        base_fee: Option<u32>,
-        /// Optional value that is added proportionally per-millionths to any routed payment volume in satoshi
-        #[arg(long)]
-        ppm_fee: Option<u32>,
-    },
-    /// Close a channel.
-    CloseChannel {
-        /// Channel ID or short channel ID to close.
-        #[arg(long)]
-        id: String,
-    },
-    /// Get node information from the network graph.
-    NetworkNodes {
-        /// Provide Node ID to get info about a single node.
-        #[arg(long)]
-        id: Option<String>,
-    },
-    /// Get channel information from the network graph.
-    NetworkChannels {
-        /// Provide short channel ID to get info about a single channel.
-        #[arg(long)]
-        id: Option<String>,
-    },
-    /// Return feerate estimates, either satoshi-per-kw or satoshi-per-kb.
-    FeeRates {
-        /// perkb (default) or perkw
-        #[arg(long)]
-        style: Option<String>,
-    },
-    /// Pay a node without an invoice.
-    Keysend {
-        /// Node ID of the payee.
-        #[arg(long)]
-        public_key: String,
-        /// Amount to pay in sats.
-        #[arg(long)]
-        amount: u64,
-    },
-    /// Generate a bolt11 invoice for receiving a payment.
-    GenerateInvoice {
-        /// Amount in milli satoshis
-        #[arg(long)]
-        amount: u64,
-        /// Unique label for the invoice
-        #[arg(long)]
-        label: String,
-        /// Description for the invoice
-        #[arg(long)]
-        description: String,
-        /// Expiry time period for the invoice (seconds)
-        #[arg(long)]
-        expiry: Option<u32>,
-    },
-    /// List all invoices
-    ListInvoices {
-        /// Label of the invoice
-        #[arg(long)]
-        label: Option<String>,
-    },
-    /// Pay an invoice
-    PayInvoice {
-        /// The invoice to pay
-        #[arg(long)]
-        bolt11: String,
-        /// Label for the payment
-        #[arg(long)]
-        label: Option<String>,
-    },
-    /// List all payments
-    ListPayments {
-        /// Bolt11 invoice of payment
-        #[arg(long)]
-        bolt11: Option<String>,
-        /// Direction (inbound/outbound)
-        #[arg(long)]
-        direction: Option<String>,
-    },
-    /// Esimate channel liquidity to a target node
-    EstimateChannelLiquidity {
-        /// Short channel ID
-        #[arg(long)]
-        scid: u64,
-        /// Bolt11 invoice of payment
-        #[arg(long)]
-        target: String,
-    },
-    /// Fetch the aggregate local and remote channel balances (msat) of the node
-    LocalRemoteBalance,
-    /// Get node routing fees.
-    GetFees,
-    /// Fetch a list of the forwarded htlcs.
-    ListForwards {
-        /// The status of the forwards (succeeded, failed)
-        #[arg(long)]
-        status: Option<String>,
-    },
-    /// Fetch a list of historic (closed) channels
-    ChannelHistory,
-}
+use clap::Parser;
+use commands::{KldCliCommand, KldCliSubCommand};
 
 fn main() {
-    let args = Args::parse();
+    let args = KldCliCommand::parse();
 
     if let Err(e) = run_command(args) {
         eprintln!("Error executing command: {e}");
@@ -200,57 +15,59 @@ fn main() {
     }
 }
 
-fn run_command(args: Args) -> Result<()> {
+fn run_command(args: KldCliCommand) -> Result<()> {
     let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
 
     let output = match args.command {
-        Command::Sign { message } => api.sign(message)?,
-        Command::GetInfo => api.get_info()?,
-        Command::GetBalance => api.get_balance()?,
-        Command::NewAddress => api.new_address()?,
-        Command::Withdraw {
+        KldCliSubCommand::Sign { message } => api.sign(message)?,
+        KldCliSubCommand::GetInfo => api.get_info()?,
+        KldCliSubCommand::GetBalance => api.get_balance()?,
+        KldCliSubCommand::NewAddress => api.new_address()?,
+        KldCliSubCommand::Withdraw {
             address,
             satoshis,
             fee_rate,
         } => api.withdraw(address, satoshis, fee_rate)?,
-        Command::ListFunds => api.list_funds()?,
-        Command::ListPeerChannels => api.list_peer_channels()?,
-        Command::ListPeers => api.list_peers()?,
-        Command::ConnectPeer { public_key } => api.connect_peer(public_key)?,
-        Command::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
-        Command::OpenChannel {
+        KldCliSubCommand::ListFunds => api.list_funds()?,
+        KldCliSubCommand::ListPeerChannels => api.list_peer_channels()?,
+        KldCliSubCommand::ListPeers => api.list_peers()?,
+        KldCliSubCommand::ConnectPeer { public_key } => api.connect_peer(public_key)?,
+        KldCliSubCommand::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,
+        KldCliSubCommand::OpenChannel {
             public_key,
             sats: satoshis,
             push_msat,
             announce,
             fee_rate,
         } => api.open_channel(public_key, satoshis, push_msat, announce, fee_rate)?,
-        Command::SetChannelFee {
+        KldCliSubCommand::SetChannelFee {
             id,
             base_fee,
             ppm_fee,
         } => api.set_channel_fee(id, base_fee, ppm_fee)?,
-        Command::CloseChannel { id } => api.close_channel(id)?,
-        Command::NetworkNodes { id } => api.list_network_nodes(id)?,
-        Command::NetworkChannels { id } => api.list_network_channels(id)?,
-        Command::FeeRates { style } => api.fee_rates(style)?,
-        Command::Keysend { public_key, amount } => api.keysend(public_key, amount)?,
-        Command::GenerateInvoice {
+        KldCliSubCommand::CloseChannel { id } => api.close_channel(id)?,
+        KldCliSubCommand::NetworkNodes { id } => api.list_network_nodes(id)?,
+        KldCliSubCommand::NetworkChannels { id } => api.list_network_channels(id)?,
+        KldCliSubCommand::FeeRates { style } => api.fee_rates(style)?,
+        KldCliSubCommand::Keysend { public_key, amount } => api.keysend(public_key, amount)?,
+        KldCliSubCommand::GenerateInvoice {
             amount,
             label,
             description,
             expiry,
         } => api.generate_invoice(amount, label, description, expiry)?,
-        Command::ListInvoices { label } => api.list_invoices(label)?,
-        Command::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
-        Command::ListPayments { bolt11, direction } => api.list_payments(bolt11, direction)?,
-        Command::EstimateChannelLiquidity { scid, target } => {
+        KldCliSubCommand::ListInvoices { label } => api.list_invoices(label)?,
+        KldCliSubCommand::PayInvoice { bolt11, label } => api.pay_invoice(bolt11, label)?,
+        KldCliSubCommand::ListPayments { bolt11, direction } => {
+            api.list_payments(bolt11, direction)?
+        }
+        KldCliSubCommand::EstimateChannelLiquidity { scid, target } => {
             api.estimate_channel_liquidity(scid, target)?
         }
-        Command::LocalRemoteBalance => api.local_remote_balance()?,
-        Command::GetFees => api.get_fees()?,
-        Command::ListForwards { status } => api.list_forwards(status)?,
-        Command::ChannelHistory => api.channel_history()?,
+        KldCliSubCommand::LocalRemoteBalance => api.local_remote_balance()?,
+        KldCliSubCommand::GetFees => api.get_fees()?,
+        KldCliSubCommand::ListForwards { status } => api.list_forwards(status)?,
+        KldCliSubCommand::ListChannelHistory => api.channel_history()?,
     };
     if output != "null" {
         println!("{output}");
