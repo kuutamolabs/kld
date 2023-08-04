@@ -16,7 +16,7 @@ fn main() {
 }
 
 fn run_command(args: KldCliCommand) -> Result<()> {
-    let api = Api::new(&args.target, &args.cert_path, &args.macaroon_path)?;
+    let api = Api::new(args.target, args.cert_path, args.macaroon_path)?;
 
     let output = match args.command {
         KldCliSubCommand::Sign { message } => api.sign(message)?,
@@ -25,7 +25,7 @@ fn run_command(args: KldCliCommand) -> Result<()> {
         KldCliSubCommand::NewAddress => api.new_address()?,
         KldCliSubCommand::Withdraw {
             address,
-            satoshis,
+            amount: satoshis,
             fee_rate,
         } => api.withdraw(address, satoshis, fee_rate)?,
         KldCliSubCommand::ListFunds => api.list_funds()?,

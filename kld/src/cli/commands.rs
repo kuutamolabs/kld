@@ -1,17 +1,19 @@
+use std::{net::SocketAddr, path::PathBuf};
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct KldCliCommand {
-    /// IP address or hostname of the target machine.
+    /// IP address the target machine.
     #[arg(short, long, hide = true)]
-    pub target: String,
+    pub target: SocketAddr,
     /// Path to the TLS cert of the target API.
     #[arg(short, long, hide = true)]
-    pub cert_path: String,
+    pub cert_path: PathBuf,
     /// Path to the macaroon for authenticating with the API.
     #[arg(short, long, hide = true)]
-    pub macaroon_path: String,
+    pub macaroon_path: PathBuf,
     /// Command to run.
     #[clap(subcommand)]
     pub command: KldCliSubCommand,
@@ -38,7 +40,7 @@ pub enum KldCliSubCommand {
         address: String,
         /// The amount to withdraw (in Satoshis). The string "all" will empty the wallet.
         #[arg()]
-        satoshis: String,
+        amount: String,
         /// Fee rate [urgent/normal/slow/<sats>perkw/<sats>perkb]
         #[arg(short, long)]
         fee_rate: Option<String>,
@@ -120,13 +122,13 @@ pub enum KldCliSubCommand {
         /// Node ID of the payee.
         #[arg()]
         public_key: String,
-        /// Amount to pay in sats.
+        /// Amount to pay in millisats.
         #[arg()]
         amount: u64,
     },
     /// Generate a bolt11 invoice for receiving a payment.
     GenerateInvoice {
-        /// Amount in milli satoshis
+        /// Amount in millisats
         #[arg()]
         amount: u64,
         /// Unique label for the invoice

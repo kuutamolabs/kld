@@ -1,6 +1,11 @@
-use std::{fs::File, io::Read, str::FromStr};
+use std::{
+    fs::{self},
+    net::SocketAddr,
+    path::PathBuf,
+    str::FromStr,
+};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use api::{
     routes, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
@@ -27,15 +32,15 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::to_string_pretty;
 
 pub struct Api {
-    host: String,
+    host: SocketAddr,
     client: Client,
     macaroon: Vec<u8>,
 }
 
 impl Api {
-    pub fn new(host: &str, cert_path: &str, macaroon_path: &str) -> Result<Api> {
-        let macaroon = read_file(macaroon_path)?;
-        let cert = Certificate::from_pem(&read_file(cert_path)?)?;
+    pub fn new(host: SocketAddr, cert_path: PathBuf, macaroon_path: PathBuf) -> Result<Api> {
+        let macaroon = fs::read(macaroon_path)?;
+        let cert = Certificate::from_pem(&fs::read(cert_path)?)?;
         // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl)
         let client = ClientBuilder::new()
             .add_root_certificate(cert)
@@ -43,7 +48,7 @@ impl Api {
             .timeout(None)
             .build()?;
         Ok(Api {
-            host: host.to_string(),
+            host,
             client,
             macaroon,
         })
@@ -346,16 +351,5 @@ fn deserialize<T: DeserializeOwned + Serialize>(response: Response) -> Result<St
         Ok(to_string_pretty(&response.json::<T>()?)?)
     } else {
         Ok(to_string_pretty(&response.json::<api::Error>()?)?)
-    }
-}
-
-fn read_file(path: &str) -> Result<Vec<u8>> {
-    let mut buf = Vec::new();
-    match File::open(path) {
-        Ok(mut file) => match file.read_to_end(&mut buf) {
-            Ok(_) => Ok(buf),
-            Err(e) => Err(anyhow!("{}: {}", e, path)),
-        },
-        Err(e) => Err(anyhow!("{}: {}", e, path)),
     }
 }
