@@ -61,7 +61,9 @@ craneLib.buildPackage {
     };
     inherit cargoArtifacts;
   };
-
+  postInstall = ''
+    find target/release/build -name kld-cli.bash -exec install -D -m755 {} $out/bin/kld-cli.bash \;
+  '';
   # we run tests in a seperate package
   doCheck = false;
 

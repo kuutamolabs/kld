@@ -207,7 +207,9 @@ in
       group = "kld";
     };
     users.groups.kld = { };
-
+    programs.bash.interactiveShellInit = ''
+      source ${cfg.package}/bin/kld-cli.bash
+    '';
     kuutamo.disko.bitcoindDataDir = bitcoinCfg.dataDir;
 
     # fix me, we need to wait for the database to start first
