@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use api::{FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
-use lightning::routing::gossip::{ChannelInfo, DirectedChannelInfo, NodeId, NodeInfo};
+use lightning::routing::gossip::{ChannelInfo, ChannelUpdateInfo, NodeId, NodeInfo};
 use std::{str::FromStr, sync::Arc};
 
 use crate::{bitcoind::bitcoind_interface::BitcoindInterface, ldk::LightningInterface};
@@ -41,13 +41,22 @@ pub(crate) async fn get_network_channel(
 ) -> Result<impl IntoResponse, ApiError> {
     let short_channel_id = u64::from_str(&id).map_err(bad_request)?;
     if let Some(channel_info) = lightning_interface.get_channel(short_channel_id) {
-        if let Some((directed_info, _)) = channel_info.as_directed_to(&channel_info.node_one) {
-            if let Some(api_channel) =
-                to_api_channel(&short_channel_id, &channel_info, &directed_info)
-            {
-                return Ok(Json(vec![api_channel]));
-            }
+        let mut channels = vec![];
+        if let Some(update_info) = &channel_info.one_to_two {
+            channels.push(to_api_channel(
+                &short_channel_id,
+                &channel_info,
+                update_info,
+            ))
         }
+        if let Some(update_info) = &channel_info.two_to_one {
+            channels.push(to_api_channel(
+                &short_channel_id,
+                &channel_info,
+                update_info,
+            ))
+        }
+        return Ok(Json(vec![channels]));
     }
     Err(ApiError::NotFound(id))
 }
@@ -57,19 +66,11 @@ pub(crate) async fn list_network_channels(
 ) -> Result<impl IntoResponse, ApiError> {
     let mut channels = vec![];
     for (short_channel_id, channel_info) in lightning_interface.channels().unordered_iter() {
-        if let Some((directed_info, _)) = channel_info.as_directed_to(&channel_info.node_one) {
-            if let Some(api_channel) =
-                to_api_channel(short_channel_id, channel_info, &directed_info)
-            {
-                channels.push(api_channel);
-            }
+        if let Some(update_info) = &channel_info.one_to_two {
+            channels.push(to_api_channel(short_channel_id, channel_info, update_info))
         }
-        if let Some((directed_info, _)) = channel_info.as_directed_to(&channel_info.node_two) {
-            if let Some(api_channel) =
-                to_api_channel(short_channel_id, channel_info, &directed_info)
-            {
-                channels.push(api_channel);
-            }
+        if let Some(update_info) = &channel_info.two_to_one {
+            channels.push(to_api_channel(short_channel_id, channel_info, update_info))
         }
     }
     Ok(Json(channels))
@@ -132,33 +133,30 @@ pub(crate) async fn fee_rates(
 fn to_api_channel(
     short_channel_id: &u64,
     channel_info: &ChannelInfo,
-    directed_info: &DirectedChannelInfo,
-) -> Option<NetworkChannel> {
-    directed_info
-        .channel()
-        .one_to_two
-        .as_ref()
-        .map(|channel_update| NetworkChannel {
-            source: directed_info.channel().node_one.as_slice().to_hex(),
-            destination: directed_info.channel().node_two.as_slice().to_hex(),
-            short_channel_id: *short_channel_id,
-            public: true,
-            satoshis: channel_info.capacity_sats.unwrap_or_default(),
-            amount_msat: channel_info
-                .capacity_sats
-                .map(|s| s * 1000)
-                .unwrap_or_default(),
-            message_flags: 0,
-            channel_flags: 0,
-            description: String::new(),
-            active: channel_update.enabled,
-            last_update: channel_update.last_update,
-            base_fee_millisatoshi: channel_update.fees.base_msat,
-            fee_per_millionth: channel_update.fees.proportional_millionths,
-            delay: channel_update.cltv_expiry_delta,
-            htlc_minimum_msat: channel_update.htlc_minimum_msat,
-            htlc_maximum_msat: channel_update.htlc_maximum_msat,
-        })
+    update_info: &ChannelUpdateInfo,
+) -> NetworkChannel {
+    NetworkChannel {
+        source: channel_info.node_one.as_slice().to_hex(),
+        destination: channel_info.node_two.as_slice().to_hex(),
+        short_channel_id: *short_channel_id,
+        public: true,
+        satoshis: channel_info.capacity_sats.unwrap_or_default(),
+        amount_msat: channel_info
+            .capacity_sats
+            .map(|s| s * 1000)
+            .unwrap_or_default(),
+        channel_flags: update_info
+            .last_update_message
+            .as_ref()
+            .map_or(0, |m| m.contents.flags),
+        active: update_info.enabled,
+        last_update: update_info.last_update,
+        base_fee_millisatoshi: update_info.fees.base_msat,
+        fee_per_millionth: update_info.fees.proportional_millionths,
+        delay: update_info.cltv_expiry_delta,
+        htlc_minimum_msat: update_info.htlc_minimum_msat,
+        htlc_maximum_msat: update_info.htlc_maximum_msat,
+    }
 }
 
 fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
