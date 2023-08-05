@@ -41,22 +41,7 @@ pub(crate) async fn get_network_channel(
 ) -> Result<impl IntoResponse, ApiError> {
     let short_channel_id = u64::from_str(&id).map_err(bad_request)?;
     if let Some(channel_info) = lightning_interface.get_channel(short_channel_id) {
-        let mut channels = vec![];
-        if let Some(update_info) = &channel_info.one_to_two {
-            channels.push(to_api_channel(
-                &short_channel_id,
-                &channel_info,
-                update_info,
-            ))
-        }
-        if let Some(update_info) = &channel_info.two_to_one {
-            channels.push(to_api_channel(
-                &short_channel_id,
-                &channel_info,
-                update_info,
-            ))
-        }
-        return Ok(Json(vec![channels]));
+        return Ok(Json(to_api_channel(&short_channel_id, &channel_info)));
     }
     Err(ApiError::NotFound(id))
 }
@@ -66,12 +51,7 @@ pub(crate) async fn list_network_channels(
 ) -> Result<impl IntoResponse, ApiError> {
     let mut channels = vec![];
     for (short_channel_id, channel_info) in lightning_interface.channels().unordered_iter() {
-        if let Some(update_info) = &channel_info.one_to_two {
-            channels.push(to_api_channel(short_channel_id, channel_info, update_info))
-        }
-        if let Some(update_info) = &channel_info.two_to_one {
-            channels.push(to_api_channel(short_channel_id, channel_info, update_info))
-        }
+        channels.append(&mut to_api_channel(short_channel_id, channel_info))
     }
     Ok(Json(channels))
 }
@@ -130,33 +110,47 @@ pub(crate) async fn fee_rates(
     Ok(Json(response))
 }
 
-fn to_api_channel(
-    short_channel_id: &u64,
-    channel_info: &ChannelInfo,
-    update_info: &ChannelUpdateInfo,
-) -> NetworkChannel {
-    NetworkChannel {
-        source: channel_info.node_one.as_slice().to_hex(),
-        destination: channel_info.node_two.as_slice().to_hex(),
-        short_channel_id: *short_channel_id,
-        public: true,
-        satoshis: channel_info.capacity_sats.unwrap_or_default(),
-        amount_msat: channel_info
-            .capacity_sats
-            .map(|s| s * 1000)
-            .unwrap_or_default(),
-        channel_flags: update_info
-            .last_update_message
-            .as_ref()
-            .map_or(0, |m| m.contents.flags),
-        active: update_info.enabled,
-        last_update: update_info.last_update,
-        base_fee_millisatoshi: update_info.fees.base_msat,
-        fee_per_millionth: update_info.fees.proportional_millionths,
-        delay: update_info.cltv_expiry_delta,
-        htlc_minimum_msat: update_info.htlc_minimum_msat,
-        htlc_maximum_msat: update_info.htlc_maximum_msat,
+fn to_api_channel(short_channel_id: &u64, channel_info: &ChannelInfo) -> Vec<NetworkChannel> {
+    let mut channels = vec![];
+
+    let make_channel =
+        |node_one: NodeId, node_two: NodeId, update_info: &ChannelUpdateInfo| NetworkChannel {
+            source: node_one.as_slice().to_hex(),
+            destination: node_two.as_slice().to_hex(),
+            short_channel_id: *short_channel_id,
+            public: true,
+            satoshis: channel_info.capacity_sats.unwrap_or_default(),
+            amount_msat: channel_info
+                .capacity_sats
+                .map(|s| s * 1000)
+                .unwrap_or_default(),
+            channel_flags: update_info
+                .last_update_message
+                .as_ref()
+                .map_or(0, |m| m.contents.flags),
+            active: update_info.enabled,
+            last_update: update_info.last_update,
+            base_fee_millisatoshi: update_info.fees.base_msat,
+            fee_per_millionth: update_info.fees.proportional_millionths,
+            delay: update_info.cltv_expiry_delta,
+            htlc_minimum_msat: update_info.htlc_minimum_msat,
+            htlc_maximum_msat: update_info.htlc_maximum_msat,
+        };
+    if let Some(update_info) = &channel_info.one_to_two {
+        channels.push(make_channel(
+            channel_info.node_one,
+            channel_info.node_two,
+            update_info,
+        ));
     }
+    if let Some(update_info) = &channel_info.two_to_one {
+        channels.push(make_channel(
+            channel_info.node_two,
+            channel_info.node_one,
+            update_info,
+        ));
+    }
+    channels
 }
 
 fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {

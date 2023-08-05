@@ -682,13 +682,6 @@ impl Controller {
             channel_manager.clone(),
         ));
 
-        // For anyone that has open channels from before adding channel history. This can be deleted when we have all updated.
-        for channel in channel_manager.list_channels() {
-            if let Err(e) = database.persist_channel(channel.try_into()?).await {
-                warn!("{e}");
-            }
-        }
-
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
                 &settings,
