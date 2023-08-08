@@ -4,15 +4,13 @@ let
   cfg = config.kuutamo.cockroachdb;
   crdb = cfg.package;
 
-  certsDir = "/var/lib/cockroachdb-certs";
-
   cockroach-cli = pkgs.runCommand "cockroach-wrapper" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach-rpc \
-      --set COCKROACH_CERTS_DIR "${certsDir}" \
+      --set COCKROACH_CERTS_DIR "${cfg.certsDir}" \
       --set COCKROACH_HOST "${cfg.nodeName}" \
 
     makeWrapper ${cfg.package}/bin/cockroach $out/bin/cockroach-sql \
-      --set COCKROACH_CERTS_DIR "${certsDir}" \
+      --set COCKROACH_CERTS_DIR "${cfg.certsDir}" \
       --set COCKROACH_URL "postgresql://root@localhost:${toString cfg.sql.port}"
   '';
 
@@ -42,6 +40,16 @@ in
 {
   options = {
     kuutamo.cockroachdb = {
+      dataDir = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/lib/cockroachdb";
+        description = "The data directory for cockroachdb";
+      };
+      certsDir = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/lib/cockroachdb-certs";
+        description = "The directory for cockroachdb certs";
+      };
       listen = {
         address = lib.mkOption {
           type = lib.types.str;
@@ -295,7 +303,7 @@ in
         # for cli
         path = [ cockroach-cli ];
 
-        unitConfig.RequiresMountsFor = "/var/lib/cockroachdb";
+        unitConfig.RequiresMountsFor = cfg.dataDir;
 
         serviceConfig =
           {
@@ -307,29 +315,29 @@ in
             ];
             StateDirectoryMode = "0700";
             RuntimeDirectory = "cockroachdb";
-            WorkingDirectory = "/var/lib/cockroachdb";
+            WorkingDirectory = cfg.dataDir;
 
             Restart = "always";
 
             ExecStartPre = "+${pkgs.writeShellScript "pre-start" ''
               set -x -eu -o pipefail
 
-              install -d -m555 ${certsDir}
+              install -d -m555 ${cfg.certsDir}
 
-              install -m 0444 -D ${cfg.caCertPath} ${certsDir}/ca.crt
+              install -m 0444 -D ${cfg.caCertPath} ${cfg.certsDir}/ca.crt
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
-                install -m 0400 -D ${cfg.rootClientCertPath} ${certsDir}/client.root.crt
-                install -m 0400 -D ${cfg.rootClientKeyPath} ${certsDir}/client.root.key
+                install -m 0400 -D ${cfg.rootClientCertPath} ${cfg.certsDir}/client.root.crt
+                install -m 0400 -D ${cfg.rootClientKeyPath} ${cfg.certsDir}/client.root.key
               ''}
-              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeCertPath} ${certsDir}/node.crt
-              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeKeyPath} ${certsDir}/node.key
+              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeCertPath} ${cfg.certsDir}/node.crt
+              install -m 0400 -o ${cfg.user} -g ${cfg.group} -D ${cfg.nodeKeyPath} ${cfg.certsDir}/node.key
             ''}";
 
             ExecStart = utils.escapeSystemdExecArgs ([
               # Basic startup
               "${crdb}/bin/cockroach"
               (if cfg.join == [ ] then "start-single-node" else "start")
-              "--store=/var/lib/cockroachdb"
+              "--store=${cfg.dataDir}"
               #"--socket-dir=/run/cockroachdb"
               # disable file-based logging
               "--log-config-file=${pkgs.writeText "cockroach-log-config.yaml" (builtins.toJSON logConfig)}"
@@ -349,7 +357,7 @@ in
               "--max-sql-memory=${cfg.maxSqlMemory}"
 
               # Certificate/security settings.
-              "--certs-dir=${certsDir}"
+              "--certs-dir=${cfg.certsDir}"
             ]
             ++ lib.optional (cfg.join != [ ]) "--join=${lib.concatStringsSep "," cfg.join}"
             ++ cfg.extraArgs);
@@ -360,7 +368,7 @@ in
               export PATH=$PATH:${cfg.package}/bin
 
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
-                if [[ ! -f /var/lib/cockroachdb/.cluster-init ]]; then
+                if [[ ! -f ${cfg.dataDir}/.cluster-init ]]; then
                   ${lib.optionalString (cfg.join != []) ''
                     cockroach-rpc init 2>&1
                   ''}
@@ -398,7 +406,7 @@ in
           ];
           StateDirectoryMode = "0700";
           RuntimeDirectory = "cockroachdb";
-          WorkingDirectory = "/var/lib/cockroachdb";
+          WorkingDirectory = cfg.dataDir;
           RemainAfterExit = true;
 
           # we need to run this as root since do not have a password yet.
@@ -407,12 +415,12 @@ in
               export PATH=$PATH:${cfg.package}/bin
 
               ${lib.optionalString (cfg.rootClientCertPath != null) ''
-                if [[ ! -f /var/lib/cockroachdb/.db-init ]]; then
+                if [[ ! -f ${cfg.dataDir}/.db-init ]]; then
                   while ! ${csql "select 1"}; do
                     sleep 1
                   done
                   ${csql initialSql}
-                  touch /var/lib/cockroachdb/.db-init
+                  touch ${cfg.dataDir}/.db-init
                 fi
               ''}
             ''}";
