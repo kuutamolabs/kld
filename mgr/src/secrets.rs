@@ -6,6 +6,11 @@ use std::process::Command;
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
+use base64::{engine::general_purpose, Engine};
+use bip39::Mnemonic;
+use bitcoin::hashes::{sha256, Hash, HashEngine};
+use macaroon::{Macaroon, MacaroonKey};
+use rand::thread_rng;
 use tempfile::{Builder, TempDir};
 
 use crate::command::status_to_pretty_err;
@@ -67,4 +72,50 @@ impl Secrets {
         status_to_pretty_err(status, "rsync", &args)?;
         Ok(())
     }
+}
+
+pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {
+    let mnemonic_path = secret_directory.join("mnemonic");
+    let mnemonic = if !mnemonic_path.exists() {
+        let mut rng = thread_rng();
+        let mnemonic = Mnemonic::generate_in_with(&mut rng, bip39::Language::English, 24)?;
+        fs::write(&mnemonic_path, mnemonic.to_string())
+            .with_context(|| format!("Cannot write to {}", mnemonic_path.display()))?;
+
+        println!("Generated a new mnemonic: {}", mnemonic_path.display());
+        mnemonic
+    } else if let Ok(words) = fs::read_to_string(mnemonic_path) {
+        Mnemonic::parse(words)?
+    } else {
+        panic!("mnemonic is incorrect")
+    };
+
+    let mut engine = sha256::HashEngine::default();
+    engine.input(&mnemonic.to_seed(""));
+    engine.input("macaroon/0".as_bytes());
+    let hash = sha256::Hash::from_engine(engine);
+    let seed = hash.into_inner();
+
+    let key = MacaroonKey::generate(&seed);
+    let mut admin_macaroon = Macaroon::create(None, &key, "admin".into())?;
+    admin_macaroon.add_first_party_caveat("roles = admin|readonly".into());
+
+    let mut readonly_macaroon = Macaroon::create(None, &key, "readonly".into())?;
+    readonly_macaroon.add_first_party_caveat("roles = readonly".into());
+
+    let mut buf = vec![];
+    let base64 = admin_macaroon.serialize(macaroon::Format::V2)?;
+    general_purpose::URL_SAFE.decode_vec(base64, &mut buf)?;
+
+    fs::write(secret_directory.join("access.macaroon"), &buf)?;
+    fs::write(
+        secret_directory.join("admin.macaroon"),
+        admin_macaroon.serialize(macaroon::Format::V2)?,
+    )?;
+    fs::write(
+        secret_directory.join("readonly.macaroon"),
+        readonly_macaroon.serialize(macaroon::Format::V2)?,
+    )?;
+
+    Ok(())
 }

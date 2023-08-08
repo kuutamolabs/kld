@@ -299,6 +299,7 @@ impl Host {
     pub fn secrets(&self, secrets_dir: &Path) -> Result<Secrets> {
         let lightning = secrets_dir.join("lightning");
         let cockroachdb = secrets_dir.join("cockroachdb");
+        let mnemonic = secrets_dir.join("mnemonic");
 
         let mut secret_files = vec![
             // for kld
@@ -352,6 +353,12 @@ impl Host {
                     .context("failed to read node.key")?,
             ),
         ];
+        if mnemonic.exists() {
+            secret_files.push((
+                PathBuf::from("/var/lib/secrets/mnemonic"),
+                fs::read_to_string(mnemonic).context("failed to read mnemonic")?,
+            ))
+        }
         if let Some(KmonitorConfig {
             url,
             username,
@@ -386,6 +393,7 @@ pub struct Global {
 
     /// Directory where the secrets are stored i.e. certificates
     #[serde(default = "default_secret_directory")]
+    #[toml_example(default = "secrets")]
     pub secret_directory: PathBuf,
 }
 
@@ -844,7 +852,7 @@ fn test_validate_host() -> Result<()> {
         ..Default::default()
     };
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default(),).unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default()).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -876,25 +884,25 @@ fn test_validate_host() -> Result<()> {
             telegraf_has_monitoring: false,
             telegraf_config_hash: "13646096770106105413".to_string(),
             api_ip_access_list: Vec::new(),
-            rest_api_port: None
+            rest_api_port: None,
         }
     );
 
     // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(),).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(),).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(),).is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_ok());
 
     Ok(())
 }

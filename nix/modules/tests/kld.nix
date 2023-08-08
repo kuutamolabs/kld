@@ -26,6 +26,7 @@
       kuutamo.kld.certPath = ./kld-certs/kld.pem;
       kuutamo.kld.keyPath = ./kld-certs/kld.key;
       kuutamo.kld.network = "regtest";
+      kuutamo.kld.mnemonicPath = ./secrets/mnemonic;
 
       kuutamo.electrs.network = "regtest";
 

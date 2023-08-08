@@ -70,6 +70,14 @@ in
       '';
     };
 
+    mnemonicPath = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = ''
+        Path to the mnemonics
+      '';
+    };
+
     cockroachdb = {
       clientCertPath = lib.mkOption {
         type = lib.types.path;
@@ -250,7 +258,7 @@ in
       ];
       serviceConfig = {
         ExecStart = lib.getExe cfg.package;
-        ExecStartPre = "+${pkgs.writeShellScript "setup" ''
+        ExecStartPre = "+${pkgs.writeShellScript "setup" (''
           setpriv --reuid bitcoind-${bitcoind-instance} \
                   --regid bitcoind-${bitcoind-instance} \
                   --clear-groups \
@@ -263,7 +271,8 @@ in
           install -D -m400 -o kld ${cfg.caPath} /var/lib/kld/certs/ca.pem
           install -D -m400 -o kld ${cfg.cockroachdb.clientCertPath} /var/lib/kld/certs/client.kld.crt
           install -D -m400 -o kld ${cfg.cockroachdb.clientKeyPath} /var/lib/kld/certs/client.kld.key
-        ''}";
+        '' + lib.optionalString (cfg.mnemonicPath != null) "install -D -m400 -o kld ${cfg.mnemonicPath} /var/lib/kld/mnemonic")
+        }";
         User = "kld";
         Group = "kld";
         SupplementaryGroups = [ "cockroachdb" ];
