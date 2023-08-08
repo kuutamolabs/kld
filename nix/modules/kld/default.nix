@@ -36,10 +36,6 @@ let
   '';
 in
 {
-
-  imports = [
-    ../bitcoind-disks.nix
-  ];
   options.kuutamo.kld = {
     nodeId = lib.mkOption {
       type = lib.types.str;
@@ -180,25 +176,6 @@ in
       ensurePermissions."DATABASE kld" = "ALL";
     }];
 
-    services.bitcoind.${bitcoind-instance} = {
-      enable = true;
-      testnet = cfg.network == "testnet";
-      port =
-        if cfg.network == "regtest" then
-          18444
-        else if cfg.network == "testnet" then
-          18333
-        else 8333;
-      rpc.port = 8332;
-      extraConfig = ''
-        rpcthreads=16
-      '';
-      extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
-        "-regtest"
-        "-noconnect"
-      ];
-    };
-
     networking.firewall.allowedTCPPorts = [ ]
       ++ lib.optionals cfg.openFirewall [ cfg.peerPort ];
     networking.firewall.extraCommands = lib.concatMapStrings
@@ -218,7 +195,6 @@ in
     programs.bash.interactiveShellInit = ''
       source ${cfg.package}/bin/kld-cli.bash
     '';
-    kuutamo.disko.bitcoindDataDir = bitcoinCfg.dataDir;
 
     # fix me, we need to wait for the database to start first
     systemd.services.kld = {

@@ -5,6 +5,7 @@
     db1 = { self, ... }: {
       imports = [
         self.nixosModules.kld
+        self.nixosModules.bitcoind
         self.nixosModules.electrs
         self.nixosModules.telegraf
       ];
