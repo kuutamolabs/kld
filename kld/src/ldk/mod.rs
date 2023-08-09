@@ -35,7 +35,7 @@ use log::warn;
 use crate::bitcoind::BitcoindClient;
 
 /// The minimum feerate we are allowed to send, as specify by LDK (sats/kwu).
-pub static MIN_FEERATE: u32 = 253;
+pub static MIN_FEERATE: u32 = 2000;
 
 pub type NetworkGraph = gossip::NetworkGraph<Arc<KldLogger>>;
 
