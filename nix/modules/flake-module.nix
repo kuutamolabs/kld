@@ -16,9 +16,9 @@
         };
       default = self.nixosModules.kld;
 
-      bitcoind = { config, pkgs, ... }: {
+      bitcoind = { pkgs, ... }: {
         imports = [ ./bitcoind.nix ];
-        services.bitcoind."kld-${config.kuutamo.kld.network}".package = self.packages.${pkgs.hostPlatform.system}.bitcoind;
+        kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.bitcoind;
       };
       electrs = { ... }: {
         imports = [ ./electrs.nix ];

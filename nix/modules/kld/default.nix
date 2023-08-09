@@ -5,15 +5,13 @@
 }:
 let
   cfg = config.kuutamo.kld;
-  bitcoind-instance = "kld-${cfg.network}";
-  bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
+  bitcoinCfg = if cfg.bitcoindInstance == "bitcoind" then config.services.bitcoind else config.services.bitcoind.${cfg.bitcoindInstance};
   bitcoinCookieDir =
     if cfg.network == "regtest" then
       "${bitcoinCfg.dataDir}/regtest"
     else if cfg.network == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
     else bitcoinCfg.dataDir;
-
   cockroachCfg = config.kuutamo.cockroachdb;
   electrsCfg = config.kuutamo.electrs;
 
@@ -73,7 +71,11 @@ in
         Path to the mnemonics
       '';
     };
-
+    bitcoindInstance = lib.mkOption {
+      type = lib.types.str;
+      default = "kld-${cfg.network}";
+      description = "The instance of bitcoind";
+    };
     cockroachdb = {
       clientCertPath = lib.mkOption {
         type = lib.types.path;
@@ -107,9 +109,6 @@ in
       description = lib.mdDoc "Port to listen for lightning peer connections";
     };
     network = lib.mkOption {
-      # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
-      # We might however not need more than that.
-      #type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
       type = lib.types.enum [ "main" "testnet" "regtest" ];
       default = "main";
       description = lib.mdDoc "Bitcoin network to use.";
@@ -235,8 +234,8 @@ in
       serviceConfig = {
         ExecStart = lib.getExe cfg.package;
         ExecStartPre = "+${pkgs.writeShellScript "setup" (''
-          setpriv --reuid bitcoind-${bitcoind-instance} \
-                  --regid bitcoind-${bitcoind-instance} \
+          setpriv --reuid ${bitcoinCfg.user} \
+                  --regid ${bitcoinCfg.group} \
                   --clear-groups \
                   --inh-caps=-all -- \
             kld-bitcoin-cli -rpcwait getblockchaininfo
