@@ -43,7 +43,7 @@ in
       dataDir = lib.mkOption {
         type = lib.types.path;
         default = "/var/lib/cockroachdb";
-        description = "The data directory for cockroachdb";
+        description = "The data directory for cockroachdb.";
       };
       certsDir = lib.mkOption {
         type = lib.types.path;
