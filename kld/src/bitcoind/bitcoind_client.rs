@@ -330,14 +330,14 @@ impl Priorities {
                 estimate_mode: EstimateMode::Economical,
             }),
             normal: Arc::new(Priority {
-                fee_rate: AtomicU32::new(2000),
-                default_fee_rate: 2000,
+                fee_rate: AtomicU32::new(5000),
+                default_fee_rate: 5000,
                 n_blocks: 18,
                 estimate_mode: EstimateMode::Economical,
             }),
             high: Arc::new(Priority {
-                fee_rate: AtomicU32::new(5000),
-                default_fee_rate: 5000,
+                fee_rate: AtomicU32::new(10000),
+                default_fee_rate: 10000,
                 n_blocks: 6,
                 estimate_mode: EstimateMode::Conservative,
             }),

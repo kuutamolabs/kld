@@ -628,6 +628,9 @@ impl Controller {
             .force_announced_channel_preference = false;
         user_config.channel_handshake_config.announced_channel = true;
         user_config.channel_handshake_config.our_max_accepted_htlcs = 200;
+        user_config
+            .channel_handshake_config
+            .max_inbound_htlc_value_in_flight_percent_of_channel = 100;
         user_config.channel_handshake_limits.max_funding_satoshis = u64::MAX;
 
         let (channel_manager_blockhash, channel_manager) = {
