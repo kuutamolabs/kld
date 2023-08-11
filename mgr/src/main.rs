@@ -102,7 +102,7 @@ enum Command {
     Install(InstallArgs),
     /// Upload update to host and show which actions would be performed on an update
     DryUpdate(DryUpdateArgs),
-    /// Update hosts
+    /// Update applications and OS of hosts, the mnemonic will not be updated
     Update(UpdateArgs),
     /// Rollback hosts to previous generation
     Rollback(RollbackArgs),
