@@ -12,6 +12,7 @@ use anyhow::Result;
 use api::Peer;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
+use http::StatusCode;
 
 use super::{internal_server, ApiError};
 
@@ -50,9 +51,12 @@ pub(crate) async fn connect_peer(
         .await
         .map_err(internal_server)?;
 
-    Ok(Json(PostV1PeerConnectResponse {
-        id: public_key.serialize().to_hex(),
-    }))
+    Ok((
+        StatusCode::CREATED,
+        Json(PostV1PeerConnectResponse {
+            id: public_key.serialize().to_hex(),
+        }),
+    ))
 }
 
 pub(crate) async fn disconnect_peer(
