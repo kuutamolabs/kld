@@ -69,6 +69,7 @@ craneLib.buildPackage {
 
   meta = with lib; {
     description = "Lightning Network Kuutamo Node Distribution";
+    mainProgram = "kld";
     homepage = "https://github.com/kuutamolabs/kld";
     license = licenses.asl20;
     platforms = platforms.unix;
