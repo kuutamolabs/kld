@@ -1167,7 +1167,7 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
                 bind_api_server(rest_api_address, certs_dir)
                     .await?
                     .serve(
-                        Arc::new(MockBitcoind::default()),
+                        Arc::new(MockBitcoind),
                         mock_lightning(),
                         Arc::new(MockWallet::default()),
                         macaroon_auth,
