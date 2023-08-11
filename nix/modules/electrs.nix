@@ -54,7 +54,7 @@ in
     };
     users.groups.electrs = { };
 
-    systemd.services.electrs = {
+    systemd.services.electrs = lib.mkDefault {
       wantedBy = [ "multi-user.target" ];
       after = [ "bitcoind.service" ];
       serviceConfig = {
