@@ -1,5 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
+use super::codegen::{
+    post_v1_peer_connect_body::PostV1PeerConnectBody,
+    post_v1_peer_connect_response::PostV1PeerConnectResponse,
+};
 use crate::{
     api::bad_request,
     ldk::{LightningInterface, PeerStatus},
@@ -32,21 +36,23 @@ pub(crate) async fn list_peers(
 
 pub(crate) async fn connect_peer(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-    Json(id): Json<String>,
+    Json(body): Json<PostV1PeerConnectBody>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let (public_key, net_address) = match id.split_once('@') {
+    let (public_key, net_address) = match body.id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
             Some(net_address.parse().map_err(bad_request)?),
         ),
-        None => (PublicKey::from_str(&id).map_err(bad_request)?, None),
+        None => (PublicKey::from_str(&body.id).map_err(bad_request)?, None),
     };
     lightning_interface
         .connect_peer(public_key, net_address)
         .await
         .map_err(internal_server)?;
 
-    Ok(Json(public_key.serialize().to_hex()))
+    Ok(Json(PostV1PeerConnectResponse {
+        id: public_key.serialize().to_hex(),
+    }))
 }
 
 pub(crate) async fn disconnect_peer(

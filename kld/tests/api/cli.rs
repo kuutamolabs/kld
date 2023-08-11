@@ -9,7 +9,6 @@ use api::{
     NetworkChannel, NetworkNode, NewAddressResponse, Payment, PaymentResponse, Peer,
     SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
 };
-use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
@@ -17,6 +16,7 @@ use kld::api::codegen::{
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse,
+    post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
 
 use super::rest::create_api_server;
@@ -87,7 +87,7 @@ async fn test_cli_list_peers() -> Result<()> {
 #[tokio::test]
 async fn test_cli_connect_peer() -> Result<()> {
     let output = run_cli("connect-peer", &[TEST_PUBLIC_KEY]).await?;
-    let _: PublicKey = deserialize(&output.stdout)?;
+    let _: PostV1PeerConnectResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

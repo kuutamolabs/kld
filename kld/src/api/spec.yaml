@@ -4,10 +4,45 @@ info:
   title: KLD REST API
 basePath: /
 paths:
+  /v1/peer/connect:
+    post:
+      description: Connect with a network peer
+      operationId: connect
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Pubkey@address of the peer
+          schema:
+            required:
+              - id
+            type: object
+            properties:
+              id:
+                type: string
+      responses:
+        "201":
+          description: Peer connected successfully
+          schema:
+            required:
+              - id
+            type: object
+            properties:
+              id:
+                type: string
+                description: Pubkey of connected peer
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
   /v1/estimateChannelLiquidity:
     get:
       description: Estimate channel liquidity
       operationId: estimateChannelLiquidity
+      security:
+        - MacaroonAuth: []
       parameters:
         - in: body
           name: body
@@ -34,6 +69,10 @@ paths:
                 type: integer
               maximum:
                 type: integer
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
   /v1/getFees:
     get:
       tags:

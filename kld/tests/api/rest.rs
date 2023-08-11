@@ -20,6 +20,8 @@ use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocal
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
+use kld::api::codegen::post_v1_peer_connect_body::PostV1PeerConnectBody;
+use kld::api::codegen::post_v1_peer_connect_response::PostV1PeerConnectResponse;
 use kld::api::MacaroonAuth;
 use kld::database::payment::PaymentStatus;
 use kld::logger::KldLogger;
@@ -663,15 +665,17 @@ async fn test_list_peers_readonly() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_connect_peer_admin() -> Result<()> {
     let context = create_api_server().await?;
-    let response: String =
+    let response: PostV1PeerConnectResponse =
         admin_request_with_body(&context, Method::POST, routes::CONNECT_PEER, || {
-            TEST_PUBLIC_KEY
+            PostV1PeerConnectBody {
+                id: format!("{}@1.0.0.0:1111", TEST_PUBLIC_KEY),
+            }
         })?
         .send()
         .await?
         .json()
         .await?;
-    assert_eq!(TEST_PUBLIC_KEY, response);
+    assert_eq!(TEST_PUBLIC_KEY, response.id);
     Ok(())
 }
 

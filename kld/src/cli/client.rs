@@ -13,7 +13,6 @@ use api::{
     PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
     WalletTransfer, WalletTransferResponse,
 };
-use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
@@ -22,6 +21,8 @@ use kld::api::codegen::{
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse,
+    post_v1_peer_connect_body::PostV1PeerConnectBody,
+    post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder, Response},
@@ -115,10 +116,11 @@ impl Api {
     }
 
     pub fn connect_peer(&self, id: String) -> Result<String> {
+        let connect = PostV1PeerConnectBody { id };
         let response = self
-            .request_with_body(Method::POST, routes::CONNECT_PEER, id)
+            .request_with_body(Method::POST, routes::CONNECT_PEER, connect)
             .send()?;
-        deserialize::<PublicKey>(response)
+        deserialize::<PostV1PeerConnectResponse>(response)
     }
 
     pub fn disconnect_peer(&self, id: String) -> Result<String> {
