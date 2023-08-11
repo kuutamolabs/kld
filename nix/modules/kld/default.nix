@@ -5,21 +5,19 @@
 }:
 let
   cfg = config.kuutamo.kld;
-  bitcoind-instance = "kld-${cfg.network}";
-  bitcoinCfg = config.services.bitcoind.${bitcoind-instance};
+  bitcoinCfg = if cfg.bitcoindInstance == "bitcoind" then config.services.bitcoind else config.services.bitcoind.${cfg.bitcoindInstance};
   bitcoinCookieDir =
     if cfg.network == "regtest" then
       "${bitcoinCfg.dataDir}/regtest"
     else if cfg.network == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
     else bitcoinCfg.dataDir;
-
   cockroachCfg = config.kuutamo.cockroachdb;
   electrsCfg = config.kuutamo.electrs;
 
   kld-cli = pkgs.runCommand "kld-cli" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
     makeWrapper ${cfg.package}/bin/kld-cli $out/bin/kld-cli \
-      --add-flags "--target 127.0.0.1:${toString cfg.restApiPort} --cert-path /var/lib/kld/certs/ca.pem  --macaroon-path /var/lib/kld/macaroons/admin.macaroon"
+      --add-flags "--target 127.0.0.1:${toString cfg.restApiPort} --cert-path ${cfg.dataDir}/certs/ca.pem  --macaroon-path ${cfg.dataDir}/macaroons/admin.macaroon"
   '';
 
   bitcoin-cli-flags = [
@@ -36,11 +34,12 @@ let
   '';
 in
 {
-
-  imports = [
-    ../bitcoind-disks.nix
-  ];
   options.kuutamo.kld = {
+    dataDir = lib.mkOption {
+      type = lib.types.path;
+      default = "/var/lib/kld";
+      description = "The data directory for kld.";
+    };
     nodeId = lib.mkOption {
       type = lib.types.str;
       default = config.networking.hostName;
@@ -77,7 +76,11 @@ in
         Path to the mnemonics
       '';
     };
-
+    bitcoindInstance = lib.mkOption {
+      type = lib.types.str;
+      default = "kld-${cfg.network}";
+      description = "The instance of bitcoind";
+    };
     cockroachdb = {
       clientCertPath = lib.mkOption {
         type = lib.types.path;
@@ -111,9 +114,6 @@ in
       description = lib.mdDoc "Port to listen for lightning peer connections";
     };
     network = lib.mkOption {
-      # Our bitcoind module does not handle anything but bitcoind and testnet at the moment.
-      # We might however not need more than that.
-      #type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
       type = lib.types.enum [ "main" "testnet" "regtest" ];
       default = "main";
       description = lib.mdDoc "Bitcoin network to use.";
@@ -180,25 +180,6 @@ in
       ensurePermissions."DATABASE kld" = "ALL";
     }];
 
-    services.bitcoind.${bitcoind-instance} = {
-      enable = true;
-      testnet = cfg.network == "testnet";
-      port =
-        if cfg.network == "regtest" then
-          18444
-        else if cfg.network == "testnet" then
-          18333
-        else 8333;
-      rpc.port = 8332;
-      extraConfig = ''
-        rpcthreads=16
-      '';
-      extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
-        "-regtest"
-        "-noconnect"
-      ];
-    };
-
     networking.firewall.allowedTCPPorts = [ ]
       ++ lib.optionals cfg.openFirewall [ cfg.peerPort ];
     networking.firewall.extraCommands = lib.concatMapStrings
@@ -218,7 +199,6 @@ in
     programs.bash.interactiveShellInit = ''
       source ${cfg.package}/bin/kld-cli.bash
     '';
-    kuutamo.disko.bitcoindDataDir = bitcoinCfg.dataDir;
 
     # fix me, we need to wait for the database to start first
     systemd.services.kld = {
@@ -239,13 +219,15 @@ in
         KLD_DATABASE_PORT = lib.mkDefault (toString cockroachCfg.sql.port);
         KLD_DATABASE_USER = lib.mkDefault "kld";
         KLD_DATABASE_NAME = lib.mkDefault "kld";
-        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''/var/lib/cockroachdb-certs/ca.crt'';
-        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.crt";
-        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "/var/lib/kld/certs/client.kld.key";
+        KLD_DATABASE_CA_CERT_PATH = lib.mkDefault ''${cockroachCfg.certsDir}/ca.crt'';
+        KLD_DATABASE_CLIENT_CERT_PATH = lib.mkDefault "${cfg.dataDir}/certs/client.kld.crt";
+        KLD_DATABASE_CLIENT_KEY_PATH = lib.mkDefault "${cfg.dataDir}/certs/client.kld.key";
         KLD_EXPORTER_ADDRESS = lib.mkDefault cfg.exporterAddress;
         KLD_REST_API_ADDRESS = if cfg.apiIpAccessList != [ ] then "[::]:${toString cfg.restApiPort}" else "127.0.0.1:${toString cfg.restApiPort}";
-        KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "/var/lib/kld/.cookie";
-        KLD_CERTS_DIR = lib.mkDefault "/var/lib/kld/certs";
+        KLD_BITCOIN_COOKIE_PATH = lib.mkDefault "${cfg.dataDir}/.cookie";
+        KLD_DATA_DIR = lib.mkDefault cfg.dataDir;
+        KLD_MNEMONIC_PATH = lib.mkDefault "${cfg.dataDir}/mnemonic";
+        KLD_CERTS_DIR = lib.mkDefault "${cfg.dataDir}/certs";
         KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
         KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
@@ -259,19 +241,19 @@ in
       serviceConfig = {
         ExecStart = lib.getExe cfg.package;
         ExecStartPre = "+${pkgs.writeShellScript "setup" (''
-          setpriv --reuid bitcoind-${bitcoind-instance} \
-                  --regid bitcoind-${bitcoind-instance} \
+          setpriv --reuid ${bitcoinCfg.user} \
+                  --regid ${bitcoinCfg.group} \
                   --clear-groups \
                   --inh-caps=-all -- \
             kld-bitcoin-cli -rpcwait getblockchaininfo
-          install -m400 -o kld ${bitcoinCookieDir}/.cookie /var/lib/kld/.cookie
+          install -m400 -o kld ${bitcoinCookieDir}/.cookie ${cfg.dataDir}/.cookie
 
-          install -D -m400 -o kld ${cfg.certPath} /var/lib/kld/certs/kld.crt
-          install -D -m400 -o kld ${cfg.keyPath} /var/lib/kld/certs/kld.key
-          install -D -m400 -o kld ${cfg.caPath} /var/lib/kld/certs/ca.pem
-          install -D -m400 -o kld ${cfg.cockroachdb.clientCertPath} /var/lib/kld/certs/client.kld.crt
-          install -D -m400 -o kld ${cfg.cockroachdb.clientKeyPath} /var/lib/kld/certs/client.kld.key
-        '' + lib.optionalString (cfg.mnemonicPath != null) "install -D -m400 -o kld ${cfg.mnemonicPath} /var/lib/kld/mnemonic")
+          install -D -m400 -o kld ${cfg.certPath} ${cfg.dataDir}/certs/kld.crt
+          install -D -m400 -o kld ${cfg.keyPath} ${cfg.dataDir}/certs/kld.key
+          install -D -m400 -o kld ${cfg.caPath} ${cfg.dataDir}/certs/ca.pem
+          install -D -m400 -o kld ${cfg.cockroachdb.clientCertPath} ${cfg.dataDir}/certs/client.kld.crt
+          install -D -m400 -o kld ${cfg.cockroachdb.clientKeyPath} ${cfg.dataDir}/certs/client.kld.key
+        '' + lib.optionalString (cfg.mnemonicPath != null) "install -D -m400 -o kld ${cfg.mnemonicPath} ${cfg.dataDir}/mnemonic")
         }";
         User = "kld";
         Group = "kld";

@@ -1,12 +1,11 @@
 { config, lib, pkgs, ... }:
 let
   cfg = config.kuutamo.electrs;
-  kldNetwork = config.kuutamo.kld.network;
-  bitcoinCfg = config.services.bitcoind."kld-${kldNetwork}";
+  bitcoinCfg = if cfg.bitcoindInstance == "bitcoind" then config.services.bitcoind else config.services.bitcoind.${cfg.bitcoindInstance};
   bitcoinCookieDir =
-    if kldNetwork == "regtest" then
+    if cfg.network == "regtest" then
       "${bitcoinCfg.dataDir}/regtest"
-    else if kldNetwork == "testnet" then
+    else if cfg.network == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
     else bitcoinCfg.dataDir;
 in
@@ -26,6 +25,11 @@ in
       type = lib.types.path;
       default = "/var/lib/electrs";
       description = "The data directory for electrs.";
+    };
+    bitcoindInstance = lib.mkOption {
+      type = lib.types.str;
+      default = "kld-${if cfg.network == "bitcoin" then "main" else cfg.network}";
+      description = "The instance of bitcoind";
     };
     monitoringPort = lib.mkOption {
       type = lib.types.port;

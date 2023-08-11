@@ -3,7 +3,7 @@
   flake = {
     nixosModules = {
       kuutamo-binary-cache = ./binary-cache;
-      kld = { config, pkgs, ... }:
+      kld = { pkgs, ... }:
         let
           packages = self.packages.${pkgs.hostPlatform.system};
         in
@@ -13,12 +13,13 @@
             self.nixosModules.cockroachdb
           ];
           kuutamo.kld.package = packages.kld;
-          services.bitcoind."kld-${config.kuutamo.kld.network}" = {
-            package = packages.bitcoind;
-          };
         };
       default = self.nixosModules.kld;
 
+      bitcoind = { pkgs, ... }: {
+        imports = [ ./bitcoind.nix ];
+        kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.bitcoind;
+      };
       electrs = { ... }: {
         imports = [ ./electrs.nix ];
       };
@@ -67,6 +68,8 @@
       kld-node.imports = [
         ./kld-toml-mapping.nix
         self.nixosModules.common-node
+        self.nixosModules.bitcoind
+        self.nixosModules.electrs
         self.nixosModules.kld
         {
           kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
@@ -78,7 +81,6 @@
           kuutamo.cockroachdb.rootClientCertPath = "/var/lib/secrets/cockroachdb/client.root.crt";
           kuutamo.cockroachdb.rootClientKeyPath = "/var/lib/secrets/cockroachdb/client.root.key";
         }
-        self.nixosModules.electrs
       ];
     };
   };

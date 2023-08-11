@@ -5,6 +5,7 @@
     db1 = { self, ... }: {
       imports = [
         self.nixosModules.kld
+        self.nixosModules.bitcoind
         self.nixosModules.electrs
         self.nixosModules.telegraf
       ];
@@ -28,6 +29,7 @@
       kuutamo.kld.network = "regtest";
       kuutamo.kld.mnemonicPath = ./secrets/mnemonic;
 
+      kuutamo.bitcoind.network = "regtest";
       kuutamo.electrs.network = "regtest";
 
       kuutamo.telegraf = {
