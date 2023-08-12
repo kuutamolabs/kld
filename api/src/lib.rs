@@ -445,19 +445,6 @@ pub struct SetChannelFee {
 #[derive(Serialize, Deserialize)]
 pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
 
-#[derive(Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct NewAddress {
-    /// Address type (bech32 only)
-    pub address_type: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct NewAddressResponse {
-    /// Address
-    pub address: String,
-}
-
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Peer {
     pub id: String,

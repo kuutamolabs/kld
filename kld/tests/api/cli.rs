@@ -6,8 +6,8 @@ use std::{
 use anyhow::{bail, Result};
 use api::{
     FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice, ListFunds,
-    NetworkChannel, NetworkNode, NewAddressResponse, Payment, PaymentResponse, Peer,
-    SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
+    NetworkChannel, NetworkNode, Payment, PaymentResponse, Peer, SetChannelFeeResponse,
+    SignResponse, WalletBalance, WalletTransferResponse,
 };
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
@@ -15,7 +15,7 @@ use kld::api::codegen::{
     get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
-    get_v1_get_fees_response::GetV1GetFeesResponse,
+    get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
 
@@ -48,7 +48,7 @@ async fn test_cli_get_balance() -> Result<()> {
 #[tokio::test]
 async fn test_cli_new_address() -> Result<()> {
     let output = run_cli("new-address", &[]).await?;
-    let _: NewAddressResponse = deserialize(&output.stdout)?;
+    let _: GetV1NewaddrResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

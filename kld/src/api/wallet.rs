@@ -3,12 +3,11 @@ use api::ChannelState;
 use api::ListFunds;
 use api::ListFundsChannel;
 use api::ListFundsOutput;
-use api::NewAddress;
-use api::NewAddressResponse;
 use api::OutputStatus;
 use api::WalletBalance;
 use api::WalletTransfer;
 use api::WalletTransferResponse;
+use axum::extract::Query;
 use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::consensus::encode;
 use bitcoin::Address;
@@ -20,6 +19,7 @@ use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 use crate::wallet::WalletInterface;
 
+use super::codegen::get_v1_newaddr_response::GetV1NewaddrResponse;
 use super::{bad_request, internal_server, ApiError};
 
 pub(crate) async fn get_balance(
@@ -36,17 +36,21 @@ pub(crate) async fn get_balance(
     Ok(Json(result))
 }
 
+#[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NewAddressQueryParams {
+    pub address_type: Option<String>,
+}
+
 pub(crate) async fn new_address(
     Extension(wallet): Extension<Arc<dyn WalletInterface + Send + Sync>>,
-    Json(new_address): Json<NewAddress>,
+    Query(params): Query<NewAddressQueryParams>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if let Some(address_type) = new_address.address_type {
-        if address_type != "bech32" {
-            return Err(bad_request(anyhow!("Unsupported address type")));
-        }
+    if params.address_type.is_some_and(|t| t != "bech32") {
+        return Err(bad_request(anyhow!("Unsupported address type")));
     }
     let address_info = wallet.new_external_address().map_err(internal_server)?;
-    let response = NewAddressResponse {
+    let response = GetV1NewaddrResponse {
         address: address_info.address.to_string(),
     };
     Ok(Json(response))

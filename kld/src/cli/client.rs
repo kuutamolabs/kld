@@ -9,9 +9,8 @@ use anyhow::Result;
 use api::{
     routes, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
-    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, PayInvoice, Payment,
-    PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    NetworkChannel, NetworkNode, PayInvoice, Payment, PaymentResponse, Peer, SetChannelFeeResponse,
+    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
@@ -20,7 +19,7 @@ use kld::api::codegen::{
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
-    get_v1_get_fees_response::GetV1GetFeesResponse,
+    get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
     post_v1_peer_connect_body::PostV1PeerConnectBody,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
@@ -73,10 +72,8 @@ impl Api {
     }
 
     pub fn new_address(&self) -> Result<String> {
-        let response = self
-            .request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default())
-            .send()?;
-        deserialize::<NewAddressResponse>(response)
+        let response = self.request(Method::GET, routes::NEW_ADDR).send()?;
+        deserialize::<GetV1NewaddrResponse>(response)
     }
 
     pub fn withdraw(

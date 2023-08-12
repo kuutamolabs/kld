@@ -4,6 +4,33 @@ info:
   title: KLD REST API
 basePath: /
 paths:
+  /v1/newaddr:
+    get:
+      description: Generates new on-chain address for receiving funds
+      operationId: newaddr
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: query
+          name: addrType
+          description: Address type (bech32)
+          type: string
+          default: bech32
+      responses:
+        "200":
+          description: Address generated successfully
+          schema:
+            type: object
+            properties:
+              address:
+                type: string
+                description: address
+            required:
+              - address
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
   /v1/peer/connect:
     post:
       description: Connect with a network peer

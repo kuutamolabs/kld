@@ -20,6 +20,7 @@ use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocal
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
+use kld::api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse;
 use kld::api::codegen::post_v1_peer_connect_body::PostV1PeerConnectBody;
 use kld::api::codegen::post_v1_peer_connect_response::PostV1PeerConnectResponse;
 use kld::api::MacaroonAuth;
@@ -39,9 +40,9 @@ use test_utils::{
 use api::{
     routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
     FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
-    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse,
-    OutputStatus, PayInvoice, Payment, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
-    SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
+    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice, Payment,
+    PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
+    WalletTransfer, WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -177,14 +178,14 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
+        readonly_request(&context, Method::GET, routes::NEW_ADDR,)?
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
+        readonly_request(&context, Method::GET, routes::NEW_ADDR)?
             .send()
             .await?
             .status()
@@ -633,12 +634,12 @@ async fn test_withdraw_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_new_address_admin() -> Result<()> {
     let context = create_api_server().await?;
-    let response: NewAddressResponse =
-        admin_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
-            .send()
-            .await?
-            .json()
-            .await?;
+    let response: GetV1NewaddrResponse = admin_request(&context, Method::GET, routes::NEW_ADDR)?
+        .query(&[("addressType", "bech32")])
+        .send()
+        .await?
+        .json()
+        .await?;
     assert_eq!(TEST_ADDRESS.to_string(), response.address);
     Ok(())
 }

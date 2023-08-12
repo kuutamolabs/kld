@@ -4,12 +4,14 @@ use crate::START_N_BLOCKS;
 use anyhow::{Context, Result};
 use api::{
     routes, Channel, ChannelState, FundChannel, FundChannelResponse, GenerateInvoice,
-    GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, NewAddress, NewAddressResponse,
-    PayInvoice, PaymentResponse, WalletBalance,
+    GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, PayInvoice, PaymentResponse,
+    WalletBalance,
 };
 use bitcoin::Address;
 use hyper::Method;
-use kld::database::payment::PaymentStatus;
+use kld::{
+    api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse, database::payment::PaymentStatus,
+};
 use test_utils::{bitcoin, cockroach, electrs, kld, poll, test_settings, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
 
@@ -35,8 +37,8 @@ pub async fn test_start() -> Result<()> {
     let electrs_1 = electrs!(&bitcoin, settings_1);
     let kld_1 = kld!(&bitcoin, &cockroach, &electrs_1, settings_1);
 
-    let address: NewAddressResponse = kld_0
-        .call_rest_api(Method::GET, routes::NEW_ADDR, NewAddress::default())
+    let address: GetV1NewaddrResponse = kld_0
+        .call_rest_api(Method::GET, routes::NEW_ADDR, ())
         .await?;
 
     bitcoin
