@@ -225,7 +225,7 @@ paths:
                 description: Funding
               state:
                 type: string
-                enum: [usable, ready, pending]
+                enum: [CHANNELD_NORMAL, OPENINGD]
                 description: Channel connection status
               fee_base_msat:
                 type: integer
@@ -249,6 +249,18 @@ paths:
               alias:
                 type: string
                 description: Alias of the node
+              minimum_htlc_in_msat:
+                type: integer
+                description: Minimum HTLC we can receive on this channel
+              max_total_htlc_in_msat:
+                type: integer
+                description: Maximum total HTLCs we can receive on this channel
+              minimum_htlc_out_msat:
+                type: integer
+                description: Mimimum HTLC we can send
+              maximum_htlc_out_msat:
+                type: integer
+                description: Maximum HTLC we can send
             required:
               - peer_id
               - peer_connected
@@ -267,6 +279,8 @@ paths:
               - dust_limit_msat
               - features
               - alias
+              - maximum_htlc_out_msat
+              - minimum_htlc_out_msat
         "400":
           description: Bad request
         "500":

@@ -123,7 +123,6 @@ pub(crate) async fn list_peer_channels(
             } else {
                 GetV1ChannelListPeerChannelsResponseOpener::Remote
             },
-            our_reserve_msat: channel.unspendable_punishment_reserve.map(|x| x as i64),
             peer_connected: peers
                 .iter()
                 .find(|p| p.public_key == channel.counterparty.node_id)
@@ -135,14 +134,19 @@ pub(crate) async fn list_peer_channels(
             short_channel_id: channel.short_channel_id.map(|x| x.to_string()),
             spendable_msat: channel.outbound_capacity_msat as i64,
             state: if channel.is_usable {
-                GetV1ChannelListPeerChannelsResponseState::Usable
-            } else if channel.is_channel_ready {
-                GetV1ChannelListPeerChannelsResponseState::Ready
+                GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
             } else {
-                GetV1ChannelListPeerChannelsResponseState::Pending
+                GetV1ChannelListPeerChannelsResponseState::Openingd
             },
-            their_reserve_msat: channel.counterparty.unspendable_punishment_reserve as i64,
+            our_reserve_msat: channel
+                .unspendable_punishment_reserve
+                .map(|x| (x * 1000) as i64),
+            their_reserve_msat: (channel.counterparty.unspendable_punishment_reserve * 1000) as i64,
             to_them_msat: ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64,
+            minimum_htlc_in_msat: channel.inbound_htlc_minimum_msat.map(|x| x as i64),
+            max_total_htlc_in_msat: channel.inbound_htlc_maximum_msat.map(|x| x as i64),
+            minimum_htlc_out_msat: channel.next_outbound_htlc_minimum_msat as i64,
+            maximum_htlc_out_msat: channel.next_outbound_htlc_limit_msat as i64,
             to_us_msat: channel.balance_msat as i64,
             total_msat: channel.channel_value_satoshis as i64 * 1000,
         })

@@ -522,8 +522,8 @@ async fn test_list_peer_channels_readonly() -> Result<()> {
     assert_eq!(100000, channel.to_us_msat);
     assert_eq!(1000000000, channel.total_msat);
     assert_eq!(999900000, channel.to_them_msat);
-    assert_eq!(5000, channel.their_reserve_msat);
-    assert_eq!(Some(10000), channel.our_reserve_msat);
+    assert_eq!(5000000, channel.their_reserve_msat);
+    assert_eq!(Some(10000000), channel.our_reserve_msat);
     assert_eq!(100000, channel.spendable_msat);
     assert_eq!(TEST_ALIAS, channel.alias);
     assert_eq!(5000, channel.dust_limit_msat);
