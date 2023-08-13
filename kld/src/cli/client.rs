@@ -9,7 +9,7 @@ use anyhow::Result;
 use api::{
     routes, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
-    NetworkChannel, NetworkNode, PayInvoice, Payment, PaymentResponse, Peer, SetChannelFeeResponse,
+    NetworkChannel, NetworkNode, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse,
     SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
 use kld::api::codegen::{
@@ -20,6 +20,7 @@ use kld::api::codegen::{
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
+    get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse,
     post_v1_peer_connect_body::PostV1PeerConnectBody,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
@@ -278,7 +279,7 @@ impl Api {
             .request(Method::GET, routes::LIST_PAYMENTS)
             .query(&params)
             .send()?;
-        deserialize::<Vec<Payment>>(response)
+        deserialize::<GetV1PayListPaymentsResponse>(response)
     }
 
     pub fn estimate_channel_liquidity(&self, scid: u64, target: String) -> Result<String> {

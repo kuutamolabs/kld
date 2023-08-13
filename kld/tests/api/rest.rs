@@ -21,6 +21,7 @@ use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChan
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
 use kld::api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse;
+use kld::api::codegen::get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse;
 use kld::api::codegen::post_v1_peer_connect_body::PostV1PeerConnectBody;
 use kld::api::codegen::post_v1_peer_connect_response::PostV1PeerConnectResponse;
 use kld::api::MacaroonAuth;
@@ -40,7 +41,7 @@ use test_utils::{
 use api::{
     routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
     FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
-    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice, Payment,
+    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice,
     PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
     WalletTransfer, WalletTransferResponse,
 };
@@ -894,7 +895,7 @@ async fn test_list_invoice_unpaid() -> Result<()> {
 async fn test_list_payments() -> Result<()> {
     let context = create_api_server().await?;
     let payment = &mock_lightning().payment;
-    let response: Vec<Payment> = admin_request(
+    let response: GetV1PayListPaymentsResponse = admin_request(
         &context,
         Method::GET,
         &format!("{}?direction={}", routes::LIST_PAYMENTS, payment.direction),
@@ -903,14 +904,15 @@ async fn test_list_payments() -> Result<()> {
     .await?
     .json()
     .await?;
-    let payment_response = response.get(0).context("expected payment")?;
-    assert_eq!(payment.bolt11, payment_response.bolt11);
+    let payment_response = response.payments.get(0).context("expected payment")?;
+    assert_eq!(payment.id.0.to_hex(), payment_response.id);
+    assert_eq!(
+        payment.bolt11.as_ref().map(|b| b.to_string()),
+        payment_response.bolt11
+    );
     assert_eq!(payment.status.to_string(), payment_response.status);
     assert!(payment_response.payment_preimage.is_none());
-    assert_eq!(
-        payment.amount.to_string(),
-        payment_response.amount_sent_msat
-    );
+    assert_eq!(payment.amount as f64, payment_response.amount_sent_msat);
     Ok(())
 }
 #[tokio::test(flavor = "multi_thread")]

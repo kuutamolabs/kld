@@ -12,6 +12,7 @@ mod ws;
 pub use netaddress::NetAddress;
 
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
+use serde::{Deserialize, Deserializer};
 use serde_json::json;
 
 use self::utility::get_info;
@@ -53,7 +54,7 @@ use axum_server::{
 use futures::{future::Shared, Future};
 use hyper::StatusCode;
 use log::{error, info, warn};
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
 
 pub struct RestApi {
@@ -230,4 +231,19 @@ pub fn bad_request(e: impl Into<anyhow::Error>) -> ApiError {
 pub mod codegen {
     #![allow(dead_code)]
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+}
+
+pub(crate) fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    T::Err: std::fmt::Display,
+{
+    let opt = Option::<String>::deserialize(de)?;
+    match opt.as_deref() {
+        None | Some("") => Ok(None),
+        Some(s) => FromStr::from_str(s)
+            .map_err(serde::de::Error::custom)
+            .map(Some),
+    }
 }

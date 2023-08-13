@@ -6,8 +6,8 @@ use std::{
 use anyhow::{bail, Result};
 use api::{
     FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice, ListFunds,
-    NetworkChannel, NetworkNode, Payment, PaymentResponse, Peer, SetChannelFeeResponse,
-    SignResponse, WalletBalance, WalletTransferResponse,
+    NetworkChannel, NetworkNode, PaymentResponse, Peer, SetChannelFeeResponse, SignResponse,
+    WalletBalance, WalletTransferResponse,
 };
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
@@ -16,6 +16,7 @@ use kld::api::codegen::{
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
+    get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
 
@@ -238,7 +239,7 @@ async fn test_cli_list_payments() -> Result<()> {
         &["--bolt11", "bolt11", "--direction", "inbound"],
     )
     .await?;
-    let _: Vec<Payment> = deserialize(&output.stdout)?;
+    let _: GetV1PayListPaymentsResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

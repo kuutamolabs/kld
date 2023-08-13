@@ -1,13 +1,7 @@
-use std::{
-    fmt::{self, Display},
-    str::FromStr,
-};
+use std::{fmt::Display, str::FromStr};
 
 use bitcoin::Transaction;
-use serde::{
-    de::{self, Visitor},
-    Deserialize, Deserializer, Serialize,
-};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -507,16 +501,6 @@ pub struct PaymentResponse {
     pub status: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Payment {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bolt11: Option<String>,
-    pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payment_preimage: Option<String>,
-    pub amount_sent_msat: String,
-}
-
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateInvoice {
@@ -534,35 +518,6 @@ pub struct GenerateInvoice {
     pub fallbacks: Option<Vec<String>>,
     // 64-digit hex string to be used as payment preimage for the created invoice. IMPORTANT> if you specify the preimage, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret. This parameter is an advanced feature intended for use with cutting-edge cryptographic protocols and should not be used unless explicitly needed.
     pub preimage: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListPaysParams {
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub invoice: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub direction: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListInvoiceParams {
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub label: Option<String>,
-}
-
-fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: FromStr,
-    T::Err: fmt::Display,
-{
-    let opt = Option::<String>::deserialize(de)?;
-    match opt.as_deref() {
-        None | Some("") => Ok(None),
-        Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

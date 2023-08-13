@@ -400,3 +400,70 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  /v1/pay/listPayments:
+    get:
+      tags:
+        - Payments
+      description: Returns a detailed list of payments
+      operationId: listpayments
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: query
+          name: invoice
+          description: BOLT11 invoice
+          type: string
+      responses:
+        "200":
+          description: An array of payments objects is returned
+          schema:
+            type: object
+            properties:
+              payments:
+                type: array
+                description: List of payments
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: id
+                    payment_hash:
+                      type: string
+                      description: payment_hash
+                    destination:
+                      type: string
+                      description: destination
+                    amount_msat:
+                      type: number
+                      description: amount_msat
+                    amount_sent_msat:
+                      type: number
+                      description: amount_sent_msat
+                    created_at:
+                      type: integer
+                      description: created_at
+                    status:
+                      type: string
+                      description: status
+                    payment_preimage:
+                      type: string
+                      description: payment_preimage
+                    bolt11:
+                      type: string
+                      description: bolt11
+                    memo:
+                      type: string
+                      description: memo
+                  required:
+                    - id
+                    - payment_hash
+                    - amount_sent_msat
+                    - created_at
+                    - status
+            required:
+              - payments
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
