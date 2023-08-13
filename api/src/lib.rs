@@ -32,8 +32,6 @@ pub mod routes {
     pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect/:id";
 
     /// --- Channels ---
-    /// Get the list of channels open on the node.
-    pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
     /// Get the list of channels for this nodes peers.
     pub const LIST_PEER_CHANNELS: &str = "/v1/channel/listPeerChannels";
     /// Open channel with a connected peer node.
@@ -208,43 +206,6 @@ pub enum ChannelState {
     Usable,
     Ready,
     Pending,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Channel {
-    /// Pub key
-    pub id: String,
-    /// Peer connection status (true or false)
-    pub connected: bool,
-    // Channel connection status
-    pub state: ChannelState,
-    /// Channel ID
-    pub short_channel_id: String,
-    /// Channel ID
-    pub channel_id: String,
-    /// Channel funding transaction
-    pub funding_txid: String,
-    /// Private channel flag (true or false)
-    pub private: bool,
-    /// Number of msats on our side
-    pub msatoshi_to_us: u64,
-    /// Total msats in the channel
-    pub msatoshi_total: u64,
-    /// Number of msats to push to their side
-    pub msatoshi_to_them: u64,
-    /// Minimum number of msats on their side
-    pub their_channel_reserve_satoshis: u64,
-    /// Minimum number of msats on our side
-    pub our_channel_reserve_satoshis: Option<u64>,
-    /// Spendable msats
-    pub spendable_msatoshi: u64,
-    ///
-    /// pub funding_allocation_msat: String,
-    /// Flag indicating if this peer initiated the channel (0,1)
-    pub direction: u8,
-    /// Alias of the node
-    pub alias: String,
 }
 
 #[derive(Serialize, Deserialize, Default)]

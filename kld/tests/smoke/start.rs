@@ -3,14 +3,19 @@ use std::{str::FromStr, time::Duration};
 use crate::START_N_BLOCKS;
 use anyhow::{Context, Result};
 use api::{
-    routes, Channel, ChannelState, FundChannel, FundChannelResponse, GenerateInvoice,
-    GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, PayInvoice, PaymentResponse,
-    WalletBalance,
+    routes, FundChannel, FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo,
+    Invoice, KeysendRequest, PayInvoice, PaymentResponse, WalletBalance,
 };
 use bitcoin::Address;
 use hyper::Method;
 use kld::{
-    api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse, database::payment::PaymentStatus,
+    api::codegen::{
+        get_v1_channel_list_peer_channels_response::{
+            GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseState,
+        },
+        get_v1_newaddr_response::GetV1NewaddrResponse,
+    },
+    database::payment::PaymentStatus,
 };
 use test_utils::{bitcoin, cockroach, electrs, kld, poll, test_settings, TEST_ADDRESS};
 use tokio::time::{sleep_until, Instant};
@@ -108,18 +113,27 @@ pub async fn test_start() -> Result<()> {
             .conf_balance
             == kld0_open_channel_expected_balance
     );
-
     poll!(
         60,
-        kld_1
-            .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
-            .await?
-            .get(0)
-            .map(|c| &c.state)
-            == Some(&ChannelState::Usable)
+        matches!(
+            kld_1
+                .call_rest_api::<Vec<GetV1ChannelListPeerChannelsResponse>, ()>(
+                    Method::GET,
+                    routes::LIST_PEER_CHANNELS,
+                    ()
+                )
+                .await?
+                .get(0)
+                .map(|c| &c.state),
+            Some(&GetV1ChannelListPeerChannelsResponseState::ChanneldNormal)
+        )
     );
     let channels = kld_1
-        .call_rest_api::<Vec<Channel>, ()>(Method::GET, routes::LIST_CHANNELS, ())
+        .call_rest_api::<Vec<GetV1ChannelListPeerChannelsResponse>, ()>(
+            Method::GET,
+            routes::LIST_PEER_CHANNELS,
+            (),
+        )
         .await?;
     let channel = channels.get(0).context("expected channel")?;
 
@@ -162,7 +176,13 @@ pub async fn test_start() -> Result<()> {
     kld_0
         .call_rest_api(
             Method::DELETE,
-            &routes::CLOSE_CHANNEL.replace(":id", &channel.short_channel_id),
+            &routes::CLOSE_CHANNEL.replace(
+                ":id",
+                channel
+                    .short_channel_id
+                    .as_ref()
+                    .context("expected short channel id")?,
+            ),
             (),
         )
         .await?;

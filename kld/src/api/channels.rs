@@ -6,9 +6,7 @@ use crate::api::NetAddress;
 use crate::database::forward::ForwardStatus;
 use crate::ldk::htlc_destination_to_string;
 use anyhow::Context;
-use api::Channel;
 use api::ChannelFee;
-use api::ChannelState;
 use api::FundChannel;
 use api::FundChannelResponse;
 use api::SetChannelFee;
@@ -39,50 +37,6 @@ use super::codegen::get_v1_channel_list_peer_channels_response::{
 use super::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use super::internal_server;
 use super::ApiError;
-
-pub(crate) async fn list_channels(
-    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-) -> Result<impl IntoResponse, ApiError> {
-    let peers = lightning_interface
-        .list_peers()
-        .await
-        .map_err(internal_server)?;
-
-    let channels: Vec<Channel> = lightning_interface
-        .list_channels()
-        .iter()
-        .map(|c| Channel {
-            id: c.counterparty.node_id.to_string(),
-            connected: peers
-                .iter()
-                .find(|p| p.public_key == c.counterparty.node_id)
-                .map(|p| p.status == PeerStatus::Connected)
-                .unwrap_or_default(),
-            state: if c.is_usable {
-                ChannelState::Usable
-            } else if c.is_channel_ready {
-                ChannelState::Ready
-            } else {
-                ChannelState::Pending
-            },
-            short_channel_id: to_string_empty!(c.short_channel_id),
-            channel_id: c.channel_id.to_hex(),
-            funding_txid: to_string_empty!(c.funding_txo.map(|x| x.txid)),
-            private: !c.is_public,
-            msatoshi_to_us: c.balance_msat,
-            msatoshi_total: c.channel_value_satoshis * 1000,
-            msatoshi_to_them: (c.channel_value_satoshis * 1000) - c.balance_msat,
-            their_channel_reserve_satoshis: c.counterparty.unspendable_punishment_reserve,
-            our_channel_reserve_satoshis: c.unspendable_punishment_reserve,
-            spendable_msatoshi: c.outbound_capacity_msat,
-            direction: u8::from(c.is_outbound),
-            alias: lightning_interface
-                .alias_of(&c.counterparty.node_id)
-                .unwrap_or_default(),
-        })
-        .collect();
-    Ok(Json(channels))
-}
 
 pub(crate) async fn list_peer_channels(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,

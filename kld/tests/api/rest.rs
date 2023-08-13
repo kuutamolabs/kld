@@ -15,7 +15,9 @@ use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
-use kld::api::codegen::get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse;
+use kld::api::codegen::get_v1_channel_list_peer_channels_response::{
+    GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseState,
+};
 use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
@@ -39,11 +41,11 @@ use test_utils::{
 };
 
 use api::{
-    routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
-    FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
-    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice,
-    PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    routes, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
+    GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus, KeysendRequest,
+    ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice, PaymentResponse, Peer,
+    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -96,13 +98,6 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LIST_FUNDS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_CHANNELS)
             .send()
             .await?
             .status()
@@ -476,32 +471,6 @@ async fn test_list_funds_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_list_channels_readonly() -> Result<()> {
-    let context = create_api_server().await?;
-    let channels: Vec<Channel> = readonly_request(&context, Method::GET, routes::LIST_CHANNELS)?
-        .send()
-        .await?
-        .json()
-        .await?;
-    let channel = channels.get(0).context("Missing channel")?;
-    assert_eq!(TEST_PUBLIC_KEY, channel.id);
-    assert!(channel.connected);
-    assert_eq!(ChannelState::Usable, channel.state);
-    assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
-    assert_eq!(TEST_TX_ID, channel.funding_txid);
-    assert!(!channel.private);
-    assert_eq!(100000, channel.msatoshi_to_us);
-    assert_eq!(1000000000, channel.msatoshi_total);
-    assert_eq!(999900000, channel.msatoshi_to_them);
-    assert_eq!(5000, channel.their_channel_reserve_satoshis);
-    assert_eq!(Some(10000), channel.our_channel_reserve_satoshis);
-    assert_eq!(100000, channel.spendable_msatoshi);
-    assert_eq!(1, channel.direction);
-    assert_eq!(TEST_ALIAS, channel.alias);
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn test_list_peer_channels_readonly() -> Result<()> {
     let context = create_api_server().await?;
     let channels: Vec<GetV1ChannelListPeerChannelsResponse> =
@@ -519,6 +488,10 @@ async fn test_list_peer_channels_readonly() -> Result<()> {
     );
     assert_eq!(Some(TEST_TX_ID.to_string()), channel.funding_txid);
     assert!(!channel.private);
+    assert!(matches!(
+        channel.state,
+        GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
+    ));
     assert_eq!(100000, channel.to_us_msat);
     assert_eq!(1000000000, channel.total_msat);
     assert_eq!(999900000, channel.to_them_msat);

@@ -19,7 +19,7 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{
-            channel_history, close_channel, list_channels, list_forwards, list_peer_channels,
+            channel_history, close_channel, list_forwards, list_peer_channels,
             local_remote_balance, open_channel, set_channel_fee,
         },
         invoices::{generate_invoice, list_invoices},
@@ -92,7 +92,6 @@ impl RestApi {
             )
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_FUNDS, get(list_funds))
-            .route(routes::LIST_CHANNELS, get(list_channels))
             .route(routes::LIST_PEER_CHANNELS, get(list_peer_channels))
             .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::LIST_NETWORK_NODE, get(get_network_node))
