@@ -453,12 +453,12 @@ async fn test_list_funds_readonly() -> Result<()> {
     let output = funds.outputs.get(0).context("Missing output")?;
     assert_eq!(TEST_TX_ID, output.txid);
     assert_eq!(0, output.output);
-    assert_eq!(546, output.value);
     assert_eq!(546000, output.amount_msat);
     assert_eq!(
         "bc1prx7399hvfe8hta6lfn2qncvczxjeur5cwlrpxhwrzqssj9kuqpeqchh5xf",
         output.address
     );
+    assert_eq!(93, output.scriptpubkey.len());
     assert_eq!(OutputStatus::Confirmed, output.status);
     assert_eq!(Some(600000), output.block_height);
 

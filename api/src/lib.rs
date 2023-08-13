@@ -179,9 +179,9 @@ pub enum OutputStatus {
 pub struct ListFundsOutput {
     pub txid: String,
     pub output: u32,
-    pub value: u64,
     pub amount_msat: u64,
     pub address: String,
+    pub scriptpubkey: String,
     pub status: OutputStatus,
     #[serde(rename = "blockheight")]
     pub block_height: Option<u32>,

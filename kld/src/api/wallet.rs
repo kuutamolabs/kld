@@ -88,11 +88,11 @@ pub(crate) async fn list_funds(
         outputs.push(ListFundsOutput {
             txid: utxo.outpoint.txid.to_string(),
             output: utxo.outpoint.vout,
-            value: utxo.txout.value,
             amount_msat: utxo.txout.value * 1000,
             address: Address::from_script(&utxo.txout.script_pubkey, lightning_interface.network())
                 .map(|a| a.to_string())
                 .map_err(internal_server)?,
+            scriptpubkey: utxo.txout.script_pubkey.asm(),
             status: if detail.confirmation_time.is_some() {
                 OutputStatus::Confirmed
             } else {
