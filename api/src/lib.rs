@@ -176,7 +176,6 @@ pub enum OutputStatus {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ListFundsOutput {
     pub txid: String,
     pub output: u32,
