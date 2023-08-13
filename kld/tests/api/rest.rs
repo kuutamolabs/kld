@@ -995,8 +995,8 @@ async fn test_local_remote_balance() -> Result<()> {
             .await?;
     assert_eq!(0, response.inactive_balance);
     assert_eq!(0, response.pending_balance);
-    assert_eq!(100000, response.local_balance);
-    assert_eq!(999900000, response.remote_balance);
+    assert_eq!(100, response.local_balance);
+    assert_eq!(999900, response.remote_balance);
     Ok(())
 }
 

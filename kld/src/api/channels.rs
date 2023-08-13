@@ -281,19 +281,26 @@ pub(crate) async fn close_channel(
 pub(crate) async fn local_remote_balance(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let mut response = GetV1ChannelLocalremotebalResponse::default();
+    let mut local_msat = 0;
+    let mut remote_msat = 0;
+    let mut pending_msat = 0;
+    let mut inactive_msat = 0;
     for channel in lightning_interface.list_channels() {
         if channel.is_usable {
-            response.local_balance += channel.balance_msat as i64;
-            response.remote_balance +=
-                ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64;
+            local_msat += channel.balance_msat;
+            remote_msat += (channel.channel_value_satoshis * 1000) - channel.balance_msat;
         } else if channel.is_channel_ready {
-            response.inactive_balance += channel.balance_msat as i64;
+            inactive_msat += channel.balance_msat;
         } else {
-            response.pending_balance += channel.balance_msat as i64;
+            pending_msat += channel.balance_msat;
         }
     }
-    Ok(Json(response))
+    Ok(Json(GetV1ChannelLocalremotebalResponse {
+        inactive_balance: (inactive_msat / 1000) as i64,
+        pending_balance: (pending_msat / 1000) as i64,
+        local_balance: (local_msat / 1000) as i64,
+        remote_balance: (remote_msat / 1000) as i64,
+    }))
 }
 
 // Paperclip generates an enum but we need a struct to work with axum so have to make query params this way for now.
