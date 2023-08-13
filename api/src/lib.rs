@@ -91,7 +91,6 @@ pub struct Error {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GetInfo {
     pub id: String,
     pub alias: String,
@@ -119,7 +118,6 @@ pub struct Chain {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct NetworkChannel {
     pub source: String,
     pub destination: String,
@@ -169,7 +167,6 @@ pub struct WalletTransferResponse {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[serde(rename_all = "camelCase")]
 pub enum OutputStatus {
     Unconfirmed,
     Confirmed,
@@ -188,7 +185,6 @@ pub struct ListFundsOutput {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ListFundsChannel {
     pub peer_id: String,
     pub connected: bool,
@@ -208,7 +204,6 @@ pub struct ListFunds {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[serde(rename_all = "camelCase")]
 pub enum ChannelState {
     Usable,
     Ready,
@@ -372,7 +367,6 @@ impl FromStr for FeeRate {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct FeeRates {
     pub urgent: u32,
     pub normal: u32,
@@ -382,7 +376,6 @@ pub struct FeeRates {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct OnChainFeeEstimates {
     pub opening_channel_satoshis: u32,
     pub mutual_close_satoshis: u32,
@@ -447,7 +440,6 @@ pub struct Peer {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct NetworkNode {
     #[serde(rename = "nodeid")]
     pub node_id: String,
