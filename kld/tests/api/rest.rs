@@ -826,6 +826,14 @@ async fn test_decode_invoice() -> Result<()> {
         GetV1UtilityDecodeInvoiceStringResponseType::Bolt11
     ));
     assert!(response.valid);
+    assert_eq!(response.expiry, Some(2322));
+    assert_eq!(response.currency, Some("bcrt".to_string()));
+    assert_eq!(response.amount_msat, Some(200000));
+    assert_eq!(response.payee, Some(TEST_PUBLIC_KEY.to_string()));
+    assert_eq!(response.min_final_cltv_expiry, Some(144));
+    assert!(response.created_at.is_some());
+    assert!(response.payment_hash.is_some());
+    assert!(response.signature.is_some());
     Ok(())
 }
 

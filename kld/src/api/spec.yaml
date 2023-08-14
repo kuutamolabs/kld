@@ -508,6 +508,33 @@ paths:
               valid:
                 type: boolean
                 description: do not use the result if false
+              currency:
+                type: string
+                description: the BIP173 name for the currency
+              created_at:
+                type: integer
+                description: the UNIX-style timestamp of the invoice
+              expiry:
+                type: integer
+                description: the number of seconds this is valid after created_at
+              payee:
+                type: string
+                description: the public key of the recipient
+              amount_msat:
+                type: integer
+                description: Amount the invoice asked for
+              description:
+                type: string
+                description: the description of the purpose of the purchase
+              min_final_cltv_expiry:
+                type: integer
+                description: the minimum CLTV delay for the final node
+              payment_hash:
+                type: string
+                description: the hash of the payment_preimage
+              signature:
+                type: string
+                description: signature of the payee on this invoice
             required:
               - type
               - valid

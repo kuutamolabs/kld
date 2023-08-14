@@ -12,7 +12,7 @@ use axum::{
     Extension, Json,
 };
 use bitcoin::hashes::hex::ToHex;
-use lightning_invoice::Bolt11Invoice;
+use lightning_invoice::{Bolt11Invoice, Bolt11InvoiceDescription};
 
 use super::{
     codegen::get_v1_utility_decode_invoice_string_response::{
@@ -123,6 +123,30 @@ pub(crate) async fn decode_invoice(
         return Ok(Json(GetV1UtilityDecodeInvoiceStringResponse {
             type_: GetV1UtilityDecodeInvoiceStringResponseType::Bolt11,
             valid: bolt11.check_signature().is_ok(),
+            amount_msat: bolt11.amount_milli_satoshis().map(|x| x as i64),
+            created_at: Some(
+                bolt11
+                    .timestamp()
+                    .duration_since(UNIX_EPOCH)
+                    .map_err(bad_request)?
+                    .as_secs() as i64,
+            ),
+            currency: Some(bolt11.currency().to_string()),
+            description: match bolt11.description() {
+                Bolt11InvoiceDescription::Direct(direct) => Some(direct.to_string()),
+                Bolt11InvoiceDescription::Hash(hash) => Some(hash.0.to_string()),
+            },
+            expiry: Some(bolt11.expiry_time().as_secs() as i64),
+            min_final_cltv_expiry: Some(bolt11.min_final_cltv_expiry_delta() as i64),
+            payee: bolt11.payee_pub_key().map(|pk| pk.to_string()),
+            payment_hash: Some(bolt11.payment_hash().to_string()),
+            signature: Some(
+                bolt11
+                    .into_signed_raw()
+                    .signature()
+                    .to_standard()
+                    .to_string(),
+            ),
         }));
     }
     Err(bad_request(anyhow!("Invoice could not be decoded")))
