@@ -1,6 +1,10 @@
 //! utils for deploy and control remote machines
-use anyhow::{Context, Result};
-use std::process::{Command, Output};
+use anyhow::{anyhow, Context, Result};
+use std::fs::File;
+use std::io::BufReader;
+use std::io::{Read, Write};
+use std::path::PathBuf;
+use std::process::{Command, Output, Stdio};
 
 use super::Host;
 
@@ -21,4 +25,50 @@ pub fn timeout_ssh(host: &Host, command: &[&str], learn_known_host_key: bool) ->
         .output()
         .context("Failed to run ssh...")?;
     Ok(output)
+}
+
+/// luks unlock via ssh
+pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
+    let target = host.deploy_ssh_target();
+    let mut args = vec![
+        "-p",
+        "2222",
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "StrictHostKeyChecking=no",
+    ];
+    args.push(&target);
+    args.push("cryptsetup-askpass");
+    let key = {
+        let key_file = File::open(key_file)?;
+        let mut reader = BufReader::new(key_file);
+        let mut buffer = Vec::new();
+        reader.read_to_end(&mut buffer)?;
+        buffer
+    };
+
+    loop {
+        let mut ssh = Command::new("ssh")
+            .args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
+
+        let mut stdin = ssh.stdin.take().ok_or(anyhow!("could not pipe stdin"))?;
+        if stdin.write_all(key.as_slice()).is_ok() {
+            let _ = stdin.write(b"\n")?;
+        } else {
+            eprintln!("fail to enter password");
+            continue;
+        }
+        println!("$ ssh {}", args.join(" "));
+
+        // After unlock the sshd will start in port 22
+        if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
+            break;
+        }
+    }
+
+    Ok(())
 }

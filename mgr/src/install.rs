@@ -5,11 +5,10 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::{
     process::Command,
-    sync::mpsc::{channel, Receiver, RecvTimeoutError},
-    time::Duration,
+    sync::mpsc::{channel, Receiver},
 };
 
-use crate::{command::status_to_pretty_err, utils::timeout_ssh};
+use crate::{command::status_to_pretty_err, utils::unlock_over_ssh};
 
 use super::{Host, NixosFlake};
 
@@ -46,12 +45,7 @@ pub fn install(
             };
 
             let disk_encryption_key = secrets_dir.join("disk_encryption_key");
-            let disk_encryption_key_path = format!(
-                "./{}",
-                disk_encryption_key
-                    .to_str()
-                    .expect("Fail to get disk_encryption_key path")
-            );
+            let disk_encryption_key_path = disk_encryption_key.to_string_lossy();
             let secrets = host.secrets(secrets_dir).context("Failed to get secrets")?;
             let flake_uri = format!("{}#{}", flake.path().display(), host.name);
             let extra_files = format!("{}", secrets.path().display());
@@ -98,21 +92,7 @@ pub fn install(
                 .status()
                 .context("Failed to run ssh-keygen to remove old keys...")?;
 
-            // Wait for the machine to come back and learn add it's ssh key to our host
-            loop {
-                if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
-                    break;
-                }
-                if let Ok(chan) = CTRL_WAS_PRESSED.lock() {
-                    if !matches!(
-                        chan.recv_timeout(Duration::from_millis(500)),
-                        Err(RecvTimeoutError::Timeout)
-                    ) {
-                        break;
-                    }
-                }
-            }
-
+            unlock_over_ssh(host, &disk_encryption_key)?;
             Ok(())
         })
         .collect::<Result<Vec<_>>>()?;
