@@ -481,3 +481,37 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  /v1/utility/decode/{invoiceString}:
+    get:
+      tags:
+        - General Information
+      operationId: decode
+      description: Command for decoding an invoice string
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: path
+          name: invoiceString
+          description: bolt11 or bolt12 string
+          type: string
+          required: true
+      responses:
+        "200":
+          description: Decoded invoice
+          schema:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [bolt11]
+                description: Kind of object decoded
+              valid:
+                type: boolean
+                description: do not use the result if false
+            required:
+              - type
+              - valid
+        "400":
+          description: Bad request
+        "500":
+          description: Server error

@@ -1,14 +1,25 @@
 use std::{
+    str::FromStr,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::anyhow;
 use api::{GenerateInvoice, GenerateInvoiceResponse, Invoice, InvoiceStatus};
-use axum::{extract::Query, response::IntoResponse, Extension, Json};
+use axum::{
+    extract::{Path, Query},
+    response::IntoResponse,
+    Extension, Json,
+};
 use bitcoin::hashes::hex::ToHex;
+use lightning_invoice::Bolt11Invoice;
 
-use super::empty_string_as_none;
+use super::{
+    codegen::get_v1_utility_decode_invoice_string_response::{
+        GetV1UtilityDecodeInvoiceStringResponse, GetV1UtilityDecodeInvoiceStringResponseType,
+    },
+    empty_string_as_none,
+};
 use crate::{ldk::LightningInterface, MillisatAmount};
 
 use super::{bad_request, internal_server, ApiError};
@@ -103,4 +114,16 @@ pub(crate) async fn list_invoices(
         });
     }
     Ok(Json(response))
+}
+
+pub(crate) async fn decode_invoice(
+    Path(maybe_invoice): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    if let Ok(bolt11) = Bolt11Invoice::from_str(&maybe_invoice) {
+        return Ok(Json(GetV1UtilityDecodeInvoiceStringResponse {
+            type_: GetV1UtilityDecodeInvoiceStringResponseType::Bolt11,
+            valid: bolt11.check_signature().is_ok(),
+        }));
+    }
+    Err(bad_request(anyhow!("Invoice could not be decoded")))
 }

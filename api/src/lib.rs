@@ -80,6 +80,8 @@ pub mod routes {
     pub const GENERATE_INVOICE: &str = "/v1/invoice/genInvoice";
     /// List the invoices on the node
     pub const LIST_INVOICES: &str = "/v1/invoice/listInvoices";
+    /// Decode invoice
+    pub const DECODE_INVOICE: &str = "/v1/utility/decode/:invoice";
 }
 
 #[derive(Serialize, Deserialize)]

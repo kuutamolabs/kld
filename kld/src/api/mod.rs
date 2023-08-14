@@ -22,7 +22,7 @@ use crate::{
             channel_history, close_channel, list_forwards, list_peer_channels,
             local_remote_balance, open_channel, set_channel_fee,
         },
-        invoices::{generate_invoice, list_invoices},
+        invoices::{decode_invoice, generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
         network::{
             fee_rates, get_network_channel, get_network_node, list_network_channels,
@@ -105,6 +105,7 @@ impl RestApi {
             .route(routes::GET_FEES, get(get_fees))
             .route(routes::LIST_FORWARDS, get(list_forwards))
             .route(routes::LIST_CHANNEL_HISTORY, get(channel_history))
+            .route(routes::DECODE_INVOICE, get(decode_invoice))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()

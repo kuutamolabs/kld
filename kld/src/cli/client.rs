@@ -21,6 +21,7 @@ use kld::api::codegen::{
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
     get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse,
+    get_v1_utility_decode_invoice_string_response::GetV1UtilityDecodeInvoiceStringResponse,
     post_v1_peer_connect_body::PostV1PeerConnectBody,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
@@ -322,6 +323,16 @@ impl Api {
             .request(Method::GET, routes::LIST_CHANNEL_HISTORY)
             .send()?;
         deserialize::<Vec<GetV1ChannelHistoryResponseItem>>(response)
+    }
+
+    pub fn decode(&self, invoice: String) -> Result<String> {
+        let response = self
+            .request(
+                Method::GET,
+                &routes::DECODE_INVOICE.replace(":invoice", &invoice),
+            )
+            .send()?;
+        deserialize::<GetV1UtilityDecodeInvoiceStringResponse>(response)
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
