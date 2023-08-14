@@ -4,6 +4,7 @@ use lightning::{
     events::PaymentFailureReason,
     ln::{channelmanager::PaymentId, PaymentHash, PaymentPreimage, PaymentSecret},
 };
+use lightning_invoice::Bolt11Invoice;
 use postgres_types::{FromSql, ToSql};
 use rand::random;
 use std::{
@@ -106,7 +107,7 @@ pub struct Payment {
     // The time that the payment was sent/received.
     pub timestamp: OffsetDateTime,
     // The bolt11 invoice with corresponding payment hash. Useful when querying payments.
-    pub bolt11: Option<String>,
+    pub bolt11: Option<Bolt11Invoice>,
 }
 
 impl Payment {
@@ -183,7 +184,7 @@ impl Payment {
             fee: None,
             direction: PaymentDirection::Outbound,
             timestamp: microsecond_timestamp(),
-            bolt11: Some(invoice.bolt11.to_string()),
+            bolt11: Some(invoice.bolt11.clone()),
         }
     }
 
@@ -237,7 +238,7 @@ impl TryFrom<&Row> for Payment {
                 .map(|f| f as MillisatAmount),
             direction: row.get("direction"),
             timestamp: row.get_timestamp("timestamp"),
-            bolt11: row.get("bolt11"),
+            bolt11: Bolt11Invoice::from_str(row.get("bolt11")).ok(),
         })
     }
 }

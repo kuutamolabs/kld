@@ -4,10 +4,72 @@ info:
   title: KLD REST API
 basePath: /
 paths:
+  /v1/newaddr:
+    get:
+      description: Generates new on-chain address for receiving funds
+      operationId: newaddr
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: query
+          name: addrType
+          description: Address type (bech32)
+          type: string
+          default: bech32
+      responses:
+        "200":
+          description: Address generated successfully
+          schema:
+            type: object
+            properties:
+              address:
+                type: string
+                description: address
+            required:
+              - address
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
+  /v1/peer/connect:
+    post:
+      description: Connect with a network peer
+      operationId: connect
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Pubkey@address of the peer
+          schema:
+            required:
+              - id
+            type: object
+            properties:
+              id:
+                type: string
+      responses:
+        "201":
+          description: Peer connected successfully
+          schema:
+            required:
+              - id
+            type: object
+            properties:
+              id:
+                type: string
+                description: Pubkey of connected peer
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
   /v1/estimateChannelLiquidity:
     get:
       description: Estimate channel liquidity
       operationId: estimateChannelLiquidity
+      security:
+        - MacaroonAuth: []
       parameters:
         - in: body
           name: body
@@ -34,6 +96,10 @@ paths:
                 type: integer
               maximum:
                 type: integer
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
   /v1/getFees:
     get:
       tags:
@@ -159,7 +225,7 @@ paths:
                 description: Funding
               state:
                 type: string
-                enum: [usable, ready, pending]
+                enum: [CHANNELD_NORMAL, OPENINGD]
                 description: Channel connection status
               fee_base_msat:
                 type: integer
@@ -183,6 +249,18 @@ paths:
               alias:
                 type: string
                 description: Alias of the node
+              minimum_htlc_in_msat:
+                type: integer
+                description: Minimum HTLC we can receive on this channel
+              max_total_htlc_in_msat:
+                type: integer
+                description: Maximum total HTLCs we can receive on this channel
+              minimum_htlc_out_msat:
+                type: integer
+                description: Mimimum HTLC we can send
+              maximum_htlc_out_msat:
+                type: integer
+                description: Maximum HTLC we can send
             required:
               - peer_id
               - peer_connected
@@ -201,6 +279,8 @@ paths:
               - dust_limit_msat
               - features
               - alias
+              - maximum_htlc_out_msat
+              - minimum_htlc_out_msat
         "400":
           description: Bad request
         "500":
@@ -330,6 +410,73 @@ paths:
                 - open_timestamp
                 - close_timestamp
                 - closure_reason
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
+  /v1/pay/listPayments:
+    get:
+      tags:
+        - Payments
+      description: Returns a detailed list of payments
+      operationId: listpayments
+      security:
+        - MacaroonAuth: []
+      parameters:
+        - in: query
+          name: invoice
+          description: BOLT11 invoice
+          type: string
+      responses:
+        "200":
+          description: An array of payments objects is returned
+          schema:
+            type: object
+            properties:
+              payments:
+                type: array
+                description: List of payments
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: id
+                    payment_hash:
+                      type: string
+                      description: payment_hash
+                    destination:
+                      type: string
+                      description: destination
+                    amount_msat:
+                      type: number
+                      description: amount_msat
+                    amount_sent_msat:
+                      type: number
+                      description: amount_sent_msat
+                    created_at:
+                      type: integer
+                      description: created_at
+                    status:
+                      type: string
+                      description: status
+                    payment_preimage:
+                      type: string
+                      description: payment_preimage
+                    bolt11:
+                      type: string
+                      description: bolt11
+                    memo:
+                      type: string
+                      description: memo
+                  required:
+                    - id
+                    - payment_hash
+                    - amount_sent_msat
+                    - created_at
+                    - status
+            required:
+              - payments
         "400":
           description: Bad request
         "500":

@@ -9,11 +9,9 @@ use anyhow::Result;
 use api::{
     routes, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
-    NetworkChannel, NetworkNode, NewAddress, NewAddressResponse, PayInvoice, Payment,
-    PaymentResponse, Peer, SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance,
-    WalletTransfer, WalletTransferResponse,
+    NetworkChannel, NetworkNode, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse,
+    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
 };
-use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
@@ -21,7 +19,10 @@ use kld::api::codegen::{
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
-    get_v1_get_fees_response::GetV1GetFeesResponse,
+    get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
+    get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse,
+    post_v1_peer_connect_body::PostV1PeerConnectBody,
+    post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder, Response},
@@ -72,10 +73,8 @@ impl Api {
     }
 
     pub fn new_address(&self) -> Result<String> {
-        let response = self
-            .request_with_body(Method::GET, routes::NEW_ADDR, NewAddress::default())
-            .send()?;
-        deserialize::<NewAddressResponse>(response)
+        let response = self.request(Method::GET, routes::NEW_ADDR).send()?;
+        deserialize::<GetV1NewaddrResponse>(response)
     }
 
     pub fn withdraw(
@@ -115,10 +114,11 @@ impl Api {
     }
 
     pub fn connect_peer(&self, id: String) -> Result<String> {
+        let connect = PostV1PeerConnectBody { id };
         let response = self
-            .request_with_body(Method::POST, routes::CONNECT_PEER, id)
+            .request_with_body(Method::POST, routes::CONNECT_PEER, connect)
             .send()?;
-        deserialize::<PublicKey>(response)
+        deserialize::<PostV1PeerConnectResponse>(response)
     }
 
     pub fn disconnect_peer(&self, id: String) -> Result<String> {
@@ -279,7 +279,7 @@ impl Api {
             .request(Method::GET, routes::LIST_PAYMENTS)
             .query(&params)
             .send()?;
-        deserialize::<Vec<Payment>>(response)
+        deserialize::<GetV1PayListPaymentsResponse>(response)
     }
 
     pub fn estimate_channel_liquidity(&self, scid: u64, target: String) -> Result<String> {

@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use api::{KeysendRequest, ListPaysParams, PayInvoice, Payment, PaymentResponse};
+use api::{KeysendRequest, PayInvoice, PaymentResponse};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use bitcoin::hashes::hex::ToHex;
 use lightning::routing::gossip::NodeId;
@@ -10,7 +10,13 @@ use crate::{
     ldk::LightningInterface,
 };
 
-use super::{bad_request, internal_server, ApiError};
+use super::{
+    bad_request,
+    codegen::get_v1_pay_list_payments_response::{
+        GetV1PayListPaymentsResponse, GetV1PayListPaymentsResponsePaymentsItem,
+    },
+    empty_string_as_none, internal_server, ApiError,
+};
 
 pub(crate) async fn keysend(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
@@ -58,6 +64,15 @@ pub(crate) async fn pay_invoice(
     Ok(Json(response))
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListPaysParams {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub invoice: Option<String>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub direction: Option<String>,
+}
+
 pub(crate) async fn list_payments(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Query(params): Query<ListPaysParams>,
@@ -72,17 +87,28 @@ pub(crate) async fn list_payments(
         .map(|d| PaymentDirection::from_str(&d))
         .transpose()
         .map_err(bad_request)?;
-    let payments: Vec<Payment> = lightning_interface
+    let payments: Vec<GetV1PayListPaymentsResponsePaymentsItem> = lightning_interface
         .list_payments(invoice, direction)
         .await
         .map_err(internal_server)?
         .into_iter()
-        .map(|p| Payment {
-            bolt11: p.bolt11,
+        .map(|p| GetV1PayListPaymentsResponsePaymentsItem {
+            bolt11: p.bolt11.as_ref().map(|b| b.to_string()),
             status: p.status.to_string(),
             payment_preimage: p.preimage.map(|i| i.0.to_hex()),
-            amount_sent_msat: p.amount.to_string(),
+            amount_sent_msat: p.amount as f64,
+            amount_msat: p
+                .bolt11
+                .as_ref()
+                .and_then(|b| b.amount_milli_satoshis().map(|a| a as f64)),
+            created_at: p.timestamp.unix_timestamp(),
+            destination: p
+                .bolt11
+                .and_then(|b| b.payee_pub_key().map(|pk| pk.to_string())),
+            id: p.id.0.to_hex(),
+            memo: p.label,
+            payment_hash: p.hash.0.to_hex(),
         })
         .collect();
-    Ok(Json(payments))
+    Ok(Json(GetV1PayListPaymentsResponse { payments }))
 }

@@ -4,10 +4,11 @@ use std::{
 };
 
 use anyhow::anyhow;
-use api::{GenerateInvoice, GenerateInvoiceResponse, Invoice, InvoiceStatus, ListInvoiceParams};
+use api::{GenerateInvoice, GenerateInvoiceResponse, Invoice, InvoiceStatus};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use bitcoin::hashes::hex::ToHex;
 
+use super::empty_string_as_none;
 use crate::{ldk::LightningInterface, MillisatAmount};
 
 use super::{bad_request, internal_server, ApiError};
@@ -39,6 +40,13 @@ pub(crate) async fn generate_invoice(
         bolt11: invoice.bolt11.to_string(),
     };
     Ok(Json(response))
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListInvoiceParams {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub label: Option<String>,
 }
 
 pub(crate) async fn list_invoices(

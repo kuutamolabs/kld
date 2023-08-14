@@ -1,13 +1,7 @@
-use std::{
-    fmt::{self, Display},
-    str::FromStr,
-};
+use std::{fmt::Display, str::FromStr};
 
 use bitcoin::Transaction;
-use serde::{
-    de::{self, Visitor},
-    Deserialize, Deserializer, Serialize,
-};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -38,8 +32,6 @@ pub mod routes {
     pub const DISCONNECT_PEER: &str = "/v1/peer/disconnect/:id";
 
     /// --- Channels ---
-    /// Get the list of channels open on the node.
-    pub const LIST_CHANNELS: &str = "/v1/channel/listChannels";
     /// Get the list of channels for this nodes peers.
     pub const LIST_PEER_CHANNELS: &str = "/v1/channel/listPeerChannels";
     /// Open channel with a connected peer node.
@@ -97,7 +89,6 @@ pub struct Error {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GetInfo {
     pub id: String,
     pub alias: String,
@@ -125,7 +116,6 @@ pub struct Chain {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct NetworkChannel {
     pub source: String,
     pub destination: String,
@@ -175,27 +165,24 @@ pub struct WalletTransferResponse {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[serde(rename_all = "camelCase")]
 pub enum OutputStatus {
     Unconfirmed,
     Confirmed,
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ListFundsOutput {
     pub txid: String,
     pub output: u32,
-    pub value: u64,
     pub amount_msat: u64,
     pub address: String,
+    pub scriptpubkey: String,
     pub status: OutputStatus,
     #[serde(rename = "blockheight")]
     pub block_height: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ListFundsChannel {
     pub peer_id: String,
     pub connected: bool,
@@ -215,48 +202,10 @@ pub struct ListFunds {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[serde(rename_all = "camelCase")]
 pub enum ChannelState {
     Usable,
     Ready,
     Pending,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Channel {
-    /// Pub key
-    pub id: String,
-    /// Peer connection status (true or false)
-    pub connected: bool,
-    // Channel connection status
-    pub state: ChannelState,
-    /// Channel ID
-    pub short_channel_id: String,
-    /// Channel ID
-    pub channel_id: String,
-    /// Channel funding transaction
-    pub funding_txid: String,
-    /// Private channel flag (true or false)
-    pub private: bool,
-    /// Number of msats on our side
-    pub msatoshi_to_us: u64,
-    /// Total msats in the channel
-    pub msatoshi_total: u64,
-    /// Number of msats to push to their side
-    pub msatoshi_to_them: u64,
-    /// Minimum number of msats on their side
-    pub their_channel_reserve_satoshis: u64,
-    /// Minimum number of msats on our side
-    pub our_channel_reserve_satoshis: Option<u64>,
-    /// Spendable msats
-    pub spendable_msatoshi: u64,
-    ///
-    /// pub funding_allocation_msat: String,
-    /// Flag indicating if this peer initiated the channel (0,1)
-    pub direction: u8,
-    /// Alias of the node
-    pub alias: String,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -379,7 +328,6 @@ impl FromStr for FeeRate {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct FeeRates {
     pub urgent: u32,
     pub normal: u32,
@@ -389,7 +337,6 @@ pub struct FeeRates {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct OnChainFeeEstimates {
     pub opening_channel_satoshis: u32,
     pub mutual_close_satoshis: u32,
@@ -445,19 +392,6 @@ pub struct SetChannelFee {
 #[derive(Serialize, Deserialize)]
 pub struct SetChannelFeeResponse(pub Vec<SetChannelFee>);
 
-#[derive(Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct NewAddress {
-    /// Address type (bech32 only)
-    pub address_type: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct NewAddressResponse {
-    /// Address
-    pub address: String,
-}
-
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Peer {
     pub id: String,
@@ -467,7 +401,6 @@ pub struct Peer {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct NetworkNode {
     #[serde(rename = "nodeid")]
     pub node_id: String,
@@ -520,16 +453,6 @@ pub struct PaymentResponse {
     pub status: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Payment {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bolt11: Option<String>,
-    pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payment_preimage: Option<String>,
-    pub amount_sent_msat: String,
-}
-
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateInvoice {
@@ -547,35 +470,6 @@ pub struct GenerateInvoice {
     pub fallbacks: Option<Vec<String>>,
     // 64-digit hex string to be used as payment preimage for the created invoice. IMPORTANT> if you specify the preimage, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret. This parameter is an advanced feature intended for use with cutting-edge cryptographic protocols and should not be used unless explicitly needed.
     pub preimage: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListPaysParams {
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub invoice: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub direction: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListInvoiceParams {
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub label: Option<String>,
-}
-
-fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: FromStr,
-    T::Err: fmt::Display,
-{
-    let opt = Option::<String>::deserialize(de)?;
-    match opt.as_deref() {
-        None | Some("") => Ok(None),
-        Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
