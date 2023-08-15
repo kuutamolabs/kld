@@ -294,7 +294,7 @@ pub struct Host {
     pub api_ip_access_list: Vec<IpAddr>,
 
     /// Is the mnemonic provided by mgr
-    pub kld_preset_mnemonic: bool,
+    pub kld_preset_mnemonic: Option<bool>,
 }
 
 impl Host {
@@ -634,7 +634,7 @@ fn validate_host(
         kld_node_alias: host.kld_node_alias.to_owned(),
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
-        kld_preset_mnemonic: preset_mnemonic,
+        kld_preset_mnemonic: Some(preset_mnemonic),
     })
 }
 
@@ -902,7 +902,7 @@ fn test_validate_host() -> Result<()> {
             telegraf_config_hash: "13646096770106105413".to_string(),
             api_ip_access_list: Vec::new(),
             rest_api_port: None,
-            kld_preset_mnemonic: false,
+            kld_preset_mnemonic: Some(false),
         }
     );
 
