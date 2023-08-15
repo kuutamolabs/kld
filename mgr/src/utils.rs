@@ -56,6 +56,7 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
             .spawn()?;
 
         let mut stdin = ssh.stdin.take().ok_or(anyhow!("could not pipe stdin"))?;
+        let mut stdout = ssh.stdout.take().ok_or(anyhow!("could not pipe stdout"))?;
         if stdin.write_all(key.as_slice()).is_ok() {
             let _ = stdin.write(b"\n")?;
         } else {
@@ -64,6 +65,18 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
         }
         println!("$ ssh {}", args.join(" "));
 
+        let mut buf_string = String::new();
+
+        if stdout.read_to_string(&mut buf_string).is_ok()
+            && buf_string.starts_with("Passphrase for")
+        {
+            break;
+        }
+    }
+
+    println!("### Unlocked");
+
+    loop {
         // After unlock the sshd will start in port 22
         if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
             break;
