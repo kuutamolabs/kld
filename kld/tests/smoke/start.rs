@@ -161,7 +161,7 @@ pub async fn test_start() -> Result<()> {
         .await?;
     let pay_invoice = PayInvoice {
         label: Some("payment".to_string()),
-        bolt11: invoice.bolt11,
+        invoice: invoice.bolt11,
     };
     let payment: PaymentResponse = kld_0
         .call_rest_api(Method::POST, routes::PAY_INVOICE, pay_invoice)

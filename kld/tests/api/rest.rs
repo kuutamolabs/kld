@@ -652,7 +652,7 @@ async fn test_pay_invoice() -> Result<()> {
     let invoice = &mock_lightning().invoice.bolt11;
     let request = PayInvoice {
         label: Some("test label".to_string()),
-        bolt11: invoice.to_string(),
+        invoice: invoice.to_string(),
     };
     let response: PaymentResponse =
         admin_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || request)?

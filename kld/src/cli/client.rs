@@ -257,7 +257,10 @@ impl Api {
     }
 
     pub fn pay_invoice(&self, bolt11: String, label: Option<String>) -> Result<String> {
-        let body = PayInvoice { bolt11, label };
+        let body = PayInvoice {
+            invoice: bolt11,
+            label,
+        };
         let response = self
             .request_with_body(Method::POST, routes::PAY_INVOICE, body)
             .send()?;

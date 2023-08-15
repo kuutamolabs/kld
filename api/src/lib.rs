@@ -424,7 +424,6 @@ pub struct SignResponse {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct KeysendRequest {
     // 33 byte, hex-encoded, pubkey of the node
     pub pubkey: String,
@@ -456,7 +455,6 @@ pub struct PaymentResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct GenerateInvoice {
     // Amount in milli satoshis
     pub amount: u64,
@@ -475,7 +473,6 @@ pub struct GenerateInvoice {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
 pub enum InvoiceStatus {
     Unpaid,
     Paid,
@@ -483,7 +480,6 @@ pub enum InvoiceStatus {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Invoice {
     pub label: Option<String>,
     pub bolt11: String,
@@ -509,9 +505,8 @@ pub struct GenerateInvoiceResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct PayInvoice {
-    pub bolt11: String,
+    pub invoice: String,
     pub label: Option<String>,
 }
 

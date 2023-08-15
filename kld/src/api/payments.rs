@@ -44,7 +44,10 @@ pub(crate) async fn pay_invoice(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(pay_invoice_request): Json<PayInvoice>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let invoice: Invoice = pay_invoice_request.bolt11.try_into().map_err(bad_request)?;
+    let invoice: Invoice = pay_invoice_request
+        .invoice
+        .try_into()
+        .map_err(bad_request)?;
     let destination = invoice.payee_pub_key.to_string();
     let amount = invoice.amount;
     let payment = lightning_interface
