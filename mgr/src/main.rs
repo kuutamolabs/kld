@@ -9,6 +9,7 @@ use mgr::certs::{
 };
 use mgr::secrets::{generate_disk_encryption_key, generate_mnemonic_and_macaroons};
 use mgr::ssh::generate_key_pair;
+use mgr::utils::unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::env;
@@ -91,6 +92,17 @@ struct SystemInfoArgs {
     hosts: String,
 }
 
+#[derive(clap::Args, PartialEq, Debug, Clone)]
+struct UnlockArgs {
+    /// Comma-separated lists of hosts to perform the unlock
+    #[clap(long, default_value = "")]
+    hosts: String,
+
+    /// disk encryption key for unlock nodes
+    #[clap(long)]
+    key_file: Option<PathBuf>,
+}
+
 /// Subcommand to run
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(clap::Subcommand, PartialEq, Debug, Clone)]
@@ -113,6 +125,8 @@ enum Command {
     Reboot(RebootArgs),
     /// Get system info from a host
     SystemInfo(SystemInfoArgs),
+    /// Unlock nodes when after reboot
+    Unlock(UnlockArgs),
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -343,6 +357,23 @@ pub fn main() -> Result<()> {
 
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             update(&args, update_args, &config, &flake)
+        }
+        Command::Unlock(ref unlock_args) => {
+            let config = mgr::load_configuration(&args.config).with_context(|| {
+                format!(
+                    "failed to parse configuration file: {}",
+                    &args.config.display()
+                )
+            })?;
+
+            let disk_encryption_key = unlock_args
+                .key_file
+                .clone()
+                .unwrap_or_else(|| config.global.secret_directory.join("disk_encryption_key"));
+            for host in filter_hosts(&unlock_args.hosts, &config.hosts)? {
+                unlock_over_ssh(&host, &disk_encryption_key)?;
+            }
+            Ok(())
         }
         _ => {
             let config = mgr::load_configuration(&args.config).with_context(|| {
