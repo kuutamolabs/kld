@@ -27,6 +27,7 @@ let
 
     # do not try to fetch stuff from the internet
     nix.settings = {
+      experimental-features = [ "flakes" ];
       substituters = lib.mkForce [ ];
       hashed-mirrors = null;
       connect-timeout = 1;
