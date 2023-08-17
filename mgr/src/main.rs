@@ -83,6 +83,14 @@ struct RebootArgs {
     /// Comma-separated lists of hosts to perform the reboot
     #[clap(long, default_value = "")]
     hosts: String,
+
+    /// Keep node locked after reboot
+    #[clap(long)]
+    keep_locked: bool,
+
+    /// disk encryption key for unlock nodes
+    #[clap(long)]
+    key_file: Option<PathBuf>,
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -253,7 +261,12 @@ fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
 
 fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()> {
     let hosts = filter_hosts(&reboot_args.hosts, &config.hosts)?;
-    mgr::reboot(&hosts)
+    let disk_encryption_key = match (reboot_args.keep_locked, &reboot_args.key_file) {
+        (true, _) => None,
+        (_, None) => Some(config.global.secret_directory.join("disk_encryption_key")),
+        (_, key) => key.clone(),
+    };
+    mgr::reboot(&hosts, disk_encryption_key)
 }
 
 fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
