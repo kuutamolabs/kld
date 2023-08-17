@@ -72,6 +72,7 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
         {
             break;
         }
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
     println!("### Unlocked");
