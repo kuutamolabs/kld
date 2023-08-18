@@ -6,7 +6,10 @@ use bitcoin::hashes::hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
 use crate::{
-    database::{invoice::Invoice, payment::PaymentDirection},
+    database::{
+        invoice::Invoice,
+        payment::{PaymentDirection, PaymentStatus},
+    },
     ldk::LightningInterface,
 };
 
@@ -14,6 +17,7 @@ use super::{
     bad_request,
     codegen::get_v1_pay_list_payments_response::{
         GetV1PayListPaymentsResponse, GetV1PayListPaymentsResponsePaymentsItem,
+        GetV1PayListPaymentsResponsePaymentsItemStatus,
     },
     empty_string_as_none, internal_server, ApiError,
 };
@@ -97,13 +101,19 @@ pub(crate) async fn list_payments(
         .into_iter()
         .map(|p| GetV1PayListPaymentsResponsePaymentsItem {
             bolt11: p.bolt11.as_ref().map(|b| b.to_string()),
-            status: p.status.to_string(),
+            status: match p.status {
+                PaymentStatus::Pending => GetV1PayListPaymentsResponsePaymentsItemStatus::Pending,
+                PaymentStatus::Succeeded => {
+                    GetV1PayListPaymentsResponsePaymentsItemStatus::Complete
+                }
+                _ => GetV1PayListPaymentsResponsePaymentsItemStatus::Failed,
+            },
             payment_preimage: p.preimage.map(|i| i.0.to_hex()),
-            amount_sent_msat: p.amount as f64,
+            amount_sent_msat: p.amount as i64,
             amount_msat: p
                 .bolt11
                 .as_ref()
-                .and_then(|b| b.amount_milli_satoshis().map(|a| a as f64)),
+                .and_then(|b| b.amount_milli_satoshis().map(|a| a as i64)),
             created_at: p.timestamp.unix_timestamp(),
             destination: p
                 .bolt11

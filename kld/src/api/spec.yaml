@@ -449,15 +449,16 @@ paths:
                       type: string
                       description: destination
                     amount_msat:
-                      type: number
+                      type: integer
                       description: amount_msat
                     amount_sent_msat:
-                      type: number
+                      type: integer
                       description: amount_sent_msat
                     created_at:
                       type: integer
                       description: created_at
                     status:
+                      enum: [pending, failed, complete]
                       type: string
                       description: status
                     payment_preimage:

@@ -23,7 +23,9 @@ use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChan
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
 use kld::api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse;
-use kld::api::codegen::get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse;
+use kld::api::codegen::get_v1_pay_list_payments_response::{
+    GetV1PayListPaymentsResponse, GetV1PayListPaymentsResponsePaymentsItemStatus,
+};
 use kld::api::codegen::get_v1_utility_decode_invoice_string_response::{
     GetV1UtilityDecodeInvoiceStringResponse, GetV1UtilityDecodeInvoiceStringResponseType,
 };
@@ -641,9 +643,12 @@ async fn test_list_payments() -> Result<()> {
         payment.bolt11.as_ref().map(|b| b.to_string()),
         payment_response.bolt11
     );
-    assert_eq!(payment.status.to_string(), payment_response.status);
+    assert!(matches!(
+        payment_response.status,
+        GetV1PayListPaymentsResponsePaymentsItemStatus::Pending
+    ));
     assert!(payment_response.payment_preimage.is_none());
-    assert_eq!(payment.amount as f64, payment_response.amount_sent_msat);
+    assert_eq!(payment.amount as i64, payment_response.amount_sent_msat);
     Ok(())
 }
 #[tokio::test(flavor = "multi_thread")]
