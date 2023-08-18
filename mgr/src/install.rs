@@ -82,7 +82,7 @@ pub fn install(
             }
 
             info!(
-                "Installation of {} finished. Waiting for reboot.",
+                "Installation of {} finished. Waiting for unlock.",
                 host.name
             );
 
