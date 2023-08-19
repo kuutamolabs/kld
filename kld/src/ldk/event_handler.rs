@@ -72,16 +72,6 @@ impl EventHandler {
     }
 }
 
-impl lightning::events::EventHandler for EventHandler {
-    fn handle_event(&self, event: lightning::events::Event) {
-        tokio::task::block_in_place(move || {
-            if let Err(e) = self.runtime_handle.block_on(self.handle_event_async(event)) {
-                log_error(&e)
-            }
-        })
-    }
-}
-
 impl EventHandler {
     pub async fn handle_event_async(&self, event: lightning::events::Event) -> Result<()> {
         match event {

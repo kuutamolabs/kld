@@ -74,6 +74,7 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         bitcoind_client.clone(),
         wallet.clone(),
         &key_generator.lightning_seed(),
+        quit_signal.clone(),
     )
     .await
     .context("Failed to start ldk controller")?;
