@@ -29,8 +29,32 @@ pub fn timeout_ssh(host: &Host, command: &[&str], learn_known_host_key: bool) ->
 
 /// luks unlock via ssh
 pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
+    if let Ok(result) = timeout_ssh(
+        host,
+        &[
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "exit",
+        ],
+        true,
+    ) {
+        if result.status.success() {
+            // handle a node already unlocked
+            println!("{} already unlocked", host.name);
+            return Ok(());
+        }
+    }
     let target = host.deploy_ssh_target();
-    let mut args = vec!["-p", "2222"];
+    let mut args = vec![
+        "-p",
+        "2222",
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "StrictHostKeyChecking=no",
+    ];
     args.push(&target);
     args.push("cryptsetup-askpass");
     let key = {

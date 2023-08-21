@@ -96,7 +96,6 @@ pub fn install(
                 }
             }
 
-
             // remove potential old ssh keys before adding new ones...
             let _ = Command::new("ssh-keygen")
                 .args(["-R", &host.ssh_hostname])

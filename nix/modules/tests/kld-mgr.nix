@@ -105,7 +105,7 @@ in
       new_machine = create_test_machine(oldmachine=installed, args={ "name": "after_install" })
       new_machine.start()
 
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml unlock >&2")
+      installer.wait_until_succeeds("${lib.getExe kld-mgr} --config /root/test-config.toml unlock >&2")
 
       installer.wait_until_succeeds("ssh -o StrictHostKeyChecking=no root@192.168.42.2 -- exit 0 >&2")
 
