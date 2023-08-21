@@ -5,7 +5,7 @@ use crate::database::forward::{Forward, ForwardStatus, TotalForwards};
 use crate::database::invoice::Invoice;
 use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
-use crate::{MillisatAmount, Service};
+use crate::{log_error, MillisatAmount, Service};
 
 use crate::api::NetAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
@@ -35,7 +35,7 @@ use crate::logger::KldLogger;
 use crate::settings::Settings;
 use ldk_lsp_client::LiquidityProviderConfig;
 use lightning::util::indexed_map::IndexedMap;
-use lightning_background_processor::{BackgroundProcessor, GossipSync};
+use lightning_background_processor::{process_events_async, GossipSync};
 use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
@@ -47,6 +47,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+use futures::{future::Shared, Future};
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::sync::RwLock;
 
@@ -519,7 +520,6 @@ pub struct Controller {
     scorer: Arc<Mutex<Scorer>>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
-    background_processor: Arc<Mutex<Option<BackgroundProcessor>>>,
     _liquidity_manager: Arc<LiquidityManager>,
 }
 
@@ -528,10 +528,6 @@ impl Controller {
         // Disconnect our peers and stop accepting new connections. This ensures we don't continue
         // updating our channel data after we've stopped the background processor.
         self.peer_manager.disconnect_all_peers();
-        if let Some(bgp) = self.background_processor.lock().unwrap().take() {
-            bgp.stop()
-                .expect("Background processor did not stop cleanly");
-        }
     }
 
     pub async fn start_ldk(
@@ -540,6 +536,7 @@ impl Controller {
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         seed: &[u8; 32],
+        quit_signal: Shared<impl Future<Output = ()> + Send + 'static>,
     ) -> Result<Controller> {
         let database = Arc::new(LdkDatabase::new(
             settings.clone(),
@@ -611,7 +608,7 @@ impl Controller {
             ProbabilisticScoringFeeParameters::default(),
         ));
 
-        let mut channelmonitors = database
+        let mut channel_monitors = database
             .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
             .await?;
         let mut user_config = UserConfig::default();
@@ -624,6 +621,9 @@ impl Controller {
             .channel_handshake_config
             .max_inbound_htlc_value_in_flight_percent_of_channel = 100;
         user_config.channel_handshake_limits.max_funding_satoshis = u64::MAX;
+        user_config
+            .channel_handshake_limits
+            .force_announced_channel_preference = false;
 
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
@@ -651,7 +651,7 @@ impl Controller {
                 (getinfo_resp.best_block_hash, new_channel_manager)
             } else {
                 let channel_monitor_mut_refs =
-                    channelmonitors.iter_mut().map(|(_, cm)| cm).collect();
+                    channel_monitors.iter_mut().map(|(_, cm)| cm).collect();
                 let read_args = ChannelManagerReadArgs::new(
                     keys_manager.clone(),
                     keys_manager.clone(),
@@ -671,6 +671,7 @@ impl Controller {
             }
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
+
         let liquidity_manager = Arc::new(LiquidityManager::new(
             keys_manager.clone(),
             Some(LiquidityProviderConfig {}),
@@ -728,25 +729,14 @@ impl Controller {
             settings.clone(),
         );
 
-        // Background Processing
-        let background_processor = BackgroundProcessor::start(
-            database.clone(),
-            event_handler,
-            chain_monitor.clone(),
-            channel_manager.clone(),
-            GossipSync::p2p(gossip_sync),
-            peer_manager.clone(),
-            KldLogger::global(),
-            Some(scorer.clone()),
-        );
-
         let bitcoind_client_clone = bitcoind_client.clone();
-        let channel_manager_clone = channel_manager.clone();
         let peer_manager_clone = peer_manager.clone();
         let wallet_clone = wallet.clone();
         let peer_port = settings.peer_port;
-        let db = database.clone();
-        let cm = channel_manager.clone();
+        let database_clone = database.clone();
+        let channel_manager_clone = channel_manager.clone();
+        let chain_monitor_clone = chain_monitor.clone();
+        let scorer_clone = scorer.clone();
         let settings_clone = settings.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
@@ -757,12 +747,12 @@ impl Controller {
                 bitcoind_client_clone,
                 chain_monitor,
                 channel_manager_blockhash,
-                channel_manager_clone,
-                channelmonitors,
+                channel_manager_clone.clone(),
+                channel_monitors,
             )
             .await
             {
-                error!("Fatal error: {}", e.into_inner());
+                error!("Fatal error {}", e.into_inner());
                 std::process::exit(1)
             };
 
@@ -771,8 +761,43 @@ impl Controller {
                 error!("could not listen on peer port: {e}");
                 std::process::exit(1)
             };
-            peer_manager_clone.keep_channel_peers_connected(db, cm);
+            peer_manager_clone.keep_channel_peers_connected(
+                database_clone.clone(),
+                channel_manager_clone.clone(),
+            );
             peer_manager_clone.broadcast_node_announcement_from_settings(settings_clone);
+
+            tokio::spawn(async move {
+                if let Err(e) = process_events_async(
+                    database_clone.clone(),
+                    |event| async {
+                        if let Err(e) = event_handler.handle_event_async(event).await {
+                            log_error(&e)
+                        }
+                    },
+                    chain_monitor_clone,
+                    channel_manager_clone,
+                    GossipSync::p2p(gossip_sync),
+                    peer_manager_clone,
+                    KldLogger::global(),
+                    Some(scorer_clone),
+                    |t| {
+                        let quit_signal = quit_signal.clone();
+                        Box::pin(async move {
+                            tokio::select! {
+                                _ = tokio::time::sleep(t) => false,
+                                _ = quit_signal => true,
+                            }
+                        })
+                    },
+                    false,
+                )
+                .await
+                {
+                    error!("Fatal error {}", e);
+                    std::process::exit(1)
+                };
+            });
         });
 
         Ok(Controller {
@@ -787,7 +812,6 @@ impl Controller {
             scorer,
             wallet,
             async_api_requests,
-            background_processor: Arc::new(Mutex::new(Some(background_processor))),
             _liquidity_manager: liquidity_manager,
         })
     }
