@@ -39,8 +39,8 @@ impl ElectrsManager {
         output_dir: &str,
         settings: &Settings,
     ) -> Result<ElectrsManager> {
-        let monitoring_port = get_available_port().unwrap();
-        let rpc_port = get_available_port().unwrap();
+        let monitoring_port = get_available_port()?;
+        let rpc_port = get_available_port()?;
 
         let manager = Manager::new(output_dir, "electrs", &settings.node_id)?;
         Ok(ElectrsManager {

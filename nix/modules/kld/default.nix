@@ -172,7 +172,7 @@ in
 
   config = {
     # for cli
-    environment.systemPackages = [ kld-cli bitcoin-cli ];
+    environment.systemPackages = [ kld-cli bitcoin-cli pkgs.tokio-console ];
 
     kuutamo.cockroachdb.ensureDatabases = [ "kld" ];
     kuutamo.cockroachdb.ensureUsers = [{

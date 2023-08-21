@@ -49,8 +49,8 @@ impl BitcoinManager {
     }
 
     pub fn test_bitcoin(output_dir: &str, settings: &Settings) -> Result<BitcoinManager> {
-        let p2p_port = get_available_port().unwrap();
-        let rpc_port = get_available_port().unwrap();
+        let p2p_port = get_available_port()?;
+        let rpc_port = get_available_port()?;
 
         let manager = Manager::new(output_dir, "bitcoind", &settings.node_id)?;
         Ok(BitcoinManager {

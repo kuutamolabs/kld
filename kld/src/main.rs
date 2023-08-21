@@ -29,6 +29,8 @@ pub fn main() {
         .build()
         .expect("could not create runtime");
 
+    console_subscriber::init();
+
     let exit_code = if let Err(e) = runtime.block_on(run_kld(settings)) {
         error!("Fatal error encountered: {e}");
         log_error(&e);

@@ -40,9 +40,9 @@ impl CockroachManager {
     }
 
     pub fn test_cockroach(output_dir: &str, instance: &str) -> Result<CockroachManager> {
-        let port = get_available_port().expect("Cannot find free node port for cockroach");
-        let http_port = get_available_port().expect("Cannot find free http port for cockroach");
-        let sql_port = get_available_port().expect("Cannot find free sql port for cockroach");
+        let port = get_available_port()?;
+        let http_port = get_available_port()?;
+        let sql_port = get_available_port()?;
         let http_address = format!("127.0.0.1:{http_port}");
         let certs_dir = format!("{}/certs/cockroach", env!("CARGO_MANIFEST_DIR"));
 

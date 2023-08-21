@@ -83,15 +83,10 @@ impl KldManager {
         electrs: &ElectrsManager,
         settings: &Settings,
     ) -> Result<KldManager> {
-        let exporter_address = format!(
-            "127.0.0.1:{}",
-            get_available_port().expect("Cannot find free port")
-        );
-        let rest_api_address = format!(
-            "127.0.0.1:{}",
-            get_available_port().expect("Cannot find free port")
-        );
-        let peer_port = get_available_port().expect("Cannot find free port");
+        let exporter_address = format!("127.0.0.1:{}", get_available_port()?);
+        let rest_api_address = format!("127.0.0.1:{}", get_available_port()?);
+        let peer_port = get_available_port()?;
+        let tokio_port = get_available_port()?;
 
         let manager = Manager::new(output_dir, "kld", &settings.node_id)?;
 
@@ -134,6 +129,7 @@ impl KldManager {
         set_var("KLD_LOG_LEVEL", "debug");
         set_var("KLD_NODE_ALIAS", "kld-00-alias");
         set_var("KLD_ELECTRS_URL", electrs.rpc_address.clone());
+        set_var("TOKIO_CONSOLE_BIND", format!("localhost:{tokio_port}"));
 
         let client = https_client();
 

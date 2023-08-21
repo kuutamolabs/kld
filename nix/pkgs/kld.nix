@@ -5,6 +5,7 @@
 , bitcoind
 , cockroachdb
 , electrs
+, tokio-console
 , pkg-config
 , self
 }:
@@ -12,6 +13,7 @@ let
   paths = [
     "Cargo.toml"
     "Cargo.lock"
+    ".cargo"
     "api"
     "kld"
     "benches"
@@ -57,7 +59,7 @@ craneLib.buildPackage {
         cp -r ${cargoArtifacts} ./target
         chmod -R u+w ./target
       '';
-      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb electrs ];
+      nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb electrs tokio-console ];
     };
     inherit cargoArtifacts;
   };

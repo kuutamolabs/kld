@@ -9,7 +9,7 @@ use kld::{prometheus::start_prometheus_exporter, Service};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
-    let port = get_available_port().context("no port")?;
+    let port = get_available_port()?;
     let address = format!("127.0.0.1:{port}");
 
     let metrics = Arc::new(MockLightning::default());

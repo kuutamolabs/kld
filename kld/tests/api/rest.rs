@@ -1127,7 +1127,7 @@ pub async fn create_api_server() -> Result<Arc<TestContext>> {
             .clone());
     }
     KldLogger::init("test", log::LevelFilter::Info);
-    let rest_api_port = get_available_port().context("no port available")?;
+    let rest_api_port = get_available_port()?;
     let rest_api_address = format!("127.0.0.1:{rest_api_port}");
     let mut settings = test_settings!("api");
     settings.rest_api_address = rest_api_address.clone();
