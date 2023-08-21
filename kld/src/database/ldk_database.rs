@@ -33,7 +33,7 @@ use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
 use lightning::util::ser::Writeable;
-use log::{debug, error, info};
+use log::{debug, error};
 
 use super::peer::Peer;
 use crate::settings::Settings;
@@ -824,6 +824,11 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let mut monitor_buf = vec![];
         monitor.write(&mut monitor_buf).unwrap();
         let latest_update_id = monitor.get_latest_update_id();
+        let latest_update_id = if latest_update_id == u64::MAX {
+            i64::MAX
+        } else {
+            to_i64!(latest_update_id)
+        };
 
         let durable_connection = self.durable_connection.clone();
         // Storing the updates async makes things way more complicated. So even though its a little slower we stick with sync for now.
@@ -835,12 +840,12 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                     .execute(
                         "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
                 VALUES ($1, $2, $3)",
-                        &[&out_point_buf, &monitor_buf, &to_i64!(latest_update_id)],
+                        &[&out_point_buf, &monitor_buf, &latest_update_id],
                     )
                     .await;
                 match result {
                     Ok(_) => {
-                        info!(
+                        debug!(
                             "Stored channel: {}:{} with update id: {}",
                             funding_txo.txid, funding_txo.index, latest_update_id
                         );
