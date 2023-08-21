@@ -30,6 +30,7 @@ let
       substituters = lib.mkForce [ ];
       hashed-mirrors = null;
       connect-timeout = 1;
+      experimental-features = [ "flakes" ];
       flake-registry = pkgs.writeText "flake-registry" ''{"flakes":[],"version":2}'';
     };
 
