@@ -36,10 +36,10 @@ use crate::settings::Settings;
 use ldk_lsp_client::LiquidityProviderConfig;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{BackgroundProcessor, GossipSync};
+use lightning_block_sync::poll;
 use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
-use lightning_block_sync::{poll, BlockSource};
 use lightning_invoice::DEFAULT_EXPIRY_TIME;
 use log::{error, info, warn};
 use rand::random;
@@ -65,15 +65,7 @@ impl LightningInterface for Controller {
     }
 
     async fn synced(&self) -> Result<bool> {
-        Ok(self.bitcoind_client.is_synchronised().await
-            && self.wallet.synced().await
-            && self.channel_manager.current_best_block().block_hash()
-                == self
-                    .bitcoind_client
-                    .get_best_block()
-                    .await
-                    .map_err(|e| anyhow!(e.into_inner()))?
-                    .0)
+        Ok(self.bitcoind_client.is_synchronised().await && self.wallet.synced().await)
     }
 
     fn sign(&self, message: &[u8]) -> Result<String> {

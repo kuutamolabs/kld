@@ -56,7 +56,7 @@ in
 
     systemd.services.electrs = lib.mkDefault {
       wantedBy = [ "multi-user.target" ];
-      after = [ "bitcoind.service" ];
+      after = [ "bitcoind${if cfg.bitcoindInstance == "bitcoind" then "" else cfg.bitcoindInstance}.service" ];
       serviceConfig = {
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
           install -m400 -o electrs ${bitcoinCookieDir}/.cookie /var/lib/electrs/.cookie
