@@ -8,7 +8,10 @@ use std::{
     sync::mpsc::{channel, Receiver},
 };
 
-use crate::{command::status_to_pretty_err, utils::unlock_over_ssh};
+use crate::{
+    command::status_to_pretty_err,
+    utils::{timeout_ssh, unlock_over_ssh},
+};
 
 use super::{Host, NixosFlake};
 
@@ -86,13 +89,27 @@ pub fn install(
                 host.name
             );
 
+            loop {
+                if unlock_over_ssh(host, &disk_encryption_key).is_ok() {
+                    info!("Unlocked {}", host.name);
+                    break;
+                }
+            }
+
+
             // remove potential old ssh keys before adding new ones...
             let _ = Command::new("ssh-keygen")
                 .args(["-R", &host.ssh_hostname])
                 .status()
                 .context("Failed to run ssh-keygen to remove old keys...")?;
 
-            unlock_over_ssh(host, &disk_encryption_key)?;
+            loop {
+                // After unlock the sshd will start in port 22
+                if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
+                    break;
+                }
+            }
+
             Ok(())
         })
         .collect::<Result<Vec<_>>>()?;

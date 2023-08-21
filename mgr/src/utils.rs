@@ -30,14 +30,7 @@ pub fn timeout_ssh(host: &Host, command: &[&str], learn_known_host_key: bool) ->
 /// luks unlock via ssh
 pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
     let target = host.deploy_ssh_target();
-    let mut args = vec![
-        "-p",
-        "2222",
-        "-o",
-        "ConnectTimeout=10",
-        "-o",
-        "StrictHostKeyChecking=no",
-    ];
+    let mut args = vec!["-p", "2222"];
     args.push(&target);
     args.push("cryptsetup-askpass");
     let key = {
@@ -47,42 +40,26 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
         reader.read_to_end(&mut buffer)?;
         buffer
     };
+    let mut ssh = Command::new("ssh")
+        .args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
 
-    loop {
-        let mut ssh = Command::new("ssh")
-            .args(&args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()?;
-
-        let mut stdin = ssh.stdin.take().ok_or(anyhow!("could not pipe stdin"))?;
-        let mut stdout = ssh.stdout.take().ok_or(anyhow!("could not pipe stdout"))?;
-        if stdin.write_all(key.as_slice()).is_ok() {
-            let _ = stdin.write(b"\n")?;
-        } else {
-            eprintln!("fail to enter password");
-            continue;
-        }
-        println!("$ ssh {}", args.join(" "));
-
-        let mut buf_string = String::new();
-
-        if stdout.read_to_string(&mut buf_string).is_ok()
-            && buf_string.starts_with("Passphrase for")
-        {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+    let mut stdin = ssh.stdin.take().ok_or(anyhow!("could not pipe stdin"))?;
+    let mut stdout = ssh.stdout.take().ok_or(anyhow!("could not pipe stdout"))?;
+    if stdin.write_all(key.as_slice()).is_ok() {
+        let _ = stdin.write(b"\n")?;
+    } else {
+        return Err(anyhow!("fail to enter password"));
     }
+    println!("$ ssh {}", args.join(" "));
 
-    println!("### Unlocked");
+    let mut buf_string = String::new();
 
-    loop {
-        // After unlock the sshd will start in port 22
-        if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
-            break;
-        }
+    if stdout.read_to_string(&mut buf_string).is_ok() && buf_string.starts_with("Passphrase for") {
+        Ok(())
+    } else {
+        Err(anyhow!("sshd response unepxected"))
     }
-
-    Ok(())
 }

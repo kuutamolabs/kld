@@ -10,7 +10,11 @@ pub fn reboot(hosts: &[Host], disk_encryption_key: Option<PathBuf>) -> Result<()
 
     if let Some(disk_encryption_key) = disk_encryption_key {
         for host in hosts {
-            unlock_over_ssh(host, &disk_encryption_key)?;
+            loop {
+                if unlock_over_ssh(host, &disk_encryption_key).is_ok() {
+                    break;
+                }
+            }
         }
     }
 
