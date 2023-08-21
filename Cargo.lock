@@ -1190,7 +1190,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "ldk-lsp-client"
 version = "0.1.0"
-source = "git+https://github.com/lightningdevkit/ldk-lsp-client#2fa04786d6750a650f66c807f717b30b2e7694e3"
+source = "git+https://github.com/lightningdevkit/ldk-lsp-client#5b2162306fd4a7e7283d27d5c9edbe12c8b2ccc8"
 dependencies = [
  "bitcoin",
  "lightning",
