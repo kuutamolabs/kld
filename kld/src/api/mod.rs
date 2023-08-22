@@ -12,13 +12,14 @@ mod ws;
 pub use netaddress::NetAddress;
 
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
+use serde::{Deserialize, Deserializer};
 use serde_json::json;
 
 use self::utility::get_info;
 use crate::{
     api::{
         channels::{
-            channel_history, close_channel, list_channels, list_forwards, list_peer_channels,
+            channel_history, close_channel, list_forwards, list_peer_channels,
             local_remote_balance, open_channel, set_channel_fee,
         },
         invoices::{generate_invoice, list_invoices},
@@ -53,7 +54,7 @@ use axum_server::{
 use futures::{future::Shared, Future};
 use hyper::StatusCode;
 use log::{error, info, warn};
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
 
 pub struct RestApi {
@@ -91,7 +92,6 @@ impl RestApi {
             )
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_FUNDS, get(list_funds))
-            .route(routes::LIST_CHANNELS, get(list_channels))
             .route(routes::LIST_PEER_CHANNELS, get(list_peer_channels))
             .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::LIST_NETWORK_NODE, get(get_network_node))
@@ -230,4 +230,19 @@ pub fn bad_request(e: impl Into<anyhow::Error>) -> ApiError {
 pub mod codegen {
     #![allow(dead_code)]
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+}
+
+pub(crate) fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    T::Err: std::fmt::Display,
+{
+    let opt = Option::<String>::deserialize(de)?;
+    match opt.as_deref() {
+        None | Some("") => Ok(None),
+        Some(s) => FromStr::from_str(s)
+            .map_err(serde::de::Error::custom)
+            .map(Some),
+    }
 }

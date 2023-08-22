@@ -15,11 +15,17 @@ use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
-use kld::api::codegen::get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse;
+use kld::api::codegen::get_v1_channel_list_peer_channels_response::{
+    GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseState,
+};
 use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
+use kld::api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse;
+use kld::api::codegen::get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse;
+use kld::api::codegen::post_v1_peer_connect_body::PostV1PeerConnectBody;
+use kld::api::codegen::post_v1_peer_connect_response::PostV1PeerConnectResponse;
 use kld::api::MacaroonAuth;
 use kld::database::payment::PaymentStatus;
 use kld::logger::KldLogger;
@@ -35,11 +41,11 @@ use test_utils::{
 };
 
 use api::{
-    routes, Channel, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel,
-    FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus,
-    KeysendRequest, ListFunds, NetworkChannel, NetworkNode, NewAddress, NewAddressResponse,
-    OutputStatus, PayInvoice, Payment, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
-    SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
+    routes, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
+    GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus, KeysendRequest,
+    ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice, PaymentResponse, Peer,
+    SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
+    WalletTransferResponse,
 };
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -92,13 +98,6 @@ pub async fn test_unauthorized() -> Result<()> {
     assert_eq!(
         StatusCode::UNAUTHORIZED,
         unauthorized_request(&context, Method::GET, routes::LIST_FUNDS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_CHANNELS)
             .send()
             .await?
             .status()
@@ -175,14 +174,14 @@ pub async fn test_unauthorized() -> Result<()> {
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
+        readonly_request(&context, Method::GET, routes::NEW_ADDR,)?
             .send()
             .await?
             .status()
     );
     assert_eq!(
         StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
+        readonly_request(&context, Method::GET, routes::NEW_ADDR)?
             .send()
             .await?
             .status()
@@ -449,12 +448,12 @@ async fn test_list_funds_readonly() -> Result<()> {
     let output = funds.outputs.get(0).context("Missing output")?;
     assert_eq!(TEST_TX_ID, output.txid);
     assert_eq!(0, output.output);
-    assert_eq!(546, output.value);
     assert_eq!(546000, output.amount_msat);
     assert_eq!(
         "bc1prx7399hvfe8hta6lfn2qncvczxjeur5cwlrpxhwrzqssj9kuqpeqchh5xf",
         output.address
     );
+    assert_eq!(93, output.scriptpubkey.len());
     assert_eq!(OutputStatus::Confirmed, output.status);
     assert_eq!(Some(600000), output.block_height);
 
@@ -468,32 +467,6 @@ async fn test_list_funds_readonly() -> Result<()> {
     assert_eq!(1000000000, channel.amount_msat);
     assert_eq!(TEST_TX_ID, channel.funding_txid);
     assert_eq!(2, channel.funding_output);
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_list_channels_readonly() -> Result<()> {
-    let context = create_api_server().await?;
-    let channels: Vec<Channel> = readonly_request(&context, Method::GET, routes::LIST_CHANNELS)?
-        .send()
-        .await?
-        .json()
-        .await?;
-    let channel = channels.get(0).context("Missing channel")?;
-    assert_eq!(TEST_PUBLIC_KEY, channel.id);
-    assert!(channel.connected);
-    assert_eq!(ChannelState::Usable, channel.state);
-    assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), channel.short_channel_id);
-    assert_eq!(TEST_TX_ID, channel.funding_txid);
-    assert!(!channel.private);
-    assert_eq!(100000, channel.msatoshi_to_us);
-    assert_eq!(1000000000, channel.msatoshi_total);
-    assert_eq!(999900000, channel.msatoshi_to_them);
-    assert_eq!(5000, channel.their_channel_reserve_satoshis);
-    assert_eq!(Some(10000), channel.our_channel_reserve_satoshis);
-    assert_eq!(100000, channel.spendable_msatoshi);
-    assert_eq!(1, channel.direction);
-    assert_eq!(TEST_ALIAS, channel.alias);
     Ok(())
 }
 
@@ -515,11 +488,15 @@ async fn test_list_peer_channels_readonly() -> Result<()> {
     );
     assert_eq!(Some(TEST_TX_ID.to_string()), channel.funding_txid);
     assert!(!channel.private);
+    assert!(matches!(
+        channel.state,
+        GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
+    ));
     assert_eq!(100000, channel.to_us_msat);
     assert_eq!(1000000000, channel.total_msat);
     assert_eq!(999900000, channel.to_them_msat);
-    assert_eq!(5000, channel.their_reserve_msat);
-    assert_eq!(Some(10000), channel.our_reserve_msat);
+    assert_eq!(5000000, channel.their_reserve_msat);
+    assert_eq!(Some(10000000), channel.our_reserve_msat);
     assert_eq!(100000, channel.spendable_msat);
     assert_eq!(TEST_ALIAS, channel.alias);
     assert_eq!(5000, channel.dust_limit_msat);
@@ -631,12 +608,12 @@ async fn test_withdraw_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_new_address_admin() -> Result<()> {
     let context = create_api_server().await?;
-    let response: NewAddressResponse =
-        admin_request_with_body(&context, Method::GET, routes::NEW_ADDR, NewAddress::default)?
-            .send()
-            .await?
-            .json()
-            .await?;
+    let response: GetV1NewaddrResponse = admin_request(&context, Method::GET, routes::NEW_ADDR)?
+        .query(&[("addressType", "bech32")])
+        .send()
+        .await?
+        .json()
+        .await?;
     assert_eq!(TEST_ADDRESS.to_string(), response.address);
     Ok(())
 }
@@ -663,15 +640,17 @@ async fn test_list_peers_readonly() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_connect_peer_admin() -> Result<()> {
     let context = create_api_server().await?;
-    let response: String =
+    let response: PostV1PeerConnectResponse =
         admin_request_with_body(&context, Method::POST, routes::CONNECT_PEER, || {
-            TEST_PUBLIC_KEY
+            PostV1PeerConnectBody {
+                id: format!("{}@1.0.0.0:1111", TEST_PUBLIC_KEY),
+            }
         })?
         .send()
         .await?
         .json()
         .await?;
-    assert_eq!(TEST_PUBLIC_KEY, response);
+    assert_eq!(TEST_PUBLIC_KEY, response.id);
     Ok(())
 }
 
@@ -889,7 +868,7 @@ async fn test_list_invoice_unpaid() -> Result<()> {
 async fn test_list_payments() -> Result<()> {
     let context = create_api_server().await?;
     let payment = &mock_lightning().payment;
-    let response: Vec<Payment> = admin_request(
+    let response: GetV1PayListPaymentsResponse = admin_request(
         &context,
         Method::GET,
         &format!("{}?direction={}", routes::LIST_PAYMENTS, payment.direction),
@@ -898,14 +877,15 @@ async fn test_list_payments() -> Result<()> {
     .await?
     .json()
     .await?;
-    let payment_response = response.get(0).context("expected payment")?;
-    assert_eq!(payment.bolt11, payment_response.bolt11);
+    let payment_response = response.payments.get(0).context("expected payment")?;
+    assert_eq!(payment.id.0.to_hex(), payment_response.id);
+    assert_eq!(
+        payment.bolt11.as_ref().map(|b| b.to_string()),
+        payment_response.bolt11
+    );
     assert_eq!(payment.status.to_string(), payment_response.status);
     assert!(payment_response.payment_preimage.is_none());
-    assert_eq!(
-        payment.amount.to_string(),
-        payment_response.amount_sent_msat
-    );
+    assert_eq!(payment.amount as f64, payment_response.amount_sent_msat);
     Ok(())
 }
 #[tokio::test(flavor = "multi_thread")]
@@ -988,8 +968,8 @@ async fn test_local_remote_balance() -> Result<()> {
             .await?;
     assert_eq!(0, response.inactive_balance);
     assert_eq!(0, response.pending_balance);
-    assert_eq!(100000, response.local_balance);
-    assert_eq!(999900000, response.remote_balance);
+    assert_eq!(100, response.local_balance);
+    assert_eq!(999900, response.remote_balance);
     Ok(())
 }
 

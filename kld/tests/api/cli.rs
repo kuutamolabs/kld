@@ -6,17 +6,18 @@ use std::{
 use anyhow::{bail, Result};
 use api::{
     FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice, ListFunds,
-    NetworkChannel, NetworkNode, NewAddressResponse, Payment, PaymentResponse, Peer,
-    SetChannelFeeResponse, SignResponse, WalletBalance, WalletTransferResponse,
+    NetworkChannel, NetworkNode, PaymentResponse, Peer, SetChannelFeeResponse, SignResponse,
+    WalletBalance, WalletTransferResponse,
 };
-use bitcoin::secp256k1::PublicKey;
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
     get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
-    get_v1_get_fees_response::GetV1GetFeesResponse,
+    get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
+    get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse,
+    post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
 
 use super::rest::create_api_server;
@@ -48,7 +49,7 @@ async fn test_cli_get_balance() -> Result<()> {
 #[tokio::test]
 async fn test_cli_new_address() -> Result<()> {
     let output = run_cli("new-address", &[]).await?;
-    let _: NewAddressResponse = deserialize(&output.stdout)?;
+    let _: GetV1NewaddrResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 
@@ -87,7 +88,7 @@ async fn test_cli_list_peers() -> Result<()> {
 #[tokio::test]
 async fn test_cli_connect_peer() -> Result<()> {
     let output = run_cli("connect-peer", &[TEST_PUBLIC_KEY]).await?;
-    let _: PublicKey = deserialize(&output.stdout)?;
+    let _: PostV1PeerConnectResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 
@@ -238,7 +239,7 @@ async fn test_cli_list_payments() -> Result<()> {
         &["--bolt11", "bolt11", "--direction", "inbound"],
     )
     .await?;
-    let _: Vec<Payment> = deserialize(&output.stdout)?;
+    let _: GetV1PayListPaymentsResponse = deserialize(&output.stdout)?;
     Ok(())
 }
 

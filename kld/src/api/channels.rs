@@ -6,9 +6,7 @@ use crate::api::NetAddress;
 use crate::database::forward::ForwardStatus;
 use crate::ldk::htlc_destination_to_string;
 use anyhow::Context;
-use api::Channel;
 use api::ChannelFee;
-use api::ChannelState;
 use api::FundChannel;
 use api::FundChannelResponse;
 use api::SetChannelFee;
@@ -39,50 +37,6 @@ use super::codegen::get_v1_channel_list_peer_channels_response::{
 use super::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use super::internal_server;
 use super::ApiError;
-
-pub(crate) async fn list_channels(
-    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
-) -> Result<impl IntoResponse, ApiError> {
-    let peers = lightning_interface
-        .list_peers()
-        .await
-        .map_err(internal_server)?;
-
-    let channels: Vec<Channel> = lightning_interface
-        .list_channels()
-        .iter()
-        .map(|c| Channel {
-            id: c.counterparty.node_id.to_string(),
-            connected: peers
-                .iter()
-                .find(|p| p.public_key == c.counterparty.node_id)
-                .map(|p| p.status == PeerStatus::Connected)
-                .unwrap_or_default(),
-            state: if c.is_usable {
-                ChannelState::Usable
-            } else if c.is_channel_ready {
-                ChannelState::Ready
-            } else {
-                ChannelState::Pending
-            },
-            short_channel_id: to_string_empty!(c.short_channel_id),
-            channel_id: c.channel_id.to_hex(),
-            funding_txid: to_string_empty!(c.funding_txo.map(|x| x.txid)),
-            private: !c.is_public,
-            msatoshi_to_us: c.balance_msat,
-            msatoshi_total: c.channel_value_satoshis * 1000,
-            msatoshi_to_them: (c.channel_value_satoshis * 1000) - c.balance_msat,
-            their_channel_reserve_satoshis: c.counterparty.unspendable_punishment_reserve,
-            our_channel_reserve_satoshis: c.unspendable_punishment_reserve,
-            spendable_msatoshi: c.outbound_capacity_msat,
-            direction: u8::from(c.is_outbound),
-            alias: lightning_interface
-                .alias_of(&c.counterparty.node_id)
-                .unwrap_or_default(),
-        })
-        .collect();
-    Ok(Json(channels))
-}
 
 pub(crate) async fn list_peer_channels(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
@@ -123,7 +77,6 @@ pub(crate) async fn list_peer_channels(
             } else {
                 GetV1ChannelListPeerChannelsResponseOpener::Remote
             },
-            our_reserve_msat: channel.unspendable_punishment_reserve.map(|x| x as i64),
             peer_connected: peers
                 .iter()
                 .find(|p| p.public_key == channel.counterparty.node_id)
@@ -135,14 +88,19 @@ pub(crate) async fn list_peer_channels(
             short_channel_id: channel.short_channel_id.map(|x| x.to_string()),
             spendable_msat: channel.outbound_capacity_msat as i64,
             state: if channel.is_usable {
-                GetV1ChannelListPeerChannelsResponseState::Usable
-            } else if channel.is_channel_ready {
-                GetV1ChannelListPeerChannelsResponseState::Ready
+                GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
             } else {
-                GetV1ChannelListPeerChannelsResponseState::Pending
+                GetV1ChannelListPeerChannelsResponseState::Openingd
             },
-            their_reserve_msat: channel.counterparty.unspendable_punishment_reserve as i64,
+            our_reserve_msat: channel
+                .unspendable_punishment_reserve
+                .map(|x| (x * 1000) as i64),
+            their_reserve_msat: (channel.counterparty.unspendable_punishment_reserve * 1000) as i64,
             to_them_msat: ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64,
+            minimum_htlc_in_msat: channel.inbound_htlc_minimum_msat.map(|x| x as i64),
+            max_total_htlc_in_msat: channel.inbound_htlc_maximum_msat.map(|x| x as i64),
+            minimum_htlc_out_msat: channel.next_outbound_htlc_minimum_msat as i64,
+            maximum_htlc_out_msat: channel.next_outbound_htlc_limit_msat as i64,
             to_us_msat: channel.balance_msat as i64,
             total_msat: channel.channel_value_satoshis as i64 * 1000,
         })
@@ -277,19 +235,26 @@ pub(crate) async fn close_channel(
 pub(crate) async fn local_remote_balance(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let mut response = GetV1ChannelLocalremotebalResponse::default();
+    let mut local_msat = 0;
+    let mut remote_msat = 0;
+    let mut pending_msat = 0;
+    let mut inactive_msat = 0;
     for channel in lightning_interface.list_channels() {
         if channel.is_usable {
-            response.local_balance += channel.balance_msat as i64;
-            response.remote_balance +=
-                ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64;
+            local_msat += channel.balance_msat;
+            remote_msat += (channel.channel_value_satoshis * 1000) - channel.balance_msat;
         } else if channel.is_channel_ready {
-            response.inactive_balance += channel.balance_msat as i64;
+            inactive_msat += channel.balance_msat;
         } else {
-            response.pending_balance += channel.balance_msat as i64;
+            pending_msat += channel.balance_msat;
         }
     }
-    Ok(Json(response))
+    Ok(Json(GetV1ChannelLocalremotebalResponse {
+        inactive_balance: (inactive_msat / 1000) as i64,
+        pending_balance: (pending_msat / 1000) as i64,
+        local_balance: (local_msat / 1000) as i64,
+        remote_balance: (remote_msat / 1000) as i64,
+    }))
 }
 
 // Paperclip generates an enum but we need a struct to work with axum so have to make query params this way for now.
