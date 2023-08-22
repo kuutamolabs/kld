@@ -20,6 +20,7 @@ ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
 ipv6_address = "2001:DB8::1"
 kld_node_alias = "kld-00-alias"
+network_interface = "eth1"
 
 [hosts.db-00]
 nixos_module = "cockroachdb-node"
@@ -28,9 +29,9 @@ mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
-
 # example address
 ipv6_address = "2001:DB8::2"
+network_interface = "eth1"
 
 [hosts.db-01]
 nixos_module = "cockroachdb-node"
@@ -39,5 +40,5 @@ mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_gateway = "192.168.42.255"
 ipv4_cidr = 24
-
 ipv6_address = "2001:DB8::3"
+network_interface = "eth1"

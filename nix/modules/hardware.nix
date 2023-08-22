@@ -6,6 +6,12 @@
     description = lib.mdDoc "Disks formatted by disko";
   };
 
+  options.kuutamo.disko.networkInterface = lib.mkOption {
+    type = lib.types.str;
+    default = "eth0";
+    description = lib.mdDoc "The network interface for internet";
+  };
+
   imports = [
     ./raid-config.nix
     ./bitcoind-disks.nix
@@ -57,17 +63,17 @@
         ];
       };
       postCommands = ''
-        ip link set dev eth0 up
+        ip link set dev ${config.kuutamo.disko.networkInterface} up
 
         ${lib.optionalString (config.kuutamo.network.ipv4.address != null) ''
-          ip addr add ${config.kuutamo.network.ipv4.address}/${builtins.toString config.kuutamo.network.ipv4.cidr} dev eth0
-          ip route add ${config.kuutamo.network.ipv4.gateway} dev eth0
-          ip route add default via ${config.kuutamo.network.ipv4.gateway} dev eth0
+          ip addr add ${config.kuutamo.network.ipv4.address}/${builtins.toString config.kuutamo.network.ipv4.cidr} dev ${config.kuutamo.disko.networkInterface}
+          ip route add ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
+          ip route add default via ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
         ''}
         ${lib.optionalString (config.kuutamo.network.ipv6.address != null) ''
-          ip -6 addr add ${config.kuutamo.network.ipv6.address}/${builtins.toString config.kuutamo.network.ipv6.cidr} dev eth0
-          ip -6 route add ${config.kuutamo.network.ipv6.gateway} dev eth0
-          ip -6 route add default via ${config.kuutamo.network.ipv6.gateway} dev eth0
+          ip -6 addr add ${config.kuutamo.network.ipv6.address}/${builtins.toString config.kuutamo.network.ipv6.cidr} dev ${config.kuutamo.disko.networkInterface}
+          ip -6 route add ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
+          ip -6 route add default via ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
         ''}
       '';
 

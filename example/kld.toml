@@ -79,6 +79,9 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # use on the node.
 kld_api_ip_access_list = []
 
+# The interface to access network
+# network_interface = "eth0"
+
 # The configure for host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
@@ -154,5 +157,8 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
 # use on the node.
 kld_api_ip_access_list = []
+
+# The interface to access network
+# network_interface = "eth0"
 
 

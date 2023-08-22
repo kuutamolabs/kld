@@ -221,6 +221,11 @@ struct HostConfig {
     #[toml_example(default = [])]
     kld_api_ip_access_list: Vec<IpAddr>,
 
+    /// The interface to access network
+    #[serde(default)]
+    #[toml_example(default = "eth0")]
+    network_interface: Option<String>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -292,6 +297,9 @@ pub struct Host {
     pub rest_api_port: Option<u16>,
     /// The ip addresses list will allow to communicate with kld
     pub api_ip_access_list: Vec<IpAddr>,
+
+    /// The interface of node to access the internet
+    pub network_interface: Option<String>,
 }
 
 impl Host {
@@ -631,6 +639,7 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         kld_node_alias: host.kld_node_alias.to_owned(),
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
+        network_interface: host.network_interface.to_owned(),
     })
 }
 
@@ -890,6 +899,7 @@ fn test_validate_host() -> Result<()> {
             telegraf_config_hash: "13646096770106105413".to_string(),
             api_ip_access_list: Vec::new(),
             rest_api_port: None,
+            network_interface: None,
         }
     );
 
