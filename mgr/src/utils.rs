@@ -29,6 +29,8 @@ pub fn timeout_ssh(host: &Host, command: &[&str], learn_known_host_key: bool) ->
 
 /// luks unlock via ssh
 pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
+    // The node unlocked with start sshd on 22 port, we use this to check the node is unlock or not
+    // If not then we will try to pass the disk encryption key to the node via 2222 port.
     if let Ok(result) = timeout_ssh(
         host,
         &[
@@ -46,6 +48,7 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
             return Ok(());
         }
     }
+
     let target = host.deploy_ssh_target();
     let mut args = vec![
         "-p",
@@ -81,6 +84,7 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
 
     let mut buf_string = String::new();
 
+    // Check the `cryptsetup-askpass` is asking the disk encryption key
     if stdout.read_to_string(&mut buf_string).is_ok() && buf_string.starts_with("Passphrase for") {
         Ok(())
     } else {
