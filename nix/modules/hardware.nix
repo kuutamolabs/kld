@@ -37,16 +37,11 @@
     # also our ipmi has VGA output, uncomment the line below.
     srvos.boot.consoles = lib.mkDefault [ ];
 
-    # / is a mirror raid
-    # boot.loader.grub.devices = config.kuutamo.disko.disks;
-
     # Enable raid support specifically, this will disable srvos's
     # systemd-initrd as well, which currently is not compatible with mdraid.
     boot.swraid.enable = true;
     systemd.services.mdmonitor.enable = false;
 
-    # for mdraid 1.1
-    # boot.loader.grub.extraConfig = "insmod mdraid1x";
     boot.loader.grub.enable = true;
     boot.loader.grub.efiSupport = true;
     boot.loader.grub.efiInstallAsRemovable = true;
