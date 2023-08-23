@@ -9,7 +9,7 @@ use kld::logger::KldLogger;
 use kld::prometheus::start_prometheus_exporter;
 use kld::settings::Settings;
 use kld::wallet::Wallet;
-use kld::{log_error, quit_signal, VERSION};
+use kld::{log_error, quit_signal, QUIT_FLAG, VERSION};
 use log::{error, info};
 use std::sync::Arc;
 use std::time::Duration;
@@ -39,6 +39,7 @@ pub fn main() {
     };
 
     info!("Shutting down");
+    QUIT_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
     runtime.shutdown_timeout(Duration::from_secs(30));
     info!("Stopped all threads. Process finished.");
     std::process::exit(exit_code);
@@ -53,7 +54,7 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         KeyGenerator::init(&settings.mnemonic_path).context("cannot initialize key generator")?,
     );
 
-    let wallet_database = WalletDatabase::new(settings.clone(), durable_connection.clone());
+    let wallet_database = WalletDatabase::new(durable_connection.clone());
 
     let bitcoind_client = Arc::new(BitcoindClient::new(&settings).await?);
     bitcoind_client.poll_for_fee_estimates();

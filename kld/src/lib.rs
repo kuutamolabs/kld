@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicBool;
+
 use async_trait::async_trait;
 use tokio::signal::unix::SignalKind;
 
@@ -25,6 +27,8 @@ pub async fn quit_signal() {
         .recv()
         .await;
 }
+
+pub static QUIT_FLAG: AtomicBool = AtomicBool::new(false);
 
 #[async_trait]
 pub trait Service: Send + Sync {

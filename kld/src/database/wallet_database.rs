@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use super::DurableConnection;
-use crate::settings::Settings;
 use crate::to_i64;
 use anyhow::Result;
 use bdk::{
@@ -15,7 +14,7 @@ use tokio::runtime::Handle;
 macro_rules! execute_blocking {
     ($statement: literal, $params: expr, $self: expr) => {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(async move {
+            $self.runtime.block_on(async move {
                 $self
                     .durable_connection
                     .get()
@@ -31,7 +30,7 @@ macro_rules! execute_blocking {
 macro_rules! query_blocking {
     ($statement: literal, $params: expr, $self: expr) => {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(async move {
+            $self.runtime.block_on(async move {
                 $self
                     .durable_connection
                     .get()
@@ -46,18 +45,15 @@ macro_rules! query_blocking {
 
 #[derive(Clone)]
 pub struct WalletDatabase {
-    settings: Arc<Settings>,
     durable_connection: Arc<DurableConnection>,
+    runtime: Handle,
 }
 
 impl WalletDatabase {
-    pub fn new(
-        settings: Arc<Settings>,
-        durable_connection: Arc<DurableConnection>,
-    ) -> WalletDatabase {
+    pub fn new(durable_connection: Arc<DurableConnection>) -> WalletDatabase {
         WalletDatabase {
-            settings,
             durable_connection,
+            runtime: Handle::current(),
         }
     }
 
@@ -870,26 +866,21 @@ impl BatchDatabase for WalletDatabase {
 
     fn begin_batch(&self) -> Result<Self::Batch, Error> {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(async move {
-                let database = WalletDatabase {
-                    settings: self.settings.clone(),
-                    durable_connection: self.durable_connection.clone(),
-                };
-                database
-                    .durable_connection
+            self.runtime.block_on(async move {
+                self.durable_connection
                     .get()
                     .await
                     .batch_execute("BEGIN")
                     .await
                     .map_err(|e| Error::Generic(format!("Failed to begin SQL transaction: {e}")))?;
-                Ok(database)
+                Ok(self.clone())
             })
         })
     }
 
     fn commit_batch(&mut self, batch: Self::Batch) -> Result<(), Error> {
         tokio::task::block_in_place(move || {
-            Handle::current().block_on(async move {
+            self.runtime.block_on(async move {
                 batch
                     .durable_connection
                     .get()

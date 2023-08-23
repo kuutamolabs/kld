@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use crate::settings::Settings;
+use crate::{settings::Settings, QUIT_FLAG};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bdk::{
@@ -179,7 +179,8 @@ impl<
         let wallet_clone = self.wallet.clone();
         let blockchain = self.blockchain.clone();
         let electrs_url = self.settings.electrs_url.clone();
-        tokio::task::spawn_blocking(move || loop {
+
+        std::thread::spawn(move || loop {
             let sync = || -> Result<()> {
                 // ElectrumBlockchain will not be instantiated if electrs is down. So within this loop we can keep trying to connect and get in sync.
                 if blockchain.get().is_none() {
@@ -216,7 +217,9 @@ impl<
             if let Err(e) = sync() {
                 error!("Failed to sync wallet: {e}");
             };
-
+            if QUIT_FLAG.load(std::sync::atomic::Ordering::Relaxed) {
+                return;
+            }
             std::thread::sleep(Duration::from_secs(10));
         });
     }
