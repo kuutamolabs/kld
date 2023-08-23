@@ -102,7 +102,7 @@ enum Command {
     Install(InstallArgs),
     /// Upload update to host and show which actions would be performed on an update
     DryUpdate(DryUpdateArgs),
-    /// Update hosts
+    /// Update applications and OS of hosts, the mnemonic will not be updated
     Update(UpdateArgs),
     /// Rollback hosts to previous generation
     Rollback(RollbackArgs),
@@ -280,12 +280,14 @@ pub fn main() -> Result<()> {
     let res = match args.action {
         Command::GenerateExample => Ok(println!("{}", ConfigFile::toml_example())),
         Command::Install(ref install_args) => {
-            let config = mgr::load_configuration(&args.config).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
+            let config =
+                mgr::load_configuration(&args.config, !install_args.generate_secret_on_remote)
+                    .with_context(|| {
+                        format!(
+                            "failed to parse configuration file: {}",
+                            &args.config.display()
+                        )
+                    })?;
             create_or_update_lightning_certs(
                 &config.global.secret_directory.join("lightning"),
                 &config.hosts,
@@ -305,7 +307,7 @@ pub fn main() -> Result<()> {
             install(&args, install_args, &config, &flake)
         }
         Command::Update(ref update_args) => {
-            let config = mgr::load_configuration(&args.config).with_context(|| {
+            let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()
@@ -328,7 +330,7 @@ pub fn main() -> Result<()> {
             update(&args, update_args, &config, &flake)
         }
         _ => {
-            let config = mgr::load_configuration(&args.config).with_context(|| {
+            let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()
