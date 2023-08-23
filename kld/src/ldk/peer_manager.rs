@@ -19,7 +19,7 @@ use lightning_net_tokio::SocketDescriptor;
 use log::{error, info, warn};
 use tokio::task::JoinHandle;
 
-use super::{ChainMonitor, ChannelManager, KldRouter};
+use super::{ChainMonitor, ChannelManager, DummyFilter, KldRouter};
 
 pub(crate) type PeerManager = peer_handler::PeerManager<
     SocketDescriptor,
@@ -43,6 +43,7 @@ pub(crate) type PeerManager = peer_handler::PeerManager<
             Arc<KeysManager>,
             Arc<KldLogger>,
             Arc<KeysManager>,
+            Arc<DummyFilter>,
         >,
     >,
     Arc<KeysManager>,

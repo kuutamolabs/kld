@@ -625,16 +625,13 @@ impl Controller {
             .channel_handshake_limits
             .force_announced_channel_preference = false;
 
+        let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
+        let chain_params = ChainParameters {
+            network,
+            best_block: BestBlock::new(getinfo_resp.best_block_hash, getinfo_resp.blocks as u32),
+        };
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
-                let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
-                let chain_params = ChainParameters {
-                    network,
-                    best_block: BestBlock::new(
-                        getinfo_resp.best_block_hash,
-                        getinfo_resp.blocks as u32,
-                    ),
-                };
                 let new_channel_manager = channelmanager::ChannelManager::new(
                     fee_estimator.clone(),
                     chain_monitor.clone(),
@@ -676,6 +673,8 @@ impl Controller {
             keys_manager.clone(),
             Some(LiquidityProviderConfig {}),
             channel_manager.clone(),
+            None,
+            chain_params,
         ));
 
         let gossip_sync = Arc::new_cyclic(|gossip| {
