@@ -9,11 +9,9 @@ use std::sync::{Arc, Mutex};
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
-use bitcoin::blockdata::script::Script;
-use bitcoin::hash_types::Txid;
 use bitcoin::hashes::hex::ToHex;
 use lightning::{
-    chain::{chainmonitor, Filter, WatchedOutput},
+    chain::{chainmonitor, Filter},
     events::HTLCDestination,
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},
@@ -59,7 +57,7 @@ pub(crate) type LiquidityManager = ldk_lsp_client::LiquidityManager<
     Arc<KeysManager>,
     Arc<KldLogger>,
     Arc<KeysManager>,
-    Arc<DummyFilter>,
+    Arc<dyn Filter + Send + Sync>,
 >;
 
 pub(crate) type ChannelManager =
@@ -188,11 +186,4 @@ pub fn htlc_destination_to_string(destination: &HTLCDestination) -> String {
             format!("Failed payment with hash {}", payment_hash.0.to_hex())
         }
     }
-}
-
-/// A dummy filter do not filter out any tx
-pub struct DummyFilter;
-impl Filter for DummyFilter {
-    fn register_tx(&self, _txid: &Txid, _script_pubkey: &Script) {}
-    fn register_output(&self, _output: WatchedOutput) {}
 }
