@@ -56,6 +56,7 @@
           ./rebuild.nix
           ./telegraf.nix
         ];
+        security.sudo.enable = true;
         system.stateVersion = "22.05";
         _module.args.self = self;
       };

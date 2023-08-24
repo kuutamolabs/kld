@@ -170,6 +170,12 @@ struct HostConfig {
     #[toml_example(default = [ "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...", ])]
     public_ssh_keys: Vec<String>,
 
+    /// The ssh key for users
+    /// After installation these user could login with their name with the corresponding ssh private key
+    #[serde(default)]
+    #[toml_example(default = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username", ])]
+    user_ssh_keys: Vec<String>,
+
     /// Admin user for install,
     /// Please use `ubuntu` when you use OVH to install at first time,
     /// Ubuntu did not allow `root` login
@@ -270,6 +276,9 @@ pub struct Host {
 
     /// Public ssh keys that will be added to the nixos configuration
     pub public_ssh_keys: Vec<String>,
+
+    /// The user with ssh key
+    pub users: HashMap<String, String>,
 
     /// Block device paths to use for installing
     pub disks: Vec<PathBuf>,
@@ -663,6 +672,44 @@ fn validate_host(
             bail!("alias should be 32 bytes");
         }
     }
+    let mut users = HashMap::new();
+
+    for ssh_key in default.user_ssh_keys.iter() {
+        let user_name = ssh_key.split(' ').nth(2).map(|name_with_host|{
+                if let Some((user_name, _)) = name_with_host.split_once('@') {
+                    user_name
+                } else {
+                    name_with_host
+                }
+            }).ok_or(anyhow!("user_ssh_keys in [host_defaults] should have `username` or `username@hostname` in the end"))?;
+        if user_name == "root" {
+            bail!("Creating a root user does not allow");
+        }
+        users.insert(user_name.into(), ssh_key.into());
+    }
+
+    for ssh_key in host.user_ssh_keys.iter() {
+        let user_name = ssh_key
+            .split(' ')
+            .nth(2)
+            .map(|name_with_host| {
+                if let Some((user_name, _)) = name_with_host.split_once('@') {
+                    user_name
+                } else {
+                    name_with_host
+                }
+            })
+            .ok_or(anyhow!(
+                "user_ssh_keys in [{}] should have `username` or `username@hostname` in the end",
+                name
+            ))?;
+        if user_name == "root" {
+            bail!("Creating a root user does not allow");
+        }
+        if users.insert(user_name.into(), ssh_key.into()).is_some() {
+            warn!("{user_name} duplicated in {name}, it will use defined in [{name}] not in [host_defaults]");
+        }
+    }
 
     Ok(Host {
         name,
@@ -690,6 +737,7 @@ fn validate_host(
         rest_api_port: host.kld_rest_api_port,
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
+        users,
     })
 }
 
@@ -927,8 +975,11 @@ fn test_validate_host() -> Result<()> {
         ipv6_gateway: None,
         ipv6_cidr: None,
         public_ssh_keys: vec!["".to_string()],
+        user_ssh_keys: vec!["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA kuutamo@kuutamo.co".to_string()],
         ..Default::default()
     };
+    let mut users = HashMap::new();
+    users.insert("kuutamo".into(), "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA kuutamo@kuutamo.co".into());
     assert_eq!(
         validate_host("ipv4-only", &config, &HostConfig::default(), false).unwrap(),
         Host {
@@ -965,6 +1016,7 @@ fn test_validate_host() -> Result<()> {
             rest_api_port: None,
             network_interface: None,
             kld_preset_mnemonic: Some(false),
+            users,
         }
     );
 

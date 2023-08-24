@@ -20,7 +20,16 @@ in
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
     kuutamo.disko.networkInterface = cfg.network_interface or "eth0";
 
-    users.extraUsers.root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
+    users.extraUsers = {
+      root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
+    } // lib.attrsets.mapAttrs
+      (n: v: {
+        isNormalUser = true;
+        group = n;
+        extraGroups = [ "cockroachdb" ];
+        openssh = { authorizedKeys = { keys = [ v ]; }; };
+      })
+      cfg.users;
 
     kuutamo.network.macAddress = cfg.mac_address or null;
 
