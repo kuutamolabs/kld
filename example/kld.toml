@@ -39,6 +39,10 @@ extra_nixos_modules = []
 # After installation the user could login as root with the corresponding ssh private key
 public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...",]
 
+# The ssh key for users
+# After installation these user could login with their name with the corresponding ssh private key
+user_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username",]
+
 # Admin user for install,
 # Please use `ubuntu` when you use OVH to install at first time,
 # Ubuntu did not allow `root` login
@@ -114,6 +118,10 @@ extra_nixos_modules = []
 # The ssh public keys of the user
 # After installation the user could login as root with the corresponding ssh private key
 public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...",]
+
+# The ssh key for users
+# After installation these user could login with their name with the corresponding ssh private key
+user_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username",]
 
 # Admin user for install,
 # Please use `ubuntu` when you use OVH to install at first time,
