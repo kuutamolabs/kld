@@ -1,6 +1,7 @@
 [global]
 # we provide this path in our nixos test
-flake = "/root/lightning-knd"
+knd_flake = "/root/lightning-knd"
+deployment_flake = "/tmp/config"
 
 [host_defaults]
 public_ssh_keys = [

@@ -12,7 +12,6 @@ use mgr::ssh::generate_key_pair;
 use mgr::utils::unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
-use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use toml_example::traits::TomlExample;
@@ -202,6 +201,7 @@ fn install(
         install_args.no_reboot,
     )
 }
+
 fn generate_config(
     _args: &Args,
     config_args: &GenerateConfigArgs,
@@ -209,16 +209,6 @@ fn generate_config(
     flake: &NixosFlake,
 ) -> Result<()> {
     mgr::generate_config(&config_args.directory, flake)
-}
-
-fn dry_update(
-    _args: &Args,
-    dry_update_args: &DryUpdateArgs,
-    config: &Config,
-    flake: &NixosFlake,
-) -> Result<()> {
-    let hosts = filter_hosts(&dry_update_args.hosts, &config.hosts)?;
-    mgr::dry_update(&hosts, flake, &config.global.secret_directory)
 }
 
 fn update(
@@ -388,9 +378,6 @@ pub fn main() -> Result<()> {
             match args.action {
                 Command::GenerateConfig(ref config_args) => {
                     generate_config(&args, config_args, &config, &flake)
-                }
-                Command::DryUpdate(ref dry_update_args) => {
-                    dry_update(&args, dry_update_args, &config, &flake)
                 }
                 Command::Rollback(ref rollback_args) => {
                     rollback(&args, rollback_args, &config, &flake)

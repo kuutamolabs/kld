@@ -1,7 +1,10 @@
 # Global configuration affecting all hosts
 [global]
-# Flake url where the nixos configuration is
-flake = "github:kuutamolabs/lightning-knd"
+# Flake url for your deployment config
+deployment_flake = "github:yourorganisation/deployment"
+
+# Flake url for KND
+knd_flake = "github:kuutamolabs/lightning-knd"
 
 # Directory where the secrets are stored i.e. certificates
 secret_directory = "secrets"

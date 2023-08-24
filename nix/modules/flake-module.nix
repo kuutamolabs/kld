@@ -53,6 +53,7 @@
           self.nixosModules.kld-ctl
           ./hardware.nix
           ./network.nix
+          ./rebuild.nix
           ./telegraf.nix
         ];
         system.stateVersion = "22.05";

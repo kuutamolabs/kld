@@ -1,6 +1,7 @@
 name = "db-01"
 nixos_module = "cockroachdb-node"
 extra_nixos_modules = ["qemu-test-profile"]
+deployment_flake = "/tmp/config"
 mac_address = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_cidr = 24
@@ -16,6 +17,7 @@ bitcoind_disks = []
 telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
 network_interface = "eth1"
+api_ip_access_list = []
 
 [[cockroach_peers]]
 name = "db-00"

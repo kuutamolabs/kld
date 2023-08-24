@@ -82,7 +82,7 @@ fn default_secret_directory() -> PathBuf {
     PathBuf::from("secrets")
 }
 
-fn default_flake() -> String {
+fn default_knd_flake() -> String {
     "github:kuutamolabs/lightning-knd".to_string()
 }
 
@@ -243,6 +243,9 @@ pub struct Host {
     /// Extra NixOS modules to include in the system
     pub extra_nixos_modules: Vec<String>,
 
+    /// The url that is used for nixos-rebuild
+    pub deployment_flake: String,
+
     /// Mac address of the public interface to use
     pub mac_address: Option<String>,
 
@@ -402,10 +405,13 @@ impl Host {
 /// Global configuration affecting all hosts
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default, TomlExample)]
 pub struct Global {
-    /// Flake url where the nixos configuration is
-    #[serde(default = "default_flake")]
+    /// Flake url for your deployment config
+    #[toml_example(default = "github:yourorganisation/deployment")]
+    pub deployment_flake: String,
+    /// Flake url for KND
+    #[serde(default = "default_knd_flake")]
     #[toml_example(default = "github:kuutamolabs/lightning-knd")]
-    pub flake: String,
+    pub knd_flake: String,
 
     /// Directory where the secrets are stored i.e. certificates
     #[serde(default = "default_secret_directory")]
@@ -426,6 +432,7 @@ fn validate_host(
     host: &HostConfig,
     default: &HostConfig,
     preset_mnemonic: bool,
+    global: &Global,
 ) -> Result<Host> {
     if !host.others.is_empty() {
         bail!(
@@ -629,6 +636,7 @@ fn validate_host(
         extra_nixos_modules,
         install_ssh_user,
         ssh_hostname,
+        deployment_flake: global.deployment_flake.clone(),
         mac_address,
         ipv4_address,
         ipv4_cidr,
@@ -694,13 +702,16 @@ pub fn parse_config(
     preset_mnemonic: bool,
 ) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
+
+    let global = validate_global(&config.global, working_directory)?;
+
     let mut hosts = config
         .hosts
         .iter()
         .map(|(name, host)| {
             Ok((
                 name.to_string(),
-                validate_host(name, host, &config.host_defaults, preset_mnemonic)?,
+                validate_host(name, host, &config.host_defaults, preset_mnemonic, &global)?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
@@ -733,8 +744,6 @@ pub fn parse_config(
         );
     }
 
-    let global = validate_global(&config.global, working_directory)?;
-
     Ok(Config { hosts, global })
 }
 
@@ -763,7 +772,8 @@ fn decode_token(s: String) -> Result<(String, String)> {
 #[cfg(test)]
 pub(crate) const TEST_CONFIG: &str = r#"
 [global]
-flake = "github:myfork/lightning-knd"
+knd_flake = "github:kuutamolabs/lightning-knd"
+deployment_flake = "github:myorg/knd-test"
 
 [host_defaults]
 public_ssh_keys = [
@@ -797,7 +807,8 @@ pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
     let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
-    assert_eq!(config.global.flake, "github:myfork/lightning-knd");
+    assert_eq!(config.global.knd_flake, "github:kuutamolabs/lightning-knd");
+    assert_eq!(config.global.deployment_flake, "github:myorg/knd-test");
 
     let hosts = &config.hosts;
     assert_eq!(hosts.len(), 3);
@@ -882,12 +893,17 @@ fn test_validate_host() -> Result<()> {
         public_ssh_keys: vec!["".to_string()],
         ..Default::default()
     };
+    let global = Global {
+        deployment_flake: "github:yourorganisation/deployment".to_owned(),
+        ..Default::default()
+    };
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default(), false).unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default(), false, &global).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
             extra_nixos_modules: Vec::new(),
+            deployment_flake: global.deployment_flake,
             mac_address: None,
             ipv4_address: Some(
                 "192.168.0.1"
@@ -924,18 +940,39 @@ fn test_validate_host() -> Result<()> {
     // If `ipv6_address` is provided, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
+    assert!(validate_host(
+        "ipv4-only",
+        &config,
+        &HostConfig::default(),
+        false,
+        &Global::default()
+    )
+    .is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
+    assert!(validate_host(
+        "ipv4-only",
+        &config,
+        &HostConfig::default(),
+        false,
+        &Global::default()
+    )
+    .is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_ok());
+    assert!(validate_host(
+        "ipv4-only",
+        &config,
+        &HostConfig::default(),
+        false,
+        &Global::default()
+    )
+    .is_ok());
 
     Ok(())
 }

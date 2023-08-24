@@ -143,8 +143,6 @@ in
           new_machine.succeed(f"test $(stat -c %a {cert}) == 600 || (echo {cert} has wrong permissions >&2 && exit 1)")
           new_machine.succeed(f"test $(stat -c %U {cert}) == root || (echo {cert} does not belong to root >&2 && exit 1)")
 
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes dry-update --hosts kld-00 >&2")
-
       # requires proper setup of certificates...
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
