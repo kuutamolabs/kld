@@ -43,10 +43,10 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # After installation these user could login with their name with the corresponding ssh private key
 user_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username",]
 
-# Admin user for install,
+# The user for login and execute commands.
 # Please use `ubuntu` when you use OVH to install at first time,
 # Ubuntu did not allow `root` login
-# install_ssh_user = "ubuntu"
+# run_as_user = "root"
 
 # Setup ssh host name for connection and host label on monitoring dashboard
 # ssh_hostname = ""
@@ -123,10 +123,10 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 # After installation these user could login with their name with the corresponding ssh private key
 user_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username",]
 
-# Admin user for install,
+# The user for login and execute commands.
 # Please use `ubuntu` when you use OVH to install at first time,
 # Ubuntu did not allow `root` login
-# install_ssh_user = "ubuntu"
+# run_as_user = "root"
 
 # Setup ssh host name for connection and host label on monitoring dashboard
 # ssh_hostname = ""

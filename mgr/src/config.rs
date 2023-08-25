@@ -174,12 +174,12 @@ struct HostConfig {
     #[toml_example(default = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username", ])]
     user_ssh_keys: Vec<String>,
 
-    /// Admin user for install,
+    /// The user for login and execute commands.
     /// Please use `ubuntu` when you use OVH to install at first time,
     /// Ubuntu did not allow `root` login
     #[serde(default)]
-    #[toml_example(default = "ubuntu")]
-    install_ssh_user: Option<String>,
+    #[toml_example(default = "root")]
+    run_as_user: Option<String>,
 
     /// Setup ssh host name for connection and host label on monitoring dashboard
     #[serde(default)]
@@ -261,8 +261,8 @@ pub struct Host {
     /// Public ipv6 gateway address of the host
     pub ipv6_gateway: Option<IpAddr>,
 
-    /// SSH Username used when connecting during installation
-    pub install_ssh_user: String,
+    /// SSH Username used when executing commands
+    pub run_as_user: String,
 
     /// SSH hostname used for connection and host label on monitoring dashboard
     pub ssh_hostname: String,
@@ -387,7 +387,7 @@ impl Host {
     }
     /// The hostname to which we will deploy
     pub fn deploy_ssh_target(&self) -> String {
-        format!("root@{}", self.ssh_hostname)
+        format!("{}@{}", self.run_as_user, self.ssh_hostname)
     }
     /// The hostname to which we will deploy
     pub fn flake_uri(&self, flake: &NixosFlake) -> String {
@@ -539,10 +539,10 @@ fn validate_host(
         .cloned()
         .unwrap_or_else(|| address.to_string());
 
-    let install_ssh_user = host
-        .install_ssh_user
+    let run_as_user = host
+        .run_as_user
         .as_ref()
-        .or(default.install_ssh_user.as_ref())
+        .or(default.run_as_user.as_ref())
         .cloned()
         .unwrap_or_else(|| String::from("root"));
 
@@ -661,7 +661,7 @@ fn validate_host(
         name,
         nixos_module,
         extra_nixos_modules,
-        install_ssh_user,
+        run_as_user,
         ssh_hostname,
         mac_address,
         ipv4_address,
@@ -940,7 +940,7 @@ fn test_validate_host() -> Result<()> {
             ipv6_address: None,
             ipv6_cidr: None,
             ipv6_gateway: None,
-            install_ssh_user: "root".to_string(),
+            run_as_user: "root".to_string(),
             ssh_hostname: "192.168.0.1".to_string(),
             public_ssh_keys: vec!["".to_string()],
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],

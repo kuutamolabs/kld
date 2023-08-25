@@ -20,8 +20,8 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
 - `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 
-The server(s) will run `kld` and `cockroachdb`.   
-The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.   
+The server(s) will run `kld` and `cockroachdb`.
+The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.
 `kld-cli` is also available on the server(s), and can be run on the local machine.
 
 ## Nix quickstart
@@ -112,7 +112,7 @@ public_ssh_keys = [
 
 # The example RISE1 server in OVH, deployed with a Ubuntu image
 # will be configured with 'ubuntu' as the admin user
-install_ssh_user = "ubuntu"
+run_as_user = "ubuntu"
 
 # This allows us to specify different disks for the bitcoin datebase.
 # The example RISE1 server in OVH has 2x4TB HDD and 2x500GB NVMe
