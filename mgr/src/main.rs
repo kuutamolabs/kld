@@ -98,11 +98,12 @@ enum Command {
     GenerateConfig(GenerateConfigArgs),
     /// Generate kld.toml example
     GenerateExample,
-    /// Install kld cluster on given hosts. This will remove all data of the current system!
+    /// Install kld cluster on given hosts. This will remove all data of the current system! This
+    /// command is required run as sudo user or root user
     Install(InstallArgs),
     /// SSH into a host
     Ssh(SshArgs),
-    /// Reboot hosts
+    /// Reboot hosts. This command is required run as sudo user or root user
     Reboot(RebootArgs),
     /// Get system info from a host
     SystemInfo(SystemInfoArgs),

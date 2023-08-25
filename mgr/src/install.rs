@@ -41,10 +41,10 @@ pub fn install(
         .iter()
         .map(|host| {
             info!("Install {}", host.name);
-            let connection_string = if host.install_ssh_user.is_empty() {
+            let connection_string = if host.run_as_user.is_empty() {
                 host.ssh_hostname.clone()
             } else {
-                format!("{}@{}", host.install_ssh_user, host.ssh_hostname)
+                format!("{}@{}", host.run_as_user, host.ssh_hostname)
             };
 
             let disk_encryption_key = secrets_dir.join("disk_encryption_key");
