@@ -53,15 +53,8 @@ struct GenerateConfigArgs {
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
-struct DryUpdateArgs {
-    /// Comma-separated lists of hosts to perform the dry-update
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct UpdateArgs {
-    /// Comma-separated lists of hosts to perform the update
+struct GeneralArgs {
+    /// Comma-separated lists of hosts to perform command
     #[clap(long, default_value = "")]
     hosts: String,
 }
@@ -76,20 +69,6 @@ struct SshArgs {
     command: Option<Vec<String>>,
 }
 
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct RebootArgs {
-    /// Comma-separated lists of hosts to perform the reboot
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct SystemInfoArgs {
-    /// Comma-separated lists of hosts to perform the install
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
 /// Subcommand to run
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(clap::Subcommand, PartialEq, Debug, Clone)]
@@ -102,19 +81,21 @@ enum Command {
     /// command is required run as sudo user or root user
     Install(InstallArgs),
     /// Upload update to host and show which actions would be performed on an update
-    DryUpdate(DryUpdateArgs),
+    DryUpdate(GeneralArgs),
     /// Update applications and OS of hosts, the mnemonic will not be updated. This command is
     /// required run as sudo user or root user
-    Update(UpdateArgs),
+    Update(GeneralArgs),
     /// Rollback hosts to previous generation. This command is required run as sudo user or root
     /// user
     Rollback(RollbackArgs),
     /// SSH into a host
     Ssh(SshArgs),
     /// Reboot hosts. This command is required run as sudo user or root user
-    Reboot(RebootArgs),
+    Reboot(GeneralArgs),
     /// Get system info from a host
-    SystemInfo(SystemInfoArgs),
+    SystemInfo(GeneralArgs),
+    /// Restrat service
+    Restart(GeneralArgs),
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -201,7 +182,7 @@ fn generate_config(
 
 fn dry_update(
     _args: &Args,
-    dry_update_args: &DryUpdateArgs,
+    dry_update_args: &GeneralArgs,
     config: &Config,
     flake: &NixosFlake,
 ) -> Result<()> {
@@ -211,7 +192,7 @@ fn dry_update(
 
 fn update(
     _args: &Args,
-    update_args: &UpdateArgs,
+    update_args: &GeneralArgs,
     config: &Config,
     flake: &NixosFlake,
 ) -> Result<()> {
@@ -239,12 +220,12 @@ fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
     mgr::ssh(&hosts, command.as_slice())
 }
 
-fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()> {
+fn reboot(_args: &Args, reboot_args: &GeneralArgs, config: &Config) -> Result<()> {
     let hosts = filter_hosts(&reboot_args.hosts, &config.hosts)?;
     mgr::reboot(&hosts)
 }
 
-fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
+fn system_info(args: &GeneralArgs, config: &Config) -> Result<()> {
     println!("kld-mgr version: {}\n", env!("CARGO_PKG_VERSION"));
     let hosts = filter_hosts(&args.hosts, &config.hosts)?;
     for host in hosts {
@@ -271,6 +252,62 @@ fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
             println!("Fail to fetch system info from {}", host.name);
         }
         println!("\n");
+    }
+    Ok(())
+}
+
+fn restart(args: &GeneralArgs, config: &Config) -> Result<()> {
+    let hosts = filter_hosts(&args.hosts, &config.hosts)?;
+    for host in hosts {
+        if host.nixos_module == "kld-node" {
+            if let Ok(output) = std::process::Command::new("ssh")
+                .args([
+                    host.deploy_ssh_target().as_str(),
+                    "--",
+                    "sudo",
+                    "systemctl",
+                    "restart",
+                    "kld",
+                ])
+                .output()
+            {
+                if output.status.success() {
+                    println!("kld service of {} restarted", host.name);
+                } else {
+                    println!(
+                        "fetch restart kld status of {} error: {}",
+                        host.name,
+                        std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
+                    );
+                }
+            } else {
+                println!("Fail to restart kld service from {}", host.name);
+            }
+        }
+
+        if let Ok(output) = std::process::Command::new("ssh")
+            .args([
+                host.deploy_ssh_target().as_str(),
+                "--",
+                "sudo",
+                "systemctl",
+                "restart",
+                "cockroachdb",
+            ])
+            .output()
+        {
+            if output.status.success() {
+                println!("cockroachdb service of {} restarted", host.name);
+            } else {
+                println!(
+                    "fetch restart cockroachdb status of {} error: {}",
+                    host.name,
+                    std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
+                );
+            }
+        } else {
+            println!("Fail to restart cockroachdb service from {}", host.name);
+        }
     }
     Ok(())
 }
@@ -353,6 +390,7 @@ pub fn main() -> Result<()> {
                 Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
                 Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
                 Command::SystemInfo(ref args) => system_info(args, &config),
+                Command::Restart(ref args) => restart(args, &config),
                 _ => unreachable!(),
             }
         }
