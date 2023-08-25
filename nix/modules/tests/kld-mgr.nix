@@ -147,6 +147,9 @@ in
       hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
 
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml restart --hosts kld-00 >&2")
+      new_machine.wait_for_unit("kld.service")
+
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml reboot --hosts kld-00 >&2")
       new_machine.connected = False
     '';
