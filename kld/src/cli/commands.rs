@@ -186,4 +186,6 @@ pub enum KldCliSubCommand {
     },
     /// Fetch a list of historic (closed) channels
     ListChannelHistory,
+    /// Decode invoice
+    Decode { invoice: String },
 }

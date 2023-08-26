@@ -80,6 +80,8 @@ pub mod routes {
     pub const GENERATE_INVOICE: &str = "/v1/invoice/genInvoice";
     /// List the invoices on the node
     pub const LIST_INVOICES: &str = "/v1/invoice/listInvoices";
+    /// Decode invoice
+    pub const DECODE_INVOICE: &str = "/v1/utility/decode/:invoice";
 }
 
 #[derive(Serialize, Deserialize)]
@@ -422,7 +424,6 @@ pub struct SignResponse {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct KeysendRequest {
     // 33 byte, hex-encoded, pubkey of the node
     pub pubkey: String,
@@ -454,7 +455,6 @@ pub struct PaymentResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct GenerateInvoice {
     // Amount in milli satoshis
     pub amount: u64,
@@ -473,7 +473,6 @@ pub struct GenerateInvoice {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
 pub enum InvoiceStatus {
     Unpaid,
     Paid,
@@ -481,7 +480,6 @@ pub enum InvoiceStatus {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Invoice {
     pub label: Option<String>,
     pub bolt11: String,
@@ -507,9 +505,8 @@ pub struct GenerateInvoiceResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct PayInvoice {
-    pub bolt11: String,
+    pub invoice: String,
     pub label: Option<String>,
 }
 

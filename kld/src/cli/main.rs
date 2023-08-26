@@ -68,6 +68,7 @@ fn run_command(args: KldCliCommand) -> Result<()> {
         KldCliSubCommand::GetFees => api.get_fees()?,
         KldCliSubCommand::ListForwards { status } => api.list_forwards(status)?,
         KldCliSubCommand::ListChannelHistory => api.channel_history()?,
+        KldCliSubCommand::Decode { invoice } => api.decode(invoice)?,
     };
     if output != "null" {
         println!("{output}");

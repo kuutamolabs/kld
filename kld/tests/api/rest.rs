@@ -23,7 +23,12 @@ use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChan
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
 use kld::api::codegen::get_v1_get_fees_response::GetV1GetFeesResponse;
 use kld::api::codegen::get_v1_newaddr_response::GetV1NewaddrResponse;
-use kld::api::codegen::get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse;
+use kld::api::codegen::get_v1_pay_list_payments_response::{
+    GetV1PayListPaymentsResponse, GetV1PayListPaymentsResponsePaymentsItemStatus,
+};
+use kld::api::codegen::get_v1_utility_decode_invoice_string_response::{
+    GetV1UtilityDecodeInvoiceStringResponse, GetV1UtilityDecodeInvoiceStringResponseType,
+};
 use kld::api::codegen::post_v1_peer_connect_body::PostV1PeerConnectBody;
 use kld::api::codegen::post_v1_peer_connect_response::PostV1PeerConnectResponse;
 use kld::api::MacaroonAuth;
@@ -58,304 +63,59 @@ use crate::quit_signal;
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_unauthorized() -> Result<()> {
     let context = create_api_server().await?;
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::ROOT)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::SIGN)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::POST, routes::SIGN, || SignRequest {
-            message: "testmessage".to_string()
-        })?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::GET_INFO)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::GET_BALANCE)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_FUNDS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::OPEN_CHANNEL)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(
-            &context,
-            Method::POST,
-            routes::OPEN_CHANNEL,
-            fund_channel_request
-        )?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::SET_CHANNEL_FEE,)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(
-            &context,
-            Method::POST,
-            routes::SET_CHANNEL_FEE,
-            set_channel_fee_request
-        )?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::DELETE, routes::CLOSE_CHANNEL,)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request(
-            &context,
-            Method::DELETE,
-            &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
-        )?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::WITHDRAW)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::POST, routes::WITHDRAW, withdraw_request)?
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request(&context, Method::GET, routes::NEW_ADDR,)?
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request(&context, Method::GET, routes::NEW_ADDR)?
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_PEERS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::CONNECT_PEER)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::POST, routes::CONNECT_PEER, || {
-            TEST_ADDRESS
-        })?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::DELETE, routes::DISCONNECT_PEER)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request(
-            &context,
-            Method::DELETE,
-            &routes::DISCONNECT_PEER.replace(":id", TEST_PUBLIC_KEY),
-        )?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_NODE)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_NODES)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_CHANNEL)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_NETWORK_CHANNELS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::FEE_RATES)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::KEYSEND)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::POST, routes::KEYSEND, keysend_request)?
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_INVOICES)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::GENERATE_INVOICE)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::POST, routes::PAY_INVOICE)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        readonly_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || PayInvoice {
-            label: Some("label".to_string()),
-            bolt11: mock_lightning().invoice.bolt11.to_string()
-        })?
-        .send()
-        .await?
-        .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_PAYMENTS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::ESTIMATE_CHANNEL_LIQUIDITY)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LOCAL_REMOTE_BALANCE)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::GET_FEES)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_FORWARDS)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_CHANNEL_HISTORY)
-            .send()
-            .await?
-            .status()
-    );
-    assert_eq!(
-        StatusCode::UNAUTHORIZED,
-        unauthorized_request(&context, Method::GET, routes::LIST_PEER_CHANNELS)
-            .send()
-            .await?
-            .status()
-    );
+    let admin_functions = vec![
+        (Method::POST, routes::SIGN),
+        (Method::POST, routes::OPEN_CHANNEL),
+        (Method::POST, routes::SET_CHANNEL_FEE),
+        (Method::DELETE, routes::CLOSE_CHANNEL),
+        (Method::POST, routes::WITHDRAW),
+        (Method::GET, routes::NEW_ADDR),
+        (Method::POST, routes::CONNECT_PEER),
+        (Method::DELETE, routes::DISCONNECT_PEER),
+        (Method::POST, routes::KEYSEND),
+        (Method::POST, routes::GENERATE_INVOICE),
+        (Method::POST, routes::PAY_INVOICE),
+    ];
+    for (method, route) in &admin_functions {
+        assert_eq!(
+            StatusCode::UNAUTHORIZED,
+            readonly_request_with_body(&context, method.clone(), route, || ())?
+                .send()
+                .await?
+                .status()
+        );
+    }
+    let mut readonly_functions = vec![
+        (Method::GET, routes::ROOT),
+        (Method::GET, routes::GET_INFO),
+        (Method::GET, routes::GET_BALANCE),
+        (Method::GET, routes::LIST_FUNDS),
+        (Method::GET, routes::LIST_PEERS),
+        (Method::GET, routes::LIST_NETWORK_NODE),
+        (Method::GET, routes::LIST_NETWORK_NODES),
+        (Method::GET, routes::LIST_NETWORK_CHANNEL),
+        (Method::GET, routes::LIST_NETWORK_CHANNELS),
+        (Method::GET, routes::FEE_RATES),
+        (Method::GET, routes::LIST_INVOICES),
+        (Method::GET, routes::LIST_PAYMENTS),
+        (Method::GET, routes::ESTIMATE_CHANNEL_LIQUIDITY),
+        (Method::GET, routes::LOCAL_REMOTE_BALANCE),
+        (Method::GET, routes::GET_FEES),
+        (Method::GET, routes::LIST_FORWARDS),
+        (Method::GET, routes::LIST_CHANNEL_HISTORY),
+        (Method::GET, routes::LIST_PEER_CHANNELS),
+        (Method::GET, routes::DECODE_INVOICE),
+    ];
+    readonly_functions.extend(admin_functions.into_iter());
+    for (method, route) in readonly_functions {
+        assert_eq!(
+            StatusCode::UNAUTHORIZED,
+            unauthorized_request(&context, method, route)
+                .send()
+                .await?
+                .status()
+        );
+    }
     Ok(())
 }
 
@@ -883,9 +643,12 @@ async fn test_list_payments() -> Result<()> {
         payment.bolt11.as_ref().map(|b| b.to_string()),
         payment_response.bolt11
     );
-    assert_eq!(payment.status.to_string(), payment_response.status);
+    assert!(matches!(
+        payment_response.status,
+        GetV1PayListPaymentsResponsePaymentsItemStatus::Pending
+    ));
     assert!(payment_response.payment_preimage.is_none());
-    assert_eq!(payment.amount as f64, payment_response.amount_sent_msat);
+    assert_eq!(payment.amount as i64, payment_response.amount_sent_msat);
     Ok(())
 }
 #[tokio::test(flavor = "multi_thread")]
@@ -894,7 +657,7 @@ async fn test_pay_invoice() -> Result<()> {
     let invoice = &mock_lightning().invoice.bolt11;
     let request = PayInvoice {
         label: Some("test label".to_string()),
-        bolt11: invoice.to_string(),
+        invoice: invoice.to_string(),
     };
     let response: PaymentResponse =
         admin_request_with_body(&context, Method::POST, routes::PAY_INVOICE, || request)?
@@ -1047,6 +810,35 @@ async fn test_channel_history() -> Result<()> {
         ClosureReason::CooperativeClosure.to_string()
     );
     assert_eq!(channel.value, 1000000);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_decode_invoice() -> Result<()> {
+    let context = create_api_server().await?;
+    let invoice = &mock_lightning().invoice.bolt11;
+    let response: GetV1UtilityDecodeInvoiceStringResponse = readonly_request(
+        &context,
+        Method::GET,
+        &routes::DECODE_INVOICE.replace(":invoice", &invoice.to_string()),
+    )?
+    .send()
+    .await?
+    .json()
+    .await?;
+    assert!(matches!(
+        response.type_,
+        GetV1UtilityDecodeInvoiceStringResponseType::Bolt11
+    ));
+    assert!(response.valid);
+    assert_eq!(response.expiry, Some(2322));
+    assert_eq!(response.currency, Some("bcrt".to_string()));
+    assert_eq!(response.amount_msat, Some(200000));
+    assert_eq!(response.payee, Some(TEST_PUBLIC_KEY.to_string()));
+    assert_eq!(response.min_final_cltv_expiry, Some(144));
+    assert!(response.created_at.is_some());
+    assert!(response.payment_hash.is_some());
+    assert!(response.signature.is_some());
     Ok(())
 }
 
