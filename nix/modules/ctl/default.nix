@@ -14,9 +14,6 @@ in
   };
 
   config = {
-    system.activationScripts.node-upgrade = ''
-      ${systemd}/bin/systemd-run --collect --unit nixos-upgrade echo level=info message=\"kld node updated\" $(${cfg.package}/bin/kld-ctl system-info --inline)
-    '';
     environment.systemPackages = [ cfg.package ];
     environment.etc."system-info.toml".text = lib.mkDefault ''
       git_sha = "${self.rev or "dirty"}"
