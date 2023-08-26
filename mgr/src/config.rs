@@ -378,13 +378,13 @@ impl Host {
                 0o600,
             ),
             (
-                PathBuf::from("/root/.ssh/deploy_key"),
-                fs::read_to_string(ssh.join("deploy_key")).context("failed to read deploy key")?,
+                PathBuf::from("/root/.ssh/id_ed25519"),
+                fs::read_to_string(ssh.join("id_ed25519")).context("failed to read deploy key")?,
                 0o600,
             ),
             (
-                PathBuf::from("/root/.ssh/deploy_key.pub"),
-                fs::read_to_string(ssh.join("deploy_key.pub"))
+                PathBuf::from("/root/.ssh/id_ed25519.pub"),
+                fs::read_to_string(ssh.join("id_ed25519.pub"))
                     .context("failed to read deploy pub key")?,
                 0o644,
             ),

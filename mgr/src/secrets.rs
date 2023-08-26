@@ -83,10 +83,12 @@ pub fn create_deploy_key(secret_directory: &Path) -> Result<()> {
             "-q",
             "-t",
             "ed25519",
+            "-C",
+            "deploy_key",
             "-N",
             "",
             "-f",
-            &format!("{}/deploy_key", ssh_dir.display()),
+            &format!("{}/id_ed25519", ssh_dir.display()),
         ])
         .output()?;
     Ok(())
