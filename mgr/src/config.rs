@@ -314,56 +314,79 @@ impl Host {
         let lightning = secrets_dir.join("lightning");
         let cockroachdb = secrets_dir.join("cockroachdb");
         let mnemonic = secrets_dir.join("mnemonic");
+        let ssh = secrets_dir.join("ssh");
+
         let mut secret_files = vec![
             // for kld
             (
                 PathBuf::from("/var/lib/secrets/kld/ca.pem"),
                 fs::read(lightning.join("ca.pem")).context("failed to read ca.pem")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.pem"),
                 fs::read(lightning.join(format!("{}.pem", self.name)))
                     .context("failed to read kld.pem")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.key"),
                 fs::read(lightning.join(format!("{}.key", self.name)))
                     .context("failed to read kld.key")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.crt"),
                 fs::read(cockroachdb.join("client.kld.crt"))
                     .context("failed to read client.kld.crt")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.key"),
                 fs::read(cockroachdb.join("client.kld.key"))
                     .context("failed to read client.kld.key")?,
+                0o600
             ),
             // for cockroachdb
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/ca.crt"),
                 fs::read(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.crt"),
                 fs::read(cockroachdb.join("client.root.crt"))
                     .context("failed to read client.root.crt")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.key"),
                 fs::read(cockroachdb.join("client.root.key"))
                     .context("failed to read client.root.key")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.crt"),
                 fs::read(cockroachdb.join(format!("{}.node.crt", self.name)))
                     .context("failed to read node.crt")?,
+                0o600
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.key"),
                 fs::read(cockroachdb.join(format!("{}.node.key", self.name)))
                     .context("failed to read node.key")?,
+                0o600
+            ),
+            (
+                PathBuf::from("/root/.ssh/deploy_key"),
+                fs::read_to_string(ssh.join("deploy_key")).context("failed to read deploy key")?,
+                0o600
+            ),
+            (
+                PathBuf::from("/root/.ssh/deploy_key.pub"),
+                fs::read_to_string(ssh.join("deploy_key.pub"))
+                    .context("failed to read deploy pub key")?,
+                0o644
             ),
             // sshd server key
             (
@@ -376,6 +399,7 @@ impl Host {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/mnemonic"),
                 fs::read(mnemonic).context("failed to read mnemonic")?,
+                0o600
             ))
         }
         if let Some(KmonitorConfig {
@@ -386,7 +410,8 @@ impl Host {
         {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/telegraf"),
-                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into()
+                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into(),
+                0o600
             ));
         }
 

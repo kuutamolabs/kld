@@ -1,7 +1,6 @@
 { config, lib, self, ... }:
 let
   cfg = config.kuutamo.ctl;
-  systemd = config.systemd.package;
 in
 {
   options.kuutamo.ctl = {
