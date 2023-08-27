@@ -54,13 +54,6 @@ struct GenerateConfigArgs {
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
-struct DryUpdateArgs {
-    /// Comma-separated lists of hosts to perform the dry-update
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
 struct UpdateArgs {
     /// Comma-separated lists of hosts to perform the update
     #[clap(long, default_value = "")]
@@ -112,8 +105,6 @@ enum Command {
     GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
-    /// Upload update to host and show which actions would be performed on an update
-    DryUpdate(DryUpdateArgs),
     /// Update applications and OS of hosts, the mnemonic will not be updated
     Update(UpdateArgs),
     /// Rollback hosts to previous generation
