@@ -228,62 +228,6 @@ fn system_info(args: &GeneralArgs, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn restart(args: &GeneralArgs, config: &Config) -> Result<()> {
-    let hosts = filter_hosts(&args.hosts, &config.hosts)?;
-    for host in hosts {
-        if host.nixos_module == "kld-node" {
-            if let Ok(output) = std::process::Command::new("ssh")
-                .args([
-                    host.deploy_ssh_target().as_str(),
-                    "--",
-                    "sudo",
-                    "systemctl",
-                    "restart",
-                    "kld",
-                ])
-                .output()
-            {
-                if output.status.success() {
-                    println!("kld service of {} restarted", host.name);
-                } else {
-                    println!(
-                        "fetch restart kld status of {} error: {}",
-                        host.name,
-                        std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
-                    );
-                }
-            } else {
-                println!("Fail to restart kld service from {}", host.name);
-            }
-        }
-
-        if let Ok(output) = std::process::Command::new("ssh")
-            .args([
-                host.deploy_ssh_target().as_str(),
-                "--",
-                "sudo",
-                "systemctl",
-                "restart",
-                "cockroachdb",
-            ])
-            .output()
-        {
-            if output.status.success() {
-                println!("cockroachdb service of {} restarted", host.name);
-            } else {
-                println!(
-                    "fetch restart cockroachdb status of {} error: {}",
-                    host.name,
-                    std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
-                );
-            }
-        } else {
-            println!("Fail to restart cockroachdb service from {}", host.name);
-        }
-    }
-    Ok(())
-}
-
 /// The kuutamo program entry point
 pub fn main() -> Result<()> {
     logging::init().context("failed to initialize logging")?;
@@ -367,7 +311,6 @@ pub fn main() -> Result<()> {
                 Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
                 Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
                 Command::SystemInfo(ref args) => system_info(args, &config),
-                Command::Restart(ref args) => restart(args, &config),
                 _ => unreachable!(),
             }
         }
