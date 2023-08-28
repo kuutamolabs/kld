@@ -196,18 +196,6 @@ in
       group = "kld";
     };
     users.groups.kld = { };
-    security.sudo.extraRules = [
-      {
-        runAs = "root";
-        groups = [ "kld" ];
-        commands = [
-          {
-            command = "/run/current-system/sw/bin/systemctl restart kld";
-            options = [ "NOPASSWD" ];
-          }
-        ];
-      }
-    ];
     programs.bash.interactiveShellInit = ''
       source ${cfg.package}/bin/kld-cli.bash
     '';

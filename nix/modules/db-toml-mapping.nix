@@ -25,7 +25,7 @@ in
       (n: v: {
         isNormalUser = true;
         group = n;
-        extraGroups = [ "cockroachdb" ];
+        extraGroups = [ "systemd-journal" ];
         openssh = { authorizedKeys = { keys = [ v ]; }; };
       })
       cfg.users;

@@ -287,18 +287,6 @@ in
     users.groups = lib.optionalAttrs (cfg.group == "cockroachdb") {
       cockroachdb.gid = config.ids.gids.cockroachdb;
     };
-    security.sudo.extraRules = [
-      {
-        runAs = "root";
-        groups = [ "cockroachdb" ];
-        commands = [
-          {
-            command = "/run/current-system/sw/bin/systemctl restart cockroachdb";
-            options = [ "NOPASSWD" ];
-          }
-        ];
-      }
-    ];
 
     networking.firewall.allowedTCPPorts = lib.optionals cfg.openPorts
       [ cfg.http.port cfg.listen.port ];
