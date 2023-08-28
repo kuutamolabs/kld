@@ -26,7 +26,8 @@ in
       (n: v: {
         isNormalUser = true;
         group = n;
-        extraGroups = [ "systemd-journal" ];
+        createHome = false;
+        extraGroups = [ "systemd-journal" "jail" ];
         openssh = { authorizedKeys = { keys = [ v ]; }; };
       })
       cfg.users;
