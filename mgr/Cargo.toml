@@ -24,7 +24,7 @@ nix = "0.27.0"
 regex = "1"
 clap = { version = "4.3.23", features = ["derive", "env"] }
 lazy_static = "1.4.0"
-reqwest = { version = "0.11.16", features = ["blocking"], default-features = false }
+reqwest = { version = "0.11.20", features = ["blocking"], default-features = false }
 url = { version = "2.0", features = ["serde"] }
 base64 = "0.21.3"
 toml-example = { version = "0.10.0", default-features = false }
