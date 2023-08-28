@@ -44,7 +44,7 @@
           kuutamo.ctl.package = packages.kld-ctl;
         };
 
-      common-node = {
+      common-node = { pkgs, ... }: {
         imports = [
           inputs.srvos.nixosModules.server
           inputs.disko.nixosModules.disko
@@ -55,6 +55,32 @@
           ./network.nix
           ./telegraf.nix
         ];
+        users = {
+          mutableUsers = false;
+          groups.jail = { };
+          users.jail = {
+            isSystemUser = true;
+            home = "/home/jail";
+            group = "jail";
+            createHome = true;
+            homeMode = "0755";
+          };
+        };
+        services.openssh = {
+          enable = true;
+          forwardX11 = false;
+          extraConfig = ''
+            Match group jail
+              ChrootDirectory /home/jail
+              AllowTcpForwarding no
+          '';
+        };
+        system.activationScripts.set-jail = ''
+          ${pkgs.coreutils}/bin/chown root:root /home/jail
+          ${pkgs.coreutils}/bin/mkdir -p /home/jail/run/current-system/sw
+          ${pkgs.coreutils}/bin/cp -r ${pkgs.bash}/bin /home/jail/run/current-system/sw
+          ${pkgs.nix}/bin/nix copy --from / --to /home/jail ${pkgs.bash}/bin/bash
+        '';
         system.stateVersion = "22.05";
         _module.args.self = self;
       };
