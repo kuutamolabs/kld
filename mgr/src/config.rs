@@ -629,7 +629,7 @@ fn validate_host(
                 }
             }).ok_or(anyhow!("user_ssh_keys in [host_defaults] should have `username` or `username@hostname` in the end"))?;
         if user_name == "root" {
-            bail!("Creating a root user does not allow");
+            bail!("Creating a root user is not allowed");
         }
         users.insert(user_name.into(), ssh_key.into());
     }
@@ -650,7 +650,7 @@ fn validate_host(
                 name
             ))?;
         if user_name == "root" {
-            bail!("Creating a root user does not allow");
+            bail!("Creating a root user is not allowed");
         }
         if users.insert(user_name.into(), ssh_key.into()).is_some() {
             warn!("{user_name} duplicated in {name}, it will use defined in [{name}] not in [host_defaults]");
