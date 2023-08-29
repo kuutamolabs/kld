@@ -672,6 +672,10 @@ fn validate_host(
         }
     }
 
+    if run_as_user != install_ssh_user && !users.contains_key(&run_as_user) {
+        warn!("The run_as_user is not in the list of user_ssh_keys, you may not login or control the node after installation")
+    }
+
     Ok(Host {
         name,
         nixos_module,
