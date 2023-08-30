@@ -204,7 +204,7 @@ fn system_info(args: &GeneralArgs, config: &Config) -> Result<()> {
         println!("[{}]", host.name);
         if let Ok(output) = std::process::Command::new("ssh")
             .args([
-                host.deploy_ssh_target().as_str(),
+                host.execute_ssh_target().as_str(),
                 "--",
                 "kld-ctl",
                 "system-info",

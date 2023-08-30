@@ -6,7 +6,7 @@ use super::Host;
 
 pub fn ssh(hosts: &[Host], command: &[&str]) -> Result<()> {
     for host in hosts {
-        let target = host.deploy_ssh_target();
+        let target = host.execute_ssh_target();
         let mut args = vec![];
         args.push(target.as_str());
         args.push("--");
