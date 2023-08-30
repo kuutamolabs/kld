@@ -395,6 +395,11 @@ impl Host {
     }
     /// The hostname to which we will deploy
     pub fn deploy_ssh_target(&self) -> String {
+        format!("{}@{}", self.install_ssh_user, self.ssh_hostname)
+    }
+
+    /// The hostname to which we will perform command
+    pub fn execute_ssh_target(&self) -> String {
         format!("{}@{}", self.run_as_user, self.ssh_hostname)
     }
     /// The hostname to which we will deploy

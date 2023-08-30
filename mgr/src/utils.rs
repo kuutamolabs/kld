@@ -6,7 +6,7 @@ use super::Host;
 
 /// execute remote ssh
 pub fn timeout_ssh(host: &Host, command: &[&str], learn_known_host_key: bool) -> Result<Output> {
-    let target = host.deploy_ssh_target();
+    let target = host.execute_ssh_target();
     let mut args = vec!["-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no"];
     if !learn_known_host_key {
         args.push("-o");
