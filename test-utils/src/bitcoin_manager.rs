@@ -26,7 +26,18 @@ impl<'a> BitcoinManager<'a> {
         output_dir: &'a TempDir,
         settings: &mut Settings,
     ) -> Result<BitcoinManager<'a>> {
-        let mut bitcoind = BitcoinManager::test_bitcoin(output_dir, settings)?;
+        let p2p_port = get_available_port()?;
+        let rpc_port = get_available_port()?;
+
+        let manager = Manager::new(output_dir, "bitcoind", &settings.node_id)?;
+        let mut bitcoind = BitcoinManager {
+            manager,
+            p2p_port,
+            rpc_port,
+            network: settings.bitcoin_network.to_string(),
+            settings: settings.clone(),
+            client: OnceLock::new(),
+        };
         settings.bitcoind_rpc_port = bitcoind.rpc_port;
         settings.bitcoin_cookie_path = bitcoind.cookie_path();
         bitcoind.settings.bitcoind_rpc_port = settings.bitcoind_rpc_port;
@@ -65,24 +76,6 @@ impl<'a> BitcoinManager<'a> {
             .into_os_string()
             .into_string()
             .expect("should not use non UTF-8 char in path")
-    }
-
-    pub fn test_bitcoin(
-        output_dir: &'a TempDir,
-        settings: &Settings,
-    ) -> Result<BitcoinManager<'a>> {
-        let p2p_port = get_available_port().unwrap();
-        let rpc_port = get_available_port().unwrap();
-
-        let manager = Manager::new(output_dir, "bitcoind", &settings.node_id)?;
-        Ok(BitcoinManager {
-            manager,
-            p2p_port,
-            rpc_port,
-            network: settings.bitcoin_network.to_string(),
-            settings: settings.clone(),
-            client: OnceLock::new(),
-        })
     }
 
     pub async fn generate_blocks(

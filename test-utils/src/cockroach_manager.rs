@@ -25,7 +25,20 @@ impl<'a> CockroachManager<'a> {
         output_dir: &'a TempDir,
         settings: &mut Settings,
     ) -> Result<CockroachManager<'a>> {
-        let mut cockroach = CockroachManager::test_cockroach(output_dir, &settings.node_id)?;
+        let port = get_available_port()?;
+        let http_port = get_available_port()?;
+        let sql_port = get_available_port()?;
+        let http_address = format!("127.0.0.1:{http_port}");
+        let certs_dir = format!("{}/certs/cockroach", env!("CARGO_MANIFEST_DIR"));
+
+        let manager = Manager::new(output_dir, "cockroach", &settings.node_id)?;
+        let mut cockroach = CockroachManager {
+            manager,
+            port,
+            sql_port,
+            http_address,
+            certs_dir,
+        };
 
         // XXX
         // Why we need an extra memory copy here?
@@ -51,23 +64,6 @@ impl<'a> CockroachManager<'a> {
             &format!("--certs-dir={}", self.certs_dir),
         ];
         self.manager.start("cockroach", args, check).await
-    }
-
-    pub fn test_cockroach(output_dir: &'a TempDir, instance: &str) -> Result<CockroachManager<'a>> {
-        let port = get_available_port().expect("Cannot find free node port for cockroach");
-        let http_port = get_available_port().expect("Cannot find free http port for cockroach");
-        let sql_port = get_available_port().expect("Cannot find free sql port for cockroach");
-        let http_address = format!("127.0.0.1:{http_port}");
-        let certs_dir = format!("{}/certs/cockroach", env!("CARGO_MANIFEST_DIR"));
-
-        let manager = Manager::new(output_dir, "cockroach", instance)?;
-        Ok(CockroachManager {
-            manager,
-            port,
-            sql_port,
-            http_address,
-            certs_dir,
-        })
     }
 
     pub fn kill(&mut self) {

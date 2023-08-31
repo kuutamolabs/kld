@@ -25,7 +25,20 @@ impl<'a> ElectrsManager<'a> {
         bitcoin_manager: &BitcoinManager<'a>,
         settings: &mut Settings,
     ) -> Result<ElectrsManager<'a>> {
-        let mut electrs = ElectrsManager::test_electrs(bitcoin_manager, output_dir, settings)?;
+        let monitoring_port = get_available_port()?;
+        let rpc_port = get_available_port()?;
+
+        let manager = Manager::new(output_dir, "electrs", &settings.node_id)?;
+        let mut electrs = ElectrsManager {
+            manager,
+            rpc_address: format!("127.0.0.1:{rpc_port}"),
+            monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
+            bitcoin_rpc_addr: format!("127.0.0.1:{}", bitcoin_manager.rpc_port),
+            bitcoin_p2p_addr: format!("127.0.0.1:{}", bitcoin_manager.p2p_port),
+            bitcoin_cookie_path: bitcoin_manager.cookie_path(),
+            bitcoin_network: settings.bitcoin_network.to_string(),
+        };
+
         settings.electrs_url = electrs.rpc_address.clone();
         electrs
             .start(ElectrsCheck(electrs.monitoring_addr.clone()))
@@ -46,26 +59,6 @@ impl<'a> ElectrsManager<'a> {
             &format!("--monitoring-addr={}", &self.monitoring_addr),
         ];
         self.manager.start("electrs", args, check).await
-    }
-
-    pub fn test_electrs(
-        bitcoin: &BitcoinManager<'a>,
-        output_dir: &'a TempDir,
-        settings: &Settings,
-    ) -> Result<ElectrsManager<'a>> {
-        let monitoring_port = get_available_port().unwrap();
-        let rpc_port = get_available_port().unwrap();
-
-        let manager = Manager::new(output_dir, "electrs", &settings.node_id)?;
-        Ok(ElectrsManager {
-            manager,
-            rpc_address: format!("127.0.0.1:{rpc_port}"),
-            monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
-            bitcoin_rpc_addr: format!("127.0.0.1:{}", bitcoin.rpc_port),
-            bitcoin_p2p_addr: format!("127.0.0.1:{}", bitcoin.p2p_port),
-            bitcoin_cookie_path: bitcoin.cookie_path(),
-            bitcoin_network: settings.bitcoin_network.to_string(),
-        })
     }
 }
 
