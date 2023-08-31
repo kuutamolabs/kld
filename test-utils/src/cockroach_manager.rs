@@ -9,17 +9,31 @@ use async_trait::async_trait;
 use kld::settings::Settings;
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
+use tempfile::TempDir;
 use tokio_postgres::Client;
 
-pub struct CockroachManager {
-    manager: Manager,
+pub struct CockroachManager<'a> {
+    manager: Manager<'a>,
     port: u16,
     pub sql_port: u16,
     http_address: String,
     certs_dir: String,
 }
 
-impl CockroachManager {
+impl<'a> CockroachManager<'a> {
+    pub async fn new(
+        output_dir: &'a TempDir,
+        settings: &mut Settings,
+    ) -> Result<CockroachManager<'a>> {
+        let mut cockroach = CockroachManager::test_cockroach(output_dir, &settings.node_id)?;
+
+        // XXX
+        // Why we need an extra memory copy here?
+        settings.database_port = cockroach.sql_port.to_string();
+        cockroach.start(CockroachCheck(settings.clone())).await?;
+        Ok(cockroach)
+    }
+
     pub async fn start(&mut self, check: impl Check) -> Result<()> {
         // Cockroach requires certs to be only read/writable by user in secure mode. Git does not track this.
         for file in fs::read_dir(&self.certs_dir)? {
@@ -33,13 +47,13 @@ impl CockroachManager {
             &format!("--listen-addr=127.0.0.1:{}", self.port),
             &format!("--sql-addr=127.0.0.1:{}", self.sql_port),
             &format!("--http-addr={}", self.http_address),
-            &format!("--store={}", self.manager.storage_dir),
+            &format!("--store={}", self.manager.storage_dir.as_path().display()),
             &format!("--certs-dir={}", self.certs_dir),
         ];
         self.manager.start("cockroach", args, check).await
     }
 
-    pub fn test_cockroach(output_dir: &str, instance: &str) -> Result<CockroachManager> {
+    pub fn test_cockroach(output_dir: &'a TempDir, instance: &str) -> Result<CockroachManager<'a>> {
         let port = get_available_port().expect("Cannot find free node port for cockroach");
         let http_port = get_available_port().expect("Cannot find free http port for cockroach");
         let sql_port = get_available_port().expect("Cannot find free sql port for cockroach");
@@ -98,22 +112,4 @@ pub async fn create_database(settings: &Settings) {
         )
         .await
         .unwrap();
-    println!("Created database {}", &settings.database_name);
-}
-
-#[macro_export]
-macro_rules! cockroach {
-    ($settings:expr) => {{
-        let mut cockroach = test_utils::cockroach_manager::CockroachManager::test_cockroach(
-            env!("CARGO_TARGET_TMPDIR"),
-            &$settings.node_id,
-        )?;
-        $settings.database_port = cockroach.sql_port.to_string();
-        cockroach
-            .start(test_utils::cockroach_manager::CockroachCheck(
-                $settings.clone(),
-            ))
-            .await?;
-        cockroach
-    }};
 }

@@ -1,39 +1,32 @@
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use std::{
     fs::{self, File},
     io::Read,
+    marker::PhantomData,
     os::unix::prelude::{AsRawFd, FromRawFd},
-    path::Path,
+    path::PathBuf,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
+use tempfile::TempDir;
 
-use async_trait::async_trait;
-
-pub struct Manager {
+pub struct Manager<'a> {
     pub process: Option<Child>,
-    pub storage_dir: String,
+    phantom: PhantomData<&'a TempDir>,
+    pub storage_dir: PathBuf,
     instance_name: String,
 }
 
-impl Manager {
-    pub fn new(output_dir: &str, name: &str, instance: &str) -> Result<Self> {
+impl<'a> Manager<'a> {
+    pub fn new(output_dir: &'a TempDir, name: &str, instance: &str) -> Result<Self> {
         let instance_name = format!("{name}_{instance}");
-        let storage_dir = format!("{output_dir}/{instance_name}");
-        let mut count = 0;
-        while Path::new(&storage_dir).exists() {
-            // Getting occasional bad file descriptors with fs::remove_dir_all so try this instead.
-            let _ = Command::new("rm").args(["-rf", &storage_dir]).output();
-            std::thread::sleep(Duration::from_secs(1));
-            count += 1;
-            if count == 10 {
-                anyhow::bail!("Timed out trying to delete dir");
-            }
-        }
-        fs::create_dir_all(&storage_dir)?;
+        let storage_dir = output_dir.path().join(&instance_name);
+        fs::create_dir(&storage_dir)?;
 
         Ok(Manager {
             process: None,
+            phantom: PhantomData,
             storage_dir,
             instance_name,
         })
@@ -41,7 +34,7 @@ impl Manager {
 
     pub async fn start(&mut self, command: &str, args: &[&str], check: impl Check) -> Result<()> {
         if self.process.is_none() {
-            let path = format!("{}/test.log", self.storage_dir);
+            let path = format!("{}/test.log", self.storage_dir.as_path().display());
             let log_file = File::create(&path).unwrap();
             let fd = log_file.as_raw_fd();
             let out = unsafe { Stdio::from_raw_fd(fd) };
@@ -111,7 +104,7 @@ pub trait Check {
     async fn check(&self) -> bool;
 }
 
-impl Drop for Manager {
+impl Drop for Manager<'_> {
     fn drop(&mut self) {
         self.kill()
     }

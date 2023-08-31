@@ -10,9 +10,11 @@ use std::{fs::File, io::Read};
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 pub use bitcoin_manager::BitcoinManager;
 pub use cockroach_manager::CockroachManager;
+pub use electrs_manager::ElectrsManager;
 pub use kld_manager::KldManager;
 pub use manager::Check;
 use reqwest::{Certificate, Client};
+use tempfile::TempDir;
 
 // https://mempool.space/tx/b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86
 pub const TEST_TX_ID: &str = "b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86";
@@ -40,14 +42,7 @@ pub const TEST_PRIVATE_KEY: [u8; 32] = [
 pub const TEST_PUBLIC_KEY: &str =
     "03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad";
 
-#[macro_export]
-macro_rules! test_settings {
-    ($name: literal) => {
-        test_utils::test_settings(env!("CARGO_TARGET_TMPDIR"), $name)
-    };
-}
-
-pub fn test_settings(tmp_dir: &str, name: &str) -> kld::settings::Settings {
+pub fn test_settings(tmp_dir: &TempDir, name: &str) -> kld::settings::Settings {
     let mut settings = kld::settings::Settings::default();
     settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
     settings.database_ca_cert_path =
@@ -62,7 +57,7 @@ pub fn test_settings(tmp_dir: &str, name: &str) -> kld::settings::Settings {
     );
     settings.database_name = name.to_string();
     settings.node_id = name.to_string();
-    settings.data_dir = format!("{tmp_dir}/test_{name}");
+    settings.data_dir = format!("{}/test_{name}", tmp_dir.path().display());
     settings.mnemonic_path = format!("{}/mnemonic", settings.data_dir);
     std::fs::create_dir_all(&settings.data_dir).unwrap();
     settings

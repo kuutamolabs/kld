@@ -13,9 +13,10 @@ use reqwest::Method;
 use serde::Serialize;
 use std::env::set_var;
 use std::fs;
+use tempfile::TempDir;
 
-pub struct KldManager {
-    manager: Manager,
+pub struct KldManager<'a> {
+    manager: Manager<'a>,
     bin_path: String,
     pub exporter_address: String,
     pub rest_api_address: String,
@@ -23,7 +24,25 @@ pub struct KldManager {
     rest_client: reqwest::Client,
 }
 
-impl KldManager {
+impl<'a> KldManager<'a> {
+    pub async fn new(
+        output_dir: &'a TempDir,
+        kld_bin: &str,
+        bitcoin: &BitcoinManager<'a>,
+        cockroach: &CockroachManager<'a>,
+        electrs: &ElectrsManager<'a>,
+        settings: &mut Settings,
+    ) -> Result<KldManager<'a>> {
+        let mut kld =
+            KldManager::test_kld(output_dir, kld_bin, bitcoin, cockroach, electrs, settings)
+                .await?;
+        settings.rest_api_address = kld.rest_api_address.clone();
+        settings.exporter_address = kld.exporter_address.clone();
+        settings.peer_port = kld.peer_port;
+        kld.start(KldCheck(settings.clone())).await?;
+        Ok(kld)
+    }
+
     pub async fn start(&mut self, check: impl Check) -> Result<()> {
         self.manager.start(&self.bin_path, &[], check).await
     }
@@ -45,10 +64,12 @@ impl KldManager {
         route: &str,
         body: B,
     ) -> Result<T> {
-        let macaroon = fs::read(format!(
-            "{}/macaroons/admin.macaroon",
-            self.manager.storage_dir
-        ))?;
+        let macaroon = fs::read(
+            self.manager
+                .storage_dir
+                .join("macaroons")
+                .join("admin.macaroon"),
+        )?;
 
         let res = self
             .rest_client
@@ -76,13 +97,13 @@ impl KldManager {
     }
 
     pub async fn test_kld(
-        output_dir: &str,
+        output_dir: &'a TempDir,
         bin_path: &str,
-        bitcoin: &BitcoinManager,
-        cockroach: &CockroachManager,
-        electrs: &ElectrsManager,
+        bitcoin: &BitcoinManager<'a>,
+        cockroach: &CockroachManager<'a>,
+        electrs: &ElectrsManager<'a>,
         settings: &Settings,
-    ) -> Result<KldManager> {
+    ) -> Result<KldManager<'a>> {
         let exporter_address = format!(
             "127.0.0.1:{}",
             get_available_port().expect("Cannot find free port")
@@ -103,7 +124,12 @@ impl KldManager {
         set_var("KLD_CERTS_DIR", &certs_dir);
         set_var(
             "KLD_MNEMONIC_PATH",
-            format!("{}/mnemonic", &manager.storage_dir),
+            manager
+                .storage_dir
+                .join("mnemonic")
+                .into_os_string()
+                .into_string()
+                .expect("should not use non UTF-8 code in the path"),
         );
         set_var(
             "KLD_WALLET_NAME",
@@ -164,25 +190,4 @@ impl Check for KldCheck {
         }
         return false;
     }
-}
-
-#[macro_export]
-macro_rules! kld {
-    ($bitcoin:expr, $cockroach:expr, $electrs:expr, $settings:expr) => {{
-        let mut kld = test_utils::kld_manager::KldManager::test_kld(
-            env!("CARGO_TARGET_TMPDIR"),
-            env!("CARGO_BIN_EXE_kld"),
-            $bitcoin,
-            $cockroach,
-            $electrs,
-            &$settings,
-        )
-        .await?;
-        $settings.rest_api_address = kld.rest_api_address.clone();
-        $settings.exporter_address = kld.exporter_address.clone();
-        $settings.peer_port = kld.peer_port;
-        kld.start(test_utils::kld_manager::KldCheck($settings.clone()))
-            .await?;
-        kld
-    }};
 }

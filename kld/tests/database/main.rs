@@ -12,10 +12,11 @@ use kld::database::DurableConnection;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
 use kld::Service;
+use tempfile::TempDir;
 use test_utils::cockroach_manager::create_database;
 use test_utils::poll;
 use test_utils::test_settings;
-use test_utils::{cockroach, CockroachManager};
+use test_utils::CockroachManager;
 use tokio::runtime::Runtime;
 use tokio::sync::OnceCell;
 
@@ -25,6 +26,8 @@ mod wallet_database;
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
 static CONNECTION_RUNTIME: OnceCell<Runtime> = OnceCell::const_new();
+
+static TMP_DIR: OnceCell<TempDir> = OnceCell::const_new();
 
 pub async fn with_cockroach<F, Fut>(test: F) -> Result<()>
 where
@@ -47,7 +50,7 @@ where
 async fn cockroach() -> Result<&'static (
     Arc<Settings>,
     Arc<DurableConnection>,
-    Mutex<CockroachManager>,
+    Mutex<CockroachManager<'static>>,
 )> {
     COCKROACH_REF_COUNT.fetch_add(1, Ordering::AcqRel);
     static INSTANCE: OnceCell<(
@@ -58,8 +61,11 @@ async fn cockroach() -> Result<&'static (
     INSTANCE
         .get_or_try_init(|| async move {
             KldLogger::init("test", log::LevelFilter::Debug);
-            let mut settings = test_settings!("integration");
-            let cockroach = cockroach!(settings);
+            let tmp_dir = TMP_DIR
+                .get_or_init(|| async { TempDir::new().expect("could not open temp dir for db") })
+                .await;
+            let mut settings = test_settings(tmp_dir, "integration");
+            let cockroach = CockroachManager::new(tmp_dir, &mut settings).await?;
             create_database(&settings).await;
             let settings = Arc::new(settings);
             let settings_clone = settings.clone();

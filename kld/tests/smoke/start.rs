@@ -17,30 +17,51 @@ use kld::{
     },
     database::payment::PaymentStatus,
 };
-use test_utils::{bitcoin, cockroach, electrs, kld, poll, test_settings, TEST_ADDRESS};
+use tempfile::TempDir;
+use test_utils::{
+    poll, test_settings, BitcoinManager, CockroachManager, ElectrsManager, KldManager, TEST_ADDRESS,
+};
 use tokio::time::{sleep_until, Instant};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_start() -> Result<()> {
-    let mut settings_0 = test_settings!("start");
-    let cockroach = cockroach!(settings_0);
-    let bitcoin = bitcoin!(settings_0);
+    let tmp_dir = TempDir::new()?;
+
+    let mut settings_0 = test_settings(&tmp_dir, "start");
+    let cockroach = CockroachManager::new(&tmp_dir, &mut settings_0).await?;
+    let bitcoin = BitcoinManager::new(&tmp_dir, &mut settings_0).await?;
     bitcoin
         .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
         .await?;
 
     settings_0.node_id = "start0".to_owned();
     settings_0.database_name = "start0".to_owned();
-    let electrs_0 = electrs!(&bitcoin, settings_0);
-    let kld_0 = kld!(&bitcoin, &cockroach, &electrs_0, settings_0);
+    let electrs_0 = ElectrsManager::new(&tmp_dir, &bitcoin, &mut settings_0).await?;
+    let kld_0 = KldManager::new(
+        &tmp_dir,
+        env!("CARGO_BIN_EXE_kld"),
+        &bitcoin,
+        &cockroach,
+        &electrs_0,
+        &mut settings_0,
+    )
+    .await?;
     let pid = kld_0.call_exporter("pid").await?;
     assert_eq!(pid, kld_0.pid().unwrap().to_string());
 
     let mut settings_1 = settings_0.clone();
     settings_1.node_id = "start1".to_owned();
     settings_1.database_name = "start1".to_owned();
-    let electrs_1 = electrs!(&bitcoin, settings_1);
-    let kld_1 = kld!(&bitcoin, &cockroach, &electrs_1, settings_1);
+    let electrs_1 = ElectrsManager::new(&tmp_dir, &bitcoin, &mut settings_1).await?;
+    let kld_1 = KldManager::new(
+        &tmp_dir,
+        env!("CARGO_BIN_EXE_kld"),
+        &bitcoin,
+        &cockroach,
+        &electrs_1,
+        &mut settings_1,
+    )
+    .await?;
 
     let address: GetV1NewaddrResponse = kld_0
         .call_rest_api(Method::GET, routes::NEW_ADDR, ())
@@ -206,15 +227,25 @@ pub async fn test_start() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Only run this for manual testing"]
 pub async fn test_manual() -> Result<()> {
-    let mut settings = test_settings!("manual");
-    let cockroach = cockroach!(settings);
-    let bitcoin = bitcoin!(settings);
-    let electrs = electrs!(&bitcoin, settings);
+    let tmp_dir = TempDir::new()?;
+
+    let mut settings = test_settings(&tmp_dir, "manual");
+    let cockroach = CockroachManager::new(&tmp_dir, &mut settings).await?;
+    let bitcoin = BitcoinManager::new(&tmp_dir, &mut settings).await?;
+    let electrs = ElectrsManager::new(&tmp_dir, &bitcoin, &mut settings).await?;
 
     bitcoin
         .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
         .await?;
-    let _kld = kld!(&bitcoin, &cockroach, &electrs, settings);
+    let _kld = KldManager::new(
+        &tmp_dir,
+        env!("CARGO_BIN_EXE_kld"),
+        &bitcoin,
+        &cockroach,
+        &electrs,
+        &mut settings,
+    )
+    .await?;
 
     sleep_until(Instant::now() + Duration::from_secs(10000)).await;
     Ok(())

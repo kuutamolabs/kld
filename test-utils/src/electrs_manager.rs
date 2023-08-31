@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use kld::settings::Settings;
+use tempfile::TempDir;
 
 use crate::{
     manager::{Check, Manager},
@@ -8,8 +9,8 @@ use crate::{
     BitcoinManager,
 };
 
-pub struct ElectrsManager {
-    manager: Manager,
+pub struct ElectrsManager<'a> {
+    manager: Manager<'a>,
     pub rpc_address: String,
     pub monitoring_addr: String,
     bitcoin_rpc_addr: String,
@@ -18,13 +19,26 @@ pub struct ElectrsManager {
     bitcoin_network: String,
 }
 
-impl ElectrsManager {
+impl<'a> ElectrsManager<'a> {
+    pub async fn new(
+        output_dir: &'a TempDir,
+        bitcoin_manager: &BitcoinManager<'a>,
+        settings: &mut Settings,
+    ) -> Result<ElectrsManager<'a>> {
+        let mut electrs = ElectrsManager::test_electrs(bitcoin_manager, output_dir, settings)?;
+        settings.electrs_url = electrs.rpc_address.clone();
+        electrs
+            .start(ElectrsCheck(electrs.monitoring_addr.clone()))
+            .await?;
+        Ok(electrs)
+    }
+
     pub async fn start(&mut self, check: impl Check) -> Result<()> {
         let args = &[
             "--skip-default-conf-files",
             "--log-filters=DEBUG",
             &format!("--network={}", &self.bitcoin_network),
-            &format!("--db-dir={}", &self.manager.storage_dir),
+            &format!("--db-dir={}", &self.manager.storage_dir.as_path().display()),
             &format!("--cookie-file={}", &self.bitcoin_cookie_path),
             &format!("--electrum-rpc-addr={}", &self.rpc_address),
             &format!("--daemon-rpc-addr={}", &self.bitcoin_rpc_addr),
@@ -35,10 +49,10 @@ impl ElectrsManager {
     }
 
     pub fn test_electrs(
-        bitcoin: &BitcoinManager,
-        output_dir: &str,
+        bitcoin: &BitcoinManager<'a>,
+        output_dir: &'a TempDir,
         settings: &Settings,
-    ) -> Result<ElectrsManager> {
+    ) -> Result<ElectrsManager<'a>> {
         let monitoring_port = get_available_port().unwrap();
         let rpc_port = get_available_port().unwrap();
 
@@ -67,22 +81,4 @@ impl Check for ElectrsCheck {
         }
         return false;
     }
-}
-
-#[macro_export]
-macro_rules! electrs {
-    ($bitcoin: expr, $settings:expr) => {{
-        let mut electrs = test_utils::electrs_manager::ElectrsManager::test_electrs(
-            $bitcoin,
-            env!("CARGO_TARGET_TMPDIR"),
-            &$settings,
-        )?;
-        $settings.electrs_url = electrs.rpc_address.clone();
-        electrs
-            .start(test_utils::electrs_manager::ElectrsCheck(
-                electrs.monitoring_addr.clone(),
-            ))
-            .await?;
-        electrs
-    }};
 }

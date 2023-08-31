@@ -5,12 +5,15 @@ use bitcoin::Address;
 use kld::bitcoind::bitcoind_interface::BitcoindInterface;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{BlockData, BlockSource};
-use test_utils::{bitcoin, test_settings, TEST_ADDRESS};
+use tempfile::TempDir;
+use test_utils::{test_settings, BitcoinManager, TEST_ADDRESS};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_bitcoind_client() -> Result<()> {
-    let mut settings = test_settings!("client");
-    let bitcoind = bitcoin!(settings);
+    let tmp_dir = TempDir::new()?;
+
+    let mut settings = test_settings(&tmp_dir, "client");
+    let bitcoind = BitcoinManager::new(&tmp_dir, &mut settings).await?;
     let client = bitcoind.client.get().context("expected client")?;
     let n_blocks = 3;
     client
