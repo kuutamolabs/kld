@@ -13,6 +13,7 @@ ipv6_gateway = "2001:DB8::"
 
 [hosts.kld-00]
 nixos_module = "kld-node"
+user_ssh_keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF kuutamo" ]
 # nixos tests have predictable mac addresses and our `installed` machine has the index 01 in vlan 01
 mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
@@ -24,6 +25,7 @@ network_interface = "eth1"
 
 [hosts.db-00]
 nixos_module = "cockroachdb-node"
+user_ssh_keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF kuutamo" ]
 # nixos tests have predictable mac addresses and our `installed` machine has the index 01 in vlan 01
 mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
@@ -35,6 +37,7 @@ network_interface = "eth1"
 
 [hosts.db-01]
 nixos_module = "cockroachdb-node"
+user_ssh_keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF kuutamo" ]
 # nixos tests have predictable mac addresses and our `installed` machine has the index 01 in vlan 01
 mac_address  = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"

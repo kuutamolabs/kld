@@ -168,12 +168,23 @@ struct HostConfig {
     #[toml_example(default = [ "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...", ])]
     public_ssh_keys: Vec<String>,
 
+    /// The ssh key for users
+    /// After installation these user could login with their name with the corresponding ssh private key
+    #[serde(default)]
+    #[toml_example(default = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE44HxTp1mXzBfAgc66edFb7PxOmh2SpihdhoWUYxwYl username", ])]
+    user_ssh_keys: Vec<String>,
+
     /// Admin user for install,
     /// Please use `ubuntu` when you use OVH to install at first time,
     /// Ubuntu did not allow `root` login
     #[serde(default)]
     #[toml_example(default = "ubuntu")]
     install_ssh_user: Option<String>,
+
+    /// The user for login and execute commands, after installation
+    #[serde(default)]
+    #[toml_example(default = "kuutamo")]
+    run_as_user: Option<String>,
 
     /// Setup ssh host name for connection and host label on monitoring dashboard
     #[serde(default)]
@@ -263,11 +274,17 @@ pub struct Host {
     /// SSH Username used when connecting during installation
     pub install_ssh_user: String,
 
+    /// SSH Username used when executing commands after installation
+    pub run_as_user: String,
+
     /// SSH hostname used for connection and host label on monitoring dashboard
     pub ssh_hostname: String,
 
     /// Public ssh keys that will be added to the nixos configuration
     pub public_ssh_keys: Vec<String>,
+
+    /// The user with ssh key
+    pub users: HashMap<String, String>,
 
     /// Block device paths to use for installing
     pub disks: Vec<PathBuf>,
@@ -300,6 +317,9 @@ pub struct Host {
 
     /// The interface of node to access the internet
     pub network_interface: Option<String>,
+
+    /// Is the mnemonic provided by mgr
+    pub kld_preset_mnemonic: Option<bool>,
 }
 
 impl Host {
@@ -388,7 +408,12 @@ impl Host {
     }
     /// The hostname to which we will deploy
     pub fn deploy_ssh_target(&self) -> String {
-        format!("root@{}", self.ssh_hostname)
+        format!("{}@{}", self.install_ssh_user, self.ssh_hostname)
+    }
+
+    /// The hostname to which we will perform command
+    pub fn execute_ssh_target(&self) -> String {
+        format!("{}@{}", self.run_as_user, self.ssh_hostname)
     }
     /// The hostname to which we will deploy
     pub fn flake_uri(&self, flake: &NixosFlake) -> String {
@@ -418,7 +443,12 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     Ok(global)
 }
 
-fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<Host> {
+fn validate_host(
+    name: &str,
+    host: &HostConfig,
+    default: &HostConfig,
+    preset_mnemonic: bool,
+) -> Result<Host> {
     if !host.others.is_empty() {
         bail!(
             "{} are not allowed fields",
@@ -542,6 +572,13 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         .cloned()
         .unwrap_or_else(|| String::from("root"));
 
+    let run_as_user = host
+        .run_as_user
+        .as_ref()
+        .or(default.run_as_user.as_ref())
+        .cloned()
+        .unwrap_or_else(|| install_ssh_user.clone());
+
     let mut public_ssh_keys = vec![];
     public_ssh_keys.extend_from_slice(&host.public_ssh_keys);
     public_ssh_keys.extend_from_slice(&default.public_ssh_keys);
@@ -614,12 +651,55 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
             bail!("alias should be 32 bytes");
         }
     }
+    let mut users = HashMap::new();
+
+    for ssh_key in default.user_ssh_keys.iter() {
+        let user_name = ssh_key.split(' ').nth(2).map(|name_with_host|{
+                if let Some((user_name, _)) = name_with_host.split_once('@') {
+                    user_name
+                } else {
+                    name_with_host
+                }
+            }).ok_or(anyhow!("user_ssh_keys in [host_defaults] should have `username` or `username@hostname` in the end"))?;
+        if user_name == "root" {
+            bail!("Creating a root user is not allowed");
+        }
+        users.insert(user_name.into(), ssh_key.into());
+    }
+
+    for ssh_key in host.user_ssh_keys.iter() {
+        let user_name = ssh_key
+            .split(' ')
+            .nth(2)
+            .map(|name_with_host| {
+                if let Some((user_name, _)) = name_with_host.split_once('@') {
+                    user_name
+                } else {
+                    name_with_host
+                }
+            })
+            .ok_or(anyhow!(
+                "user_ssh_keys in [{}] should have `username` or `username@hostname` in the end",
+                name
+            ))?;
+        if user_name == "root" {
+            bail!("Creating a root user is not allowed");
+        }
+        if users.insert(user_name.into(), ssh_key.into()).is_some() {
+            warn!("{user_name} duplicated in {name}, it will use defined in [{name}] not in [host_defaults]");
+        }
+    }
+
+    if run_as_user != install_ssh_user && !users.contains_key(&run_as_user) {
+        warn!("The run_as_user is not in the list of user_ssh_keys, you may not login or control the node after installation")
+    }
 
     Ok(Host {
         name,
         nixos_module,
         extra_nixos_modules,
         install_ssh_user,
+        run_as_user,
         ssh_hostname,
         mac_address,
         ipv4_address,
@@ -640,6 +720,8 @@ fn validate_host(name: &str, host: &HostConfig, default: &HostConfig) -> Result<
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
         network_interface: host.network_interface.to_owned(),
+        kld_preset_mnemonic: Some(preset_mnemonic),
+        users,
     })
 }
 
@@ -679,7 +761,11 @@ pub struct Config {
 }
 
 /// Parse toml configuration
-pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
+pub fn parse_config(
+    content: &str,
+    working_directory: &Path,
+    preset_mnemonic: bool,
+) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
     let mut hosts = config
         .hosts
@@ -687,7 +773,7 @@ pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
         .map(|(name, host)| {
             Ok((
                 name.to_string(),
-                validate_host(name, host, &config.host_defaults)?,
+                validate_host(name, host, &config.host_defaults, preset_mnemonic)?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
@@ -726,7 +812,7 @@ pub fn parse_config(content: &str, working_directory: &Path) -> Result<Config> {
 }
 
 /// Load configuration from path
-pub fn load_configuration(path: &Path) -> Result<Config> {
+pub fn load_configuration(path: &Path, preset_mnemonic: bool) -> Result<Config> {
     let content = fs::read_to_string(path).context("Cannot read file")?;
     let working_directory = path.parent().with_context(|| {
         format!(
@@ -734,7 +820,7 @@ pub fn load_configuration(path: &Path) -> Result<Config> {
             path.display()
         )
     })?;
-    parse_config(&content, working_directory)
+    parse_config(&content, working_directory, preset_mnemonic)
 }
 
 fn decode_token(s: String) -> Result<(String, String)> {
@@ -783,7 +869,7 @@ ipv6_address = "2605:9880:400::4"
 pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
-    let config = parse_config(TEST_CONFIG, Path::new("/"))?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
     assert_eq!(config.global.flake, "github:myfork/lightning-knd");
 
     let hosts = &config.hosts;
@@ -811,14 +897,18 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"))?;
+    parse_config(TEST_CONFIG, Path::new("/"), false)?;
 
     Ok(())
 }
 
 #[test]
 pub fn test_parse_config_with_redundant_filds() {
-    let parse_result = parse_config(&format!("{}\nredundant = 111", TEST_CONFIG), Path::new("/"));
+    let parse_result = parse_config(
+        &format!("{}\nredundant = 111", TEST_CONFIG),
+        Path::new("/"),
+        false,
+    );
     assert!(parse_result.is_err());
 }
 
@@ -863,10 +953,13 @@ fn test_validate_host() -> Result<()> {
         ipv6_gateway: None,
         ipv6_cidr: None,
         public_ssh_keys: vec!["".to_string()],
+        user_ssh_keys: vec!["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA kuutamo@kuutamo.co".to_string()],
         ..Default::default()
     };
+    let mut users = HashMap::new();
+    users.insert("kuutamo".into(), "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA kuutamo@kuutamo.co".into());
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default()).unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default(), false).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -887,6 +980,7 @@ fn test_validate_host() -> Result<()> {
             ipv6_cidr: None,
             ipv6_gateway: None,
             install_ssh_user: "root".to_string(),
+            run_as_user: "root".to_string(),
             ssh_hostname: "192.168.0.1".to_string(),
             public_ssh_keys: vec!["".to_string()],
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
@@ -900,24 +994,26 @@ fn test_validate_host() -> Result<()> {
             api_ip_access_list: Vec::new(),
             rest_api_port: None,
             network_interface: None,
+            kld_preset_mnemonic: Some(false),
+            users,
         }
     );
 
     // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default()).is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_ok());
 
     Ok(())
 }

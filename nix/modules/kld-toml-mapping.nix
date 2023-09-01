@@ -22,12 +22,23 @@ in
       ++ lib.optional (cfg ? ipv6_address) "[${cfg.ipv6_address}]:9234";
     kuutamo.kld.apiIpAccessList = cfg.api_ip_access_list or [ ];
     kuutamo.kld.restApiPort = cfg.rest_api_port or 2244;
+    kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
     kuutamo.disko.networkInterface = cfg.network_interface or "eth0";
 
-    users.extraUsers.root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
+    users.extraUsers = {
+      root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
+    } // lib.attrsets.mapAttrs
+      (n: v: {
+        isNormalUser = true;
+        group = n;
+        createHome = false;
+        extraGroups = [ "systemd-journal" "jail" ];
+        openssh = { authorizedKeys = { keys = [ v ]; }; };
+      })
+      cfg.users;
 
     kuutamo.network.macAddress = cfg.mac_address or null;
 

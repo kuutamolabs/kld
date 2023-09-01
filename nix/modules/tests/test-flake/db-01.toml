@@ -9,6 +9,7 @@ ipv6_address = "2001:db8::3"
 ipv6_cidr = 32
 ipv6_gateway = "2001:db8::"
 install_ssh_user = "root"
+run_as_user = "root"
 ssh_hostname = "192.168.42.2"
 public_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF"]
 disks = ["/dev/vdb", "/dev/vdc"]
@@ -31,3 +32,6 @@ ipv6_address = "2001:db8::3"
 name = "kld-00"
 ipv4_address = "192.168.42.2"
 ipv6_address = "2001:db8::1"
+
+[users]
+kuutamo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF kuutamo"
