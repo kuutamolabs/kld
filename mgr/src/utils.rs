@@ -49,7 +49,7 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
         }
     }
 
-    let target = host.deploy_ssh_target();
+    let target = host.unlock_ssh_target();
     let mut args = vec![
         "-p",
         "2222",
