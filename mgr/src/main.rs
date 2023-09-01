@@ -343,7 +343,7 @@ pub fn main() -> Result<()> {
             update(&args, update_args, &config, &flake)
         }
         Command::Unlock(ref unlock_args) => {
-            let config = mgr::load_configuration(&args.config).with_context(|| {
+            let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()
