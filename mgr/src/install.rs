@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use log::info;
 use std::path::Path;
@@ -40,6 +40,9 @@ pub fn install(
     hosts
         .iter()
         .map(|host| {
+            if !host.keep_root && host.users.is_empty() {
+                return Err(anyhow!("At least one user need for {}", host.name));
+            }
             info!("Install {}", host.name);
             let connection_string = if host.install_ssh_user.is_empty() {
                 host.ssh_hostname.clone()

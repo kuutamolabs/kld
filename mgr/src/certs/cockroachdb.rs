@@ -146,7 +146,7 @@ fn test_create_or_update_cockroachdb_certs() -> Result<()> {
 
     let dir = tempdir().context("Failed to create temporary directory")?;
     let config =
-        parse_config(TEST_CONFIG, Path::new("/"), false).context("Failed to parse config")?;
+        parse_config(TEST_CONFIG, Path::new("/"), None).context("Failed to parse config")?;
 
     create_or_update_cockroachdb_certs(dir.path(), &config.hosts, &CertRenewPolicy::default())
         .context("Failed to create certs")?;

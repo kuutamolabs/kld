@@ -17,6 +17,7 @@ bitcoind_disks = []
 telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
 network_interface = "eth1"
+random_string = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
 [[cockroach_peers]]
 name = "db-00"

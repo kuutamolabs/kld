@@ -97,7 +97,7 @@ in
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml generate-config /tmp/config")
       installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00 >&2")
 
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes install --hosts kld-00 --debug --no-reboot --generate-secret-on-remote --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
+      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes install --hosts kld-00 --debug --no-reboot --generate-secret-on-remote --keep-root --kexec-url ${kexec-installer}/nixos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz >&2")
       installer.succeed("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@192.168.42.2 -- reboot >&2")
 
       installed.shutdown()

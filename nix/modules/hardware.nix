@@ -12,6 +12,12 @@
     description = lib.mdDoc "The network interface for internet";
   };
 
+  options.kuutamo.disko.unlockKeys = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = lib.mdDoc "Ssh key to login locked machines";
+  };
+
   imports = [
     ./raid-config.nix
     ./bitcoind-disks.nix
@@ -52,7 +58,7 @@
       ssh = {
         enable = true;
         port = 2222;
-        authorizedKeys = config.users.extraUsers.root.openssh.authorizedKeys.keys;
+        authorizedKeys = config.kuutamo.disko.unlockKeys;
         hostKeys = [
           "/var/lib/secrets/sshd_key"
         ];
@@ -71,7 +77,6 @@
           ip -6 route add default via ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
         ''}
       '';
-
     };
   };
 }

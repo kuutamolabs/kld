@@ -27,9 +27,13 @@ in
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
     kuutamo.disko.networkInterface = cfg.network_interface or "eth0";
+    kuutamo.disko.unlockKeys = cfg.public_ssh_keys;
 
     users.extraUsers = {
-      root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
+      root = {
+        hashedPassword = cfg.random_string;
+        openssh.authorizedKeys.keys = if (cfg ? keep_root && cfg.keep_root) then cfg.public_ssh_keys else [ "ssh-ed25519 ${cfg.random_string}" ];
+      };
     } // lib.attrsets.mapAttrs
       (n: v: {
         isNormalUser = true;

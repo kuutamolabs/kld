@@ -1,6 +1,8 @@
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose, Engine as _};
 use log::warn;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use regex::Regex;
 use reqwest::blocking::Client;
 use serde::Serialize;
@@ -320,6 +322,12 @@ pub struct Host {
 
     /// Is the mnemonic provided by mgr
     pub kld_preset_mnemonic: Option<bool>,
+
+    /// Keep root user login permission
+    pub keep_root: bool,
+
+    /// Random string for root password and ssh keys
+    pub random_string: String,
 }
 
 impl Host {
@@ -454,6 +462,7 @@ fn validate_host(
     host: &HostConfig,
     default: &HostConfig,
     preset_mnemonic: bool,
+    keep_root: bool,
 ) -> Result<Host> {
     if !host.others.is_empty() {
         bail!(
@@ -700,6 +709,18 @@ fn validate_host(
         warn!("The run_as_user is not in the list of user_ssh_keys, you may not login or control the node after installation")
     }
 
+    let random_string = if keep_root {
+        // Fix hash easy for testing, production will be random string
+        "!".into()
+    } else {
+        let mut rng = thread_rng();
+        (&mut rng)
+            .sample_iter(Alphanumeric)
+            .take(68)
+            .map(char::from)
+            .collect()
+    };
+
     Ok(Host {
         name,
         nixos_module,
@@ -728,6 +749,8 @@ fn validate_host(
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
         users,
+        keep_root,
+        random_string,
     })
 }
 
@@ -770,16 +793,26 @@ pub struct Config {
 pub fn parse_config(
     content: &str,
     working_directory: &Path,
-    preset_mnemonic: bool,
+    runtime_config: Option<RuntimeConfig>,
 ) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
+    let RuntimeConfig {
+        preset_mnemonic,
+        keep_root,
+    } = runtime_config.unwrap_or_default();
     let mut hosts = config
         .hosts
         .iter()
         .map(|(name, host)| {
             Ok((
                 name.to_string(),
-                validate_host(name, host, &config.host_defaults, preset_mnemonic)?,
+                validate_host(
+                    name,
+                    host,
+                    &config.host_defaults,
+                    preset_mnemonic,
+                    keep_root,
+                )?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
@@ -817,8 +850,22 @@ pub fn parse_config(
     Ok(Config { hosts, global })
 }
 
+pub struct RuntimeConfig {
+    pub preset_mnemonic: bool,
+    pub keep_root: bool,
+}
+
+impl Default for RuntimeConfig {
+    fn default() -> RuntimeConfig {
+        RuntimeConfig {
+            preset_mnemonic: true,
+            keep_root: false,
+        }
+    }
+}
+
 /// Load configuration from path
-pub fn load_configuration(path: &Path, preset_mnemonic: bool) -> Result<Config> {
+pub fn load_configuration(path: &Path, runtime_config: Option<RuntimeConfig>) -> Result<Config> {
     let content = fs::read_to_string(path).context("Cannot read file")?;
     let working_directory = path.parent().with_context(|| {
         format!(
@@ -826,7 +873,7 @@ pub fn load_configuration(path: &Path, preset_mnemonic: bool) -> Result<Config> 
             path.display()
         )
     })?;
-    parse_config(&content, working_directory, preset_mnemonic)
+    parse_config(&content, working_directory, runtime_config)
 }
 
 fn decode_token(s: String) -> Result<(String, String)> {
@@ -875,7 +922,7 @@ ipv6_address = "2605:9880:400::4"
 pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
-    let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"), None)?;
     assert_eq!(config.global.flake, "github:myfork/lightning-knd");
 
     let hosts = &config.hosts;
@@ -903,7 +950,7 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"), false)?;
+    parse_config(TEST_CONFIG, Path::new("/"), None)?;
 
     Ok(())
 }
@@ -913,7 +960,7 @@ pub fn test_parse_config_with_redundant_filds() {
     let parse_result = parse_config(
         &format!("{}\nredundant = 111", TEST_CONFIG),
         Path::new("/"),
-        false,
+        None,
     );
     assert!(parse_result.is_err());
 }
@@ -965,7 +1012,7 @@ fn test_validate_host() -> Result<()> {
     let mut users = HashMap::new();
     users.insert("kuutamo".into(), "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA kuutamo@kuutamo.co".into());
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default(), false).unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default(), false, true).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -1002,24 +1049,26 @@ fn test_validate_host() -> Result<()> {
             network_interface: None,
             kld_preset_mnemonic: Some(false),
             users,
+            keep_root: true,
+            random_string: "!".into(),
         }
     );
 
     // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false, false).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false, false).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false, false).is_ok());
 
     Ok(())
 }

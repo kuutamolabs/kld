@@ -10,7 +10,10 @@ use mgr::certs::{
 use mgr::secrets::{generate_disk_encryption_key, generate_mnemonic_and_macaroons};
 use mgr::ssh::generate_key_pair;
 use mgr::utils::unlock_over_ssh;
-use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
+use mgr::{
+    config::{ConfigFile, RuntimeConfig},
+    generate_nixos_flake, logging, Config, Host, NixosFlake,
+};
 use std::collections::BTreeMap;
 use std::env;
 use std::io::{self, BufRead, Write};
@@ -46,6 +49,10 @@ struct InstallArgs {
     /// transmit any copies over the internet.
     #[clap(long, default_value = "false")]
     generate_secret_on_remote: bool,
+
+    /// Kepp the root user for staging or debuging node
+    #[clap(long, default_value = "false")]
+    keep_root: bool,
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -277,14 +284,17 @@ pub fn main() -> Result<()> {
     let res = match args.action {
         Command::GenerateExample => Ok(println!("{}", ConfigFile::toml_example())),
         Command::Install(ref install_args) => {
+            let runtime_config = RuntimeConfig {
+                preset_mnemonic: !install_args.generate_secret_on_remote,
+                keep_root: install_args.keep_root,
+            };
             let config =
-                mgr::load_configuration(&args.config, !install_args.generate_secret_on_remote)
-                    .with_context(|| {
-                        format!(
-                            "failed to parse configuration file: {}",
-                            &args.config.display()
-                        )
-                    })?;
+                mgr::load_configuration(&args.config, Some(runtime_config)).with_context(|| {
+                    format!(
+                        "failed to parse configuration file: {}",
+                        &args.config.display()
+                    )
+                })?;
             create_or_update_lightning_certs(
                 &config.global.secret_directory.join("lightning"),
                 &config.hosts,
@@ -320,7 +330,7 @@ pub fn main() -> Result<()> {
             install(&args, install_args, &config, &flake)
         }
         Command::Update(ref update_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
+            let config = mgr::load_configuration(&args.config, None).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()
@@ -343,7 +353,7 @@ pub fn main() -> Result<()> {
             update(&args, update_args, &config, &flake)
         }
         Command::Unlock(ref unlock_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
+            let config = mgr::load_configuration(&args.config, None).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()
@@ -360,7 +370,7 @@ pub fn main() -> Result<()> {
             Ok(())
         }
         _ => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
+            let config = mgr::load_configuration(&args.config, None).with_context(|| {
                 format!(
                     "failed to parse configuration file: {}",
                     &args.config.display()

@@ -263,7 +263,7 @@ mod tests {
         let cert_dir = dir.path().join("certs");
 
         let config =
-            parse_config(TEST_CONFIG, Path::new("/"), false).context("Failed to parse config")?;
+            parse_config(TEST_CONFIG, Path::new("/"), None).context("Failed to parse config")?;
 
         create_or_update_lightning_certs(&cert_dir, &config.hosts, &CertRenewPolicy::default())
             .context("Failed to create lightning certificates")?;
