@@ -1,5 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
+use anyhow::Context;
 use api::{KeysendRequest, PayInvoice, PaymentResponse};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
 use bitcoin::hashes::hex::ToHex;
@@ -33,7 +34,12 @@ pub(crate) async fn keysend(
         .map_err(internal_server)?;
     let response = PaymentResponse {
         destination: keysend_request.pubkey,
-        payment_hash: payment.hash.0.to_hex(),
+        payment_hash: payment
+            .hash
+            .context("missing payment hash")
+            .map_err(internal_server)?
+            .0
+            .to_hex(),
         created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: Some(keysend_request.amount),
@@ -60,7 +66,12 @@ pub(crate) async fn pay_invoice(
         .map_err(internal_server)?;
     let response = PaymentResponse {
         destination,
-        payment_hash: payment.hash.0.to_hex(),
+        payment_hash: payment
+            .hash
+            .context("missing payment hash")
+            .map_err(internal_server)?
+            .0
+            .to_hex(),
         created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: amount,
@@ -120,7 +131,7 @@ pub(crate) async fn list_payments(
                 .and_then(|b| b.payee_pub_key().map(|pk| pk.to_string())),
             id: p.id.0.to_hex(),
             memo: p.label,
-            payment_hash: p.hash.0.to_hex(),
+            payment_hash: p.hash.map(|h| h.0.to_hex()),
         })
         .collect();
     Ok(Json(GetV1PayListPaymentsResponse { payments }))
