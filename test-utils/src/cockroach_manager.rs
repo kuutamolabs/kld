@@ -40,9 +40,7 @@ impl<'a> CockroachManager<'a> {
             certs_dir,
         };
 
-        // XXX
-        // Why we need an extra memory copy here?
-        settings.database_port = cockroach.sql_port.to_string();
+        settings.database_port = cockroach.sql_port;
         cockroach.start(CockroachCheck(settings.clone())).await?;
         Ok(cockroach)
     }
