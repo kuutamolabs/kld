@@ -25,7 +25,7 @@ regex = "1"
 clap = { version = "4.3.23", features = ["derive", "env"] }
 lazy_static = "1.4.0"
 reqwest = { version = "0.11.20", features = ["blocking"], default-features = false }
-url = { version = "2.0", features = ["serde"] }
+url = { version = "2.4", features = ["serde"] }
 base64 = "0.21.3"
 toml-example = { version = "0.10.0", default-features = false }
 x509-parser = "0.15.1"
