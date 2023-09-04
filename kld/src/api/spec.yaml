@@ -472,7 +472,6 @@ paths:
                       description: memo
                   required:
                     - id
-                    - payment_hash
                     - amount_sent_msat
                     - created_at
                     - status

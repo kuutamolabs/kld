@@ -166,11 +166,11 @@ pub async fn test_invoice_payments() -> Result<()> {
             .context("expected payment")?;
         assert_eq!(stored_payments, payment);
 
-        payment.succeeded(Some(PaymentPreimage(random())), Some(232));
+        payment.succeeded(PaymentHash([1u8; 32]), PaymentPreimage(random()), Some(232));
         database.persist_payment(&payment).await?;
 
         let stored_payments = database
-            .fetch_payments(Some(payment.hash), Some(PaymentDirection::Outbound))
+            .fetch_payments(payment.hash, Some(PaymentDirection::Outbound))
             .await?;
         assert_eq!(1, stored_payments.len());
         assert_eq!(
