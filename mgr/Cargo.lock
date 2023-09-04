@@ -272,11 +272,11 @@ dependencies = [
 
 [[package]]
 name = "ctrlc"
-version = "3.4.0"
+version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a011bbe2c35ce9c1f143b7af6f94f29a167beb4cd1d29e6740ce836f723120e"
+checksum = "82e95fbd621905b854affdc67943b043a0fbb6ed7385fd5a25650d19a8a6cfdf"
 dependencies = [
- "nix 0.26.3",
+ "nix",
  "windows-sys",
 ]
 
@@ -683,7 +683,7 @@ dependencies = [
  "lazy_static",
  "log",
  "macaroon",
- "nix 0.27.1",
+ "nix",
  "rand",
  "regex",
  "reqwest",
@@ -729,17 +729,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
-]
-
-[[package]]
-name = "nix"
-version = "0.26.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abbbc55ad7b13aac85f9401c796dcda1b864e07fcad40ad47792eaa8932ea502"
-dependencies = [
- "bitflags 2.3.3",
- "cfg-if",
- "libc",
 ]
 
 [[package]]
