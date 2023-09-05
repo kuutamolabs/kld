@@ -24,6 +24,7 @@
       "nvme"
       "r8169"
       "ixgbe"
+      "igc" # 2.5GbitE adapter
       "cdc_ether"
       "virtio_net"
       "virtio_pci"
