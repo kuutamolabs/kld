@@ -78,7 +78,7 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
     if stdin.write_all(key.as_slice()).is_ok() {
         let _ = stdin.write(b"\n")?;
     } else {
-        return Err(anyhow!("fail to enter password"));
+        return Err(anyhow!("failed to enter password"));
     }
     println!("$ ssh {}", args.join(" "));
 
