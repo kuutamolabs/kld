@@ -88,6 +88,6 @@ pub fn unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
     if stdout.read_to_string(&mut buf_string).is_ok() && buf_string.starts_with("Passphrase for") {
         Ok(())
     } else {
-        Err(anyhow!("sshd response unepxected"))
+        Err(anyhow!("sshd response unexpected"))
     }
 }
