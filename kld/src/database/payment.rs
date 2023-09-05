@@ -95,7 +95,7 @@ impl FromStr for PaymentDirection {
 pub struct Payment {
     pub id: PaymentId,
     // Hash of the premimage.
-    pub hash: PaymentHash,
+    pub hash: Option<PaymentHash>,
     pub preimage: Option<PaymentPreimage>,
     // No secret indicates a spontaneous payment.
     pub secret: Option<PaymentSecret>,
@@ -122,7 +122,7 @@ impl Payment {
     ) -> Self {
         Payment {
             id: PaymentId(random()),
-            hash,
+            hash: Some(hash),
             preimage: Some(preimage),
             secret: None,
             label: None,
@@ -135,10 +135,10 @@ impl Payment {
         }
     }
 
-    pub fn spontaneous_outbound(id: PaymentId, hash: PaymentHash, amount: MillisatAmount) -> Self {
+    pub fn spontaneous_outbound(id: PaymentId, amount: MillisatAmount) -> Self {
         Payment {
             id,
-            hash,
+            hash: None,
             preimage: None,
             secret: None,
             label: None,
@@ -159,7 +159,7 @@ impl Payment {
     ) -> Self {
         Payment {
             id: PaymentId(random()),
-            hash,
+            hash: Some(hash),
             preimage,
             secret: Some(secret),
             label: None,
@@ -175,7 +175,7 @@ impl Payment {
     pub fn of_invoice_outbound(invoice: &Invoice, label: Option<String>) -> Self {
         Payment {
             id: PaymentId(random()),
-            hash: PaymentHash(*invoice.bolt11.payment_hash().as_inner()),
+            hash: Some(PaymentHash(*invoice.bolt11.payment_hash().as_inner())),
             preimage: None,
             secret: Some(*invoice.bolt11.payment_secret()),
             label,
@@ -188,8 +188,14 @@ impl Payment {
         }
     }
 
-    pub fn succeeded(&mut self, preimage: Option<PaymentPreimage>, fee: Option<MillisatAmount>) {
-        self.preimage = preimage;
+    pub fn succeeded(
+        &mut self,
+        hash: PaymentHash,
+        preimage: PaymentPreimage,
+        fee: Option<MillisatAmount>,
+    ) {
+        self.hash = Some(hash);
+        self.preimage = Some(preimage);
         self.fee = fee;
         self.status = PaymentStatus::Succeeded;
     }
@@ -211,11 +217,15 @@ impl TryFrom<&Row> for Payment {
 
     fn try_from(row: &Row) -> std::result::Result<Self, Self::Error> {
         let id: &[u8] = row.get("id");
-        let hash: &[u8] = row.get("hash");
+        let hash: Option<&[u8]> = row.get("hash");
         let preimage: Option<&[u8]> = row.get("preimage");
         let secret: Option<&[u8]> = row.get("secret");
         let label: Option<String> = row.get("label");
 
+        let hash = match hash {
+            Some(bytes) => Some(PaymentHash(bytes.try_into().context("bad hash")?)),
+            None => None,
+        };
         let preimage = match preimage {
             Some(bytes) => Some(PaymentPreimage(bytes.try_into().context("bad preimage")?)),
             None => None,
@@ -227,7 +237,7 @@ impl TryFrom<&Row> for Payment {
 
         Ok(Payment {
             id: PaymentId(id.try_into().context("bad ID")?),
-            hash: PaymentHash(hash.try_into().context("bad hash")?),
+            hash,
             preimage,
             secret,
             label,

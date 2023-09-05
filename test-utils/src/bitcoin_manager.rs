@@ -71,11 +71,11 @@ impl BitcoinManager {
     ) -> Result<()> {
         let client = self.client.get().context("bitcoind not started")?;
         for _ in 0..n_blocks {
-            client.generate_to_address(1, address).await?;
             // Sometimes a delay is needed to make the test more realistic which is expected by LDK.
             if delay {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
+            client.generate_to_address(1, address).await?;
         }
         client.wait_for_blockchain_synchronisation().await;
         Ok(())

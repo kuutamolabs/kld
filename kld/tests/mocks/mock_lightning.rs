@@ -311,7 +311,7 @@ impl LightningInterface for MockLightning {
 
     async fn pay_invoice(&self, invoice: Invoice, label: Option<String>) -> Result<Payment> {
         let mut payment = Payment::of_invoice_outbound(&invoice, label);
-        payment.succeeded(Some(PaymentPreimage([1u8; 32])), Some(2323));
+        payment.succeeded(invoice.payment_hash, PaymentPreimage([1u8; 32]), Some(2323));
         Ok(payment)
     }
 

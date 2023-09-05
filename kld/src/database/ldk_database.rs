@@ -1,5 +1,5 @@
 use crate::database::{microsecond_timestamp, to_primative};
-use crate::ldk::ChainMonitor;
+use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::to_i64;
 
@@ -401,7 +401,7 @@ impl LdkDatabase {
     }
 
     pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
-        debug!("Persist payment: {}", payment.hash.0.to_hex());
+        debug!("Persist payment id: {}", payment.id.0.to_hex());
         let statement = "
             UPSERT INTO payments (
                 id,
@@ -423,7 +423,7 @@ impl LdkDatabase {
                 &statement,
                 &[
                     &payment.id.0.as_ref(),
-                    &payment.hash.0.as_ref(),
+                    &payment.hash.as_ref().map(|x| x.0.as_ref()),
                     &payment.preimage.as_ref().map(|x| x.0.as_ref()),
                     &payment.secret.as_ref().map(|s| s.0.as_ref()),
                     &payment.label,
@@ -816,8 +816,13 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         &self,
         funding_txo: OutPoint,
         monitor: &ChannelMonitor<ChannelSigner>,
-        _update_id: MonitorUpdateId,
+        update_id: MonitorUpdateId,
     ) -> ChannelMonitorUpdateStatus {
+        debug!(
+            "Persisting channel: {:?} {}",
+            funding_txo,
+            monitor.get_latest_update_id()
+        );
         let mut out_point_buf = vec![];
         funding_txo.write(&mut out_point_buf).unwrap();
 
@@ -831,33 +836,37 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         };
 
         let durable_connection = self.durable_connection.clone();
-        // Storing the updates async makes things way more complicated. So even though its a little slower we stick with sync for now.
-        tokio::task::block_in_place(move || {
-            self.runtime.block_on(async move {
-                let result = durable_connection
-                    .get()
-                    .await
-                    .execute(
-                        "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
+        let chain_monitor = self
+            .chain_monitor
+            .get()
+            .expect("bad initialisation")
+            .clone();
+        tokio::spawn(async move {
+            let result = durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
                 VALUES ($1, $2, $3)",
-                        &[&out_point_buf, &monitor_buf, &latest_update_id],
-                    )
-                    .await;
-                match result {
-                    Ok(_) => {
-                        debug!(
-                            "Stored channel: {}:{} with update id: {}",
-                            funding_txo.txid, funding_txo.index, latest_update_id
-                        );
-                        ChannelMonitorUpdateStatus::Completed
-                    }
-                    Err(e) => {
-                        error!("Failed to persist channel update: {e}");
-                        ChannelMonitorUpdateStatus::PermanentFailure
+                    &[&out_point_buf, &monitor_buf, &latest_update_id],
+                )
+                .await;
+            match result {
+                Ok(_) => {
+                    debug!(
+                        "Stored channel: {}:{} with update id: {}",
+                        funding_txo.txid, funding_txo.index, latest_update_id
+                    );
+                    if let Err(e) = chain_monitor.channel_monitor_updated(funding_txo, update_id) {
+                        error!("Failed to update chain monitor: {}", ldk_error(e));
                     }
                 }
-            })
-        })
+                Err(e) => {
+                    error!("Failed to persist channel update: {e}");
+                }
+            }
+        });
+        ChannelMonitorUpdateStatus::InProgress
     }
 
     // Updates are applied to the monitor when fetched from database.
@@ -868,11 +877,6 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         monitor: &ChannelMonitor<ChannelSigner>,
         update_id: MonitorUpdateId,
     ) -> ChannelMonitorUpdateStatus {
-        debug!(
-            "Updating persisted channel: {:?}:{}",
-            funding_txo,
-            monitor.get_latest_update_id()
-        );
         self.persist_new_channel(funding_txo, monitor, update_id)
 
         // Hope we can enable this soon. Probably after https://github.com/lightningdevkit/rust-lightning/issues/1426

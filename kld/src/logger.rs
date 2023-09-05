@@ -37,11 +37,17 @@ impl Log for KldLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
+            if record.args().as_str().is_some_and(|s| s == "A Channel Monitor sync is still in progress, refusing to provide monitor events!") {
+                return;
+            }
             let level = record.level().to_string().to_lowercase();
             print!("level={level}");
             print!(" pid={}", process::id());
             print!(" message=\"{}\"", record.args());
             print!(" target=\"{}\"", record.target());
+            if let Some(line) = record.line() {
+                print!(" line=\"{}\"", line);
+            }
             print!(" node_id={}", self.node_id);
             println!();
         }

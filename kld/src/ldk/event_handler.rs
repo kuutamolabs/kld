@@ -288,7 +288,7 @@ impl EventHandler {
                     .get(&payment_id)
                     .await
                     .context(format!("Can't find payment for {}", payment_id.0.to_hex()))?;
-                payment.succeeded(Some(payment_preimage), fee_paid_msat);
+                payment.succeeded(payment_hash, payment_preimage, fee_paid_msat);
                 respond(Ok(payment));
             }
             Event::PaymentPathSuccessful {

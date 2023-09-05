@@ -11,6 +11,7 @@ use bitcoin::secp256k1::PublicKey;
 use ldk_lsp_client::LiquidityManager;
 use lightning::sign::KeysManager;
 use lightning::{
+    chain::Filter,
     ln::{channelmanager::SimpleArcChannelManager, peer_handler},
     onion_message::SimpleArcOnionMessenger,
     routing::gossip,
@@ -43,6 +44,7 @@ pub(crate) type PeerManager = peer_handler::PeerManager<
             Arc<KeysManager>,
             Arc<KldLogger>,
             Arc<KeysManager>,
+            Arc<dyn Filter + Send + Sync>,
         >,
     >,
     Arc<KeysManager>,

@@ -19,7 +19,9 @@ use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
-use lightning::ln::channelmanager::{self, ChannelDetails, PaymentId, RecipientOnionFields};
+use lightning::ln::channelmanager::{
+    self, ChannelDetails, PaymentId, PaymentSendFailure, RecipientOnionFields,
+};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
@@ -29,6 +31,7 @@ use lightning::routing::scoring::{
 };
 use lightning::sign::{InMemorySigner, KeysManager};
 use lightning::util::config::UserConfig;
+use lightning::util::errors::APIError;
 
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
@@ -362,7 +365,7 @@ impl LightningInterface for Controller {
         };
         self.channel_manager
             .send_payment(
-                payment.hash,
+                payment.hash.context("expected payment hash")?,
                 RecipientOnionFields::secret_only(*invoice.bolt11.payment_secret()),
                 payment.id,
                 route_params,
@@ -396,19 +399,38 @@ impl LightningInterface for Controller {
             .router
             .find_route(&self.identity_pubkey(), &route_params, None, inflight_htlcs)
             .map_err(lightning_error)?;
-        let hash = self
-            .channel_manager
-            .send_spontaneous_payment(
-                &route,
-                None,
-                RecipientOnionFields::spontaneous_empty(),
-                payment_id,
-            )
-            .map_err(payment_send_failure)?;
-        let payment = Payment::spontaneous_outbound(payment_id, hash, amount);
+        match self.channel_manager.send_spontaneous_payment(
+            &route,
+            None,
+            RecipientOnionFields::spontaneous_empty(),
+            payment_id,
+        ) {
+            Ok(_hash) => (),
+            Err(e) => {
+                match &e {
+                    PaymentSendFailure::PartialFailure {
+                        results,
+                        failed_paths_retry: _,
+                        payment_id: _,
+                    } => {
+                        // Moniter updates are persisted async so continue if MonitorUpdateInProgress is the only "error" we get.
+                        if !results.iter().all(|result| {
+                            result.is_ok()
+                                || result
+                                    .as_ref()
+                                    .is_err_and(|f| matches!(f, APIError::MonitorUpdateInProgress))
+                        }) {
+                            return Err(payment_send_failure(e));
+                        }
+                    }
+                    _ => return Err(payment_send_failure(e)),
+                };
+            }
+        };
+        let payment = Payment::spontaneous_outbound(payment_id, amount);
         info!(
-            "Initiated keysend payment with hash {}",
-            payment.hash.0.to_hex()
+            "Initiated keysend payment with id {}",
+            payment_id.0.to_hex()
         );
         self.database.persist_payment(&payment).await?;
         let receiver = self
@@ -625,16 +647,13 @@ impl Controller {
             .channel_handshake_limits
             .force_announced_channel_preference = false;
 
+        let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
+        let chain_params = ChainParameters {
+            network,
+            best_block: BestBlock::new(getinfo_resp.best_block_hash, getinfo_resp.blocks as u32),
+        };
         let (channel_manager_blockhash, channel_manager) = {
             if is_first_start {
-                let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
-                let chain_params = ChainParameters {
-                    network,
-                    best_block: BestBlock::new(
-                        getinfo_resp.best_block_hash,
-                        getinfo_resp.blocks as u32,
-                    ),
-                };
                 let new_channel_manager = channelmanager::ChannelManager::new(
                     fee_estimator.clone(),
                     chain_monitor.clone(),
@@ -676,6 +695,8 @@ impl Controller {
             keys_manager.clone(),
             Some(LiquidityProviderConfig {}),
             channel_manager.clone(),
+            None,
+            chain_params,
         ));
 
         let gossip_sync = Arc::new_cyclic(|gossip| {
@@ -866,6 +887,7 @@ impl Controller {
         info!("Chain listeners synchronised. Registering ChannelMonitors with ChainMonitor");
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
             chain_monitor.watch_channel(funding_outpoint, channel_monitor);
+            info!("Registered {}", funding_outpoint.txid);
         }
 
         // Connect and Disconnect Blocks

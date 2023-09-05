@@ -22,6 +22,7 @@ in
       ++ lib.optional (cfg ? ipv6_address) "[${cfg.ipv6_address}]:9234";
     kuutamo.kld.apiIpAccessList = cfg.api_ip_access_list or [ ];
     kuutamo.kld.restApiPort = cfg.rest_api_port or 2244;
+    kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;

@@ -57,6 +57,7 @@ pub(crate) type LiquidityManager = ldk_lsp_client::LiquidityManager<
     Arc<KeysManager>,
     Arc<KldLogger>,
     Arc<KeysManager>,
+    Arc<dyn Filter + Send + Sync>,
 >;
 
 pub(crate) type ChannelManager =
