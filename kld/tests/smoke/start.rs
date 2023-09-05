@@ -17,9 +17,9 @@ use kld::{
     },
     database::payment::PaymentStatus,
 };
-use tempfile::TempDir;
 use test_utils::{
-    poll, test_settings, BitcoinManager, CockroachManager, ElectrsManager, KldManager, TEST_ADDRESS,
+    poll, test_settings, BitcoinManager, CockroachManager, ElectrsManager, KldManager, TempDir,
+    TEST_ADDRESS,
 };
 use tokio::time::{sleep_until, Instant};
 

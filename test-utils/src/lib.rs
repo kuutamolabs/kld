@@ -1,3 +1,4 @@
+use std::ops::Deref;
 pub mod bitcoin_manager;
 pub mod cockroach_manager;
 pub mod electrs_manager;
@@ -5,7 +6,7 @@ pub mod kld_manager;
 mod manager;
 pub mod ports;
 
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, path::Path};
 
 use bitcoin::secp256k1::{PublicKey, SecretKey};
 pub use bitcoin_manager::BitcoinManager;
@@ -14,7 +15,6 @@ pub use electrs_manager::ElectrsManager;
 pub use kld_manager::KldManager;
 pub use manager::Check;
 use reqwest::{Certificate, Client};
-use tempfile::TempDir;
 
 // https://mempool.space/tx/b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86
 pub const TEST_TX_ID: &str = "b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86";
@@ -42,7 +42,7 @@ pub const TEST_PRIVATE_KEY: [u8; 32] = [
 pub const TEST_PUBLIC_KEY: &str =
     "03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad";
 
-pub fn test_settings(tmp_dir: &TempDir, name: &str) -> kld::settings::Settings {
+pub fn test_settings(tmp_dir: &tempfile::TempDir, name: &str) -> kld::settings::Settings {
     let mut settings = kld::settings::Settings::default();
     settings.certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
     settings.database_ca_cert_path =
@@ -120,5 +120,49 @@ pub mod fake_fs {
     }
     pub fn create_dir_all<P: AsRef<Path>>(_path: P) -> io::Result<()> {
         Ok(())
+    }
+}
+
+/// A wrapper of tempfile::TempDir to keep temp files if env `KEEP_TEST_ARTIFACTS_IN` is set
+pub struct TempDir {
+    inner: Option<tempfile::TempDir>,
+}
+
+impl TempDir {
+    pub fn new() -> std::io::Result<Self> {
+        if let Ok(path) = std::env::var("KEEP_TEST_ARTIFACTS_IN") {
+            let dir = Path::new(&path);
+            if !dir.is_dir() {
+                std::fs::create_dir(dir)?;
+            }
+            Ok(Self {
+                inner: Some(tempfile::TempDir::new_in(dir)?),
+            })
+        } else {
+            Ok(Self {
+                inner: Some(tempfile::TempDir::new()?),
+            })
+        }
+    }
+}
+
+impl Deref for TempDir {
+    type Target = tempfile::TempDir;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+            .as_ref()
+            .expect("TmpDir should be create with `new()`")
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            if let Some(inner) = self.inner.take() {
+                let path = inner.into_path();
+                println!("test artifacts keep in {:?}", path);
+            }
+        }
     }
 }

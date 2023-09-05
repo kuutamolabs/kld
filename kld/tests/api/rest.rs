@@ -41,7 +41,7 @@ use reqwest::StatusCode;
 use serde::Serialize;
 use test_utils::ports::get_available_port;
 use test_utils::{
-    https_client, poll, test_settings, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
+    https_client, poll, test_settings, TempDir, TEST_ADDRESS, TEST_ALIAS, TEST_PUBLIC_KEY,
     TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
 };
 
@@ -52,7 +52,6 @@ use api::{
     SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
-use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
