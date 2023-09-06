@@ -59,9 +59,24 @@ fn kld_cli_version() -> Result<String> {
         ))
         .map(|version| version.into())
 }
+fn disk_encrypted_status() -> Result<bool> {
+    let output = std::process::Command::new("cryptsetup")
+        .args(["isLuks", "/dev/md/root"])
+        .output()
+        .context("could not get disk encrypted status")?;
+    Ok(output.status.success())
+}
 
 pub fn system_info(inline: bool) {
-    let mut info = vec![("kld-ctl version", env!("CARGO_PKG_VERSION").to_string())];
+    let mut info = vec![
+        ("kld-ctl version", env!("CARGO_PKG_VERSION").to_string()),
+        (
+            "disk encrypted",
+            disk_encrypted_status()
+                .map(|s| s.to_string())
+                .unwrap_or("unknown".to_string()),
+        ),
+    ];
 
     if let Ok(system_info) = read_system_info() {
         info.push(("git sha", system_info.git_sha));

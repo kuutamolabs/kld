@@ -7,7 +7,9 @@ use clap::Parser;
 use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
-use mgr::secrets::generate_mnemonic_and_macaroons;
+use mgr::secrets::{generate_disk_encryption_key, generate_mnemonic_and_macaroons};
+use mgr::ssh::generate_key_pair;
+use mgr::utils::unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::env;
@@ -90,6 +92,17 @@ struct SystemInfoArgs {
     hosts: String,
 }
 
+#[derive(clap::Args, PartialEq, Debug, Clone)]
+struct UnlockArgs {
+    /// Comma-separated lists of hosts to perform the unlock
+    #[clap(long, default_value = "")]
+    hosts: String,
+
+    /// disk encryption key for unlock nodes
+    #[clap(long)]
+    key_file: Option<PathBuf>,
+}
+
 /// Subcommand to run
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(clap::Subcommand, PartialEq, Debug, Clone)]
@@ -112,6 +125,8 @@ enum Command {
     Reboot(RebootArgs),
     /// Get system info from a host
     SystemInfo(SystemInfoArgs),
+    /// Unlock nodes when after reboot
+    Unlock(UnlockArgs),
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -300,6 +315,22 @@ pub fn main() -> Result<()> {
                 &CertRenewPolicy::default(),
             )
             .context("failed to create or update cockroachdb certificates")?;
+
+            // ssh server key for initrd sshd
+            let sshd_dir = config.global.secret_directory.join("sshd");
+            std::fs::create_dir_all(&sshd_dir)?;
+            for (name, _) in config.hosts.iter() {
+                let p = sshd_dir.join(name);
+                if !p.exists() {
+                    generate_key_pair(&p)?;
+                }
+            }
+
+            let disk_encryption_key = &config.global.secret_directory.join("disk_encryption_key");
+            if !disk_encryption_key.exists() {
+                generate_disk_encryption_key(disk_encryption_key)?;
+            }
+
             if !install_args.generate_secret_on_remote {
                 generate_mnemonic_and_macaroons(&config.global.secret_directory)?;
             }
@@ -328,6 +359,23 @@ pub fn main() -> Result<()> {
 
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             update(&args, update_args, &config, &flake)
+        }
+        Command::Unlock(ref unlock_args) => {
+            let config = mgr::load_configuration(&args.config, false).with_context(|| {
+                format!(
+                    "failed to parse configuration file: {}",
+                    &args.config.display()
+                )
+            })?;
+
+            let disk_encryption_key = unlock_args
+                .key_file
+                .clone()
+                .unwrap_or_else(|| config.global.secret_directory.join("disk_encryption_key"));
+            for host in filter_hosts(&unlock_args.hosts, &config.hosts)? {
+                unlock_over_ssh(&host, &disk_encryption_key)?;
+            }
+            Ok(())
         }
         _ => {
             let config = mgr::load_configuration(&args.config, false).with_context(|| {

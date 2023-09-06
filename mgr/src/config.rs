@@ -221,6 +221,11 @@ struct HostConfig {
     #[toml_example(default = [])]
     kld_api_ip_access_list: Vec<IpAddr>,
 
+    /// The interface to access network
+    #[serde(default)]
+    #[toml_example(default = "eth0")]
+    network_interface: Option<String>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -293,6 +298,9 @@ pub struct Host {
     /// The ip addresses list will allow to communicate with kld
     pub api_ip_access_list: Vec<IpAddr>,
 
+    /// The interface of node to access the internet
+    pub network_interface: Option<String>,
+
     /// Is the mnemonic provided by mgr
     pub kld_preset_mnemonic: Option<bool>,
 }
@@ -303,63 +311,68 @@ impl Host {
         let lightning = secrets_dir.join("lightning");
         let cockroachdb = secrets_dir.join("cockroachdb");
         let mnemonic = secrets_dir.join("mnemonic");
-
         let mut secret_files = vec![
             // for kld
             (
                 PathBuf::from("/var/lib/secrets/kld/ca.pem"),
-                fs::read_to_string(lightning.join("ca.pem")).context("failed to read ca.pem")?,
+                fs::read(lightning.join("ca.pem")).context("failed to read ca.pem")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.pem"),
-                fs::read_to_string(lightning.join(format!("{}.pem", self.name)))
+                fs::read(lightning.join(format!("{}.pem", self.name)))
                     .context("failed to read kld.pem")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.key"),
-                fs::read_to_string(lightning.join(format!("{}.key", self.name)))
+                fs::read(lightning.join(format!("{}.key", self.name)))
                     .context("failed to read kld.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.crt"),
-                fs::read_to_string(cockroachdb.join("client.kld.crt"))
+                fs::read(cockroachdb.join("client.kld.crt"))
                     .context("failed to read client.kld.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.key"),
-                fs::read_to_string(cockroachdb.join("client.kld.key"))
+                fs::read(cockroachdb.join("client.kld.key"))
                     .context("failed to read client.kld.key")?,
             ),
             // for cockroachdb
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/ca.crt"),
-                fs::read_to_string(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
+                fs::read(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.crt"),
-                fs::read_to_string(cockroachdb.join("client.root.crt"))
+                fs::read(cockroachdb.join("client.root.crt"))
                     .context("failed to read client.root.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.key"),
-                fs::read_to_string(cockroachdb.join("client.root.key"))
+                fs::read(cockroachdb.join("client.root.key"))
                     .context("failed to read client.root.key")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.crt"),
-                fs::read_to_string(cockroachdb.join(format!("{}.node.crt", self.name)))
+                fs::read(cockroachdb.join(format!("{}.node.crt", self.name)))
                     .context("failed to read node.crt")?,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.key"),
-                fs::read_to_string(cockroachdb.join(format!("{}.node.key", self.name)))
+                fs::read(cockroachdb.join(format!("{}.node.key", self.name)))
                     .context("failed to read node.key")?,
+            ),
+            // sshd server key
+            (
+                PathBuf::from("/var/lib/secrets/sshd_key"),
+                fs::read(secrets_dir.join("sshd").join(&self.name))
+                    .context("failed to read sshd server key")?,
             ),
         ];
         if mnemonic.exists() {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/mnemonic"),
-                fs::read_to_string(mnemonic).context("failed to read mnemonic")?,
+                fs::read(mnemonic).context("failed to read mnemonic")?,
             ))
         }
         if let Some(KmonitorConfig {
@@ -370,7 +383,7 @@ impl Host {
         {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/telegraf"),
-                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string()))
+                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into()
             ));
         }
 
@@ -634,6 +647,7 @@ fn validate_host(
         kld_node_alias: host.kld_node_alias.to_owned(),
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
+        network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
     })
 }
@@ -902,6 +916,7 @@ fn test_validate_host() -> Result<()> {
             telegraf_config_hash: "13646096770106105413".to_string(),
             api_ip_access_list: Vec::new(),
             rest_api_port: None,
+            network_interface: None,
             kld_preset_mnemonic: Some(false),
         }
     );

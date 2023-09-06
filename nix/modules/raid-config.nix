@@ -3,29 +3,23 @@
 , ...
 }:
 let
-  biosBoot = {
-    start = "0MB";
-    end = "1MB";
-    name = "boot";
-    flags = [ "bios_grub" ];
+  boot = {
+    size = "1M";
+    type = "EF02";
   };
 
-  efiBoot = {
+  ESP = {
     name = "ESP";
-    start = "1MB";
-    end = "500MB";
-    bootable = true;
+    size = "500M";
+    type = "EF00";
     content = {
       type = "mdraid";
       name = "boot";
     };
   };
 
-  raidPart = {
-    name = "raid-root";
-    start = "500MB";
-    end = "100%";
-    bootable = true;
+  raid-root = {
+    size = "100%";
     content = {
       type = "mdraid";
       name = "root";
@@ -39,13 +33,10 @@ in
         type = "disk";
         device = disk;
         content = {
-          type = "table";
-          format = "gpt";
-          partitions = [
-            biosBoot
-            efiBoot
-            raidPart
-          ];
+          type = "gpt";
+          partitions = {
+            inherit boot ESP raid-root;
+          };
         };
       }) // lib.genAttrs config.kuutamo.disko.bitcoindDisks (disk: {
       type = "disk";
@@ -72,9 +63,15 @@ in
         type = "mdadm";
         level = 1;
         content = {
-          type = "filesystem";
-          format = "ext4";
-          mountpoint = "/";
+          type = "luks";
+          name = "root-encrypted";
+          keyFile = "/var/lib/disk_encryption_key";
+          settings.preLVM = false;
+          content = {
+            type = "filesystem";
+            format = "ext4";
+            mountpoint = "/";
+          };
         };
       };
       bitcoind = lib.mkIf (config.kuutamo.disko.bitcoindDisks != [ ]) {

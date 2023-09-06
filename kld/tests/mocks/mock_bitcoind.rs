@@ -8,7 +8,6 @@ use kld::bitcoind::{bitcoind_interface::BitcoindInterface, MempoolInfo};
 use kld::settings::Network;
 use test_utils::TEST_BLOCK_HASH;
 
-#[derive(Default)]
 pub struct MockBitcoind;
 
 #[async_trait]

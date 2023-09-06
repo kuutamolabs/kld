@@ -26,6 +26,7 @@ in
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
+    kuutamo.disko.networkInterface = cfg.network_interface or "eth0";
 
     users.extraUsers.root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
 

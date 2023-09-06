@@ -5,11 +5,13 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::{
     process::Command,
-    sync::mpsc::{channel, Receiver, RecvTimeoutError},
-    time::Duration,
+    sync::mpsc::{channel, Receiver},
 };
 
-use crate::{command::status_to_pretty_err, utils::timeout_ssh};
+use crate::{
+    command::status_to_pretty_err,
+    utils::{timeout_ssh, unlock_over_ssh},
+};
 
 use super::{Host, NixosFlake};
 
@@ -45,12 +47,17 @@ pub fn install(
                 format!("{}@{}", host.install_ssh_user, host.ssh_hostname)
             };
 
+            let disk_encryption_key = secrets_dir.join("disk_encryption_key");
+            let disk_encryption_key_path = disk_encryption_key.to_string_lossy();
             let secrets = host.secrets(secrets_dir).context("Failed to get secrets")?;
             let flake_uri = format!("{}#{}", flake.path().display(), host.name);
             let extra_files = format!("{}", secrets.path().display());
             let mut args = vec![
                 "--extra-files",
                 &extra_files,
+                "--disk-encryption-keys",
+                "/var/lib/disk_encryption_key",
+                &disk_encryption_key_path,
                 "--kexec",
                 kexec_url,
                 "--flake",
@@ -78,9 +85,16 @@ pub fn install(
             }
 
             info!(
-                "Installation of {} finished. Waiting for reboot.",
+                "Installation of {} finished. Waiting for unlock.",
                 host.name
             );
+
+            loop {
+                if unlock_over_ssh(host, &disk_encryption_key).is_ok() {
+                    info!("Unlocked {}", host.name);
+                    break;
+                }
+            }
 
             // remove potential old ssh keys before adding new ones...
             let _ = Command::new("ssh-keygen")
@@ -88,18 +102,10 @@ pub fn install(
                 .status()
                 .context("Failed to run ssh-keygen to remove old keys...")?;
 
-            // Wait for the machine to come back and learn add it's ssh key to our host
             loop {
+                // After unlock the sshd will start in port 22
                 if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
                     break;
-                }
-                if let Ok(chan) = CTRL_WAS_PRESSED.lock() {
-                    if !matches!(
-                        chan.recv_timeout(Duration::from_millis(500)),
-                        Err(RecvTimeoutError::Timeout)
-                    ) {
-                        break;
-                    }
                 }
             }
 
