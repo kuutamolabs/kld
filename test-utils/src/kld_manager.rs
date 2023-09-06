@@ -13,9 +13,10 @@ use reqwest::Method;
 use serde::Serialize;
 use std::env::set_var;
 use std::fs;
+use tempfile::TempDir;
 
-pub struct KldManager {
-    manager: Manager,
+pub struct KldManager<'a> {
+    manager: Manager<'a>,
     bin_path: String,
     pub exporter_address: String,
     pub rest_api_address: String,
@@ -23,75 +24,18 @@ pub struct KldManager {
     rest_client: reqwest::Client,
 }
 
-impl KldManager {
-    pub async fn start(&mut self, check: impl Check) -> Result<()> {
-        self.manager.start(&self.bin_path, &[], check).await
-    }
-
-    pub fn pid(&self) -> Option<u32> {
-        self.manager.process.as_ref().map(|p| p.id())
-    }
-
-    pub async fn call_exporter(&self, method: &str) -> Result<String, reqwest::Error> {
-        reqwest::get(format!("http://{}/{}", self.exporter_address, method))
-            .await?
-            .text()
-            .await
-    }
-
-    pub async fn call_rest_api<T: DeserializeOwned, B: Serialize>(
-        &self,
-        method: Method,
-        route: &str,
-        body: B,
-    ) -> Result<T> {
-        let macaroon = fs::read(format!(
-            "{}/macaroons/admin.macaroon",
-            self.manager.storage_dir
-        ))?;
-
-        let res = self
-            .rest_client
-            .request(
-                method,
-                format!("https://{}{}", self.rest_api_address, route),
-            )
-            .header("macaroon", macaroon)
-            .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
-            .body(serde_json::to_string(&body).unwrap())
-            .send()
-            .await?;
-        let status = res.status();
-        let text = res.text().await?;
-        match serde_json::from_str::<T>(&text) {
-            Ok(t) => {
-                println!("API result: {text}");
-                Ok(t)
-            }
-            Err(e) => {
-                println!("Error from API: {status} {text}");
-                Err(anyhow!(e))
-            }
-        }
-    }
-
-    pub async fn test_kld(
-        output_dir: &str,
-        bin_path: &str,
-        bitcoin: &BitcoinManager,
-        cockroach: &CockroachManager,
-        electrs: &ElectrsManager,
-        settings: &Settings,
-    ) -> Result<KldManager> {
-        let exporter_address = format!(
-            "127.0.0.1:{}",
-            get_available_port().expect("Cannot find free port")
-        );
-        let rest_api_address = format!(
-            "127.0.0.1:{}",
-            get_available_port().expect("Cannot find free port")
-        );
-        let peer_port = get_available_port().expect("Cannot find free port");
+impl<'a> KldManager<'a> {
+    pub async fn new(
+        output_dir: &'a TempDir,
+        kld_bin: &str,
+        bitcoin: &BitcoinManager<'a>,
+        cockroach: &CockroachManager<'a>,
+        electrs: &ElectrsManager<'a>,
+        settings: &mut Settings,
+    ) -> Result<KldManager<'a>> {
+        let exporter_address = format!("127.0.0.1:{}", get_available_port()?);
+        let rest_api_address = format!("127.0.0.1:{}", get_available_port()?);
+        let peer_port = get_available_port()?;
 
         let manager = Manager::new(output_dir, "kld", &settings.node_id)?;
 
@@ -103,7 +47,12 @@ impl KldManager {
         set_var("KLD_CERTS_DIR", &certs_dir);
         set_var(
             "KLD_MNEMONIC_PATH",
-            format!("{}/mnemonic", &manager.storage_dir),
+            manager
+                .storage_dir
+                .join("mnemonic")
+                .into_os_string()
+                .into_string()
+                .expect("should not use non UTF-8 code in the path"),
         );
         set_var(
             "KLD_WALLET_NAME",
@@ -137,14 +86,72 @@ impl KldManager {
 
         let client = https_client();
 
-        Ok(KldManager {
+        let mut kld = KldManager {
             manager,
-            bin_path: bin_path.to_string(),
+            bin_path: kld_bin.to_string(),
             exporter_address,
             rest_api_address,
             peer_port,
             rest_client: client,
-        })
+        };
+        settings.rest_api_address = kld.rest_api_address.clone();
+        settings.exporter_address = kld.exporter_address.clone();
+        settings.peer_port = kld.peer_port;
+        kld.start(KldCheck(settings.clone())).await?;
+        Ok(kld)
+    }
+
+    pub async fn start(&mut self, check: impl Check) -> Result<()> {
+        self.manager.start(&self.bin_path, &[], check).await
+    }
+
+    pub fn pid(&self) -> Option<u32> {
+        self.manager.process.as_ref().map(|p| p.id())
+    }
+
+    pub async fn call_exporter(&self, method: &str) -> Result<String, reqwest::Error> {
+        reqwest::get(format!("http://{}/{}", self.exporter_address, method))
+            .await?
+            .text()
+            .await
+    }
+
+    pub async fn call_rest_api<T: DeserializeOwned, B: Serialize>(
+        &self,
+        method: Method,
+        route: &str,
+        body: B,
+    ) -> Result<T> {
+        let macaroon = fs::read(
+            self.manager
+                .storage_dir
+                .join("macaroons")
+                .join("admin.macaroon"),
+        )?;
+
+        let res = self
+            .rest_client
+            .request(
+                method,
+                format!("https://{}{}", self.rest_api_address, route),
+            )
+            .header("macaroon", macaroon)
+            .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
+            .body(serde_json::to_string(&body).unwrap())
+            .send()
+            .await?;
+        let status = res.status();
+        let text = res.text().await?;
+        match serde_json::from_str::<T>(&text) {
+            Ok(t) => {
+                println!("API result: {text}");
+                Ok(t)
+            }
+            Err(e) => {
+                println!("Error from API: {status} {text}");
+                Err(anyhow!(e))
+            }
+        }
     }
 }
 
@@ -164,25 +171,4 @@ impl Check for KldCheck {
         }
         return false;
     }
-}
-
-#[macro_export]
-macro_rules! kld {
-    ($bitcoin:expr, $cockroach:expr, $electrs:expr, $settings:expr) => {{
-        let mut kld = test_utils::kld_manager::KldManager::test_kld(
-            env!("CARGO_TARGET_TMPDIR"),
-            env!("CARGO_BIN_EXE_kld"),
-            $bitcoin,
-            $cockroach,
-            $electrs,
-            &$settings,
-        )
-        .await?;
-        $settings.rest_api_address = kld.rest_api_address.clone();
-        $settings.exporter_address = kld.exporter_address.clone();
-        $settings.peer_port = kld.peer_port;
-        kld.start(test_utils::kld_manager::KldCheck($settings.clone()))
-            .await?;
-        kld
-    }};
 }

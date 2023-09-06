@@ -59,7 +59,7 @@ pub struct Settings {
     #[arg(long, default_value = "127.0.0.1", env = "KLD_DATABASE_HOST")]
     pub database_host: String,
     #[arg(long, default_value = "10000", env = "KLD_DATABASE_PORT")]
-    pub database_port: String,
+    pub database_port: u16,
     #[arg(long, default_value = "root", env = "KLD_DATABASE_USER")]
     pub database_user: String,
     #[arg(long, default_value = "defaultdb", env = "KLD_DATABASE_NAME")]

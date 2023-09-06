@@ -1172,6 +1172,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "serde_yaml",
+ "tempfile",
  "test-utils",
  "thiserror",
  "time",
@@ -2499,6 +2500,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-postgres",
 ]
