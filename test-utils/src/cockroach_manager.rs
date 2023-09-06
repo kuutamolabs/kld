@@ -1,19 +1,18 @@
 use std::{fs, os::unix::prelude::PermissionsExt};
 
-use crate::{
-    manager::{Check, Manager},
-    ports::get_available_port,
-};
-use anyhow::{Context, Result};
-use async_trait::async_trait;
+use crate::ports::get_available_port;
+use anyhow::{bail, Context, Result};
 use kld::settings::Settings;
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use tempfile::TempDir;
 use tokio_postgres::Client;
+use std::process::{Child, Command, Stdio};
+use tokio::time::{sleep_until, Duration, Instant};
 
 pub struct CockroachManager<'a> {
-    manager: Manager<'a>,
+    process: Option<Child>,
+    _output_dir: &'a TempDir,
     port: u16,
     pub sql_port: u16,
     http_address: String,
@@ -22,7 +21,7 @@ pub struct CockroachManager<'a> {
 
 impl<'a> CockroachManager<'a> {
     pub async fn new(
-        output_dir: &'a TempDir,
+        _output_dir: &'a TempDir,
         settings: &mut Settings,
     ) -> Result<CockroachManager<'a>> {
         let port = get_available_port()?;
@@ -31,9 +30,9 @@ impl<'a> CockroachManager<'a> {
         let http_address = format!("127.0.0.1:{http_port}");
         let certs_dir = format!("{}/certs/cockroach", env!("CARGO_MANIFEST_DIR"));
 
-        let manager = Manager::new(output_dir, "cockroach", &settings.node_id)?;
         let mut cockroach = CockroachManager {
-            manager,
+            process: None,
+            _output_dir,
             port,
             sql_port,
             http_address,
@@ -41,11 +40,22 @@ impl<'a> CockroachManager<'a> {
         };
 
         settings.database_port = cockroach.sql_port;
-        cockroach.start(CockroachCheck(settings.clone())).await?;
+        cockroach.start().await?;
+
+        // Make sure db connection is ready before return manager
+        let mut count = 0;
+        while let Err(e) = connection(settings).await {
+            if count > 3 {
+                return Err(e)
+            } else {
+                sleep_until(Instant::now() + Duration::from_secs(1 + count * 3)).await;
+                count += 1;
+            }
+        }
         Ok(cockroach)
     }
 
-    pub async fn start(&mut self, check: impl Check) -> Result<()> {
+    pub async fn start(&mut self) -> Result<()> {
         // Cockroach requires certs to be only read/writable by user in secure mode. Git does not track this.
         for file in fs::read_dir(&self.certs_dir)? {
             let file = file?;
@@ -58,23 +68,48 @@ impl<'a> CockroachManager<'a> {
             &format!("--listen-addr=127.0.0.1:{}", self.port),
             &format!("--sql-addr=127.0.0.1:{}", self.sql_port),
             &format!("--http-addr={}", self.http_address),
-            &format!("--store={}", self.manager.storage_dir.as_path().display()),
             &format!("--certs-dir={}", self.certs_dir),
+            "--insecure",
+            "--store=type=mem,size=0.25",
+            // NOTE
+            // Uncomment it for debugging , there is not good reason always log
+            // &format!(r#"--log="{{file-defaults:{{dir:{}}},sinks:{{stderr:{{filter: NONE}}}}}}""#, self._output_dir.path().join("db.log").display())
         ];
-        self.manager.start("cockroach", args, check).await
-    }
 
-    pub fn kill(&mut self) {
-        self.manager.kill()
+        if self.process.is_some() {
+            bail!("Should not CockroachManager should start only once")
+        }
+
+        self.process =
+            Some(Command::new("cockroach")
+                .args(args)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .with_context(|| format!("failed to start cockroach"))?);
+        Ok(())
     }
 }
 
-pub struct CockroachCheck(pub Settings);
-
-#[async_trait]
-impl Check for CockroachCheck {
-    async fn check(&self) -> bool {
-        connection(&self.0).await.is_ok()
+impl Drop for CockroachManager<'_> {
+    fn drop(&mut self) {
+        let process = self.process.as_mut().expect("CockroachManager should initialize with new function");
+        match process.try_wait() {
+            Ok(Some(status)) => eprintln!("cockroachdb exited unexpected, status code: {status}"),
+            Ok(None) => {
+                let _ = Command::new("kill").arg(process.id().to_string()).output();
+                let mut count = 0;
+                while count < 5 {
+                    if let Ok(Some(_)) = process.try_wait() {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(1 + count * 3));
+                    count += 1;
+                }
+                process.kill().expect("cockroachdb couldn't be killed");
+            }
+            Err(_) => panic!("error attempting cockroachdb status"),
+        }
     }
 }
 
