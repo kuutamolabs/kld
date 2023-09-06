@@ -26,7 +26,7 @@ craneLib.buildPackage {
     };
   };
 
-  # we run tests in a seperate package
+  # we run tests in a separate package
   doCheck = false;
 
   meta = with lib; {

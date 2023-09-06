@@ -20,8 +20,8 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
 - `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 
-The server(s) will run `kld` and `cockroachdb`.   
-The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.   
+The server(s) will run `kld` and `cockroachdb`.
+The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.
 `kld-cli` is also available on the server(s), and can be run on the local machine.
 
 ## Nix quickstart
@@ -194,7 +194,7 @@ Commands:
   list-invoices               List all invoices
   pay-invoice                 Pay an invoice
   list-payments               List all payments
-  estimate-channel-liquidity  Esimate channel liquidity to a target node
+  estimate-channel-liquidity  Estimate channel liquidity to a target node
   local-remote-balance        Fetch the aggregate local and remote channel balances (msat) of the node
   get-fees                    Get node routing fees
   list-forwards               Fetch a list of the forwarded htlcs

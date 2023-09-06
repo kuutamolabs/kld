@@ -165,7 +165,7 @@ pub enum KldCliSubCommand {
         #[arg(short, long)]
         direction: Option<String>,
     },
-    /// Esimate channel liquidity to a target node
+    /// Estimate channel liquidity to a target node
     EstimateChannelLiquidity {
         /// Short channel ID
         #[arg()]

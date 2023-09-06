@@ -1,4 +1,4 @@
-use crate::database::{microsecond_timestamp, to_primative};
+use crate::database::{microsecond_timestamp, to_primitive};
 use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::to_i64;
@@ -176,7 +176,7 @@ impl LdkDatabase {
                     &channel.is_outbound,
                     &(channel.value as i64),
                     &channel.type_features.encode(),
-                    &to_primative(&channel.open_timestamp),
+                    &to_primitive(&channel.open_timestamp),
                 ],
             )
             .await?;
@@ -199,7 +199,7 @@ impl LdkDatabase {
             .execute(
                 &statement,
                 &[
-                    &to_primative(&microsecond_timestamp()),
+                    &to_primitive(&microsecond_timestamp()),
                     &closure_reason.encode(),
                     &channel_id.as_ref(),
                 ],
@@ -431,7 +431,7 @@ impl LdkDatabase {
                     &(payment.amount as i64),
                     &payment.fee.map(|f| f as i64).as_ref(),
                     &payment.direction,
-                    &to_primative(&payment.timestamp),
+                    &to_primitive(&payment.timestamp),
                 ],
             )
             .await?;
@@ -515,7 +515,7 @@ impl LdkDatabase {
                     &(forward.fee.map(|x| x as i64)),
                     &forward.status,
                     &htlc_destination,
-                    &to_primative(&forward.timestamp),
+                    &to_primitive(&forward.timestamp),
                 ],
             )
             .await?;

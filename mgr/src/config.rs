@@ -26,7 +26,7 @@ use super::NixosFlake;
 type IpV6String = String;
 
 trait AsIpAddr {
-    /// Handle ipv6 subnet identifier and normalize to a valide ip address and a mask.
+    /// Handle ipv6 subnet identifier and normalize to a valid ip address and a mask.
     fn normalize(&self) -> Result<(IpAddr, Option<u8>)>;
 }
 
@@ -921,7 +921,7 @@ fn test_validate_host() -> Result<()> {
         }
     );
 
-    // If `ipv6_address` is provied, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
+    // If `ipv6_address` is provided, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
     assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());

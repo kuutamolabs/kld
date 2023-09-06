@@ -48,7 +48,7 @@ craneLib.buildPackage {
       inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
       buildPhaseCargoCommand = "cargo bench --no-run";
     };
-    # having the tests seperate avoids having to run them on every package change.
+    # having the tests separate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoToml cargoArtifacts buildInputs cargoExtraArgs outputHashes;
       # FIXME: this copy shouldn't be necessary, but for some reason it tries to recompile openssl and fails
@@ -64,7 +64,7 @@ craneLib.buildPackage {
   postInstall = ''
     find target/release/build -name kld-cli.bash -exec install -D -m755 {} $out/bin/kld-cli.bash \;
   '';
-  # we run tests in a seperate package
+  # we run tests in a separate package
   doCheck = false;
 
   meta = with lib; {
