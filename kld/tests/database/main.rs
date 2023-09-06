@@ -20,8 +20,9 @@ use test_utils::TempDir;
 use tokio::runtime::Runtime;
 use tokio::sync::OnceCell;
 
-mod ldk_database;
-mod wallet_database;
+// mod ldk_database;
+// mod wallet_database;
+
 
 static COCKROACH_REF_COUNT: AtomicU16 = AtomicU16::new(0);
 
@@ -89,8 +90,8 @@ pub async fn teardown() {
     if COCKROACH_REF_COUNT.fetch_sub(1, Ordering::AcqRel) == 1 {
         if let Ok((_, connection, cockroach)) = cockroach().await {
             connection.disconnect();
-            let mut lock = cockroach.lock().unwrap();
-            lock.kill();
+            let instance = cockroach.lock().unwrap();
+            drop(instance);
         }
     }
 }
