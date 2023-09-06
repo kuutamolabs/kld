@@ -5,10 +5,10 @@ use anyhow::{bail, Context, Result};
 use kld::settings::Settings;
 use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
-use tempfile::TempDir;
-use tokio_postgres::Client;
 use std::process::{Child, Command, Stdio};
+use tempfile::TempDir;
 use tokio::time::{sleep_until, Duration, Instant};
+use tokio_postgres::Client;
 
 pub struct CockroachManager<'a> {
     process: Option<Child>,
@@ -46,7 +46,7 @@ impl<'a> CockroachManager<'a> {
         let mut count = 0;
         while let Err(e) = connection(settings).await {
             if count > 3 {
-                return Err(e)
+                return Err(e);
             } else {
                 sleep_until(Instant::now() + Duration::from_secs(1 + count * 3)).await;
                 count += 1;
@@ -80,20 +80,24 @@ impl<'a> CockroachManager<'a> {
             bail!("Should not CockroachManager should start only once")
         }
 
-        self.process =
-            Some(Command::new("cockroach")
+        self.process = Some(
+            Command::new("cockroach")
                 .args(args)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
-                .with_context(|| format!("failed to start cockroach"))?);
+                .with_context(|| "failed to start cockroach".to_string())?,
+        );
         Ok(())
     }
 }
 
 impl Drop for CockroachManager<'_> {
     fn drop(&mut self) {
-        let process = self.process.as_mut().expect("CockroachManager should initialize with new function");
+        let process = self
+            .process
+            .as_mut()
+            .expect("CockroachManager should initialize with `new` function");
         match process.try_wait() {
             Ok(Some(status)) => eprintln!("cockroachdb exited unexpected, status code: {status}"),
             Ok(None) => {
