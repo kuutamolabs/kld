@@ -36,8 +36,8 @@ impl MockBitcoindClient {
         self.broadcast_transactions.lock().unwrap().contains(&txid)
     }
 
-    pub fn set_syncronised(&mut self, syncronised: bool) {
-        self.synchronised = syncronised;
+    pub fn set_synchronised(&mut self, synchronised: bool) {
+        self.synchronised = synchronised;
     }
 }
 

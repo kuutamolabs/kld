@@ -62,7 +62,7 @@ pub mod routes {
     /// --- On chain wallet ---
     /// Returns total, confirmed and unconfirmed on-chain balances.
     pub const GET_BALANCE: &str = "/v1/getBalance";
-    /// Generate address for recieving on-chain funds.
+    /// Generate address for receiving on-chain funds.
     pub const NEW_ADDR: &str = "/v1/newaddr";
     /// Withdraw on-chain funds to an address.
     pub const WITHDRAW: &str = "/v1/withdraw";
@@ -231,7 +231,7 @@ pub struct FundChannel {
     pub close_to: Option<String>,
     /// Amount of liquidity you'd like to lease from the peer
     pub request_amt: Option<String>,
-    /// Compact represenation of the peer's expected channel lease terms
+    /// Compact representation of the peer's expected channel lease terms
     pub compact_lease: Option<String>,
 }
 

@@ -124,7 +124,7 @@ impl<'a> CockroachManager<'a> {
 impl Drop for CockroachManager<'_> {
     fn drop(&mut self) {
         // Report unexpected DB close, else just kill the db process without waiting because everything in under
-        // memory/temp folder and is managable
+        // memory/temp folder and is manageable
         match self.process.try_wait() {
             Ok(Some(status)) => eprintln!("cockroachdb exited unexpected, status code: {status}"),
             Ok(None) => self.process.kill().expect("cockroachdb couldn't be killed"),
