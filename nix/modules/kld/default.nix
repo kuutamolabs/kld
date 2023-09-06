@@ -136,7 +136,7 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = lib.mDoc ''
-        Comma-seperated list of lightning network addresses on which the node is *directly* reachable.
+        Comma-separated list of lightning network addresses on which the node is *directly* reachable.
       '';
     };
     exporterAddress = lib.mkOption {

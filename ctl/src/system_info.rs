@@ -44,7 +44,7 @@ fn cockroach_version() -> Result<String> {
 
 fn kld_cli_version() -> Result<String> {
     // Note:
-    // All verions of kld related tools in lightining-knd are not guaranteed the same
+    // All versions of kld related tools in lightning-knd are not guaranteed the same
     // so we need this.
     let output = std::process::Command::new("kld-cli")
         .args(["-V"])

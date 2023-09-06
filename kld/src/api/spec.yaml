@@ -257,7 +257,7 @@ paths:
                 description: Maximum total HTLCs we can receive on this channel
               minimum_htlc_out_msat:
                 type: integer
-                description: Mimimum HTLC we can send
+                description: Minimum HTLC we can send
               maximum_htlc_out_msat:
                 type: integer
                 description: Maximum HTLC we can send

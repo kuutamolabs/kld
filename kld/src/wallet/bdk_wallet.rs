@@ -60,7 +60,7 @@ impl<
         utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)> {
         if !self.bitcoind_client.is_synchronised().await {
-            bail!("Bitcoind is syncronising the blockchain")
+            bail!("Bitcoind is synchronising the blockchain")
         }
         let height = match self.bitcoind_client.get_best_block().await {
             Ok((_, Some(height))) => height,
@@ -314,9 +314,9 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_cannot_transfer_while_syncronising() -> Result<()> {
+    async fn test_cannot_transfer_while_synchronising() -> Result<()> {
         let mut bitcoind_client = MockBitcoindClient::default();
-        bitcoind_client.set_syncronised(false);
+        bitcoind_client.set_synchronised(false);
         let (bdk_wallet, _, _) = get_funded_wallet(TEST_WPKH);
         let bitcoind_client = Arc::new(bitcoind_client);
         let wallet = Wallet {

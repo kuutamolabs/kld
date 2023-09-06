@@ -95,15 +95,15 @@ fn test_cert() -> Certificate {
 #[macro_export]
 macro_rules! poll {
     ($secs: expr, $func: expr) => {
-        let mut ellapsed = 0;
-        while ellapsed < $secs {
+        let mut elapsed = 0;
+        while elapsed < $secs {
             if $func {
                 break;
             };
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            ellapsed += 1;
+            elapsed += 1;
         }
-        if ellapsed == $secs {
+        if elapsed == $secs {
             anyhow::bail!("Timed out polling for result");
         }
     };
