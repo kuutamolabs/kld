@@ -33,9 +33,9 @@ impl<'a> ElectrsManager<'a> {
             manager,
             rpc_address: format!("127.0.0.1:{rpc_port}"),
             monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
-            bitcoin_rpc_addr: format!("127.0.0.1:{}", bitcoin_manager.rpc_port),
+            bitcoin_rpc_addr: format!("127.0.0.1:{}", settings.bitcoind_rpc_port),
             bitcoin_p2p_addr: format!("127.0.0.1:{}", bitcoin_manager.p2p_port),
-            bitcoin_cookie_path: bitcoin_manager.cookie_path(),
+            bitcoin_cookie_path: settings.bitcoin_cookie_path.clone(),
             bitcoin_network: settings.bitcoin_network.to_string(),
         };
 

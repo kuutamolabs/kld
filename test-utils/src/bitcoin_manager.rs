@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
-use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
+use kld::settings::Network;
 use kld::settings::Settings;
 use std::process::{Child, Command, Stdio};
 use tempfile::TempDir;
@@ -15,11 +15,7 @@ use crate::ports::get_available_port;
 pub struct BitcoinManager<'a> {
     process: Child,
     phantom: PhantomData<&'a TempDir>,
-    storage_dir: PathBuf,
     pub p2p_port: u16,
-    pub rpc_port: u16,
-    pub network: String,
-    pub settings: Settings,
     pub client: BitcoindClient,
 }
 
@@ -36,8 +32,16 @@ impl<'a> BitcoinManager<'a> {
         std::fs::create_dir(&storage_dir)?;
 
         settings.bitcoind_rpc_port = rpc_port;
-        settings.bitcoin_cookie_path =
-            cookie_path(&settings.bitcoin_network.to_string(), &storage_dir);
+        settings.bitcoin_cookie_path = if settings.bitcoin_network == Network::Main {
+            storage_dir.join(".cookie")
+        } else {
+            storage_dir
+                .join(settings.bitcoin_network.to_string())
+                .join(".cookie")
+        }
+        .into_os_string()
+        .into_string()
+        .expect("should not use non UTF-8 char in path");
 
         let args = &[
             "-server",
@@ -79,15 +83,11 @@ impl<'a> BitcoinManager<'a> {
             }
         }
 
-        let mut bitcoind = match BitcoindClient::new(settings).await {
+        let bitcoind = match BitcoindClient::new(settings).await {
             Ok(client) => BitcoinManager {
                 process,
                 phantom: PhantomData,
-                storage_dir,
                 p2p_port,
-                rpc_port,
-                network: settings.bitcoin_network.to_string(),
-                settings: settings.clone(),
                 client,
             },
             Err(_) => {
@@ -95,14 +95,8 @@ impl<'a> BitcoinManager<'a> {
                 bail!("fail to make bitcoind client")
             }
         };
-        bitcoind.settings.bitcoind_rpc_port = settings.bitcoind_rpc_port;
-        bitcoind.settings.bitcoin_cookie_path = settings.bitcoin_cookie_path.clone();
 
         Ok(bitcoind)
-    }
-
-    pub fn cookie_path(&self) -> String {
-        cookie_path(&self.network, &self.storage_dir)
     }
 
     pub async fn generate_blocks(
@@ -121,18 +115,6 @@ impl<'a> BitcoinManager<'a> {
         self.client.wait_for_blockchain_synchronisation().await;
         Ok(())
     }
-}
-
-#[inline]
-fn cookie_path(network: &String, storage_dir: &PathBuf) -> String {
-    if network == "mainnet" {
-        storage_dir.join(".cookie")
-    } else {
-        storage_dir.join(&network).join(".cookie")
-    }
-    .into_os_string()
-    .into_string()
-    .expect("should not use non UTF-8 char in path")
 }
 
 impl Drop for BitcoinManager<'_> {
