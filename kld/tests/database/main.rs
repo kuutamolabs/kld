@@ -12,11 +12,11 @@ use kld::database::DurableConnection;
 use kld::logger::KldLogger;
 use kld::settings::Settings;
 use kld::Service;
-use tempfile::TempDir;
 use test_utils::cockroach_manager::create_database;
 use test_utils::poll;
 use test_utils::test_settings;
 use test_utils::CockroachManager;
+use test_utils::TempDir;
 use tokio::runtime::Runtime;
 use tokio::sync::OnceCell;
 

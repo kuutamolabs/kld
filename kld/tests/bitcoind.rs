@@ -5,8 +5,7 @@ use bitcoin::Address;
 use kld::bitcoind::bitcoind_interface::BitcoindInterface;
 use lightning::chain::chaininterface::{ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::{BlockData, BlockSource};
-use tempfile::TempDir;
-use test_utils::{test_settings, BitcoinManager, TEST_ADDRESS};
+use test_utils::{test_settings, BitcoinManager, TempDir, TEST_ADDRESS};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_bitcoind_client() -> Result<()> {
