@@ -16,7 +16,10 @@ pub async fn init_db_test_context(
     temp_dir: &TempDir,
 ) -> Result<(Settings, CockroachManager, DurableConnection)> {
     let mut settings = test_settings(temp_dir, "integration");
-    let cockroach = CockroachManager::new(temp_dir, &mut settings).await?;
+    let cockroach = CockroachManager::builder(temp_dir, &mut settings)
+        .await?
+        .build()
+        .await?;
     create_database(&settings).await;
     let durable_connection = DurableConnection::new_migrate(settings.clone().into()).await;
     Ok((settings, cockroach, durable_connection))

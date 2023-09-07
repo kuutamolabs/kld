@@ -28,7 +28,10 @@ pub async fn test_start() -> Result<()> {
     let tmp_dir = TempDir::new()?;
 
     let mut settings_0 = test_settings(&tmp_dir, "start");
-    let cockroach = CockroachManager::new(&tmp_dir, &mut settings_0).await?;
+    let cockroach = CockroachManager::builder(&tmp_dir, &mut settings_0)
+        .await?
+        .build()
+        .await?;
     let bitcoin = BitcoinManager::new(&tmp_dir, &mut settings_0).await?;
     bitcoin
         .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
@@ -230,7 +233,10 @@ pub async fn test_manual() -> Result<()> {
     let tmp_dir = TempDir::new()?;
 
     let mut settings = test_settings(&tmp_dir, "manual");
-    let cockroach = CockroachManager::new(&tmp_dir, &mut settings).await?;
+    let cockroach = CockroachManager::builder(&tmp_dir, &mut settings)
+        .await?
+        .build()
+        .await?;
     let bitcoin = BitcoinManager::new(&tmp_dir, &mut settings).await?;
     let electrs = ElectrsManager::new(&tmp_dir, &bitcoin, &mut settings).await?;
 
