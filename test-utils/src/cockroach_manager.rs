@@ -94,24 +94,15 @@ impl<'a> CockroachManager<'a> {
 
 impl Drop for CockroachManager<'_> {
     fn drop(&mut self) {
+        // Report unexpected DB close, else just kill the db process without waiting because everything in under
+        // memory/temp folder and is managable
         let process = self
             .process
             .as_mut()
             .expect("CockroachManager should initialize with `new` function");
         match process.try_wait() {
             Ok(Some(status)) => eprintln!("cockroachdb exited unexpected, status code: {status}"),
-            Ok(None) => {
-                let _ = Command::new("kill").arg(process.id().to_string()).output();
-                let mut count = 0;
-                while count < 5 {
-                    if let Ok(Some(_)) = process.try_wait() {
-                        return;
-                    }
-                    std::thread::sleep(Duration::from_secs(1 + count * 3));
-                    count += 1;
-                }
-                process.kill().expect("cockroachdb couldn't be killed");
-            }
+            Ok(None) => process.kill().expect("cockroachdb couldn't be killed"),
             Err(_) => panic!("error attempting cockroachdb status"),
         }
     }
