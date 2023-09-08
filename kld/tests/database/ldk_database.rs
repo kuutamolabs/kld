@@ -35,10 +35,10 @@ use lightning::sign::{InMemorySigner, KeysManager, SpendableOutputDescriptor};
 use lightning::util::persist::Persister;
 use lightning_invoice::{Currency, InvoiceBuilder};
 use rand::random;
-use tempfile::TempDir;
-use test_utils::{poll, random_public_key, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY, TEST_TX_ID};
-
-use super::init_db_test_context;
+use test_utils::{
+    init_db_test_context, poll, random_public_key, TempDir, TEST_PRIVATE_KEY, TEST_PUBLIC_KEY,
+    TEST_TX_ID,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_peers() -> Result<()> {

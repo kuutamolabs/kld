@@ -6,6 +6,9 @@ pub mod kld_manager;
 mod manager;
 pub mod ports;
 
+use anyhow::Result;
+use kld::database::DurableConnection;
+use kld::settings::Settings;
 use std::{fs::File, io::Read, path::Path};
 
 use bitcoin::secp256k1::{PublicKey, SecretKey};
@@ -165,4 +168,17 @@ impl Drop for TempDir {
             }
         }
     }
+}
+
+pub async fn init_db_test_context(
+    temp_dir: &tempfile::TempDir,
+) -> Result<(Settings, CockroachManager, DurableConnection)> {
+    let mut settings = test_settings(temp_dir, "integration");
+    let cockroach = CockroachManager::builder(temp_dir, &mut settings)
+        .await?
+        .build()
+        .await?;
+    cockroach_manager::create_database(&settings).await;
+    let durable_connection = DurableConnection::new_migrate(settings.clone().into()).await;
+    Ok((settings, cockroach, durable_connection))
 }

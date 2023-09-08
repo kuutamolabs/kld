@@ -7,9 +7,7 @@ use bitcoin::consensus::encode::deserialize;
 use bitcoin::hashes::hex::*;
 use bitcoin::*;
 use kld::database::WalletDatabase;
-use tempfile::TempDir;
-
-use super::init_db_test_context;
+use test_utils::{init_db_test_context, TempDir};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_script_pubkey() -> Result<()> {
