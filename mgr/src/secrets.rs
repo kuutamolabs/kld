@@ -10,7 +10,8 @@ use base64::{engine::general_purpose, Engine};
 use bip39::Mnemonic;
 use bitcoin::hashes::{sha256, Hash, HashEngine};
 use macaroon::{Macaroon, MacaroonKey};
-use rand::thread_rng;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use tempfile::{Builder, TempDir};
 
 use crate::command::status_to_pretty_err;
@@ -121,10 +122,11 @@ pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {
 }
 
 pub fn generate_disk_encryption_key(key: &Path) -> Result<()> {
-    let output_file = format!("of={}", key.display());
-    let args = vec!["if=/dev/random", &output_file, "bs=32", "count=1"];
-    let status = Command::new("dd").args(&args).status();
-    status_to_pretty_err(status, "dd", &args)?;
+    let mut rng = thread_rng();
+    // XXX Should be much more than Alphanumeric, just avoid the bytes not work via ssh connection
+    let secret: Vec<u8> = (&mut rng).sample_iter(Alphanumeric).take(32).collect();
+    let mut file = std::fs::File::create(key)?;
+    file.write_all(&secret)?;
     println!("Generate disk encryption key: {}", key.display());
     Ok(())
 }
