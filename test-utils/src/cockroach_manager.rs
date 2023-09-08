@@ -5,13 +5,14 @@ use anyhow::{Context, Result};
 use kld::settings::Settings;
 use openssl::ssl::{SslConnector, SslConnectorBuilder, SslFiletype, SslMethod};
 use postgres_openssl::MakeTlsConnector;
+use std::marker::PhantomData;
 use std::process::{Child, Command, Stdio};
 use tempfile::TempDir;
 use tokio::time::{sleep_until, Duration, Instant};
 use tokio_postgres::Client;
 
 pub struct CockroachManagerBuilder<'a> {
-    _output_dir: &'a TempDir,
+    output_dir: &'a TempDir,
     port: u16,
     sql_port: u16,
     http_address: String,
@@ -27,7 +28,7 @@ impl<'a> CockroachManagerBuilder<'a> {
         let process = self.start().await?;
         let cockroach = CockroachManager {
             process,
-            _output_dir: self._output_dir,
+            phantom: PhantomData,
             sql_port: self.sql_port,
         };
 
@@ -74,8 +75,11 @@ impl<'a> CockroachManagerBuilder<'a> {
             // Will be with #619
             // &format!(r#"--log="{{file-defaults:{{dir:{}}},sinks:{{stderr:{{filter: NONE}}}}}}""#, self._output_dir.path().join("db.log").display())
         ];
+        let working_dir = self.output_dir.path().join("cockroachdb");
+        fs::create_dir(&working_dir)?;
 
         Command::new("cockroach")
+            .current_dir(&working_dir)
             .args(args)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -86,13 +90,13 @@ impl<'a> CockroachManagerBuilder<'a> {
 
 pub struct CockroachManager<'a> {
     process: Child,
-    _output_dir: &'a TempDir,
+    phantom: PhantomData<&'a TempDir>,
     pub sql_port: u16,
 }
 
 impl<'a> CockroachManager<'a> {
     pub async fn builder(
-        _output_dir: &'a TempDir,
+        output_dir: &'a TempDir,
         settings: &mut Settings,
     ) -> Result<CockroachManagerBuilder<'a>> {
         let port = get_available_port()?;
@@ -108,7 +112,7 @@ impl<'a> CockroachManager<'a> {
             .set_private_key_file(&settings.database_client_key_path, SslFiletype::PEM)?;
         settings.database_port = sql_port;
         Ok(CockroachManagerBuilder {
-            _output_dir,
+            output_dir,
             port,
             sql_port,
             http_address,

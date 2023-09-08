@@ -16,4 +16,3 @@ result-*
 mgr/kld*.toml
 mgr/secrets
 mgr/secrets*
-kld/heap_profiler
