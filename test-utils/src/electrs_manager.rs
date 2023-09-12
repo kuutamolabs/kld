@@ -1,77 +1,94 @@
-use anyhow::Result;
-use async_trait::async_trait;
+use std::marker::PhantomData;
+use std::process::{Child, Command, Stdio};
+use std::time::Duration;
+
+use anyhow::{Context, Result};
 use kld::settings::Settings;
 use tempfile::TempDir;
+use tokio::time::{sleep_until, Instant};
 
-use crate::{
-    manager::{Check, Manager},
-    ports::get_available_port,
-    BitcoinManager,
-};
+use crate::{ports::get_available_port, BitcoinManager};
 
-pub struct ElectrsManager<'a> {
-    manager: Manager<'a>,
-    pub rpc_address: String,
+pub struct ElectrsManager<'a, 'b> {
+    process: Child,
+    phantom: PhantomData<&'a TempDir>,
+    bitcoind: PhantomData<&'b BitcoinManager<'b>>,
     pub monitoring_addr: String,
-    bitcoin_rpc_addr: String,
-    bitcoin_p2p_addr: String,
-    bitcoin_cookie_path: String,
-    bitcoin_network: String,
 }
 
-impl<'a> ElectrsManager<'a> {
+impl<'a, 'b> ElectrsManager<'a, 'b> {
     pub async fn new(
         output_dir: &'a TempDir,
-        bitcoin_manager: &BitcoinManager<'a>,
+        bitcoin_manager: &'b BitcoinManager<'b>,
         settings: &mut Settings,
-    ) -> Result<ElectrsManager<'a>> {
+    ) -> Result<ElectrsManager<'a, 'b>> {
         let monitoring_port = get_available_port()?;
         let rpc_port = get_available_port()?;
+        let storage_dir = output_dir
+            .path()
+            .join(format!("electrs_{}", settings.node_id));
+        std::fs::create_dir(&storage_dir)?;
 
-        let manager = Manager::new(output_dir, "electrs", &settings.node_id)?;
-        let mut electrs = ElectrsManager {
-            manager,
-            rpc_address: format!("127.0.0.1:{rpc_port}"),
-            monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
-            bitcoin_rpc_addr: format!("127.0.0.1:{}", settings.bitcoind_rpc_port),
-            bitcoin_p2p_addr: format!("127.0.0.1:{}", bitcoin_manager.p2p_port),
-            bitcoin_cookie_path: settings.bitcoin_cookie_path.clone(),
-            bitcoin_network: settings.bitcoin_network.to_string(),
-        };
-
-        settings.electrs_url = electrs.rpc_address.clone();
-        electrs
-            .start(ElectrsCheck(electrs.monitoring_addr.clone()))
-            .await?;
-        Ok(electrs)
-    }
-
-    pub async fn start(&mut self, check: impl Check) -> Result<()> {
         let args = &[
             "--skip-default-conf-files",
-            "--log-filters=DEBUG",
-            &format!("--network={}", &self.bitcoin_network),
-            &format!("--db-dir={}", &self.manager.storage_dir.as_path().display()),
-            &format!("--cookie-file={}", &self.bitcoin_cookie_path),
-            &format!("--electrum-rpc-addr={}", &self.rpc_address),
-            &format!("--daemon-rpc-addr={}", &self.bitcoin_rpc_addr),
-            &format!("--daemon-p2p-addr={}", &self.bitcoin_p2p_addr),
-            &format!("--monitoring-addr={}", &self.monitoring_addr),
+            &format!("--network={}", &settings.bitcoin_network),
+            &format!("--db-dir={}", &storage_dir.as_path().display()),
+            &format!("--cookie-file={}", settings.bitcoin_cookie_path),
+            &format!("--electrum-rpc-addr=127.0.0.1:{rpc_port}"),
+            &format!("--daemon-rpc-addr=127.0.0.1:{}", settings.bitcoind_rpc_port),
+            &format!("--daemon-p2p-addr=127.0.0.1:{}", bitcoin_manager.p2p_port),
+            &format!("--monitoring-addr=127.0.0.1:{monitoring_port}"),
+            // "--log-filters=DEBUG", #619
         ];
-        self.manager.start("electrs", args, check).await
+        let electrs = ElectrsManager {
+            process: Command::new("electrs")
+                .args(args)
+                .stdout(Stdio::null()) // pip with #619
+                .stderr(Stdio::null()) // also here
+                .spawn()
+                .with_context(|| "failed to start electrs")?,
+            monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
+            phantom: PhantomData,
+            bitcoind: PhantomData,
+        };
+        settings.electrs_url = format!("127.0.0.1:{rpc_port}");
+
+        let mut count = 0;
+        while let Err(e) = reqwest::get(&format!("http://{}", electrs.monitoring_addr))
+            .await
+            .with_context(|| "could not monitor on electrs")
+        {
+            if count > 3 {
+                return Err(e);
+            } else {
+                sleep_until(Instant::now() + Duration::from_secs(1)).await;
+                count += 1;
+            }
+        }
+        Ok(electrs)
     }
 }
 
-pub struct ElectrsCheck(pub String);
-
-#[async_trait]
-impl Check for ElectrsCheck {
-    async fn check(&self) -> bool {
-        if let Ok(res) = reqwest::get(format!("http://{}", self.0)).await {
-            if res.status().is_success() {
-                return true;
+impl Drop for ElectrsManager<'_, '_> {
+    fn drop(&mut self) {
+        // Report unexpected close, try kill the electrs process and wait the log
+        match self.process.try_wait() {
+            Ok(Some(status)) => eprintln!("electrs exited unexpected, status code: {status}"),
+            Ok(None) => {
+                let _ = Command::new("kill")
+                    .arg(self.process.id().to_string())
+                    .output();
+                let mut count = 0;
+                while count < 5 {
+                    if let Ok(Some(_)) = self.process.try_wait() {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(1 + count * 3));
+                    count += 1;
+                }
+                self.process.kill().expect("electrs couldn't be killed");
             }
+            Err(_) => panic!("error attempting electrs status"),
         }
-        return false;
     }
 }

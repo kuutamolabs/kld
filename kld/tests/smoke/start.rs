@@ -43,7 +43,6 @@ pub async fn test_start() -> Result<()> {
     let kld_0 = KldManager::new(
         &tmp_dir,
         env!("CARGO_BIN_EXE_kld"),
-        &bitcoin,
         &cockroach,
         &electrs_0,
         &mut settings_0,
@@ -59,7 +58,6 @@ pub async fn test_start() -> Result<()> {
     let kld_1 = KldManager::new(
         &tmp_dir,
         env!("CARGO_BIN_EXE_kld"),
-        &bitcoin,
         &cockroach,
         &electrs_1,
         &mut settings_1,
@@ -246,7 +244,6 @@ pub async fn test_manual() -> Result<()> {
     let _kld = KldManager::new(
         &tmp_dir,
         env!("CARGO_BIN_EXE_kld"),
-        &bitcoin,
         &cockroach,
         &electrs,
         &mut settings,
