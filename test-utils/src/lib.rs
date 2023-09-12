@@ -3,7 +3,6 @@ pub mod bitcoin_manager;
 pub mod cockroach_manager;
 pub mod electrs_manager;
 pub mod kld_manager;
-mod manager;
 pub mod ports;
 
 use anyhow::Result;
@@ -16,7 +15,7 @@ pub use bitcoin_manager::BitcoinManager;
 pub use cockroach_manager::CockroachManager;
 pub use electrs_manager::ElectrsManager;
 pub use kld_manager::KldManager;
-pub use manager::Check;
+use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use reqwest::{Certificate, Client};
 
 // https://mempool.space/tx/b9deb5e0aaf6d80fe156e64b3a339b7d5f853bcf9993a8183e1eec4b6f26cf86
@@ -73,14 +72,20 @@ pub fn random_public_key() -> PublicKey {
     PublicKey::from_secret_key(&secp_ctx, secret_key)
 }
 
-pub fn https_client() -> Client {
+pub fn https_client(macaroon: Option<Vec<u8>>) -> Result<Client> {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    if let Some(macaroon) = macaroon {
+        headers.insert("macaroon", HeaderValue::from_bytes(&macaroon)?);
+    }
+
     // Rustls does not support IP addresses (hostnames only) so we need to use native tls (openssl). Also turn off SNI as this requires host names as well.
-    reqwest::ClientBuilder::new()
+    Ok(reqwest::ClientBuilder::new()
         .tls_sni(false)
         .add_root_certificate(test_cert())
         .use_native_tls()
-        .build()
-        .unwrap()
+        .default_headers(headers)
+        .build()?)
 }
 
 fn test_cert() -> Certificate {

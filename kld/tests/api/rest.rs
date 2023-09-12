@@ -7,10 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
-use axum::http::HeaderValue;
 use bitcoin::hashes::hex::ToHex;
 use futures::FutureExt;
-use hyper::header::CONTENT_TYPE;
 use hyper::Method;
 use kld::api::bind_api_server;
 use kld::api::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
@@ -111,6 +109,7 @@ pub async fn test_unauthorized() -> Result<()> {
         assert_eq!(
             StatusCode::UNAUTHORIZED,
             unauthorized_request(&context, method, route)
+                .unwrap()
                 .send()
                 .await?
                 .status()
@@ -989,16 +988,19 @@ fn readonly_macaroon(settings: &Settings) -> Result<Vec<u8>> {
     fs::read(&path).with_context(|| format!("Failed to read {path}"))
 }
 
-fn unauthorized_request(context: &TestContext, method: Method, route: &str) -> RequestBuilder {
+fn unauthorized_request(
+    context: &TestContext,
+    method: Method,
+    route: &str,
+) -> Result<RequestBuilder> {
     let address = &context.settings.rest_api_address;
-    https_client()
-        .request(method, format!("https://{address}{route}"))
-        .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
+    Ok(https_client(None)?.request(method, format!("https://{address}{route}")))
 }
 
 fn admin_request(context: &TestContext, method: Method, route: &str) -> Result<RequestBuilder> {
-    Ok(unauthorized_request(context, method, route)
-        .header("macaroon", context.admin_macaroon.clone()))
+    let address = &context.settings.rest_api_address;
+    Ok(https_client(Some(context.admin_macaroon.clone()))?
+        .request(method, format!("https://{address}{route}")))
 }
 
 fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
@@ -1012,8 +1014,9 @@ fn admin_request_with_body<T: Serialize, F: FnOnce() -> T>(
 }
 
 fn readonly_request(context: &TestContext, method: Method, route: &str) -> Result<RequestBuilder> {
-    Ok(unauthorized_request(context, method, route)
-        .header("macaroon", context.readonly_macaroon.clone()))
+    let address = &context.settings.rest_api_address;
+    Ok(https_client(Some(context.readonly_macaroon.clone()))?
+        .request(method, format!("https://{address}{route}")))
 }
 
 fn readonly_request_with_body<T: Serialize, F: FnOnce() -> T>(

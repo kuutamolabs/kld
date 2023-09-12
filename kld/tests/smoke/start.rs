@@ -49,7 +49,7 @@ pub async fn test_start() -> Result<()> {
     )
     .await?;
     let pid = kld_0.call_exporter("pid").await?;
-    assert_eq!(pid, kld_0.pid().unwrap().to_string());
+    assert_eq!(pid, kld_0.pid().to_string());
 
     let mut settings_1 = settings_0.clone();
     settings_1.node_id = "start1".to_owned();
@@ -112,7 +112,7 @@ pub async fn test_start() -> Result<()> {
         .await?;
 
     let fund_channel = FundChannel {
-        id: format!("{}@127.0.0.1:{}", info_1.id, kld_1.peer_port),
+        id: format!("{}@127.0.0.1:{}", info_1.id, settings_1.peer_port),
         satoshis: channel_amount.to_string(),
         push_msat: Some(push_amount_msat.to_string()),
         fee_rate: Some(api::FeeRate::PerKb(fee_rate_kb as u32)),
