@@ -121,22 +121,19 @@ impl Drop for BitcoinManager<'_> {
     fn drop(&mut self) {
         // Report unexpected bitcoind close, try kill the bitcoind process and wait the log
         match self.process.try_wait() {
-            Ok(Some(status)) => eprintln!("cockroachdb exited unexpected, status code: {status}"),
+            Ok(Some(status)) => eprintln!("bitcoind exited unexpected, status code: {status}"),
             Ok(None) => {
+                // We do not need to wait bitcoind all the time, we have electrs for our service
                 let _ = Command::new("kill")
                     .arg(self.process.id().to_string())
                     .output();
-                let mut count = 0;
-                while count < 5 {
-                    if let Ok(Some(_)) = self.process.try_wait() {
-                        return;
-                    }
-                    std::thread::sleep(Duration::from_secs(1 + count * 3));
-                    count += 1;
+                std::thread::sleep(Duration::from_secs(1));
+                if let Ok(Some(_)) = self.process.try_wait() {
+                } else {
+                    self.process.kill().expect("bitcoind couldn't be killed");
                 }
-                self.process.kill().expect("bitcoind couldn't be killed");
             }
-            Err(_) => panic!("error attempting cockroachdb status"),
+            Err(_) => panic!("error attempting bitcoind status"),
         }
     }
 }
