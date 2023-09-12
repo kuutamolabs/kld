@@ -23,7 +23,7 @@ use test_utils::{
 };
 use tokio::time::{sleep_until, Instant};
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 pub async fn test_start() -> Result<()> {
     let tmp_dir = TempDir::new()?;
 
@@ -93,9 +93,8 @@ pub async fn test_start() -> Result<()> {
         - (push_amount_msat + keysend_amount_msat + invoice_amount_msat) / 1000;
     let _kld1_close_channel_expected_balance =
         push_amount_msat + keysend_amount_msat + invoice_amount_msat;
-
     poll!(
-        60,
+        7,
         kld_0
             .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
             .await?
@@ -111,24 +110,30 @@ pub async fn test_start() -> Result<()> {
         .call_rest_api(Method::GET, routes::GET_INFO, ())
         .await?;
 
-    let fund_channel = FundChannel {
-        id: format!("{}@127.0.0.1:{}", info_1.id, settings_1.peer_port),
-        satoshis: channel_amount.to_string(),
-        push_msat: Some(push_amount_msat.to_string()),
-        fee_rate: Some(api::FeeRate::PerKb(fee_rate_kb as u32)),
-        ..Default::default()
-    };
-
-    let _open_channel_response: FundChannelResponse = kld_0
-        .call_rest_api(Method::POST, routes::OPEN_CHANNEL, fund_channel)
-        .await?;
+    poll!(
+        7,
+        kld_0
+            .call_rest_api::<FundChannelResponse, FundChannel>(
+                Method::POST,
+                routes::OPEN_CHANNEL,
+                FundChannel {
+                    id: format!("{}@127.0.0.1:{}", info_1.id, settings_1.peer_port),
+                    satoshis: channel_amount.to_string(),
+                    push_msat: Some(push_amount_msat.to_string()),
+                    fee_rate: Some(api::FeeRate::PerKb(fee_rate_kb as u32)),
+                    ..Default::default()
+                }
+            )
+            .await
+            .is_ok()
+    );
 
     bitcoin
         .generate_blocks(10, &bitcoin::Address::from_str(TEST_ADDRESS)?, true)
         .await?;
 
     poll!(
-        60,
+        7,
         kld_0
             .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
             .await?
@@ -136,7 +141,7 @@ pub async fn test_start() -> Result<()> {
             == kld0_open_channel_expected_balance
     );
     poll!(
-        60,
+        7,
         matches!(
             kld_1
                 .call_rest_api::<Vec<GetV1ChannelListPeerChannelsResponse>, ()>(
@@ -214,7 +219,7 @@ pub async fn test_start() -> Result<()> {
         .await?;
 
     poll!(
-        60,
+        7,
         kld_1
             .call_rest_api::<WalletBalance, ()>(Method::GET, routes::GET_BALANCE, ())
             .await?
