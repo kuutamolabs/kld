@@ -125,7 +125,6 @@ impl Drop for BitcoinManager<'_> {
         match self.process.try_wait() {
             Ok(Some(status)) => eprintln!("bitcoind exited unexpected, status code: {status}"),
             Ok(None) => {
-                // We do not need to wait bitcoind all the time, we have electrs for our service
                 let _ = Command::new("kill")
                     .arg(self.process.id().to_string())
                     .output();
