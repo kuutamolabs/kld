@@ -13,6 +13,7 @@ use reqwest::Method;
 use serde::Serialize;
 use std::env::set_var;
 use std::fs;
+use std::marker::PhantomData;
 use tempfile::TempDir;
 
 pub struct KldManager<'a> {
@@ -22,13 +23,14 @@ pub struct KldManager<'a> {
     pub rest_api_address: String,
     pub peer_port: u16,
     rest_client: reqwest::Client,
+    _bitcoind: PhantomData<&'a BitcoinManager<'a>>,
 }
 
 impl<'a> KldManager<'a> {
     pub async fn new(
         output_dir: &'a TempDir,
         kld_bin: &str,
-        bitcoin: &BitcoinManager<'a>,
+        _bitcoind: &BitcoinManager<'a>,
         cockroach: &CockroachManager<'a>,
         electrs: &ElectrsManager<'a>,
         settings: &mut Settings,
@@ -61,10 +63,13 @@ impl<'a> KldManager<'a> {
         set_var("KLD_PEER_PORT", peer_port.to_string());
         set_var("KLD_EXPORTER_ADDRESS", &exporter_address);
         set_var("KLD_REST_API_ADDRESS", &rest_api_address);
-        set_var("KLD_BITCOIN_NETWORK", &bitcoin.network);
-        set_var("KLD_BITCOIN_COOKIE_PATH", bitcoin.cookie_path());
+        set_var("KLD_BITCOIN_NETWORK", settings.bitcoin_network.to_string());
+        set_var("KLD_BITCOIN_COOKIE_PATH", &settings.bitcoin_cookie_path);
         set_var("KLD_BITCOIN_RPC_HOST", "127.0.0.1");
-        set_var("KLD_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
+        set_var(
+            "KLD_BITCOIN_RPC_PORT",
+            settings.bitcoind_rpc_port.to_string(),
+        );
         set_var("KLD_DATABASE_PORT", cockroach.sql_port.to_string());
         set_var("KLD_DATABASE_NAME", settings.database_name.clone());
         set_var("KLD_NODE_ID", settings.node_id.clone());
@@ -93,6 +98,7 @@ impl<'a> KldManager<'a> {
             rest_api_address,
             peer_port,
             rest_client: client,
+            _bitcoind: PhantomData,
         };
         settings.rest_api_address = kld.rest_api_address.clone();
         settings.exporter_address = kld.exporter_address.clone();

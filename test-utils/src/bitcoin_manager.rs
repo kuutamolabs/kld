@@ -1,24 +1,22 @@
-use std::{sync::OnceLock, time::Duration};
+use std::marker::PhantomData;
+use std::time::Duration;
 
-use anyhow::{Context, Result};
-use async_trait::async_trait;
+use anyhow::{bail, Context, Result};
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
+use kld::settings::Network;
 use kld::settings::Settings;
+use std::process::{Child, Command, Stdio};
 use tempfile::TempDir;
+use tokio::time::{sleep_until, Instant};
 
-use crate::{
-    manager::{Check, Manager},
-    ports::get_available_port,
-};
+use crate::ports::get_available_port;
 
 pub struct BitcoinManager<'a> {
-    manager: Manager<'a>,
+    process: Child,
+    phantom: PhantomData<&'a TempDir>,
     pub p2p_port: u16,
-    pub rpc_port: u16,
-    pub network: String,
-    pub settings: Settings,
-    pub client: OnceLock<BitcoindClient>,
+    pub client: BitcoindClient,
 }
 
 impl<'a> BitcoinManager<'a> {
@@ -28,54 +26,77 @@ impl<'a> BitcoinManager<'a> {
     ) -> Result<BitcoinManager<'a>> {
         let p2p_port = get_available_port()?;
         let rpc_port = get_available_port()?;
+        let storage_dir = output_dir
+            .path()
+            .join(&format!("bitcoind_{}", settings.node_id));
+        std::fs::create_dir(&storage_dir)?;
 
-        let manager = Manager::new(output_dir, "bitcoind", &settings.node_id)?;
-        let mut bitcoind = BitcoinManager {
-            manager,
-            p2p_port,
-            rpc_port,
-            network: settings.bitcoin_network.to_string(),
-            settings: settings.clone(),
-            client: OnceLock::new(),
-        };
-        settings.bitcoind_rpc_port = bitcoind.rpc_port;
-        settings.bitcoin_cookie_path = bitcoind.cookie_path();
-        bitcoind.settings.bitcoind_rpc_port = settings.bitcoind_rpc_port;
-        bitcoind.settings.bitcoin_cookie_path = settings.bitcoin_cookie_path.clone();
-        bitcoind
-            .start(BitcoindCheck(bitcoind.settings.clone()))
-            .await?;
-        Ok(bitcoind)
-    }
+        settings.bitcoind_rpc_port = rpc_port;
+        settings.bitcoin_cookie_path = if settings.bitcoin_network == Network::Main {
+            storage_dir.join(".cookie")
+        } else {
+            storage_dir
+                .join(settings.bitcoin_network.to_string())
+                .join(".cookie")
+        }
+        .into_os_string()
+        .into_string()
+        .expect("should not use non UTF-8 char in path");
 
-    pub async fn start(&mut self, check: impl Check) -> Result<()> {
         let args = &[
             "-server",
             "-noconnect",
-            "-rpcthreads=16",
+            "-rpcthreads=1",
             "-listen",
-            &format!("-chain={}", &self.network),
-            &format!("-datadir={}", &self.manager.storage_dir.as_path().display()),
-            &format!("-port={}", &self.p2p_port.to_string()),
-            &format!("-rpcport={}", &self.rpc_port.to_string()),
+            &format!("-chain={}", settings.bitcoin_network),
+            &format!("-datadir={}", storage_dir.display()),
+            &format!("-port={}", p2p_port),
+            &format!("-rpcport={}", rpc_port),
+            // NOTE
+            // Uncomment it for debugging , there is not good reason always log
+            // Will integrate with #619
+            // &format!("-debuglogfile=<file>", storage_dir.join("bitcoind.log").display())
         ];
-        self.manager.start("bitcoind", args, check).await?;
-        self.client
-            .set(BitcoindClient::new(&self.settings).await?)
-            .unwrap_or_default();
-        Ok(())
-    }
 
-    pub fn cookie_path(&self) -> String {
-        let dir = if self.network == "mainnet" {
-            self.manager.storage_dir.clone()
-        } else {
-            self.manager.storage_dir.join(&self.network)
+        let mut process = Command::new("bitcoind")
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .with_context(|| "failed to start bitcoind")?;
+
+        // XXX
+        // Request `call` and `new` of BitcoindClient should be separate functions
+        // It is not `BitcoindConnection`, so it doesn't make sense to have a hidden request in new.
+        // Also the manager is hard to init the client with `bitcoind` at same time.
+        let mut count = 0;
+        while let Err(e) = BitcoindClient::new(settings)
+            .await
+            .with_context(|| "could not connect to bitcoind")
+        {
+            if count > 3 {
+                let _ = process.kill();
+                return Err(e);
+            } else {
+                sleep_until(Instant::now() + Duration::from_secs(1 + count * 3)).await;
+                count += 1;
+            }
+        }
+
+        let bitcoind = match BitcoindClient::new(settings).await {
+            Ok(client) => BitcoinManager {
+                process,
+                phantom: PhantomData,
+                p2p_port,
+                client,
+            },
+            Err(_) => {
+                let _ = process.kill();
+                bail!("fail to make bitcoind client")
+            }
         };
-        dir.join(".cookie")
-            .into_os_string()
-            .into_string()
-            .expect("should not use non UTF-8 char in path")
+
+        Ok(bitcoind)
     }
 
     pub async fn generate_blocks(
@@ -84,24 +105,34 @@ impl<'a> BitcoinManager<'a> {
         address: &Address,
         delay: bool,
     ) -> Result<()> {
-        let client = self.client.get().context("bitcoind not started")?;
         for _ in 0..n_blocks {
             // Sometimes a delay is needed to make the test more realistic which is expected by LDK.
             if delay {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
-            client.generate_to_address(1, address).await?;
+            self.client.generate_to_address(1, address).await?;
         }
-        client.wait_for_blockchain_synchronisation().await;
+        self.client.wait_for_blockchain_synchronisation().await;
         Ok(())
     }
 }
 
-pub struct BitcoindCheck(pub Settings);
-
-#[async_trait]
-impl Check for BitcoindCheck {
-    async fn check(&self) -> bool {
-        BitcoindClient::new(&self.0).await.is_ok()
+impl Drop for BitcoinManager<'_> {
+    fn drop(&mut self) {
+        // Report unexpected bitcoind close, try kill the bitcoind process and wait the log
+        match self.process.try_wait() {
+            Ok(Some(status)) => eprintln!("bitcoind exited unexpected, status code: {status}"),
+            Ok(None) => {
+                let _ = Command::new("kill")
+                    .arg(self.process.id().to_string())
+                    .output();
+                std::thread::sleep(Duration::from_secs(1));
+                if let Ok(Some(_)) = self.process.try_wait() {
+                } else {
+                    self.process.kill().expect("bitcoind couldn't be killed");
+                }
+            }
+            Err(_) => panic!("error attempting bitcoind status"),
+        }
     }
 }
