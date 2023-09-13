@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::marker::PhantomData;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
@@ -29,24 +30,37 @@ impl<'a, 'b> ElectrsManager<'a, 'b> {
             .join(format!("electrs_{}", settings.node_id));
         std::fs::create_dir(&storage_dir)?;
 
-        let args = &[
-            "--skip-default-conf-files",
-            &format!("--network={}", &settings.bitcoin_network),
-            &format!("--db-dir={}", &storage_dir.as_path().display()),
-            &format!("--cookie-file={}", settings.bitcoin_cookie_path),
-            &format!("--electrum-rpc-addr=127.0.0.1:{rpc_port}"),
-            &format!("--daemon-rpc-addr=127.0.0.1:{}", settings.bitcoind_rpc_port),
-            &format!("--daemon-p2p-addr=127.0.0.1:{}", bitcoin_manager.p2p_port),
-            &format!("--monitoring-addr=127.0.0.1:{monitoring_port}"),
-            // "--log-filters=DEBUG", #619
+        let mut args = vec![
+            "--skip-default-conf-files".into(),
+            format!("--network={}", &settings.bitcoin_network),
+            format!("--db-dir={}", &storage_dir.as_path().display()),
+            format!("--cookie-file={}", settings.bitcoin_cookie_path),
+            format!("--electrum-rpc-addr=127.0.0.1:{rpc_port}"),
+            format!("--daemon-rpc-addr=127.0.0.1:{}", settings.bitcoind_rpc_port),
+            format!("--daemon-p2p-addr=127.0.0.1:{}", bitcoin_manager.p2p_port),
+            format!("--monitoring-addr=127.0.0.1:{monitoring_port}"),
         ];
-        let electrs = ElectrsManager {
-            process: Command::new("electrs")
+        if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            args.push("--log-filters=DEBUG".into());
+        }
+        let process = if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            Command::new("electrs")
                 .args(args)
-                .stdout(Stdio::null()) // pip with #619
-                .stderr(Stdio::null()) // also here
+                .stdout(Stdio::null())
+                .stderr(File::create(storage_dir.join("electrs.log"))?)
                 .spawn()
-                .with_context(|| "failed to start electrs")?,
+                .with_context(|| "failed to start electrs")?
+        } else {
+            Command::new("electrs")
+                .args(args)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .with_context(|| "failed to start electrs")?
+        };
+
+        let electrs = ElectrsManager {
+            process,
             monitoring_addr: format!("127.0.0.1:{monitoring_port}"),
             phantom: PhantomData,
             bitcoind: PhantomData,
