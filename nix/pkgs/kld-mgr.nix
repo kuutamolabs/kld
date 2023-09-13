@@ -43,7 +43,7 @@ craneLib.buildPackage {
       inherit src cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
       cargoClippyExtraArgs = "--all-targets --no-deps -- -D warnings";
     };
-    # having the tests seperate avoids having to run them on every package change.
+    # having the tests separate avoids having to run them on every package change.
     tests = craneLib.cargoTest {
       inherit src cargoArtifacts buildInputs cargoExtraArgs outputHashes;
       nativeBuildInputs = nativeBuildInputs ++ checkInputs;
@@ -60,7 +60,7 @@ craneLib.buildPackage {
       --suffix PATH : ${lib.makeBinPath [ openssh ]}
   '';
 
-  # we run tests in a seperate package
+  # we run tests in a separate package
   doCheck = false;
 
   meta = with lib; {

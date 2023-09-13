@@ -1,54 +1,52 @@
-use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::{create_database, CockroachManager};
 use crate::electrs_manager::ElectrsManager;
 use crate::https_client;
-use crate::manager::{Check, Manager};
 use crate::ports::get_available_port;
-use anyhow::{anyhow, Result};
-use async_trait::async_trait;
-use bitcoin::secp256k1::serde::de::DeserializeOwned;
+use anyhow::{anyhow, bail, Context, Result};
 use kld::settings::Settings;
-use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use reqwest::Method;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::env::set_var;
 use std::fs;
+use std::marker::PhantomData;
+use std::process::{Child, Command, Stdio};
 use tempfile::TempDir;
+use tokio::time::{sleep_until, Duration, Instant};
 
 pub struct KldManager<'a> {
-    manager: Manager<'a>,
-    bin_path: String,
-    pub exporter_address: String,
-    pub rest_api_address: String,
-    pub peer_port: u16,
+    process: Child,
+    exporter_port: u16,
+    rest_port: u16,
     rest_client: reqwest::Client,
+    _electrs: PhantomData<&'a ElectrsManager<'a, 'a>>,
 }
 
 impl<'a> KldManager<'a> {
     pub async fn new(
         output_dir: &'a TempDir,
         kld_bin: &str,
-        bitcoin: &BitcoinManager<'a>,
         cockroach: &CockroachManager<'a>,
-        electrs: &ElectrsManager<'a>,
+        _electrs: &ElectrsManager<'a, 'a>,
         settings: &mut Settings,
     ) -> Result<KldManager<'a>> {
-        let exporter_address = format!("127.0.0.1:{}", get_available_port()?);
-        let rest_api_address = format!("127.0.0.1:{}", get_available_port()?);
-        let peer_port = get_available_port()?;
-
-        let manager = Manager::new(output_dir, "kld", &settings.node_id)?;
+        let exporter_port = get_available_port()?;
+        let rest_port = get_available_port()?;
+        settings.rest_api_address = format!("127.0.0.1:{rest_port}");
+        settings.exporter_address = format!("127.0.0.1:{exporter_port}");
+        settings.peer_port = get_available_port()?;
+        let storage_dir = output_dir.path().join(format!("kld_{}", settings.node_id));
+        std::fs::create_dir(&storage_dir)?;
 
         let certs_dir = format!("{}/certs", env!("CARGO_MANIFEST_DIR"));
 
         create_database(settings).await;
 
-        set_var("KLD_DATA_DIR", &manager.storage_dir);
+        set_var("KLD_DATA_DIR", &storage_dir);
         set_var("KLD_CERTS_DIR", &certs_dir);
         set_var(
             "KLD_MNEMONIC_PATH",
-            manager
-                .storage_dir
+            storage_dir
                 .join("mnemonic")
                 .into_os_string()
                 .into_string()
@@ -58,13 +56,16 @@ impl<'a> KldManager<'a> {
             "KLD_WALLET_NAME",
             format!("kld-wallet-{}", &settings.node_id),
         );
-        set_var("KLD_PEER_PORT", peer_port.to_string());
-        set_var("KLD_EXPORTER_ADDRESS", &exporter_address);
-        set_var("KLD_REST_API_ADDRESS", &rest_api_address);
-        set_var("KLD_BITCOIN_NETWORK", &bitcoin.network);
-        set_var("KLD_BITCOIN_COOKIE_PATH", bitcoin.cookie_path());
+        set_var("KLD_PEER_PORT", settings.peer_port.to_string());
+        set_var("KLD_EXPORTER_ADDRESS", &settings.exporter_address);
+        set_var("KLD_REST_API_ADDRESS", &settings.rest_api_address);
+        set_var("KLD_BITCOIN_NETWORK", settings.bitcoin_network.to_string());
+        set_var("KLD_BITCOIN_COOKIE_PATH", &settings.bitcoin_cookie_path);
         set_var("KLD_BITCOIN_RPC_HOST", "127.0.0.1");
-        set_var("KLD_BITCOIN_RPC_PORT", bitcoin.rpc_port.to_string());
+        set_var(
+            "KLD_BITCOIN_RPC_PORT",
+            settings.bitcoind_rpc_port.to_string(),
+        );
         set_var("KLD_DATABASE_PORT", cockroach.sql_port.to_string());
         set_var("KLD_DATABASE_NAME", settings.database_name.clone());
         set_var("KLD_NODE_ID", settings.node_id.clone());
@@ -82,38 +83,61 @@ impl<'a> KldManager<'a> {
         );
         set_var("KLD_LOG_LEVEL", "debug");
         set_var("KLD_NODE_ALIAS", "kld-00-alias");
-        set_var("KLD_ELECTRS_URL", electrs.rpc_address.clone());
+        set_var("KLD_ELECTRS_URL", settings.electrs_url.clone());
 
-        let client = https_client();
-
-        let mut kld = KldManager {
-            manager,
-            bin_path: kld_bin.to_string(),
-            exporter_address,
-            rest_api_address,
-            peer_port,
-            rest_client: client,
+        let mut process = if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            Command::new(kld_bin)
+                .stdout(fs::File::create(storage_dir.join("kld.log"))?)
+                .stderr(Stdio::null())
+                .spawn()
+                .with_context(|| "failed to start kld")?
+        } else {
+            Command::new(kld_bin)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .with_context(|| "failed to start kld")?
         };
-        settings.rest_api_address = kld.rest_api_address.clone();
-        settings.exporter_address = kld.exporter_address.clone();
-        settings.peer_port = kld.peer_port;
-        kld.start(KldCheck(settings.clone())).await?;
-        Ok(kld)
+
+        let macaroon_path = storage_dir.join("macaroons").join("admin.macaroon");
+
+        // Check macaroon for rest api and exporter api directly
+        let mut count = 0;
+        while !macaroon_path.exists()
+            || reqwest::get(format!("http://127.0.0.1:{}/health", exporter_port))
+                .await
+                .is_err()
+        {
+            if count > 3 {
+                let _ = process.kill();
+                bail!("kld fail to initialize");
+            } else {
+                sleep_until(Instant::now() + Duration::from_secs(1 + count * 3)).await;
+                count += 1;
+            }
+        }
+
+        Ok(KldManager {
+            process,
+            rest_client: https_client(Some(fs::read(macaroon_path)?))?,
+            _electrs: PhantomData,
+            exporter_port,
+            rest_port,
+        })
     }
 
-    pub async fn start(&mut self, check: impl Check) -> Result<()> {
-        self.manager.start(&self.bin_path, &[], check).await
-    }
-
-    pub fn pid(&self) -> Option<u32> {
-        self.manager.process.as_ref().map(|p| p.id())
+    pub fn pid(&self) -> u32 {
+        self.process.id()
     }
 
     pub async fn call_exporter(&self, method: &str) -> Result<String, reqwest::Error> {
-        reqwest::get(format!("http://{}/{}", self.exporter_address, method))
-            .await?
-            .text()
-            .await
+        reqwest::get(format!(
+            "http://127.0.0.1:{}/{}",
+            self.exporter_port, method
+        ))
+        .await?
+        .text()
+        .await
     }
 
     pub async fn call_rest_api<T: DeserializeOwned, B: Serialize>(
@@ -122,21 +146,12 @@ impl<'a> KldManager<'a> {
         route: &str,
         body: B,
     ) -> Result<T> {
-        let macaroon = fs::read(
-            self.manager
-                .storage_dir
-                .join("macaroons")
-                .join("admin.macaroon"),
-        )?;
-
         let res = self
             .rest_client
             .request(
                 method,
-                format!("https://{}{}", self.rest_api_address, route),
+                format!("https://127.0.0.1:{}{}", self.rest_port, route),
             )
-            .header("macaroon", macaroon)
-            .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
             .body(serde_json::to_string(&body).unwrap())
             .send()
             .await?;
@@ -155,20 +170,13 @@ impl<'a> KldManager<'a> {
     }
 }
 
-pub struct KldCheck(pub Settings);
-
-#[async_trait]
-impl Check for KldCheck {
-    async fn check(&self) -> bool {
-        if let Ok(res) = reqwest::get(format!("http://{}/health", self.0.exporter_address)).await {
-            if let Ok(text) = res.text().await {
-                if text == "OK" {
-                    return true;
-                } else {
-                    println!("KLD {} health: {text}", self.0.node_id)
-                }
-            }
+impl Drop for KldManager<'_> {
+    fn drop(&mut self) {
+        // Report unexpected kld close, try kill the kld process and wait the log
+        match self.process.try_wait() {
+            Ok(Some(status)) => eprintln!("kld exited unexpected, status code: {status}"),
+            Ok(None) => self.process.kill().expect("kld couldn't be killed"),
+            Err(_) => panic!("error attempting bitcoind status"),
         }
-        return false;
     }
 }

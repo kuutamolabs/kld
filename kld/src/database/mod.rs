@@ -230,7 +230,7 @@ pub fn microsecond_timestamp() -> OffsetDateTime {
         .unwrap()
 }
 
-pub fn to_primative(offset: &OffsetDateTime) -> PrimitiveDateTime {
+pub fn to_primitive(offset: &OffsetDateTime) -> PrimitiveDateTime {
     PrimitiveDateTime::new(offset.date(), offset.time())
 }
 

@@ -123,7 +123,6 @@ pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {
 
 pub fn generate_disk_encryption_key(key: &Path) -> Result<()> {
     let mut rng = thread_rng();
-    // XXX Should be much more than Alphanumeric, just avoid the bytes not work via ssh connection
     let secret: Vec<u8> = (&mut rng).sample_iter(Alphanumeric).take(32).collect();
     let mut file = std::fs::File::create(key)?;
     file.write_all(&secret)?;

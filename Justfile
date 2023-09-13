@@ -15,6 +15,6 @@ test:
 manual:
   cargo test test_manual -- --ignored
 
-# Continously run cargo check as code changes
+# Continuously run cargo check as code changes
 watch:
   cargo watch

@@ -1,0 +1,6 @@
+[default.extend-words]
+lightning  = "lightning"
+inh = "inh"
+
+[files]
+extend-exclude = [ "*.csr" ]

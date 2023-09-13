@@ -145,7 +145,7 @@ impl LightningInterface for Controller {
         override_config: Option<UserConfig>,
     ) -> Result<OpenChannelResult> {
         if !self.bitcoind_client.is_synchronised().await {
-            bail!("Bitcoind is syncronising blockchain")
+            bail!("Bitcoind is synchronising blockchain")
         }
         if !self.peer_manager.is_connected(&their_network_key) {
             return Err(anyhow!("Peer not connected"));
@@ -181,7 +181,7 @@ impl LightningInterface for Controller {
         counterparty_node_id: &PublicKey,
     ) -> Result<()> {
         if !self.bitcoind_client.is_synchronised().await {
-            bail!("Bitcoind is syncronising blockchain")
+            bail!("Bitcoind is synchronising blockchain")
         }
         self.channel_manager
             .close_channel(channel_id, counterparty_node_id)
@@ -413,7 +413,7 @@ impl LightningInterface for Controller {
                         failed_paths_retry: _,
                         payment_id: _,
                     } => {
-                        // Moniter updates are persisted async so continue if MonitorUpdateInProgress is the only "error" we get.
+                        // Monitor updates are persisted async so continue if MonitorUpdateInProgress is the only "error" we get.
                         if !results.iter().all(|result| {
                             result.is_ok()
                                 || result
@@ -461,7 +461,7 @@ impl LightningInterface for Controller {
         Ok(self
             .scorer
             .lock()
-            .map_err(|e| anyhow!("failed to aquire lock on scorer {}", e))?
+            .map_err(|e| anyhow!("failed to acquire lock on scorer {}", e))?
             .estimated_channel_liquidity_range(scid, target))
     }
 

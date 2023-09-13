@@ -62,21 +62,25 @@ impl<'a> CockroachManagerBuilder<'a> {
             perms.set_mode(0o600);
             fs::set_permissions(file.path(), perms)?;
         }
-        let args = &[
-            "start-single-node",
-            &format!("--listen-addr=127.0.0.1:{}", self.port),
-            &format!("--sql-addr=127.0.0.1:{}", self.sql_port),
-            &format!("--http-addr={}", self.http_address),
-            &format!("--certs-dir={}", self.certs_dir),
-            "--insecure",
-            "--store=type=mem,size=0.25",
-            // NOTE
-            // Uncomment it for debugging , there is not good reason always log
-            // Will be with #619
-            // &format!(r#"--log="{{file-defaults:{{dir:{}}},sinks:{{stderr:{{filter: NONE}}}}}}""#, self._output_dir.path().join("db.log").display())
+        let mut args = vec![
+            "start-single-node".into(),
+            format!("--listen-addr=127.0.0.1:{}", self.port),
+            format!("--sql-addr=127.0.0.1:{}", self.sql_port),
+            format!("--http-addr={}", self.http_address),
+            format!("--certs-dir={}", self.certs_dir),
+            "--insecure".into(),
+            "--store=type=mem,size=0.25".into(),
         ];
+
         let working_dir = self.output_dir.path().join("cockroachdb");
         fs::create_dir(&working_dir)?;
+
+        if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            args.push(format!(
+                r#"--log={{file-defaults: {{dir: {}}}}}"#,
+                working_dir.display()
+            ));
+        }
 
         Command::new("cockroach")
             .current_dir(&working_dir)
@@ -128,7 +132,7 @@ impl<'a> CockroachManager<'a> {
 impl Drop for CockroachManager<'_> {
     fn drop(&mut self) {
         // Report unexpected DB close, else just kill the db process without waiting because everything in under
-        // memory/temp folder and is managable
+        // memory/temp folder and is manageable
         match self.process.try_wait() {
             Ok(Some(status)) => eprintln!("cockroachdb exited unexpected, status code: {status}"),
             Ok(None) => self.process.kill().expect("cockroachdb couldn't be killed"),

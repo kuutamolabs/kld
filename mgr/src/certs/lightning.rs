@@ -293,7 +293,7 @@ mod tests {
 
         fs::remove_file(&kld_key_path)?;
 
-        // check if the comand is idempotent
+        // check if the command is idempotent
         create_or_update_lightning_certs(&cert_dir, &config.hosts, &CertRenewPolicy::default())?;
 
         assert_eq!(
