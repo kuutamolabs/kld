@@ -1,4 +1,3 @@
-use crate::bitcoin_manager::BitcoinManager;
 use crate::cockroach_manager::{create_database, CockroachManager};
 use crate::electrs_manager::ElectrsManager;
 use crate::https_client;
@@ -23,16 +22,15 @@ pub struct KldManager<'a> {
     pub rest_api_address: String,
     pub peer_port: u16,
     rest_client: reqwest::Client,
-    _bitcoind: PhantomData<&'a BitcoinManager<'a>>,
+    _electrs: PhantomData<&'a ElectrsManager<'a, 'a>>,
 }
 
 impl<'a> KldManager<'a> {
     pub async fn new(
         output_dir: &'a TempDir,
         kld_bin: &str,
-        _bitcoind: &BitcoinManager<'a>,
         cockroach: &CockroachManager<'a>,
-        electrs: &ElectrsManager<'a>,
+        _electrs: &ElectrsManager<'a, 'a>,
         settings: &mut Settings,
     ) -> Result<KldManager<'a>> {
         let exporter_address = format!("127.0.0.1:{}", get_available_port()?);
@@ -87,7 +85,7 @@ impl<'a> KldManager<'a> {
         );
         set_var("KLD_LOG_LEVEL", "debug");
         set_var("KLD_NODE_ALIAS", "kld-00-alias");
-        set_var("KLD_ELECTRS_URL", electrs.rpc_address.clone());
+        set_var("KLD_ELECTRS_URL", settings.electrs_url.clone());
 
         let client = https_client();
 
@@ -98,7 +96,7 @@ impl<'a> KldManager<'a> {
             rest_api_address,
             peer_port,
             rest_client: client,
-            _bitcoind: PhantomData,
+            _electrs: PhantomData,
         };
         settings.rest_api_address = kld.rest_api_address.clone();
         settings.exporter_address = kld.exporter_address.clone();
