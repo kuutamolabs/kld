@@ -145,7 +145,6 @@ in
 
       # requires proper setup of certificates...
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
 
       hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
