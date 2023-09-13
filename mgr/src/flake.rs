@@ -48,8 +48,12 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         let host_path = tmp_dir.path().join(format!("{name}.toml"));
         let mut host_file = File::create(&host_path)
             .with_context(|| format!("could not create {}", host_path.display()))?;
-        let host_toml =
+        let mut host_toml =
             toml::to_string(&host).with_context(|| format!("cannot serialize {name} to toml"))?;
+        host_toml = format!(
+            "deployment_flake = \"{}\"\n",
+            &config.global.deployment_flake
+        ) + &host_toml;
         host_file
             .write_all(host_toml.as_bytes())
             .with_context(|| format!("Cannot write {}", host_path.display()))?;

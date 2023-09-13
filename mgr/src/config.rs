@@ -243,9 +243,6 @@ pub struct Host {
     /// Extra NixOS modules to include in the system
     pub extra_nixos_modules: Vec<String>,
 
-    /// The url that is used for nixos-rebuild
-    pub deployment_flake: String,
-
     /// Mac address of the public interface to use
     pub mac_address: Option<String>,
 
@@ -457,7 +454,6 @@ fn validate_host(
     host: &HostConfig,
     default: &HostConfig,
     preset_mnemonic: bool,
-    global: &Global,
 ) -> Result<Host> {
     if !host.others.is_empty() {
         bail!(
@@ -661,7 +657,6 @@ fn validate_host(
         extra_nixos_modules,
         install_ssh_user,
         ssh_hostname,
-        deployment_flake: global.deployment_flake.clone(),
         mac_address,
         ipv4_address,
         ipv4_cidr,
@@ -728,15 +723,13 @@ pub fn parse_config(
 ) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
 
-    let global = validate_global(&config.global, working_directory)?;
-
     let mut hosts = config
         .hosts
         .iter()
         .map(|(name, host)| {
             Ok((
                 name.to_string(),
-                validate_host(name, host, &config.host_defaults, preset_mnemonic, &global)?,
+                validate_host(name, host, &config.host_defaults, preset_mnemonic)?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
@@ -768,6 +761,8 @@ pub fn parse_config(
             cockroach_nodes
         );
     }
+
+    let global = validate_global(&config.global, working_directory)?;
 
     Ok(Config { hosts, global })
 }
@@ -918,17 +913,12 @@ fn test_validate_host() -> Result<()> {
         public_ssh_keys: vec!["".to_string()],
         ..Default::default()
     };
-    let global = Global {
-        deployment_flake: "github:yourorganisation/deployment".to_owned(),
-        ..Default::default()
-    };
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default(), false, &global).unwrap(),
+        validate_host("ipv4-only", &config, &HostConfig::default(), false).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
             extra_nixos_modules: Vec::new(),
-            deployment_flake: global.deployment_flake,
             mac_address: None,
             ipv4_address: Some(
                 "192.168.0.1"
@@ -965,39 +955,18 @@ fn test_validate_host() -> Result<()> {
     // If `ipv6_address` is provided, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host(
-        "ipv4-only",
-        &config,
-        &HostConfig::default(),
-        false,
-        &Global::default()
-    )
-    .is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host(
-        "ipv4-only",
-        &config,
-        &HostConfig::default(),
-        false,
-        &Global::default()
-    )
-    .is_err());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host(
-        "ipv4-only",
-        &config,
-        &HostConfig::default(),
-        false,
-        &Global::default()
-    )
-    .is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_ok());
 
     Ok(())
 }
