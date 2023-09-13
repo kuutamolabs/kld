@@ -379,13 +379,12 @@ impl Host {
             ),
             (
                 PathBuf::from("/root/.ssh/id_ed25519"),
-                fs::read_to_string(ssh.join("id_ed25519")).context("failed to read deploy key")?,
+                fs::read(ssh.join("id_ed25519")).context("failed to read deploy key")?,
                 0o600,
             ),
             (
                 PathBuf::from("/root/.ssh/id_ed25519.pub"),
-                fs::read_to_string(ssh.join("id_ed25519.pub"))
-                    .context("failed to read deploy pub key")?,
+                fs::read(ssh.join("id_ed25519.pub")).context("failed to read deploy pub key")?,
                 0o644,
             ),
             // sshd server key
@@ -393,6 +392,7 @@ impl Host {
                 PathBuf::from("/var/lib/secrets/sshd_key"),
                 fs::read(secrets_dir.join("sshd").join(&self.name))
                     .context("failed to read sshd server key")?,
+                0o600,
             ),
         ];
         if mnemonic.exists() {

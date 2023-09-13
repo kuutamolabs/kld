@@ -7,7 +7,9 @@ use clap::Parser;
 use mgr::certs::{
     create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
 };
-use mgr::secrets::{create_deploy_key, generate_disk_encryption_key, generate_mnemonic_and_macaroons};
+use mgr::secrets::{
+    create_deploy_key, generate_disk_encryption_key, generate_mnemonic_and_macaroons,
+};
 use mgr::ssh::generate_key_pair;
 use mgr::utils::unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
