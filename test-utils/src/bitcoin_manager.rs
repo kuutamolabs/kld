@@ -43,20 +43,22 @@ impl<'a> BitcoinManager<'a> {
         .into_string()
         .expect("should not use non UTF-8 char in path");
 
-        let args = &[
-            "-server",
-            "-noconnect",
-            "-rpcthreads=1",
-            "-listen",
-            &format!("-chain={}", settings.bitcoin_network),
-            &format!("-datadir={}", storage_dir.display()),
-            &format!("-port={}", p2p_port),
-            &format!("-rpcport={}", rpc_port),
-            // NOTE
-            // Uncomment it for debugging , there is not good reason always log
-            // Will integrate with #619
-            // &format!("-debuglogfile=<file>", storage_dir.join("bitcoind.log").display())
+        let mut args = vec![
+            "-server".into(),
+            "-noconnect".into(),
+            "-rpcthreads=1".into(),
+            "-listen".into(),
+            format!("-chain={}", settings.bitcoin_network),
+            format!("-datadir={}", storage_dir.display()),
+            format!("-port={}", p2p_port),
+            format!("-rpcport={}", rpc_port),
         ];
+        if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            args.push(format!(
+                "-debuglogfile={}",
+                storage_dir.join("bitcoind.log").display()
+            ));
+        }
 
         let mut process = Command::new("bitcoind")
             .args(args)

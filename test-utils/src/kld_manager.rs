@@ -85,11 +85,19 @@ impl<'a> KldManager<'a> {
         set_var("KLD_NODE_ALIAS", "kld-00-alias");
         set_var("KLD_ELECTRS_URL", settings.electrs_url.clone());
 
-        let mut process = Command::new(kld_bin)
-            .stdout(Stdio::null()) // pip with #619
-            .stderr(Stdio::null()) // also here
-            .spawn()
-            .with_context(|| "failed to start kld")?;
+        let mut process = if std::env::var("KEEP_TEST_ARTIFACTS_IN").is_ok() {
+            Command::new(kld_bin)
+                .stdout(fs::File::create(storage_dir.join("kld.log"))?)
+                .stderr(Stdio::null())
+                .spawn()
+                .with_context(|| "failed to start kld")?
+        } else {
+            Command::new(kld_bin)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .with_context(|| "failed to start kld")?
+        };
 
         let macaroon_path = storage_dir.join("macaroons").join("admin.macaroon");
 
