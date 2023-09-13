@@ -56,13 +56,6 @@ struct GenerateConfigArgs {
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
-struct UpdateArgs {
-    /// Comma-separated lists of hosts to perform the update
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
 struct SshArgs {
     /// Host to ssh into
     #[clap(long, default_value = "")]
@@ -107,10 +100,6 @@ enum Command {
     GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
-    /// Update applications and OS of hosts, the mnemonic will not be updated
-    Update(UpdateArgs),
-    /// Rollback hosts to previous generation
-    Rollback(RollbackArgs),
     /// SSH into a host
     Ssh(SshArgs),
     /// Reboot hosts
@@ -119,13 +108,6 @@ enum Command {
     SystemInfo(SystemInfoArgs),
     /// Unlock nodes when after reboot
     Unlock(UnlockArgs),
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct RollbackArgs {
-    /// Comma-separated lists of hosts to perform the rollback
-    #[clap(long, default_value = "")]
-    hosts: String,
 }
 
 #[derive(Parser)]
@@ -202,26 +184,6 @@ fn generate_config(
     flake: &NixosFlake,
 ) -> Result<()> {
     mgr::generate_config(&config_args.directory, flake)
-}
-
-fn update(
-    _args: &Args,
-    update_args: &UpdateArgs,
-    config: &Config,
-    flake: &NixosFlake,
-) -> Result<()> {
-    let hosts = filter_hosts(&update_args.hosts, &config.hosts)?;
-    mgr::update(&hosts, flake, &config.global.secret_directory)
-}
-
-fn rollback(
-    _args: &Args,
-    rollback_args: &RollbackArgs,
-    config: &Config,
-    flake: &NixosFlake,
-) -> Result<()> {
-    let hosts = filter_hosts(&rollback_args.hosts, &config.hosts)?;
-    mgr::rollback(&hosts, flake, &config.global.secret_directory)
 }
 
 fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
@@ -321,30 +283,6 @@ pub fn main() -> Result<()> {
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             install(&args, install_args, &config, &flake)
         }
-        Command::Update(ref update_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
-            create_deploy_key(&config.global.secret_directory)?;
-            create_or_update_lightning_certs(
-                &config.global.secret_directory.join("lightning"),
-                &config.hosts,
-                &CertRenewPolicy::default(),
-            )
-            .context("failed to create or update lightning certificates")?;
-            create_or_update_cockroachdb_certs(
-                &config.global.secret_directory.join("cockroachdb"),
-                &config.hosts,
-                &CertRenewPolicy::default(),
-            )
-            .context("failed to create or update cockroachdb certificates")?;
-
-            let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
-            update(&args, update_args, &config, &flake)
-        }
         Command::Unlock(ref unlock_args) => {
             let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
@@ -373,9 +311,6 @@ pub fn main() -> Result<()> {
             match args.action {
                 Command::GenerateConfig(ref config_args) => {
                     generate_config(&args, config_args, &config, &flake)
-                }
-                Command::Rollback(ref rollback_args) => {
-                    rollback(&args, rollback_args, &config, &flake)
                 }
                 Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
                 Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),

@@ -6,9 +6,7 @@ pub use generate_config::generate_config;
 pub use install::install;
 pub use nixos_rebuild::nixos_rebuild;
 pub use reboot::reboot;
-pub use rollback::rollback;
 pub use ssh::ssh;
-pub use update::update;
 
 pub mod certs;
 mod command;
@@ -19,10 +17,8 @@ mod install;
 pub mod logging;
 mod nixos_rebuild;
 mod reboot;
-mod rollback;
 pub mod secrets;
 pub mod ssh;
-mod update;
 
 /// utils for deploy and control remote machines
 pub mod utils;
