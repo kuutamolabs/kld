@@ -54,6 +54,7 @@
           ./hardware.nix
           ./network.nix
           ./rebuild.nix
+          ./restart.nix
           ./telegraf.nix
         ];
         system.stateVersion = "22.05";
