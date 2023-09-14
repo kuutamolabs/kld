@@ -441,6 +441,10 @@ pub struct Global {
     #[serde(default = "default_secret_directory")]
     #[toml_example(default = "secrets")]
     pub secret_directory: PathBuf,
+
+    /// The deploy public key also use for login and unlock other node
+    #[toml_example(skip)]
+    pub deploy_pubkey: Option<String>,
 }
 
 fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> {

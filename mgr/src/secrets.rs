@@ -75,7 +75,7 @@ impl Secrets {
     }
 }
 
-pub fn create_deploy_key(secret_directory: &Path) -> Result<()> {
+pub fn create_deploy_key(secret_directory: &Path) -> Result<String> {
     let ssh_dir = secret_directory.join("ssh");
     fs::create_dir_all(&ssh_dir)?;
     Command::new("ssh-keygen")
@@ -91,7 +91,9 @@ pub fn create_deploy_key(secret_directory: &Path) -> Result<()> {
             &format!("{}/id_ed25519", ssh_dir.display()),
         ])
         .output()?;
-    Ok(())
+    let mut pubkey = fs::read_to_string(ssh_dir.join("id_ed25519.pub"))?;
+    pubkey = pubkey.trim().into();
+    Ok(pubkey)
 }
 
 pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {

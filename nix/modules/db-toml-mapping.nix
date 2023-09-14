@@ -20,7 +20,7 @@ in
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
     kuutamo.disko.networkInterface = cfg.network_interface or "eth0";
 
-    users.extraUsers.root.openssh.authorizedKeys.keys = cfg.public_ssh_keys;
+    users.extraUsers.root.openssh.authorizedKeys.keys = cfg.public_ssh_keys ++ lib.optional (cfg ? deploy_pubkey) cfg.deploy_pubkey;
 
     kuutamo.network.macAddress = cfg.mac_address or null;
 

@@ -116,6 +116,7 @@ in
 
 
       new_machine.wait_for_unit("sshd.service")
+      new_machine.succeed("ssh -o StrictHostKeyChecking=no root@192.168.42.2 -- exit 0 >&2")
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts kld-00").strip()
       for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "bitcoind version", "cockroach version", "kld-cli version", "disk encrypted"):

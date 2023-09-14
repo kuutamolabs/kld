@@ -240,7 +240,7 @@ pub fn main() -> Result<()> {
     let res = match args.action {
         Command::GenerateExample => Ok(println!("{}", ConfigFile::toml_example())),
         Command::Install(ref install_args) => {
-            let config =
+            let mut config =
                 mgr::load_configuration(&args.config, !install_args.generate_secret_on_remote)
                     .with_context(|| {
                         format!(
@@ -248,7 +248,7 @@ pub fn main() -> Result<()> {
                             &args.config.display()
                         )
                     })?;
-            create_deploy_key(&config.global.secret_directory)?;
+            config.global.deploy_pubkey = Some(create_deploy_key(&config.global.secret_directory)?);
             create_or_update_lightning_certs(
                 &config.global.secret_directory.join("lightning"),
                 &config.hosts,
