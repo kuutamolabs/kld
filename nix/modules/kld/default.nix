@@ -180,8 +180,7 @@ in
       ensurePermissions."DATABASE kld" = "ALL";
     }];
 
-    networking.firewall.allowedTCPPorts = [ ]
-      ++ lib.optionals cfg.openFirewall [ cfg.peerPort ];
+    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall [ cfg.peerPort ];
     networking.firewall.extraCommands = lib.concatMapStrings
       (ip:
         if lib.hasInfix ":" ip then ''
