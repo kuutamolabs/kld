@@ -14,9 +14,10 @@ ssh_hostname = "192.168.42.2"
 public_ssh_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMziQ+DhXsMxhx64DxUhR0G/DfSAz2pqAREDy/VUYEEF"]
 disks = ["/dev/vdb", "/dev/vdc"]
 bitcoind_disks = []
-kld_node_alias = "kld-00-alias"
 telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
+kld_node_alias = "kld-00-alias"
+network_interface = "eth1"
 api_ip_access_list = []
 
 [[cockroach_peers]]
