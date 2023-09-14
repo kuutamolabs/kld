@@ -52,6 +52,7 @@ in
       imports = [ shared ];
       systemd.network.networks."10-eth1".networkConfig.Address = "192.168.42.1/24";
       environment.systemPackages = [ pkgs.git ];
+      environment.variables.FLAKE_CHECK = "true";
 
       system.activationScripts.rsa-key = ''
         ${pkgs.coreutils}/bin/install -D -m600 ${./ssh-keys/ssh} /root/.ssh/id_rsa

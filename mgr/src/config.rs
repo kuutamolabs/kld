@@ -8,10 +8,12 @@ use serde_derive::Deserialize;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::env::var;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use toml_example::TomlExample;
 use url::Url;
 
@@ -446,6 +448,17 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     if global.secret_directory.is_relative() {
         global.secret_directory = working_directory.join(global.secret_directory);
     };
+    if let Ok(output) = Command::new("nix")
+        .args(["flake", "show", &global.deployment_flake])
+        .output()
+    {
+        if !output.status.success() && var("FLAKE_CHECK").is_err() {
+            bail!(
+                "deployment flake {} is not accessible, pleas check",
+                global.deployment_flake
+            );
+        }
+    }
     Ok(global)
 }
 
@@ -793,7 +806,7 @@ fn decode_token(s: String) -> Result<(String, String)> {
 pub(crate) const TEST_CONFIG: &str = r#"
 [global]
 knd_flake = "github:kuutamolabs/lightning-knd"
-deployment_flake = "github:myorg/knd-test"
+deployment_flake = "github:kuutamolabs/test-env-one"
 
 [host_defaults]
 public_ssh_keys = [
@@ -828,7 +841,10 @@ pub fn test_parse_config() -> Result<()> {
 
     let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
     assert_eq!(config.global.knd_flake, "github:kuutamolabs/lightning-knd");
-    assert_eq!(config.global.deployment_flake, "github:myorg/knd-test");
+    assert_eq!(
+        config.global.deployment_flake,
+        "github:kuutamolabs/test-env-one"
+    );
 
     let hosts = &config.hosts;
     assert_eq!(hosts.len(), 3);

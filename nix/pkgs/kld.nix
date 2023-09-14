@@ -58,6 +58,7 @@ craneLib.buildPackage {
         chmod -R u+w ./target
       '';
       nativeBuildInputs = nativeBuildInputs ++ [ bitcoind cockroachdb electrs ];
+      FLAKE_CHECK = true;
     };
     inherit cargoArtifacts;
   };
