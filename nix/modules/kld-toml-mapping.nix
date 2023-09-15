@@ -56,6 +56,6 @@ in
     kuutamo.telegraf.hasMonitoring = cfg.telegraf_has_monitoring or false;
     kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
 
-    kuutamo.rebuild.deployment_flake = cfg.deployment_flake;
+    kuutamo.rebuild.deploymentFlake = cfg.deployment_flake;
   };
 }

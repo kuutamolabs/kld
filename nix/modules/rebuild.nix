@@ -5,28 +5,21 @@ let
 in
 {
   options = {
-    kuutamo.rebuild.deployment_flake = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
+    kuutamo.rebuild.deploymentFlake = lib.mkOption {
+      type = lib.types.str;
+      default = "github:kuutamolabs/deployment-example";
       description = lib.mdDoc "The flake to deploy";
     };
   };
 
   config = {
-    assertions = [{
-      assertion = cfg.deployment_flake != null;
-      message = ''
-        Deployment flake must be configured
-      '';
-    }];
-
     system.autoUpgrade = {
       enable = true;
       allowReboot = false;
       dates = "*-*-* *:00:00";
       operation = "switch";
       randomizedDelaySec = "1800";
-      flake = cfg.deployment_flake;
+      flake = cfg.deploymentFlake;
       flags = [ "--refresh" "--no-update-lock-file" ];
     };
   };

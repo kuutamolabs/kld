@@ -1,7 +1,7 @@
 # Global configuration affecting all hosts
 [global]
 # Flake url for your deployment config
-deployment_flake = "github:yourorganisation/deployment"
+deployment_flake = "github:kuutamolabs/deployment-example"
 
 # Flake url for KND
 knd_flake = "github:kuutamolabs/lightning-knd"

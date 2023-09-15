@@ -430,8 +430,9 @@ impl Host {
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default, TomlExample)]
 pub struct Global {
     /// Flake url for your deployment config
-    #[toml_example(default = "github:yourorganisation/deployment")]
+    #[toml_example(default = "github:kuutamolabs/deployment-example")]
     pub deployment_flake: String,
+
     /// Flake url for KND
     #[serde(default = "default_knd_flake")]
     #[toml_example(default = "github:kuutamolabs/lightning-knd")]
