@@ -50,5 +50,6 @@ in
     kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
 
     kuutamo.rebuild.deploymentFlake = cfg.deployment_flake;
+    kuutamo.rebuild.accessTokens = cfg.access_tokens;
   };
 }

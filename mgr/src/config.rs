@@ -430,8 +430,15 @@ impl Host {
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default, TomlExample)]
 pub struct Global {
     /// Flake url for your deployment config
+    /// Please refer https://github.com/kuutamolabs/deployment-example
     #[toml_example(default = "github:kuutamolabs/deployment-example")]
     pub deployment_flake: String,
+
+    /// Tokens for access the deployment flake and the dependencies thereof
+    /// Please noted if your deployment flake repository is open, please set the token read only
+    /// This will be a field in side node config of your deployment flake.
+    #[toml_example(default = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+    pub access_tokens: String,
 
     /// Flake url for KND
     #[serde(default = "default_knd_flake")]
@@ -450,7 +457,14 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
         global.secret_directory = working_directory.join(global.secret_directory);
     };
     if let Ok(output) = Command::new("nix")
-        .args(["flake", "show", &global.deployment_flake])
+        .args([
+            "flake",
+            "show",
+            "--refresh",
+            "--access-tokens",
+            &global.access_tokens,
+            &global.deployment_flake,
+        ])
         .output()
     {
         if !output.status.success() && var("FLAKE_CHECK").is_err() {
@@ -808,6 +822,7 @@ pub(crate) const TEST_CONFIG: &str = r#"
 [global]
 knd_flake = "github:kuutamolabs/lightning-knd"
 deployment_flake = "github:kuutamolabs/test-env-one"
+access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 [host_defaults]
 public_ssh_keys = [

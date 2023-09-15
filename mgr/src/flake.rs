@@ -51,8 +51,10 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         let mut host_toml =
             toml::to_string(&host).with_context(|| format!("cannot serialize {name} to toml"))?;
         host_toml = format!(
-            "deployment_flake = \"{}\"\n",
-            &config.global.deployment_flake
+            r#"deployment_flake = "{}"
+access_tokens = "{}"
+"#,
+            &config.global.deployment_flake, &config.global.access_tokens
         ) + &host_toml;
         host_file
             .write_all(host_toml.as_bytes())

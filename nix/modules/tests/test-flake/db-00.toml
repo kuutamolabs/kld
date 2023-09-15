@@ -2,6 +2,7 @@ name = "db-00"
 nixos_module = "cockroachdb-node"
 extra_nixos_modules = ["qemu-test-profile"]
 deployment_flake = "/tmp/config"
+access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 mac_address = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_cidr = 24

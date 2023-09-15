@@ -1,7 +1,13 @@
 # Global configuration affecting all hosts
 [global]
 # Flake url for your deployment config
+# Please refer https://github.com/kuutamolabs/deployment-example
 deployment_flake = "github:kuutamolabs/deployment-example"
+
+# Tokens for access the deployment flake and the dependencies thereof
+# Please noted if your deployment flake repository is open, please set the token read only
+# This will be a field in side node config of your deployment flake.
+access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # Flake url for KND
 knd_flake = "github:kuutamolabs/lightning-knd"
