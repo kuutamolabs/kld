@@ -7,6 +7,7 @@ pub use install::install;
 pub use nixos_rebuild::nixos_rebuild;
 pub use reboot::reboot;
 pub use ssh::ssh;
+pub use upgrade::upgrade;
 
 pub mod certs;
 mod command;
@@ -19,6 +20,7 @@ mod nixos_rebuild;
 mod reboot;
 pub mod secrets;
 pub mod ssh;
+mod upgrade;
 
 /// utils for deploy and control remote machines
 pub mod utils;
