@@ -56,6 +56,13 @@ struct GenerateConfigArgs {
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
+struct GeneralArgs {
+    /// Comma-separated lists of hosts to perform command
+    #[clap(long, default_value = "")]
+    hosts: String,
+}
+
+#[derive(clap::Args, PartialEq, Debug, Clone)]
 struct SshArgs {
     /// Host to ssh into
     #[clap(long, default_value = "")]
@@ -63,20 +70,6 @@ struct SshArgs {
 
     /// Additional arguments to pass to ssh
     command: Option<Vec<String>>,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct RebootArgs {
-    /// Comma-separated lists of hosts to perform the reboot
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct SystemInfoArgs {
-    /// Comma-separated lists of hosts to perform the install
-    #[clap(long, default_value = "")]
-    hosts: String,
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -98,14 +91,17 @@ enum Command {
     GenerateConfig(GenerateConfigArgs),
     /// Generate kld.toml example
     GenerateExample,
-    /// Install kld cluster on given hosts. This will remove all data of the current system!
+    /// Install kld cluster on given hosts. This will remove all data of the current system! This
+    /// command is required run as sudo user or root user
     Install(InstallArgs),
     /// SSH into a host
     Ssh(SshArgs),
-    /// Reboot hosts
-    Reboot(RebootArgs),
+    /// Reboot hosts. This command is required run as sudo user or root user
+    Reboot(GeneralArgs),
     /// Get system info from a host
-    SystemInfo(SystemInfoArgs),
+    SystemInfo(GeneralArgs),
+    /// Restrat service
+    Restart(GeneralArgs),
     /// Unlock nodes when after reboot
     Unlock(UnlockArgs),
 }
@@ -196,19 +192,19 @@ fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
     mgr::ssh(&hosts, command.as_slice())
 }
 
-fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()> {
+fn reboot(_args: &Args, reboot_args: &GeneralArgs, config: &Config) -> Result<()> {
     let hosts = filter_hosts(&reboot_args.hosts, &config.hosts)?;
     mgr::reboot(&hosts)
 }
 
-fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
+fn system_info(args: &GeneralArgs, config: &Config) -> Result<()> {
     println!("kld-mgr version: {}\n", env!("CARGO_PKG_VERSION"));
     let hosts = filter_hosts(&args.hosts, &config.hosts)?;
     for host in hosts {
         println!("[{}]", host.name);
         if let Ok(output) = std::process::Command::new("ssh")
             .args([
-                host.deploy_ssh_target().as_str(),
+                host.execute_ssh_target().as_str(),
                 "--",
                 "kld-ctl",
                 "system-info",
