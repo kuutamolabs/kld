@@ -4,9 +4,7 @@
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use mgr::certs::{
-    create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
-};
+use mgr::certs::{create_cockroachdb_certs, create_lightning_certs};
 use mgr::secrets::{
     create_deploy_key, generate_disk_encryption_key, generate_mnemonic_and_macaroons,
 };
@@ -188,10 +186,7 @@ fn generate_config(
     mgr::generate_config(&config_args.directory, flake)
 }
 
-fn upgrade(
-    args: &UnlockArgs,
-    config: &Config,
-) -> Result<()> {
+fn upgrade(args: &UnlockArgs, config: &Config) -> Result<()> {
     let disk_encryption_key = args
         .key_file
         .clone()
@@ -205,9 +200,9 @@ fn upgrade(
         println!("# Upgrade {}, may take several minutes", host.name);
         mgr::upgrade(&host)?;
         // try unlock if reboot after upgrade
-        let _  = unlock_over_ssh(&host, &disk_encryption_key);
+        let _ = unlock_over_ssh(&host, &disk_encryption_key);
 
-        // TODO 
+        // TODO
         // garbage collect after upgraded
         println!("# {} info after upgrade", host.name);
         print_host_info(&host)?;
@@ -283,16 +278,14 @@ pub fn main() -> Result<()> {
                         )
                     })?;
             create_deploy_key(&config.global.secret_directory)?;
-            create_or_update_lightning_certs(
+            create_lightning_certs(
                 &config.global.secret_directory.join("lightning"),
                 &config.hosts,
-                &CertRenewPolicy::default(),
             )
             .context("failed to create or update lightning certificates")?;
-            create_or_update_cockroachdb_certs(
+            create_cockroachdb_certs(
                 &config.global.secret_directory.join("cockroachdb"),
                 &config.hosts,
-                &CertRenewPolicy::default(),
             )
             .context("failed to create or update cockroachdb certificates")?;
 
