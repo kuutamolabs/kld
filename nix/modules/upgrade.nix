@@ -47,7 +47,7 @@
         ''
           echo access_tokens=$ACCESS_TOKENS
           ${nixos-rebuild} switch \
-              --refresh --no-update-lock-file \
+              --no-update-lock-file \
               --option --accept-flake-config true \
               --option --access-tokens $ACCESS_TOKENS \
               --flake ${config.kuutamo.upgrade.deploymentFlake}
