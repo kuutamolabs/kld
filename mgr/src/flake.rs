@@ -5,7 +5,7 @@ use std::{fs::File, path::Path};
 use tempfile::{Builder, TempDir};
 
 use super::command::status_to_pretty_err;
-use super::Config;
+use super::{calculate_hash, Config};
 
 /// The nixos flake
 pub struct NixosFlake {
@@ -52,9 +52,10 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
             toml::to_string(&host).with_context(|| format!("cannot serialize {name} to toml"))?;
         host_toml = format!(
             r#"deployment_flake = "{}"
-access_tokens = "{}"
+access_tokens_hash = "{}"
 "#,
-            &config.global.deployment_flake, &config.global.access_tokens
+            &config.global.deployment_flake,
+            calculate_hash(&config.global.access_tokens)
         ) + &host_toml;
         host_file
             .write_all(host_toml.as_bytes())

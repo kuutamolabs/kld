@@ -49,7 +49,7 @@ in
     kuutamo.telegraf.hasMonitoring = cfg.telegraf_has_monitoring or false;
     kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
 
-    kuutamo.rebuild.deploymentFlake = cfg.deployment_flake;
-    kuutamo.rebuild.accessTokens = cfg.access_tokens;
+    kuutamo.upgrade.deploymentFlake = cfg.deployment_flake;
+    kuutamo.upgrade.tokenHash = cfg.access_tokens_hash;
   };
 }

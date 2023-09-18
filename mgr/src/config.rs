@@ -120,7 +120,7 @@ pub struct KmonitorConfig {
     pub password: String,
 }
 
-fn calculate_hash<T: Hash>(t: &T) -> u64 {
+pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
@@ -309,7 +309,7 @@ pub struct Host {
 
 impl Host {
     /// Returns prepared secrets directory for host
-    pub fn secrets(&self, secrets_dir: &Path) -> Result<Secrets> {
+    pub fn secrets(&self, secrets_dir: &Path, access_tokens: &String) -> Result<Secrets> {
         let lightning = secrets_dir.join("lightning");
         let cockroachdb = secrets_dir.join("cockroachdb");
         let mnemonic = secrets_dir.join("mnemonic");
@@ -391,6 +391,11 @@ impl Host {
                 PathBuf::from("/var/lib/secrets/sshd_key"),
                 fs::read(secrets_dir.join("sshd").join(&self.name))
                     .context("failed to read sshd server key")?,
+                0o600,
+            ),
+            (
+                PathBuf::from("/var/lib/secrets/access_tokens"),
+                access_tokens.as_bytes().into(),
                 0o600,
             ),
         ];

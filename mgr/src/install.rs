@@ -33,6 +33,7 @@ pub fn install(
     kexec_url: &str,
     flake: &NixosFlake,
     secrets_dir: &Path,
+    access_tokens: &String,
     debug: bool,
     no_reboot: bool,
 ) -> Result<()> {
@@ -49,7 +50,9 @@ pub fn install(
 
             let disk_encryption_key = secrets_dir.join("disk_encryption_key");
             let disk_encryption_key_path = disk_encryption_key.to_string_lossy();
-            let secrets = host.secrets(secrets_dir).context("Failed to get secrets")?;
+            let secrets = host
+                .secrets(secrets_dir, access_tokens)
+                .context("Failed to get secrets")?;
             let flake_uri = format!("{}#{}", flake.path().display(), host.name);
             let extra_files = format!("{}", secrets.path().display());
             let mut args = vec![

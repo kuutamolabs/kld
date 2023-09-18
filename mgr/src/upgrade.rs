@@ -16,11 +16,17 @@ pub fn upgrade(host: &Host) -> Result<()> {
         .output()
     {
         if !output.status.success() {
-            bail!(
-                "trigger nixos-upgrade of {} error: {}",
-                host.name,
-                std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
-            );
+            let error_msg = std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr");
+
+            // Node will reboot after upgrade, so the D-Bus connection will terminated under
+            // expected
+            if !error_msg.starts_with("Warning! D-Bus connection terminated.") {
+                bail!(
+                    "trigger nixos-upgrade of {} error: {}",
+                    host.name,
+                    error_msg
+                );
+            }
         }
     } else {
         bail!("Fail to trigger nixos-upgrade for {}", host.name);

@@ -172,6 +172,7 @@ fn install(
         &install_args.kexec_url,
         flake,
         &config.global.secret_directory,
+        &config.global.access_tokens,
         install_args.debug,
         install_args.no_reboot,
     )
