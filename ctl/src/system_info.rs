@@ -6,6 +6,7 @@ use std::env;
 struct SystemInfo {
     git_sha: String,
     git_commit_date: String,
+    deployment_flake: Option<String>,
 }
 
 fn read_system_info() -> Result<SystemInfo> {
@@ -81,6 +82,9 @@ pub fn system_info(inline: bool) {
     if let Ok(system_info) = read_system_info() {
         info.push(("git sha", system_info.git_sha));
         info.push(("git commit date", system_info.git_commit_date));
+        if let Some(deployment_flake) = system_info.deployment_flake {
+            info.push(("deployment flake", deployment_flake));
+        }
     }
 
     if let Ok(version) = bitcoind_version() {

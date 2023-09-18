@@ -51,8 +51,8 @@ in
     installer = { pkgs, ... }: {
       imports = [ shared ];
       systemd.network.networks."10-eth1".networkConfig.Address = "192.168.42.1/24";
-      environment.systemPackages = [ pkgs.git ];
       environment.variables.FLAKE_CHECK = "true";
+      environment.systemPackages = [ pkgs.git ];
 
       system.activationScripts.rsa-key = ''
         ${pkgs.coreutils}/bin/install -D -m600 ${./ssh-keys/ssh} /root/.ssh/id_rsa
@@ -113,7 +113,8 @@ in
       hostname = new_machine.succeed("hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
       new_machine.succeed("cat /etc/systemd/system/kld.service | grep -q 'kld-00-alias' || (echo node alias does not set && exit 1)")
-
+      nixos_upgrade_desc = new_machine.succeed("systemctl cat nixos-upgrade | grep Des | awk -F= '{print $2}'").strip()
+      assert nixos_upgrade_desc  == "Kuutamo customized NixOS Upgrade", "nixos-upgrade is not correct"
 
       new_machine.wait_for_unit("sshd.service")
 
@@ -122,7 +123,7 @@ in
           assert version_field  in system_info, f"{version_field} in system info:\n{system_info}"
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts db-00").strip()
-      for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "cockroach version", "disk encrypted"):
+      for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "cockroach version", "disk encrypted", "deployment flake"):
           assert version_field  in system_info, f"{version_field} not in system info:\n{system_info}"
       # TODO test actual service here
 

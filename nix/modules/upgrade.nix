@@ -21,12 +21,14 @@
       unitConfig.X-StopOnRemoval = false;
 
       serviceConfig.Type = "oneshot";
+      serviceConfig.EnvironmentFile = [
+        /var/lib/secrets/access-tokens
+      ];
 
       environment = config.nix.envVars // {
         inherit (config.environment.sessionVariables) NIX_PATH;
         HOME = "/root";
         TOKEN_HAHS = config.kuutamo.upgrade.tokenHash;
-        ACCESS_TOKENS = "/var/lib/secrets/access_tokens";
       } // config.networking.proxy.envVars;
 
       path = with pkgs; [
@@ -45,12 +47,11 @@
           shutdown = "${config.systemd.package}/bin/shutdown";
         in
         ''
-          echo access_tokens=$ACCESS_TOKENS
           ${nixos-rebuild} switch \
-              --no-update-lock-file \
-              --option --accept-flake-config true \
-              --option --access-tokens $ACCESS_TOKENS \
-              --flake ${config.kuutamo.upgrade.deploymentFlake}
+            --no-update-lock-file \
+            --option --accept-flake-config true \
+            --option --access-tokens $ACCESS_TOKENS \
+            --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${shutdown} -r
         '';
 

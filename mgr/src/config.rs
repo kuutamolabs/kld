@@ -394,8 +394,8 @@ impl Host {
                 0o600,
             ),
             (
-                PathBuf::from("/var/lib/secrets/access_tokens"),
-                access_tokens.as_bytes().into(),
+                PathBuf::from("/var/lib/secrets/access-tokens"),
+                format!("ACCESS_TOKENS={access_tokens:}").as_bytes().into(),
                 0o600,
             ),
         ];

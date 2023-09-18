@@ -27,6 +27,7 @@
       environment.etc."system-info.toml".text = ''
         git_sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         git_commit_date = "20230424000000"
+        deployment_flake = "dirty"
       '';
     };
   } // import ./test-flake/configurations.nix {
