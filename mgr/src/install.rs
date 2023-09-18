@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     command::status_to_pretty_err,
-    utils::{timeout_ssh, unlock_over_ssh},
+    utils::{timeout_ssh, try_unlock_over_ssh},
 };
 
 use super::{Host, NixosFlake};
@@ -93,7 +93,7 @@ pub fn install(
             );
 
             loop {
-                if unlock_over_ssh(host, &disk_encryption_key).is_ok() {
+                if try_unlock_over_ssh(host, &disk_encryption_key).is_ok() {
                     info!("Unlocked {}", host.name);
                     break;
                 }

@@ -1,8 +1,10 @@
 use super::Host;
+use crate::utils::{timeout_ssh, unlock_over_ssh};
 use anyhow::{bail, Result};
+use std::path::PathBuf;
 
 /// Trigger nixos-upgrade to upgrade host on a given machine,
-pub fn upgrade(host: &Host) -> Result<()> {
+pub fn upgrade(host: &Host, disk_encryption_key: &PathBuf) -> Result<()> {
     // TODO
     // pipe installing log
     if let Ok(output) = std::process::Command::new("ssh")
@@ -31,5 +33,20 @@ pub fn upgrade(host: &Host) -> Result<()> {
     } else {
         bail!("Fail to trigger nixos-upgrade for {}", host.name);
     }
+    loop {
+        if unlock_over_ssh(host, disk_encryption_key).is_ok() {
+            println!("\n# Unlocked {}", host.name);
+            break;
+        }
+    }
+
+    loop {
+        // After unlock the sshd will start in port 22
+        if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
+            break;
+        }
+    }
+    // TODO
+    // garbage collect after upgraded
     Ok(())
 }

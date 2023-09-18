@@ -9,7 +9,7 @@ use mgr::secrets::{
     create_deploy_key, generate_disk_encryption_key, generate_mnemonic_and_macaroons,
 };
 use mgr::ssh::generate_key_pair;
-use mgr::utils::unlock_over_ssh;
+use mgr::utils::try_unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::io::{self, BufRead, Write};
@@ -199,12 +199,7 @@ fn upgrade(args: &UnlockArgs, config: &Config) -> Result<()> {
         println!("# {} info before upgrade", host.name);
         print_host_info(&host)?;
         println!("# Upgrade {}, may take several minutes", host.name);
-        mgr::upgrade(&host)?;
-        // try unlock if reboot after upgrade
-        let _ = unlock_over_ssh(&host, &disk_encryption_key);
-
-        // TODO
-        // garbage collect after upgraded
+        mgr::upgrade(&host, &disk_encryption_key)?;
         println!("# {} info after upgrade", host.name);
         print_host_info(&host)?;
     }
@@ -333,7 +328,7 @@ pub fn main() -> Result<()> {
                 .clone()
                 .unwrap_or_else(|| config.global.secret_directory.join("disk_encryption_key"));
             for host in filter_hosts(&unlock_args.hosts, &config.hosts)? {
-                unlock_over_ssh(&host, &disk_encryption_key)?;
+                try_unlock_over_ssh(&host, &disk_encryption_key)?;
             }
             Ok(())
         }
