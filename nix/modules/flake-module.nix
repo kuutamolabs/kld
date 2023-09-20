@@ -55,6 +55,7 @@
           ./network.nix
           ./upgrade.nix
           ./telegraf.nix
+          (import ./pinned-registry.nix { inherit inputs; })
         ];
         system.stateVersion = "22.05";
         _module.args.self = self;
