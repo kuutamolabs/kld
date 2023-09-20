@@ -98,8 +98,6 @@ enum Command {
     GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
-    /// Upgrade applications and OS of hosts base on deployment flake
-    Upgrade(UnlockArgs),
     /// SSH into a host
     Ssh(SshArgs),
     /// Reboot hosts
@@ -185,25 +183,6 @@ fn generate_config(
     flake: &NixosFlake,
 ) -> Result<()> {
     mgr::generate_config(&config_args.directory, flake)
-}
-
-fn upgrade(args: &UnlockArgs, config: &Config) -> Result<()> {
-    let disk_encryption_key = args
-        .key_file
-        .clone()
-        .unwrap_or_else(|| config.global.secret_directory.join("disk_encryption_key"));
-    if !disk_encryption_key.exists() {
-        bail!("Abort! The node will be locked after upgrade without disk_encryption_key")
-    }
-    for host in filter_hosts(&args.hosts, &config.hosts)? {
-        println!("# {} info before upgrade", host.name);
-        print_host_info(&host)?;
-        println!("# Upgrade {}, may take several minutes", host.name);
-        mgr::upgrade(&host, &disk_encryption_key)?;
-        println!("# {} info after upgrade", host.name);
-        print_host_info(&host)?;
-    }
-    Ok(())
 }
 
 fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
@@ -305,15 +284,6 @@ pub fn main() -> Result<()> {
             }
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             install(&args, install_args, &config, &flake)
-        }
-        Command::Upgrade(ref upgrade_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
-            upgrade(upgrade_args, &config)
         }
         Command::Unlock(ref unlock_args) => {
             let config = mgr::load_configuration(&args.config, false).with_context(|| {
