@@ -18,7 +18,6 @@ bitcoind_disks = []
 telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
 network_interface = "eth1"
-api_ip_access_list = []
 
 [[cockroach_peers]]
 name = "db-00"
