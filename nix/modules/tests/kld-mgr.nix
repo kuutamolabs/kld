@@ -148,6 +148,12 @@ in
       hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
 
+      # trigger upgrade on the same source
+      installer.succeed("scp -r /root/lightning-knd root@192.168.42.2:/root")
+      installer.succeed("scp -r /tmp/config root@192.168.42.2:/tmp")
+      new_machine.succeed("cd /root/lightning-knd && nix flake lock")
+      new_machine.succeed("systemctl start nixos-upgrade || (journalctl -eu nixos-upgrade.service && exit 1)")
+
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml reboot --hosts kld-00 >&2")
       new_machine.connected = False
     '';

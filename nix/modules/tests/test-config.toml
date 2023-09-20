@@ -1,7 +1,7 @@
 [global]
 # we provide this path in our nixos test
 knd_flake = "/root/lightning-knd"
-deployment_flake = "file:///tmp/config"
+deployment_flake = "path:/tmp/config"
 access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 [host_defaults]
