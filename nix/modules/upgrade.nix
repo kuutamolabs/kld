@@ -44,7 +44,7 @@
       script =
         let
           nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
-          shutdown = "${config.systemd.package}/bin/shutdown";
+          nix-collect-garbage = "${config.nix.package.out}/bin/nix-collect-garbage";
         in
         ''
           ${nixos-rebuild} switch \
@@ -52,7 +52,7 @@
             --option --accept-flake-config true \
             --option --access-tokens $ACCESS_TOKENS \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
-          ${shutdown} -r
+          ${nix-collect-garbage}
         '';
 
       after = [ "network-online.target" ];
