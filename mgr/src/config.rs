@@ -398,6 +398,12 @@ impl Host {
                 format!("ACCESS_TOKENS={access_tokens:}").as_bytes().into(),
                 0o600,
             ),
+            (
+                PathBuf::from("/var/lib/secrets/disk_encryption_key"),
+                fs::read(secrets_dir.join("disk_encryption_key"))
+                    .context("failed to read disk_encrypted_key")?,
+                0o600,
+            ),
         ];
         if mnemonic.exists() {
             secret_files.push((
