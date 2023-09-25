@@ -56,6 +56,52 @@
           ./upgrade.nix
           ./telegraf.nix
         ];
+        nix.registry = {
+          nixpkgs.to = {
+            type = "path";
+            path = inputs.nixpkgs;
+          };
+          flake-parts.to = {
+            type = "path";
+            path = inputs.flake-parts;
+          };
+          flake-utils.to = {
+            type = "path";
+            path = inputs.flake-utils;
+          };
+          treefmt-nix.to = {
+            type = "path";
+            path = inputs.treefmt-nix;
+          };
+          systems.to = {
+            type = "path";
+            path = inputs.systems;
+          };
+          rust-overlay.to = {
+            type = "path";
+            path = inputs.rust-overlay;
+          };
+          crane.to = {
+            type = "path";
+            path = inputs.crane;
+          };
+          srvos.to = {
+            type = "path";
+            path = inputs.srvos;
+          };
+          disko.to = {
+            type = "path";
+            path = inputs.disko;
+          };
+          nixos-images.to = {
+            type = "path";
+            path = inputs.nixos-images;
+          };
+          nixos-anywhere.to = {
+            type = "path";
+            path = inputs.nixos-anywhere;
+          };
+        };
         system.stateVersion = "22.05";
         _module.args.self = self;
       };
