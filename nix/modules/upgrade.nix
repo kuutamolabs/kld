@@ -43,8 +43,12 @@
 
       script =
         let
+          readlink = "${pkgs.coreutils}/bin/readlink";
+          cat = "${pkgs.coreutils}/bin/cat";
           nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
           nix-collect-garbage = "${config.nix.package.out}/bin/nix-collect-garbage";
+          kexec = "${pkgs.kexec-tools}/bin/kexec";
+          systemctl = "${config.systemd.package}/bin/systemctl";
         in
         ''
           ${nixos-rebuild} switch \
@@ -53,6 +57,16 @@
             --option --access-tokens $ACCESS_TOKENS \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
+          p=$(${readlink} -f /nix/var/nix/profiles/system)
+          if cat /proc/cmdline | grep 'disk-key'; then
+            ${kexec} --load $p/kernel --initrd=$p/initrd \
+              --reuse-cmdline \
+              init=$p/init && ${systemctl} kexec
+          else
+            ${kexec} --load $p/kernel --initrd=$p/initrd \
+              --append="loglevel=4 net.ifnames=0 disk-key=$(${cat} /var/lib/secrets/disk_encryption_key)" \
+              init=$p/init && ${systemctl} kexec
+          fi
         '';
 
       after = [ "network-online.target" ];
