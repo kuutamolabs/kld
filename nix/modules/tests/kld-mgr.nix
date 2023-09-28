@@ -152,7 +152,8 @@ in
       installer.succeed("scp -r /root/lightning-knd root@192.168.42.2:/root")
       installer.succeed("scp -r /tmp/config root@192.168.42.2:/tmp")
       new_machine.succeed("cd /root/lightning-knd && nix flake lock")
-      new_machine.succeed("systemctl start nixos-upgrade || (journalctl -eu nixos-upgrade.service && exit 1)")
+      new_machine.succeed("systemctl start nixos-upgrade || journalctl -eu nixos-upgrade.service")
+      new_machine.wait_for_unit("sshd.service")
 
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml reboot --hosts kld-00 >&2")
       new_machine.connected = False
