@@ -59,14 +59,17 @@
             --option --access-tokens $ACCESS_TOKENS \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
+          ${kexec} -u
           p=$(${readlink} -f /nix/var/nix/profiles/system)
-          if cat /proc/cmdline | grep 'disk-key'; then
+          if ${cat} /proc/cmdline | grep 'disk-key'; then
             ${kexec} --load $p/kernel --initrd=$p/initrd \
               --reuse-cmdline \
               init=$p/init && ${systemctl} kexec
           else
+            key=$(${cat} /var/lib/secrets/disk_encryption_key)
+            prev_cmds=$(${cat} /proc/cmdline)
             ${kexec} --load $p/kernel --initrd=$p/initrd \
-              --append="loglevel=4 net.ifnames=0 disk-key=$(${cat} /var/lib/secrets/disk_encryption_key)" \
+              --append="$prev_cmds disk-key=$key" \
               init=$p/init && ${systemctl} kexec
           fi
         '';
