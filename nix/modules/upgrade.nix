@@ -14,6 +14,8 @@
   };
 
   config = {
+    systemd.services.prepare-kexec.enable = false;
+
     systemd.services.nixos-upgrade = {
       description = "Kuutamo customized NixOS Upgrade";
 
