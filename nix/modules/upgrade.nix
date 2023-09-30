@@ -46,11 +46,12 @@
       script =
         let
           readlink = "${pkgs.coreutils}/bin/readlink";
-          cat = "${pkgs.coreutils}/bin/cat";
           nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
           nix-collect-garbage = "${config.nix.package.out}/bin/nix-collect-garbage";
           kexec = "${pkgs.kexec-tools}/bin/kexec";
           systemctl = "${config.systemd.package}/bin/systemctl";
+          cpio = "${pkgs.cpio}/bin/cpio";
+          gzip = "${pkgs.gzip}/bin/gzip";
         in
         ''
           ${nixos-rebuild} switch \
@@ -59,19 +60,18 @@
             --option --access-tokens $ACCESS_TOKENS \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
+
+          # Unload kexec if existing
+          # then put disk encrypted key into the new initrd
           ${kexec} -u
           p=$(${readlink} -f /nix/var/nix/profiles/system)
-          if ${cat} /proc/cmdline | grep 'disk-key'; then
-            ${kexec} --load $p/kernel --initrd=$p/initrd \
-              --reuse-cmdline \
-              init=$p/init && ${systemctl} kexec
-          else
-            key=$(${cat} /var/lib/secrets/disk_encryption_key)
-            prev_cmds=$(${cat} /proc/cmdline)
-            ${kexec} --load $p/kernel --initrd=$p/initrd \
-              --append="$prev_cmds disk-key=$key" \
-              init=$p/init && ${systemctl} kexec
-          fi
+          initrd=$(mktemp -d)
+          mkdir -p $initrd/initrd
+          cp $p/initrd $initrd/current-initrd
+          cp /var/lib/secrets/disk_encryption_key $initrd/initrd/key-file
+          cd $initrd/initrd
+          find . |${cpio} -H newc -o | ${gzip} -9 >> ../current-initrd
+          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --reuse-cmdline && ${systemctl} kexec
         '';
 
       after = [ "network-online.target" ];
