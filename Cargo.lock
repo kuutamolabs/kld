@@ -1517,9 +1517,9 @@ dependencies = [
 
 [[package]]
 name = "paperclip"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28494885202a294fbdc5373689bfc6a7c1ba1fd9282da7d257c4f5c0f36e6507"
+checksum = "2509afd8f138efe07cd367832289f5cc61d1eb1ec7f1eb75172abca6f7b9b66d"
 dependencies = [
  "anyhow",
  "heck",
@@ -1542,9 +1542,9 @@ dependencies = [
 
 [[package]]
 name = "paperclip-core"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afd7633cf02474b3369a0b3bb11b4c979677bfff44affd3ef3867f6d53ac069b"
+checksum = "8db363c823fa71c00da73ff8cee3d6902e1ad66b770cc224a74dc7cf54de3aad"
 dependencies = [
  "heck",
  "log",
