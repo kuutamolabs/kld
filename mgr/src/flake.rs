@@ -45,18 +45,20 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
 
     let knd_flake = &config.global.knd_flake;
     for (name, host) in &config.hosts {
-        let host_path = tmp_dir.path().join(format!("{name}.toml"));
-        let mut host_file = File::create(&host_path)
-            .with_context(|| format!("could not create {}", host_path.display()))?;
-        let mut host_toml =
-            toml::to_string(&host).with_context(|| format!("cannot serialize {name} to toml"))?;
-        host_toml = format!(
+        let global_fields = format!(
             r#"deployment_flake = "{}"
 access_tokens_hash = "{}"
 "#,
             &config.global.deployment_flake,
             calculate_hash(&config.global.access_tokens)
-        ) + &host_toml;
+        );
+
+        let host_path = tmp_dir.path().join(format!("{name}.toml"));
+        let mut host_file = File::create(&host_path)
+            .with_context(|| format!("could not create {}", host_path.display()))?;
+        let mut host_toml =
+            toml::to_string(&host).with_context(|| format!("cannot serialize {name} to toml"))?;
+        host_toml = global_fields + &host_toml;
         host_file
             .write_all(host_toml.as_bytes())
             .with_context(|| format!("Cannot write {}", host_path.display()))?;

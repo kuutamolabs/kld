@@ -14,6 +14,8 @@
   };
 
   config = {
+    systemd.services.prepare-kexec.enable = false;
+
     systemd.services.nixos-upgrade = {
       description = "Kuutamo customized NixOS Upgrade";
 
@@ -43,8 +45,13 @@
 
       script =
         let
+          readlink = "${pkgs.coreutils}/bin/readlink";
           nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
           nix-collect-garbage = "${config.nix.package.out}/bin/nix-collect-garbage";
+          kexec = "${pkgs.kexec-tools}/bin/kexec";
+          systemctl = "${config.systemd.package}/bin/systemctl";
+          cpio = "${pkgs.cpio}/bin/cpio";
+          gzip = "${pkgs.gzip}/bin/gzip";
         in
         ''
           ${nixos-rebuild} switch \
@@ -53,6 +60,18 @@
             --option --access-tokens $ACCESS_TOKENS \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
+
+          # Unload kexec if existing
+          # then put disk encrypted key into the new initrd
+          ${kexec} -u
+          p=$(${readlink} -f /nix/var/nix/profiles/system)
+          initrd=$(mktemp -d)
+          mkdir -p $initrd/initrd
+          cp $p/initrd $initrd/current-initrd
+          cp /var/lib/secrets/disk_encryption_key $initrd/initrd/key-file
+          cd $initrd/initrd
+          find . |${cpio} -H newc -o | ${gzip} -9 >> ../current-initrd
+          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --reuse-cmdline && ${systemctl} kexec
         '';
 
       after = [ "network-online.target" ];
