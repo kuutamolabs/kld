@@ -59,6 +59,10 @@ in
       after = [ "bitcoind${if cfg.bitcoindInstance == "bitcoind" then "" else cfg.bitcoindInstance}.service" ];
       serviceConfig = {
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
+          until [ -e ${bitcoinCookieDir}/.cookie ]
+          do
+            sleep 10
+          done
           install -m400 -o electrs ${bitcoinCookieDir}/.cookie /var/lib/electrs/.cookie
         ''}";
         ExecStart = ''
