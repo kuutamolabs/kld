@@ -50,5 +50,7 @@ in
     kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
 
     kuutamo.upgrade.deploymentFlake = cfg.deployment_flake;
+    # Assume the upgrade can be done in 10 mins, so the node will not upgrade at the same time
+    kuutamo.upgrade.time = "*-*-* 2:${toString (cfg.upgrade_order or 0)}0:00";
   };
 }
