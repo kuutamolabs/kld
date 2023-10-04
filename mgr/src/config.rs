@@ -446,8 +446,8 @@ pub struct Global {
     pub deployment_flake: String,
 
     /// Tokens for access the deployment flake and the dependencies thereof
-    /// Please noted if your deployment flake repository is open, please set the token read only
-    /// This will be a field in side node config of your deployment flake.
+    /// Please make sure it is never exipired,
+    /// because we can not update the token after deploy
     #[toml_example(default = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
     pub access_tokens: String,
 
