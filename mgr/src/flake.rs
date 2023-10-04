@@ -5,7 +5,7 @@ use std::{fs::File, path::Path};
 use tempfile::{Builder, TempDir};
 
 use super::command::status_to_pretty_err;
-use super::{calculate_hash, Config};
+use super::Config;
 
 /// The nixos flake
 pub struct NixosFlake {
@@ -46,11 +46,8 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
     let knd_flake = &config.global.knd_flake;
     for (name, host) in &config.hosts {
         let global_fields = format!(
-            r#"deployment_flake = "{}"
-access_tokens_hash = "{}"
-"#,
+            "deployment_flake = \"{}\"\n",
             &config.global.deployment_flake,
-            calculate_hash(&config.global.access_tokens)
         );
 
         let host_path = tmp_dir.path().join(format!("{name}.toml"));

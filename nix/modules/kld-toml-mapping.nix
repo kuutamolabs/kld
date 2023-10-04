@@ -57,6 +57,5 @@ in
     kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
 
     kuutamo.upgrade.deploymentFlake = cfg.deployment_flake;
-    kuutamo.upgrade.tokenHash = cfg.access_tokens_hash;
   };
 }

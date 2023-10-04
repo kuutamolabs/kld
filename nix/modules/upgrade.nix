@@ -6,11 +6,6 @@
       default = "github:kuutamolabs/deployment-example";
       description = lib.mdDoc "The flake to deploy";
     };
-    kuutamo.upgrade.tokenHash = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      description = "access-tokens hash";
-    };
   };
 
   config = {
@@ -30,7 +25,6 @@
       environment = config.nix.envVars // {
         inherit (config.environment.sessionVariables) NIX_PATH;
         HOME = "/root";
-        TOKEN_HAHS = config.kuutamo.upgrade.tokenHash;
       } // config.networking.proxy.envVars;
 
       path = with pkgs; [

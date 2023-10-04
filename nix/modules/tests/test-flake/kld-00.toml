@@ -2,7 +2,6 @@ name = "kld-00"
 nixos_module = "kld-node"
 extra_nixos_modules = ["qemu-test-profile"]
 deployment_flake = "path:/tmp/config"
-access_tokens_hash = "4883526442352193355"
 mac_address = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_cidr = 24
