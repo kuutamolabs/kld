@@ -50,8 +50,8 @@
         ''
           ${nixos-rebuild} switch \
             --no-update-lock-file \
-            --option --accept-flake-config true \
-            --option --access-tokens $ACCESS_TOKENS \
+            --option accept-flake-config true \
+            --option access-tokens $ACCESS_TOKENS \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
 
