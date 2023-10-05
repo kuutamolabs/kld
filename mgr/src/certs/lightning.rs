@@ -51,12 +51,12 @@ fn create_cert(
 
     let mut has_new_ip = false;
     if let Some(ipv4) = host.ipv4_address {
-        if !current_san.contains(&ipv4) {
+        if !current_san.contains(&ipv4) && !host.api_ip_access_list.is_empty() {
             has_new_ip = true;
         }
     }
     if let Some(ipv6) = host.ipv4_address {
-        if !current_san.contains(&ipv6) {
+        if !current_san.contains(&ipv6) && !host.api_ip_access_list.is_empty() {
             has_new_ip = true;
         }
     }
