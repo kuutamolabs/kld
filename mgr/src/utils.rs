@@ -31,17 +31,7 @@ pub fn timeout_ssh(host: &Host, command: &[&str], learn_known_host_key: bool) ->
 pub fn try_unlock_over_ssh(host: &Host, key_file: &PathBuf) -> Result<()> {
     // The node unlocked with start sshd on 22 port, we use this to check the node is unlock or not
     // If not then we will try to pass the disk encryption key to the node via 2222 port.
-    if let Ok(result) = timeout_ssh(
-        host,
-        &[
-            "-o",
-            "ConnectTimeout=10",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "exit",
-        ],
-        true,
-    ) {
+    if let Ok(result) = timeout_ssh(host, &["exit"], true) {
         if result.status.success() {
             // handle a node already unlocked
             println!("{} already unlocked", host.name);
