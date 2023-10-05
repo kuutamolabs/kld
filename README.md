@@ -18,19 +18,7 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
 - `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 
-The server(s) will run `kld` and `cockroachdb`.
-The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.   
-`kld-cli` is also available on the server(s), and can be run on the local machine.
-
-## In life operations
-
-Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.  
-The customized `nixos-updater` services checks for updates in your private deployment repository. If found, the cluster will upgrade.  
-The maintainers of the repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.  
-The install and upgrade workflow is shown below.
-
-![install and upgrade GitOps setup](./install-update-gitops.jpg)
-
+`kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.   Other cluster bootstrap methods are available, such as via USB disk or PXE.
 
 ## Nix quickstart
 
@@ -44,15 +32,19 @@ kld-cli:
 nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 ```
 
-## Example server hardware setup
+## Installation and life operations
 
-- [OVH](https://www.ovhcloud.com/en-gb/bare-metal/rise/rise-1/) - Rise 1, 32GB RAM, 2 x 4TB HDD + 2 x 500GB NVMe, with Ubuntu
+Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.  
+The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.  
+The maintainers of the repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
+The example solution below utilizes GitHub, kuutamo supports other git platforms such as Bitbucket and GitLabs.  
 
-Before [installing Ubuntu on the server](https://support.us.ovhcloud.com/hc/en-us/articles/115001775950-How-to-Install-an-OS-on-a-Dedicated-Server), [add your workstation SSH key](https://docs.ovh.com/gb/en/dedicated/creating-ssh-keys-dedicated/#importing-your-ssh-key-into-the-ovhcloud-control-panel_1).
+![install and upgrade GitOps setup](./install-update-gitops.jpg)
+
 
 ## workstation/local machine setup
 
-1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install is an excellent resource.
+1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install 
 
 2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
 
@@ -65,7 +57,7 @@ $ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes'
 $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
 ```
 
-4. Alias `kld-mgr` and use [`nix run`](https://determinate.systems/posts/nix-run) command:
+4. Alias `kld-mgr` (or use [`nix run`](https://determinate.systems/posts/nix-run) directly) command:
 
 ```bash
 $ printf 'alias kld-mgr="nix run --refresh github:kuutamolabs/lightning-knd --"' >> ~/.bashrc && source ~/.bashrc
@@ -75,10 +67,6 @@ $ printf 'alias kld-mgr="nix run --refresh github:kuutamolabs/lightning-knd --"'
 ```bash
 $ kld-mgr --help
 ```
-
-Answer ‘y’ to the four questions asked.
-After some downloading, you should see the help output.
-
 
 ## kld-cli
 
