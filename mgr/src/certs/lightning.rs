@@ -51,12 +51,12 @@ fn create_cert(
 
     let mut has_new_ip = false;
     if let Some(ipv4) = host.ipv4_address {
-        if !current_san.contains(&ipv4) && !host.api_ip_access_list.is_empty() {
+        if !current_san.contains(&ipv4) {
             has_new_ip = true;
         }
     }
     if let Some(ipv6) = host.ipv4_address {
-        if !current_san.contains(&ipv6) && !host.api_ip_access_list.is_empty() {
+        if !current_san.contains(&ipv6) {
             has_new_ip = true;
         }
     }
@@ -89,15 +89,13 @@ IP.1 = 127.0.0.1
 IP.2 = ::1
 "#
     .to_string();
-    if !host.api_ip_access_list.is_empty() {
-        let mut ip_num = 3;
-        if let Some(ip) = host.ipv4_address {
-            conf += &format!("IP.{ip_num} = {ip}\n");
-            ip_num += 1;
-        }
-        if let Some(ip) = host.ipv6_address {
-            conf += &format!("IP.{ip_num} = {ip}\n");
-        }
+    let mut ip_num = 3;
+    if let Some(ip) = host.ipv4_address {
+        conf += &format!("IP.{ip_num} = {ip}\n");
+        ip_num += 1;
+    }
+    if let Some(ip) = host.ipv6_address {
+        conf += &format!("IP.{ip_num} = {ip}\n");
     }
     std::fs::write(&cert_conf, conf)?;
     openssl(&[
