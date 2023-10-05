@@ -536,7 +536,7 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     {
         if !output.status.success() && var("FLAKE_CHECK").is_err() {
             bail!(
-                "deployment flake {} is not accessible, pleas check",
+                "deployment flake {} is not accessible, please check your access token or network connection",
                 global.deployment_flake
             );
         }
