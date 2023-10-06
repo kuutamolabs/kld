@@ -18,8 +18,6 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
 - `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 
-`kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.   Other cluster bootstrap methods are available, such as via USB disk or PXE.
-
 ## Nix quickstart
 
 kld-mgr:
@@ -34,61 +32,56 @@ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 
 ## Install and in life operations
 
-Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.
-The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
-The maintainers of the repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
-The install and upgrade workflow is shown below.
+Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.  
+The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.  
+The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.  
 
-![install and upgrade GitOps setup](./install-update-gitops.jpg)
+An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and Gitlab can be used inplace.  
+`kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.   
+Other cluster bootstrap methods can be used, such as via USB disk or PXE.
+
+![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
 
 - Step 1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml`
 - Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - Step 3: `git clone git@github.com:my-org/deployment.git`
 - Step 4: `sed -i 's:kuutamolabs/deployment-example:my-org/deployment:' kld.toml`
-- Step 5: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example ./deployment`
+- Step 5: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment`
 - Step 6.1(Github): `mkdir -p ./deployment/.github/workflows`
 - Step 6.2(Github): `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
 - Step 6.3(Github): Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
 - Step 7: `nix run github:kuutamolabs/lightning-knd#kld-mgr install`
 
-## workstation/local machine setup
+## Installing Nix
 
 1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install 
 
 2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
 
-```bash
+```shell
 $ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
 ```
 3. Trust pre-built binaries (optional):
-
-```bash
+```shell
 $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
 ```
 
-4. Alias `kld-mgr` (or use [`nix run`](https://determinate.systems/posts/nix-run) directly) command:
-
-```bash
-$ printf 'alias kld-mgr="nix run --refresh github:kuutamolabs/lightning-knd --"' >> ~/.bashrc && source ~/.bashrc
-```
-5. Test the `kld-mgr` command:
-
-```bash
-$ kld-mgr --help
+4. Test
+```shell 
+$ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
 ```
 
 ## kld-cli
 
-```bash
-[root@kld-00:~]$ kld-cli --help
-```
-```
+```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
+```
+```
 Usage: kld-cli --target <TARGET> --cert-path <CERT_PATH> --macaroon-path <MACAROON_PATH> <COMMAND>
 
 Commands:
   get-info                    Fetch information about this lightning node
-  sign                        Creates a signature of the message using node\'s secret key (message limit 65536 chars)
+  sign                        Creates a signature of the message using nodes secret key (message limit 65536 chars)
   get-balance                 Fetch confirmed and unconfirmed on-chain balance
   new-address                 Generates new on-chain address for receiving funds
   withdraw                    Send on-chain funds out of the wallet
