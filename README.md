@@ -32,15 +32,15 @@ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 
 ## Install and in life operations
 
-By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability. 
+By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability.
 
-The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.  
+The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
-SSH access and manual direct updates over SSH can be enabled for use in developemnt environments.
+SSH access and manual direct updates over SSH can be enabled for use in development environments.
 
-An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and Gitlab can be used inplace.  
-`kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.   
+An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and Gitlab can be used inplace.
+`kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
@@ -58,7 +58,7 @@ Notes:
 
 ## Installing Nix
 
-1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install 
+1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install
 
 2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
 
@@ -71,7 +71,7 @@ $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org
 ```
 
 4. Test
-```shell 
+```shell
 $ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
 ```
 
