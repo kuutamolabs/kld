@@ -8,15 +8,22 @@ If you want to put it into production and would like to discuss SRE overlay supp
 ## Prerequisites
 
 - 1 or 3 server(s)/node(s): Any Linux OS
-- 1 workstation/local machine: Any Linux OS, MacOS.
+- 1 client/local machine: Any Linux OS, MacOS
 
-## Components
+## Key components
 
-- `kld-mgr` - A CLI tool that will SSH to your server(s) to perform the initial deployment
-- `kld-cli` - A CLI tool that will talk to the `kld` API to support LSP operations (e.g. channel open)
-- `kld` - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
-- `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
-- `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+### Client side:
+- `kld-mgr`       - A CLI tool that will SSH to your server(s) to perform the initial deployment
+- `kld-cli`       - A CLI tool that uses the kld API to support LSP operations
+
+### Server side:
+- `kld`           - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
+- `cockroachdb`   - a cloud-native, distributed SQL database
+- `telegraf`      - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+- `promtail`      - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
+- `bitcoind`      - a bitcoin client
+- `electrs`       - a bitcoin database indexer
+- `nixos-upgrade` - a customized updater service that will monitor the deployment repository and apply any required upgrades
 
 ## Nix quickstart
 
@@ -30,6 +37,25 @@ kld-cli:
 nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 ```
 
+## Installing Nix
+
+1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install
+
+2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
+
+```shell
+$ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+```
+3. Trust pre-built binaries (optional):
+```shell
+$ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
+```
+
+4. Test
+```shell
+$ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
+```
+
 ## Install and in life operations
 
 By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability.
@@ -38,7 +64,7 @@ The customized `nixos-updater` service checks for updates in your private deploy
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
 An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
-`kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.
+`kld-mgr` requires root SSH access to server(s) to perform the initial install.   
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
@@ -80,24 +106,6 @@ $ nix run github:kuutamolabs/lightning-knd#kld-mgr install
 $ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
 ```
 
-## Installing Nix
-
-1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install
-
-2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
-
-```shell
-$ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
-```
-3. Trust pre-built binaries (optional):
-```shell
-$ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
-```
-
-4. Test
-```shell
-$ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
-```
 
 ## kld-cli
 
