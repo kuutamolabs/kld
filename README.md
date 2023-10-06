@@ -19,18 +19,28 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 
 The server(s) will run `kld` and `cockroachdb`.
-The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.   
+The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.
 `kld-cli` is also available on the server(s), and can be run on the local machine.
 
 ## In life operations
 
-Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.  
-The customized `nixos-updater` services checks for updates in your private deployment repository. If found, the cluster will upgrade.  
-The maintainers of the repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.  
+Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.
+The customized `nixos-updater` services checks for updates in your private deployment repository. If found, the cluster will upgrade.
+The maintainers of the repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 The install and upgrade workflow is shown below.
 
 ![install and upgrade GitOps setup](./install-update-gitops.jpg)
 
+### Quick notes with command examples
+- Step 1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml`
+- Step 2: Generate classic token with full repo permission, please refer [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+- Step 3: `git clone git@github.com:my-org/deployment.git`
+- Step 4: `sed -i 's:kuutamolabs/deployment-example:my-org/deployment:' kld.toml`
+- Step 5: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example ./deployment`
+- Step 6.1(Github): `mkdir -p ./deployment/.github/workflows`
+- Step 6.2(Github): `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
+- Step 6.3(Github): Please refer [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) when use github
+- Step 7: `nix run github:kuutamolabs/lightning-knd#kld-mgr install`
 
 ## Nix quickstart
 
