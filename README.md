@@ -46,10 +46,15 @@ Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
 
 Notes:
-- Step 0: Make a new directory
+- Step 0: Make a new directory and cd into it
 - Step 1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml`
 - Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
-- Step 5: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment`
+- Step 5.1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config deployment`
+- Step 5.2: `cd deployment`
+- Step 5.3: `git init && git add . && nix flake update`
+- Step 5.4: `git add flake.lock`
+- Step 5.5: `git commit -m init deploy && git push`
+- Step 5.6: `cd ..`
 - Step 6.1: `mkdir -p ./deployment/.github/workflows`
 - Step 6.2: `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
 - Step 6.3: Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
