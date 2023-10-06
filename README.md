@@ -32,15 +32,24 @@ kld-cli:
 nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 ```
 
-## Installation and life operations
+## Install and in life operations
 
-Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.  
-The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.  
+Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.
+The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
 The maintainers of the repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
-The example solution below utilizes GitHub, kuutamo supports other git platforms such as Bitbucket and GitLabs.  
+The install and upgrade workflow is shown below.
 
 ![install and upgrade GitOps setup](./install-update-gitops.jpg)
 
+- Step 1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml`
+- Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+- Step 3: `git clone git@github.com:my-org/deployment.git`
+- Step 4: `sed -i 's:kuutamolabs/deployment-example:my-org/deployment:' kld.toml`
+- Step 5: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example ./deployment`
+- Step 6.1(Github): `mkdir -p ./deployment/.github/workflows`
+- Step 6.2(Github): `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
+- Step 6.3(Github): Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
+- Step 7: `nix run github:kuutamolabs/lightning-knd#kld-mgr install`
 
 ## workstation/local machine setup
 
