@@ -33,8 +33,9 @@
       kuutamo.electrs.network = "regtest";
 
       kuutamo.monitor = {
-        telegrafConfigHash = "";
+        configHash = "";
         telegrafHasMonitoring = false;
+        promtailHasClient = false;
       };
 
       # IO on garnix is really slow

@@ -1,58 +1,116 @@
 { config, pkgs, lib, ... }:
 let
   kld_metrics = if config.kuutamo ? kld then [ "http://localhost:2233/metrics" ] else [ ];
+  prettyJSON = conf: pkgs.runCommandLocal "promtail-config.json" { } ''
+    echo '${builtins.toJSON conf}' | ${pkgs.buildPackages.jq}/bin/jq 'del(._module)' > $out
+  '';
 in
 {
   options = {
-    kuutamo.monitor.telegrafConfigHash = lib.mkOption {
+    kuutamo.monitor.configHash = lib.mkOption {
       type = lib.types.str;
       default = "";
-      description = "telegraf config hash";
+      description = "config hash for telegraf and promtail";
     };
     kuutamo.monitor.telegrafHasMonitoring = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "has monitoring setting or not";
+      description = "has telegraf monitoring setting or not";
     };
     kuutamo.monitor.hostname = lib.mkOption {
       type = lib.types.str;
       default = "";
       description = "the hostname tag on metrics";
     };
-    kuutamo.monitor.promtailClient = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "the endpoint to collect systemd journal. ie: http://kuutamo.monitor/loki/api/v1/push";
+    kuutamo.monitor.promtailHasClient = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "has promtail client setting or not";
     };
   };
   config = {
-    services.promtail = lib.mkIf (config.kuutamo.monitor.promtailClient != null) {
-      enable = true;
-      configuration = {
-        server = {
-          http_listen_port = 9080;
-        };
-        scrape_configs = [{
-          job_name = "journal";
-          journal = {
-            max_age = "12h";
-            labels = {
-              job = "systemd-journal";
-              inherit (config.kuutamo) hostname;
-            };
+    environment.systemPackages = lib.optional config.kuutamo.monitor.promtailHasClient pkgs.promtail;
+    systemd.services.promtail = lib.mkIf config.kuutamo.monitor.promtailHasClient {
+      description = "Promtail log ingress";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
+      stopIfChanged = false;
+
+      serviceConfig = {
+        Restart = "on-failure";
+        TimeoutStopSec = 10;
+        EnvironmentFile = /var/lib/secrets/promtail;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectControlGroups = true;
+        RestrictSUIDSGID = true;
+        PrivateMounts = true;
+        CacheDirectory = "promtail";
+        ReadWritePaths = [ "/var/cache/promtail" ];
+        ExecStart = "${pkgs.promtail}/bin/promtail -config.expand-env=true -config.file=${prettyJSON {
+          server = {
+            http_listen_port = 9080;
           };
-        }];
-        clients = [{
-          url = config.kuutamo.promtailClient;
-        }];
+          positions = {
+            filename = "/var/cache/promtail/positions.yaml";
+          };
+          scrape_configs = [{
+            job_name = "journal";
+            journal = {
+              json = false;
+              path = "/var/log/journal";
+              max_age = "12h";
+              labels = {
+                job = "systemd-journal";
+                host = config.kuutamo.monitor.hostname;
+              };
+            };
+            relabel_configs = [{
+              source_labels = ["__journal__systemd_unit"];
+              target_label = "unit";
+            }];
+          }];
+          clients = [{
+            url = "\${CLIENT_URL}";
+          }];
+        }}";
+
+        User = "promtail";
+        Group = "promtail";
+
+        CapabilityBoundingSet = "";
+        NoNewPrivileges = true;
+
+        ProtectKernelModules = true;
+        SystemCallArchitectures = "native";
+        ProtectKernelLogs = true;
+        ProtectClock = true;
+
+        LockPersonality = true;
+        ProtectHostname = true;
+        RestrictRealtime = true;
+        MemoryDenyWriteExecute = true;
+        PrivateUsers = true;
+
+        SupplementaryGroups = [ "systemd-journal" ];
       };
+    };
+
+    users.groups.promtail = { };
+    users.users.promtail = {
+      description = "Promtail service user";
+      isSystemUser = true;
+      group = "promtail";
     };
     services.telegraf = {
       enable = true;
       environmentFiles =
         if config.kuutamo.monitor.telegrafHasMonitoring then [
           /var/lib/secrets/telegraf
-          (pkgs.writeText "monitoring-configHash" config.kuutamo.monitor.telegrafConfigHash)
+          (pkgs.writeText "monitoring-configHash" config.kuutamo.monitor.configHash)
         ] else [ ];
       extraConfig = {
         agent.interval = "60s";
@@ -70,7 +128,7 @@ in
           prometheus.insecure_skip_verify = true;
           prometheus.urls = [
             "https://${config.kuutamo.cockroachdb.http.address}:${toString config.kuutamo.cockroachdb.http.port}/_status/vars"
-          ] ++ kld_metrics;
+          ] ++ kld_metrics ++ lib.optional config.kuutamo.monitor.promtailHasClient "http://127.0.0.1:9080/metrics";
           prometheus.tags = {
             host = config.kuutamo.monitor.hostname;
           };

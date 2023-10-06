@@ -47,7 +47,8 @@ in
 
     kuutamo.monitor.hostname = cfg.ssh_hostname;
     kuutamo.monitor.telegrafHasMonitoring = cfg.telegraf_has_monitoring or false;
-    kuutamo.monitor.telegrafConfigHash = cfg.telegraf_config_hash or "";
+    kuutamo.monitor.promtailHasClient = cfg.promtail_has_client or false;
+    kuutamo.monitor.configHash = cfg.monitor_config_hash or "";
 
     kuutamo.upgrade.deploymentFlake = cfg.deployment_flake;
   };
