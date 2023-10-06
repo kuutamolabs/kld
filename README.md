@@ -37,29 +37,48 @@ By default, nodes are locked down once installed and cannot be connected to over
 The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
-SSH access and manual direct updates over SSH can be enabled for use in development environments.
-
-An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and Gitlab can be used inplace.
+An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
 `kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
 
-Notes:
-- Step 0: Make a new directory and cd into it
-- Step 1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml`
+- Step 1: Generate example `kld.toml``
+```shell
+$ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
+```
 - Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
-- Step 5.1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config deployment`
-- Step 5.2: `cd deployment`
-- Step 5.3: `git init && git add . && nix flake update`
-- Step 5.4: `git add flake.lock`
-- Step 5.5: `git commit -m init deploy && git push`
-- Step 5.6: `cd ..`
-- Step 6.1: `mkdir -p ./deployment/.github/workflows`
-- Step 6.2: `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
-- Step 6.3: Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
-- Step 7: `nix run github:kuutamolabs/lightning-knd#kld-mgr install`
-- Test: `nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
+
+- Step 5.1: Generate deployment config
+```shell
+$ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment
+```
+- Step 5.2: Setup Git & GitHub deployment repository 
+```shell 
+$ cd ./deployment
+$ git init
+$ git add .
+$ git commit -m "init deploy"
+$ git remote add origin git@github.com:my-org/deployment
+$ git push
+$ cd ..
+```
+
+- Step 6: Add the flake-lock-update Github Action
+ ```shell
+$ mkdir -p ./deployment/.github/workflows`
+$ curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
+```
+Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
+
+- Step 7: Install
+```shell
+$ nix run github:kuutamolabs/lightning-knd#kld-mgr install
+```
+- Connect to node via API
+```shell
+$ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
+```
 
 ## Installing Nix
 
