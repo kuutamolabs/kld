@@ -32,9 +32,12 @@ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 
 ## Install and in life operations
 
-Nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model.  
+By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability. 
+
 The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.  
-The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.  
+The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
+
+SSH access and manual direct updates over SSH can be enabled for use in developemnt environments.
 
 An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and Gitlab can be used inplace.  
 `kld-mgr` requires root SSH access to server(s) to perform the initial install. In production, this should be executed on a hardened, trusted machine.   
@@ -42,15 +45,16 @@ Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
 
+Notes:
+- Step 0: Make a new directory
 - Step 1: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml`
 - Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
-- Step 3: `git clone git@github.com:my-org/deployment.git`
-- Step 4: `sed -i 's:kuutamolabs/deployment-example:my-org/deployment:' kld.toml`
 - Step 5: `nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment`
-- Step 6.1(Github): `mkdir -p ./deployment/.github/workflows`
-- Step 6.2(Github): `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
-- Step 6.3(Github): Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
+- Step 6.1: `mkdir -p ./deployment/.github/workflows`
+- Step 6.2: `curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
+- Step 6.3: Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
 - Step 7: `nix run github:kuutamolabs/lightning-knd#kld-mgr install`
+- Test: `nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
 
 ## Installing Nix
 
