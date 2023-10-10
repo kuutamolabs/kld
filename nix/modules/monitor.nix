@@ -135,8 +135,8 @@ in
         };
         outputs = {
           prometheus_client = {
-            # Not expose,
-            # just for debug and let telegraf service running if not following monitoring settings
+            # This port is not exposed to the outside world, only used
+            # by CI to check that the metrics are being generated.
             listen = ":9273";
           };
           http = lib.mkIf config.kuutamo.monitor.telegrafHasMonitoring {

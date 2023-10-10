@@ -71,7 +71,7 @@ pub struct ConfigFile {
     #[toml_example(nesting)]
     host_defaults: HostDefaultConfig,
 
-    /// The configure for host, if any field not provided will use from host_defaults
+    /// The configuration for the host, if any field not provided will use from host_defaults
     /// For general use case, following fields is needed
     /// - one of network should be configured (ipv4 or ipv6)
     /// - the disk information of the node
@@ -192,7 +192,7 @@ struct HostDefaultConfig {
     #[serde(default)]
     self_monitoring_password: Option<String>,
 
-    /// The default push endpoin of promtail client with auth to collect the journal logs for all nodes
+    /// The default push endpoint for the promtail client with auth to collect the journal logs for all nodes
     /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
     #[serde(default)]
     promtail_client: Option<String>,
@@ -282,7 +282,7 @@ struct HostConfig {
     #[serde(default)]
     self_monitoring_password: Option<String>,
 
-    /// The push endpoin of promtail client with auth to collect the journal logs for the node
+    /// The push endpoint for the promtail client with auth to collect the journal logs for the node
     /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
     #[serde(default)]
     promtail_client: Option<String>,
