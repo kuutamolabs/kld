@@ -9,7 +9,6 @@ use mgr::secrets::{
     create_deploy_key, generate_disk_encryption_key, generate_mnemonic_and_macaroons,
 };
 use mgr::ssh::generate_key_pair;
-use mgr::utils::try_unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
 use std::io::{self, BufRead, Write};
@@ -54,38 +53,10 @@ struct GenerateConfigArgs {
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
-struct SshArgs {
-    /// Host to ssh into
-    #[clap(long, default_value = "")]
-    hosts: String,
-
-    /// Additional arguments to pass to ssh
-    command: Option<Vec<String>>,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct RebootArgs {
-    /// Comma-separated lists of hosts to perform the reboot
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
 struct SystemInfoArgs {
     /// Comma-separated lists of hosts to perform the install
     #[clap(long, default_value = "")]
     hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct UnlockArgs {
-    /// Comma-separated lists of hosts to perform the unlock
-    #[clap(long, default_value = "")]
-    hosts: String,
-
-    /// disk encryption key for unlock nodes
-    #[clap(long)]
-    key_file: Option<PathBuf>,
 }
 
 /// Subcommand to run
@@ -98,14 +69,8 @@ enum Command {
     GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
-    /// SSH into a host
-    Ssh(SshArgs),
-    /// Reboot hosts
-    Reboot(RebootArgs),
     /// Get system info from a host
     SystemInfo(SystemInfoArgs),
-    /// Unlock nodes when after reboot
-    Unlock(UnlockArgs),
 }
 
 #[derive(Parser)]
@@ -183,21 +148,6 @@ fn generate_config(
     flake: &NixosFlake,
 ) -> Result<()> {
     mgr::generate_config(&config_args.directory, flake)
-}
-
-fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
-    let hosts = filter_hosts(&ssh_args.hosts, &config.hosts)?;
-    let command = ssh_args
-        .command
-        .as_ref()
-        .map_or_else(|| [].as_slice(), |v| v.as_slice());
-    let command = command.iter().map(|s| s.as_str()).collect::<Vec<_>>();
-    mgr::ssh(&hosts, command.as_slice())
-}
-
-fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()> {
-    let hosts = filter_hosts(&reboot_args.hosts, &config.hosts)?;
-    mgr::reboot(&hosts)
 }
 
 fn print_host_info(host: &Host) -> Result<()> {
@@ -285,23 +235,6 @@ pub fn main() -> Result<()> {
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             install(&args, install_args, &config, &flake)
         }
-        Command::Unlock(ref unlock_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
-
-            let disk_encryption_key = unlock_args
-                .key_file
-                .clone()
-                .unwrap_or_else(|| config.global.secret_directory.join("disk_encryption_key"));
-            for host in filter_hosts(&unlock_args.hosts, &config.hosts)? {
-                try_unlock_over_ssh(&host, &disk_encryption_key)?;
-            }
-            Ok(())
-        }
         _ => {
             let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
@@ -314,8 +247,6 @@ pub fn main() -> Result<()> {
                 Command::GenerateConfig(ref config_args) => {
                     generate_config(&args, config_args, &config, &flake)
                 }
-                Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
-                Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),
                 Command::SystemInfo(ref args) => system_info(args, &config),
                 _ => unreachable!(),
             }

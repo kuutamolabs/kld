@@ -107,7 +107,7 @@ in
       new_machine.start()
 
       installer.wait_until_succeeds("ssh -p 2222 -o StrictHostKeyChecking=no root@192.168.42.2 -- exit 0 >&2")
-      installer.execute("${lib.getExe kld-mgr} --config /root/test-config.toml unlock >&2")
+      installer.succeed("ssh -p 2222 -o StrictHostKeyChecking=no root@192.168.42.2 -- 'cat > /key-file' < /root/secrets/disk_encryption_key")
       installer.wait_until_succeeds("ssh -o StrictHostKeyChecking=no root@192.168.42.2 -- exit 0 >&2")
 
       hostname = new_machine.succeed("hostname").strip()
@@ -144,9 +144,6 @@ in
           new_machine.succeed(f"test -f {cert} || (echo {cert} does not exist >&2 && exit 1)")
           new_machine.succeed(f"test $(stat -c %a {cert}) == 600 || (echo {cert} has wrong permissions >&2 && exit 1)")
           new_machine.succeed(f"test $(stat -c %U {cert}) == root || (echo {cert} does not belong to root >&2 && exit 1)")
-
-      hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
-      assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
 
       # trigger upgrade on the same source
       installer.succeed("scp -r /root/lightning-knd root@192.168.42.2:/root")
