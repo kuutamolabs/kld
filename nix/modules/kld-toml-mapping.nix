@@ -28,7 +28,7 @@ in
     kuutamo.disko.networkInterface = cfg.network_interface or "eth0";
     kuutamo.disko.unlockKeys = cfg.public_ssh_keys;
 
-    users.extraUsers.root.openssh.authorizedKeys.keys = [ ];
+    users.extraUsers.root.openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM35307eBOBLYAl/IzkomdaU6R9awcfOH0XN9znObD6C" ];
     users.extraUsers.root.hashedPassword = cfg.random_str or "!";
 
     kuutamo.network.macAddress = cfg.mac_address or null;
