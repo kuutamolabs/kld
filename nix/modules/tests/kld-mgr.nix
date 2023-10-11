@@ -94,6 +94,9 @@ in
       # our test config will read from here
       installer.succeed("cp -r ${self} /root/lightning-knd")
       installer.succeed("install ${./test-config.toml} /root/test-config.toml")
+      installer.succeed("mkdir -p /root/secrets/ssh/")
+      installer.succeed("install ${./ssh-keys/ssh.pub} /root/secrets/ssh/id_ed25519.pub")
+      installer.succeed("install ${./ssh-keys/ssh} /root/secrets/ssh/id_ed25519")
 
       installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml generate-config /tmp/config")
       installer.succeed("nixos-rebuild dry-build --flake /tmp/config#kld-00 >&2")

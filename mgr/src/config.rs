@@ -1,6 +1,8 @@
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose, Engine as _};
 use log::warn;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use regex::Regex;
 use reqwest::blocking::Client;
 use serde::Serialize;
@@ -382,6 +384,9 @@ pub struct Host {
 
     /// Is the mnemonic provided by mgr
     pub kld_preset_mnemonic: Option<bool>,
+
+    /// Random string for root password hash
+    pub random_str: String,
 }
 
 impl Host {
@@ -460,6 +465,11 @@ impl Host {
             ),
             (
                 PathBuf::from("/root/.ssh/id_ed25519.pub"),
+                fs::read(ssh.join("id_ed25519.pub")).context("failed to read deploy pub key")?,
+                0o644,
+            ),
+            (
+                PathBuf::from("/root/.ssh/authorized_keys"),
                 fs::read(ssh.join("id_ed25519.pub")).context("failed to read deploy pub key")?,
                 0o644,
             ),
@@ -803,6 +813,14 @@ fn validate_host(
             bail!("alias should be 32 bytes");
         }
     }
+    let random_str = {
+        let mut rng = thread_rng();
+        (&mut rng)
+            .sample_iter(Alphanumeric)
+            .take(68)
+            .map(char::from)
+            .collect()
+    };
 
     Ok(Host {
         name,
@@ -831,6 +849,7 @@ fn validate_host(
         rest_api_port: host.kld_rest_api_port,
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
+        random_str,
     })
 }
 
@@ -1071,45 +1090,54 @@ fn test_validate_host() -> Result<()> {
         public_ssh_keys: vec!["".to_string()],
         ..Default::default()
     };
+    let validated_host =
+        validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).unwrap();
+    assert_eq!(validated_host.name, "ipv4-only".to_string());
+    assert_eq!(validated_host.nixos_module, "kld-node".to_string());
+    assert!(validated_host.extra_nixos_modules.is_empty());
+    assert!(validated_host.mac_address.is_none());
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).unwrap(),
-        Host {
-            name: "ipv4-only".to_string(),
-            nixos_module: "kld-node".to_string(),
-            extra_nixos_modules: Vec::new(),
-            mac_address: None,
-            ipv4_address: Some(
-                "192.168.0.1"
-                    .parse::<IpAddr>()
-                    .context("Invalid IP address")?
-            ),
-            ipv4_cidr: Some(0),
-            ipv4_gateway: Some(
-                "192.168.255.255"
-                    .parse::<IpAddr>()
-                    .context("Invalid IP address")?
-            ),
-            ipv6_address: None,
-            ipv6_cidr: None,
-            ipv6_gateway: None,
-            install_ssh_user: "root".to_string(),
-            ssh_hostname: "192.168.0.1".to_string(),
-            public_ssh_keys: vec!["".to_string()],
-            disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
-            cockroach_peers: vec![],
-            bitcoind_disks: vec![],
-            kld_node_alias: None,
-            kld_log_level: None,
-            kmonitor_config: None,
-            telegraf_has_monitoring: false,
-            promtail_has_client: false,
-            monitor_config_hash: "13646096770106105413".to_string(),
-            api_ip_access_list: Vec::new(),
-            rest_api_port: None,
-            network_interface: None,
-            kld_preset_mnemonic: Some(false),
-        }
+        validated_host.ipv4_address,
+        Some(
+            "192.168.0.1"
+                .parse::<IpAddr>()
+                .context("Invalid IP address")?
+        )
     );
+    assert_eq!(validated_host.ipv4_cidr, Some(0));
+    assert_eq!(
+        validated_host.ipv4_gateway,
+        Some(
+            "192.168.255.255"
+                .parse::<IpAddr>()
+                .context("Invalid IP address")?
+        )
+    );
+    assert!(validated_host.ipv6_address.is_none());
+    assert!(validated_host.ipv6_cidr.is_none());
+    assert!(validated_host.ipv6_gateway.is_none());
+    assert_eq!(validated_host.install_ssh_user, "root".to_string());
+    assert_eq!(validated_host.ssh_hostname, "192.168.0.1".to_string());
+    assert_eq!(validated_host.public_ssh_keys, vec!["".to_string()]);
+    assert_eq!(
+        validated_host.disks,
+        vec![PathBuf::from("/dev/nvme0n1"), PathBuf::from("/dev/nvme1n1")]
+    );
+    assert!(validated_host.cockroach_peers.is_empty());
+    assert!(validated_host.bitcoind_disks.is_empty());
+    assert!(validated_host.kld_node_alias.is_none());
+    assert!(validated_host.kld_log_level.is_none());
+    assert!(validated_host.kmonitor_config.is_none());
+    assert!(!validated_host.telegraf_has_monitoring);
+    assert!(!validated_host.promtail_has_client);
+    assert_eq!(
+        validated_host.monitor_config_hash,
+        "13646096770106105413".to_string()
+    );
+    assert!(validated_host.api_ip_access_list.is_empty());
+    assert!(validated_host.rest_api_port.is_none());
+    assert!(validated_host.network_interface.is_none());
+    assert_eq!(validated_host.kld_preset_mnemonic, Some(false));
 
     // If `ipv6_address` is provided, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
