@@ -44,9 +44,9 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         .context("cannot create temporary directory")?;
 
     let knd_flake = &config.global.knd_flake;
-    for (name, host) in &config.hosts {
+    for (order, (name, host)) in config.hosts.iter().enumerate() {
         let global_fields = format!(
-            "deployment_flake = \"{}\"\n",
+            "deployment_flake = \"{}\"\nupgrade_order = {order}\n",
             &config.global.deployment_flake,
         );
 

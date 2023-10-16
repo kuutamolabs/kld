@@ -6,6 +6,11 @@
       default = "github:kuutamolabs/deployment-example";
       description = lib.mdDoc "The flake to deploy";
     };
+    kuutamo.upgrade.time = lib.mkOption {
+      type = lib.types.str;
+      default = "*-*-* 0:00:00";
+      description = "the order for upgrade in the cluster";
+    };
   };
 
   config = {
@@ -74,5 +79,12 @@
     systemd.extraConfig = ''
       DefaultTimeoutStopSec=900s
     '';
+
+    systemd.timers.nixos-upgrade = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = config.kuutamo.upgrade.time;
+      };
+    };
   };
 }

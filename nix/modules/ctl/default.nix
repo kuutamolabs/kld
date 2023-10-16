@@ -22,6 +22,7 @@ in
       git_sha = "${self.rev or "dirty"}"
       git_commit_date = "${self.lastModifiedDate}"
       deployment_flake = "${config.kuutamo.upgrade.deploymentFlake}"
+      upgrade_time = "${config.kuutamo.upgrade.time}"
     '';
   };
 }

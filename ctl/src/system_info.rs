@@ -7,6 +7,7 @@ struct SystemInfo {
     git_sha: String,
     git_commit_date: String,
     deployment_flake: Option<String>,
+    upgrade_time: Option<String>,
 }
 
 fn read_system_info() -> Result<SystemInfo> {
@@ -84,6 +85,9 @@ pub fn system_info(inline: bool) {
         info.push(("git commit date", system_info.git_commit_date));
         if let Some(deployment_flake) = system_info.deployment_flake {
             info.push(("deployment flake", deployment_flake));
+        }
+        if let Some(time) = system_info.upgrade_time {
+            info.push(("upgrade time", time));
         }
     }
 
