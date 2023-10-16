@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::env::var;
 use std::io::Write;
 use std::process::Command;
 use std::{fs::File, path::Path};
@@ -45,10 +46,15 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
 
     let knd_flake = &config.global.knd_flake;
     for (order, (name, host)) in config.hosts.iter().enumerate() {
-        let global_fields = format!(
+        let mut global_fields = format!(
             "deployment_flake = \"{}\"\nupgrade_order = {order}\n",
             &config.global.deployment_flake,
         );
+
+        // keep default root access for test or development
+        if var("FLAKE_CHECK").is_ok() || var("DEBUG").is_ok() {
+            global_fields += "keep_root = true\n"
+        }
 
         let host_path = tmp_dir.path().join(format!("{name}.toml"));
         let mut host_file = File::create(&host_path)

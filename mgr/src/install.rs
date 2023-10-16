@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use log::info;
+use std::env::var;
 use std::path::Path;
 use std::sync::Mutex;
 use std::{
@@ -105,8 +106,8 @@ pub fn install(
                 .status()
                 .context("Failed to run ssh-keygen to remove old keys...")?;
 
-            loop {
-                // After unlock the sshd will start in port 22
+            // With root access, we check sshd start in port 22
+            while var("FLAKE_CHECK").is_ok() || var("DEBUG").is_ok() {
                 if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
                     break;
                 }
