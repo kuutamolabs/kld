@@ -45,9 +45,10 @@ in
 
     kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) (builtins.map (peer: peer.name) cfg.cockroach_peers);
 
-    kuutamo.telegraf.hostname = cfg.ssh_hostname;
-    kuutamo.telegraf.hasMonitoring = cfg.telegraf_has_monitoring or false;
-    kuutamo.telegraf.configHash = cfg.telegraf_config_hash or "";
+    kuutamo.monitor.hostname = cfg.ssh_hostname;
+    kuutamo.monitor.telegrafHasMonitoring = cfg.telegraf_has_monitoring or false;
+    kuutamo.monitor.promtailHasClient = cfg.promtail_has_client or false;
+    kuutamo.monitor.configHash = cfg.monitor_config_hash or "";
 
     kuutamo.upgrade.deploymentFlake = cfg.deployment_flake;
     # Assume the upgrade can be done in 10 mins, so the node will not upgrade at the same time

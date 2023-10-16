@@ -71,7 +71,7 @@ pub struct ConfigFile {
     #[toml_example(nesting)]
     host_defaults: HostDefaultConfig,
 
-    /// The configure for host, if any field not provided will use from host_defaults
+    /// The configuration for the host, if any field not provided will use from host_defaults
     /// For general use case, following fields is needed
     /// - one of network should be configured (ipv4 or ipv6)
     /// - the disk information of the node
@@ -112,6 +112,14 @@ pub enum LogLevel {
 /// Kuutamo monitor
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub struct KmonitorConfig {
+    /// config for telegraf
+    pub telegraf: Option<TelegrafConfig>,
+    /// Promtail client endpoint with auth
+    pub promtail: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
+pub struct TelegrafConfig {
     /// self host url for monitoring, None for kuutamo monitoring
     pub url: Option<Url>,
     /// username for kuutamo monitor
@@ -183,6 +191,11 @@ struct HostDefaultConfig {
     /// The default http basic auth password to access self monitoring server
     #[serde(default)]
     self_monitoring_password: Option<String>,
+
+    /// The default push endpoint for the promtail client with auth to collect the journal logs for all nodes
+    /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
+    #[serde(default)]
+    promtail_client: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -269,6 +282,11 @@ struct HostConfig {
     #[serde(default)]
     self_monitoring_password: Option<String>,
 
+    /// The push endpoint for the promtail client with auth to collect the journal logs for the node
+    /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
+    #[serde(default)]
+    promtail_client: Option<String>,
+
     /// The communication port of kld
     #[toml_example(default = 2244)]
     #[serde(default)]
@@ -353,8 +371,11 @@ pub struct Host {
     /// Has monitoring server or not
     pub telegraf_has_monitoring: bool,
 
+    /// Has client for journal logs or not
+    pub promtail_has_client: bool,
+
     /// Hash for monitoring config
-    pub telegraf_config_hash: String,
+    pub monitor_config_hash: String,
 
     /// The interface of node to access the internet
     pub network_interface: Option<String>,
@@ -468,17 +489,26 @@ impl Host {
                 0o600,
             ))
         }
-        if let Some(KmonitorConfig {
-            url,
-            username,
-            password,
-        }) = &self.kmonitor_config
-        {
-            secret_files.push((
-                PathBuf::from("/var/lib/secrets/telegraf"),
-                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into(),
-                0o600
-            ));
+        if let Some(KmonitorConfig { telegraf, promtail }) = &self.kmonitor_config {
+            if let Some(TelegrafConfig {
+                url,
+                username,
+                password,
+            }) = telegraf
+            {
+                secret_files.push((
+                    PathBuf::from("/var/lib/secrets/telegraf"),
+                    format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into(),
+                    0o600
+                ));
+            }
+            if let Some(client) = promtail {
+                secret_files.push((
+                    PathBuf::from("/var/lib/secrets/promtail"),
+                    format!("CLIENT_URL={client}").as_bytes().into(),
+                    0o600,
+                ));
+            }
         }
 
         Secrets::new(secret_files.iter()).context("failed to prepare uploading secrets")
@@ -698,7 +728,7 @@ fn validate_host(
         .unwrap_or(&default_bitcoind_disks)
         .to_vec();
 
-    let kmonitor_config = match (
+    let telegraf_config = match (
         &host
             .self_monitoring_url
             .as_ref()
@@ -721,12 +751,12 @@ fn validate_host(
         .map(|s| s.trim().into())
         .and_then(|t| decode_token(t).ok()),
     ) {
-        (url, Some(username), Some(password), _) if url.is_some() => Some(KmonitorConfig {
+        (url, Some(username), Some(password), _) if url.is_some() => Some(TelegrafConfig {
             url: url.cloned(),
             username: username.to_string(),
             password: password.to_string(),
         }),
-        (url, _, _, Some((user_id, password))) if url.is_some() => Some(KmonitorConfig {
+        (url, _, _, Some((user_id, password))) if url.is_some() => Some(TelegrafConfig {
             url: url.cloned(),
             username: user_id,
             password,
@@ -739,9 +769,30 @@ fn validate_host(
             None
         }
     };
+    let kmonitor_config = if telegraf_config.is_some()
+        || host.promtail_client.is_some()
+        || default.promtail_client.is_some()
+    {
+        Some(KmonitorConfig {
+            telegraf: telegraf_config,
+            promtail: host
+                .promtail_client
+                .clone()
+                .or(default.promtail_client.clone()),
+        })
+    } else {
+        None
+    };
 
-    let telegraf_has_monitoring = kmonitor_config.is_some();
-    let telegraf_config_hash = calculate_hash(&kmonitor_config).to_string();
+    let telegraf_has_monitoring = kmonitor_config
+        .as_ref()
+        .map(|c| c.telegraf.is_some())
+        .unwrap_or_default();
+    let promtail_has_client = kmonitor_config
+        .as_ref()
+        .map(|c| c.promtail.is_some())
+        .unwrap_or_default();
+    let monitor_config_hash = calculate_hash(&kmonitor_config).to_string();
 
     if let Some(alias) = &host.kld_node_alias {
         // none ascii word will take more than one bytes and we can not validate it with len()
@@ -773,7 +824,8 @@ fn validate_host(
         kld_log_level: host.kld_log_level.to_owned(),
         kmonitor_config,
         telegraf_has_monitoring,
-        telegraf_config_hash,
+        promtail_has_client,
+        monitor_config_hash,
         kld_node_alias: host.kld_node_alias.to_owned(),
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
@@ -786,7 +838,7 @@ fn validate_host(
 fn try_verify_kuutamo_monitoring_config(
     user_id: String,
     password: String,
-) -> Option<KmonitorConfig> {
+) -> Option<TelegrafConfig> {
     let client = Client::new();
     let username = format!("kld-{}", user_id);
     if let Ok(r) = client
@@ -802,7 +854,7 @@ fn try_verify_kuutamo_monitoring_config(
         eprintln!("Could not validate kuutamo-monitoring.token (network issue)");
     }
 
-    Some(KmonitorConfig {
+    Some(TelegrafConfig {
         url: None,
         username,
         password,
@@ -1050,7 +1102,8 @@ fn test_validate_host() -> Result<()> {
             kld_log_level: None,
             kmonitor_config: None,
             telegraf_has_monitoring: false,
-            telegraf_config_hash: "13646096770106105413".to_string(),
+            promtail_has_client: false,
+            monitor_config_hash: "13646096770106105413".to_string(),
             api_ip_access_list: Vec::new(),
             rest_api_port: None,
             network_interface: None,

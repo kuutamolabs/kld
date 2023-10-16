@@ -30,7 +30,7 @@
 
       telegraf.imports = [
         inputs.srvos.nixosModules.mixins-telegraf
-        ./telegraf.nix
+        ./monitor.nix
       ];
 
       disko-partitioning-script = ./disko-partitioning-script.nix;
@@ -54,7 +54,7 @@
           ./hardware.nix
           ./network.nix
           ./upgrade.nix
-          ./telegraf.nix
+          ./monitor.nix
         ];
         nix.registry = {
           nixpkgs.to = {
