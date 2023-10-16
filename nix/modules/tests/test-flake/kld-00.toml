@@ -19,7 +19,6 @@ telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
 kld_node_alias = "kld-00-alias"
 network_interface = "eth1"
-keep_root = true
 
 [[cockroach_peers]]
 name = "db-00"

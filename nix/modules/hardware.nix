@@ -11,11 +11,6 @@
     default = "eth0";
     description = lib.mdDoc "The network interface for internet";
   };
-  options.kuutamo.disko.unlockKeys = lib.mkOption {
-    type = lib.types.listOf lib.types.str;
-    default = [ ];
-    description = lib.mdDoc "Ssh key to login locked machines";
-  };
 
   imports = [
     ./raid-config.nix
@@ -58,7 +53,7 @@
       ssh = {
         enable = true;
         port = 2222;
-        authorizedKeys = config.kuutamo.disko.unlockKeys;
+        authorizedKeys = config.users.extraUsers.root.openssh.authorizedKeys.keys;
         hostKeys = [
           "/var/lib/secrets/sshd_key"
         ];
