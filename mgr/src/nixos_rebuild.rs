@@ -13,9 +13,10 @@ pub fn nixos_rebuild(
     host: &Host,
     flake: &NixosFlake,
     secrets_dir: &Path,
+    access_tokens: &String,
     collect_garbage: bool,
 ) -> Result<()> {
-    let secrets = host.secrets(secrets_dir)?;
+    let secrets = host.secrets(secrets_dir, access_tokens)?;
     let target = host.deploy_ssh_target();
     secrets
         .upload(&target)

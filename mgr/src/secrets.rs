@@ -23,7 +23,7 @@ pub struct Secrets {
 impl Secrets {
     pub fn new<'a, I>(secrets: I) -> Result<Self>
     where
-        I: Iterator<Item = &'a (PathBuf, Vec<u8>)>,
+        I: Iterator<Item = &'a (PathBuf, Vec<u8>, u32)>,
     {
         let tmp_dir = Builder::new()
             .prefix("kuutamo-secrets.")
@@ -31,16 +31,16 @@ impl Secrets {
             .context("cannot create temporary directory")?;
 
         let mut options = OpenOptions::new();
-        options.mode(0o600);
         options.write(true);
         options.create(true);
-        for (to, content) in secrets {
+
+        for (to, content, mode) in secrets {
+            options.mode(*mode);
             let secret_path = tmp_dir.path().join(to.strip_prefix("/").unwrap_or(to));
             let dir = secret_path.parent().with_context(|| {
                 format!("Cannot get parent of directory: {}", secret_path.display())
             })?;
             fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;
-
             let mut file = options.open(&secret_path).with_context(|| {
                 format!("Cannot open secret {} for writing.", secret_path.display())
             })?;
@@ -73,6 +73,25 @@ impl Secrets {
         status_to_pretty_err(status, "rsync", &args)?;
         Ok(())
     }
+}
+
+pub fn create_deploy_key(secret_directory: &Path) -> Result<()> {
+    let ssh_dir = secret_directory.join("ssh");
+    fs::create_dir_all(&ssh_dir)?;
+    Command::new("ssh-keygen")
+        .args([
+            "-q",
+            "-t",
+            "ed25519",
+            "-C",
+            "deploy_key",
+            "-N",
+            "",
+            "-f",
+            &format!("{}/id_ed25519", ssh_dir.display()),
+        ])
+        .output()?;
+    Ok(())
 }
 
 pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {

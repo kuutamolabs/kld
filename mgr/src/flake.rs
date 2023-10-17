@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::env::var;
 use std::io::Write;
 use std::process::Command;
 use std::{fs::File, path::Path};
@@ -43,13 +44,24 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         .tempdir()
         .context("cannot create temporary directory")?;
 
-    let nixos_flake = &config.global.flake;
-    for (name, host) in &config.hosts {
+    let knd_flake = &config.global.knd_flake;
+    for (order, (name, host)) in config.hosts.iter().enumerate() {
+        let mut global_fields = format!(
+            "deployment_flake = \"{}\"\nupgrade_order = {order}\n",
+            &config.global.deployment_flake,
+        );
+
+        // keep default root access for test or development
+        if var("FLAKE_CHECK").is_ok() || var("DEBUG").is_ok() {
+            global_fields += "keep_root = true\n"
+        }
+
         let host_path = tmp_dir.path().join(format!("{name}.toml"));
         let mut host_file = File::create(&host_path)
             .with_context(|| format!("could not create {}", host_path.display()))?;
-        let host_toml =
+        let mut host_toml =
             toml::to_string(&host).with_context(|| format!("cannot serialize {name} to toml"))?;
+        host_toml = global_fields + &host_toml;
         host_file
             .write_all(host_toml.as_bytes())
             .with_context(|| format!("Cannot write {}", host_path.display()))?;
@@ -94,7 +106,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
         .context("could not write configurations.nix")?;
     let flake_content = format!(
         r#"{{
-  inputs.lightning-knd.url = "{nixos_flake}";
+  inputs.lightning-knd.url = "{knd_flake}";
 
   nixConfig.extra-substituters = [
     "https://cache.garnix.io"
@@ -118,43 +130,10 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
 
 #[test]
 pub fn test_nixos_flake() -> Result<()> {
-    use crate::config::parse_config;
+    use crate::config::{parse_config, TEST_CONFIG};
     use std::process::Command;
 
-    let config = parse_config(
-        r#"
-[global]
-flake = "github:myfork/lightning-knd"
-
-[host_defaults]
-public_ssh_keys = [
-  '''ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA foobar'''
-]
-ipv4_cidr = 24
-ipv6_cidr = 48
-ipv4_gateway = "199.127.64.1"
-ipv6_gateway = "2605:9880:400::1"
-
-[hosts]
-[hosts.kld-00]
-nixos_module = "kld-node"
-ipv4_address = "199.127.64.2"
-ipv6_address = "2605:9880:400::2"
-ipv6_cidr = 48
-
-[hosts.db-00]
-nixos_module = "cockroachdb-node"
-ipv4_address = "199.127.64.3"
-ipv6_address = "2605:9880:400::3"
-
-[hosts.db-01]
-nixos_module = "cockroachdb-node"
-ipv4_address = "199.127.64.4"
-ipv6_address = "2605:9880:400::4"
-"#,
-        Path::new("/"),
-        false,
-    )?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
     let flake = generate_nixos_flake(&config)?;
     let flake_path = flake.path();
     let flake_nix = flake_path.join("flake.nix");

@@ -8,10 +8,12 @@ use serde_derive::Deserialize;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::env::var;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use toml_example::TomlExample;
 use url::Url;
 
@@ -67,9 +69,9 @@ pub struct ConfigFile {
     /// The default values of host will use if any corresponding value is not provided in following hosts
     #[serde(default)]
     #[toml_example(nesting)]
-    host_defaults: HostConfig,
+    host_defaults: HostDefaultConfig,
 
-    /// The configure for host, if any field not provided will use from host_defaults
+    /// The configuration for the host, if any field not provided will use from host_defaults
     /// For general use case, following fields is needed
     /// - one of network should be configured (ipv4 or ipv6)
     /// - the disk information of the node
@@ -82,7 +84,7 @@ fn default_secret_directory() -> PathBuf {
     PathBuf::from("secrets")
 }
 
-fn default_flake() -> String {
+fn default_knd_flake() -> String {
     "github:kuutamolabs/lightning-knd".to_string()
 }
 
@@ -110,6 +112,14 @@ pub enum LogLevel {
 /// Kuutamo monitor
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub struct KmonitorConfig {
+    /// config for telegraf
+    pub telegraf: Option<TelegrafConfig>,
+    /// Promtail client endpoint with auth
+    pub promtail: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
+pub struct TelegrafConfig {
     /// self host url for monitoring, None for kuutamo monitoring
     pub url: Option<Url>,
     /// username for kuutamo monitor
@@ -118,10 +128,74 @@ pub struct KmonitorConfig {
     pub password: String,
 }
 
-fn calculate_hash<T: Hash>(t: &T) -> u64 {
+pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
+}
+
+#[derive(Debug, Default, Deserialize, TomlExample)]
+struct HostDefaultConfig {
+    /// The default Ipv4 gateway of all node
+    #[serde(default)]
+    #[toml_example(default = "192.168.0.254")]
+    ipv4_gateway: Option<IpAddr>,
+    /// The default Ipv4 CIDR for all node
+    #[serde(default)]
+    #[toml_example(default = 24)]
+    ipv4_cidr: Option<u8>,
+    /// The default Ipv6 gateway of all node
+    #[serde(default)]
+    ipv6_gateway: Option<IpAddr>,
+    /// The default Ipv6 CIDR of all node
+    #[serde(default)]
+    ipv6_cidr: Option<u8>,
+
+    /// The default ssh public keys of the user
+    /// After installation the user could login as root with the corresponding ssh private key
+    #[serde(default)]
+    #[toml_example(default = [ "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...", ])]
+    public_ssh_keys: Vec<String>,
+
+    /// The default admin user for install,
+    /// Please use `ubuntu` when you use OVH to install at first time,
+    /// Ubuntu did not allow `root` login
+    #[serde(default)]
+    #[toml_example(default = "ubuntu")]
+    install_ssh_user: Option<String>,
+
+    /// Extra nixos module will deploy to the node
+    #[serde(default)]
+    #[toml_example(default = [ ])]
+    extra_nixos_modules: Vec<String>,
+
+    /// Default disk configure on all node
+    #[serde(default)]
+    #[toml_example(default = [ "/dev/vdb", ])]
+    pub disks: Option<Vec<PathBuf>>,
+
+    /// The default Token file for monitoring, default is "kuutamo-monitoring.token"
+    /// Provide this if you have a different file
+    #[serde(default)]
+    #[toml_example(default = "kuutamo-monitoring.token")]
+    kuutamo_monitoring_token_file: Option<PathBuf>,
+
+    /// The default self monitoring server
+    /// The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
+    #[serde(default)]
+    #[toml_example(default = "https://my.monitoring.server/api/v1/push")]
+    self_monitoring_url: Option<Url>,
+    /// The default http basic auth username to access self monitoring server
+    #[serde(default)]
+    self_monitoring_username: Option<String>,
+    /// The default http basic auth password to access self monitoring server
+    #[serde(default)]
+    self_monitoring_password: Option<String>,
+
+    /// The default push endpoint for the promtail client with auth to collect the journal logs for all nodes
+    /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
+    #[serde(default)]
+    promtail_client: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -141,11 +215,7 @@ struct HostConfig {
     /// Nixos module will deploy to the node
     #[serde(default)]
     #[toml_example(default = "kld-node")]
-    nixos_module: Option<String>,
-    /// Extra nixos module will deploy to the node
-    #[serde(default)]
-    #[toml_example(default = [ ])]
-    extra_nixos_modules: Vec<String>,
+    nixos_module: String,
 
     /// Mac address of the node
     #[toml_example(default = [ ])]
@@ -165,6 +235,7 @@ struct HostConfig {
     /// The ssh public keys of the user
     /// After installation the user could login as root with the corresponding ssh private key
     #[serde(default)]
+    #[toml_example(skip)]
     #[toml_example(default = [ "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...", ])]
     public_ssh_keys: Vec<String>,
 
@@ -210,6 +281,11 @@ struct HostConfig {
     /// The http basic auth password to access self monitoring server
     #[serde(default)]
     self_monitoring_password: Option<String>,
+
+    /// The push endpoint for the promtail client with auth to collect the journal logs for the node
+    /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
+    #[serde(default)]
+    promtail_client: Option<String>,
 
     /// The communication port of kld
     #[toml_example(default = 2244)]
@@ -287,16 +363,19 @@ pub struct Host {
     #[serde(skip_serializing)]
     pub kmonitor_config: Option<KmonitorConfig>,
 
-    /// Has monitoring server or not
-    pub telegraf_has_monitoring: bool,
-
-    /// Hash for monitoring config
-    pub telegraf_config_hash: String,
-
     /// The communication port of kld
     pub rest_api_port: Option<u16>,
     /// The ip addresses list will allow to communicate with kld
     pub api_ip_access_list: Vec<IpAddr>,
+
+    /// Has monitoring server or not
+    pub telegraf_has_monitoring: bool,
+
+    /// Has client for journal logs or not
+    pub promtail_has_client: bool,
+
+    /// Hash for monitoring config
+    pub monitor_config_hash: String,
 
     /// The interface of node to access the internet
     pub network_interface: Option<String>,
@@ -307,84 +386,129 @@ pub struct Host {
 
 impl Host {
     /// Returns prepared secrets directory for host
-    pub fn secrets(&self, secrets_dir: &Path) -> Result<Secrets> {
+    pub fn secrets(&self, secrets_dir: &Path, access_tokens: &String) -> Result<Secrets> {
         let lightning = secrets_dir.join("lightning");
         let cockroachdb = secrets_dir.join("cockroachdb");
         let mnemonic = secrets_dir.join("mnemonic");
+        let ssh = secrets_dir.join("ssh");
+
         let mut secret_files = vec![
             // for kld
             (
                 PathBuf::from("/var/lib/secrets/kld/ca.pem"),
                 fs::read(lightning.join("ca.pem")).context("failed to read ca.pem")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.pem"),
                 fs::read(lightning.join(format!("{}.pem", self.name)))
                     .context("failed to read kld.pem")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/kld.key"),
                 fs::read(lightning.join(format!("{}.key", self.name)))
                     .context("failed to read kld.key")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.crt"),
                 fs::read(cockroachdb.join("client.kld.crt"))
                     .context("failed to read client.kld.crt")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/kld/client.kld.key"),
                 fs::read(cockroachdb.join("client.kld.key"))
                     .context("failed to read client.kld.key")?,
+                0o600,
             ),
             // for cockroachdb
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/ca.crt"),
                 fs::read(cockroachdb.join("ca.crt")).context("failed to read ca.crt")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.crt"),
                 fs::read(cockroachdb.join("client.root.crt"))
                     .context("failed to read client.root.crt")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/client.root.key"),
                 fs::read(cockroachdb.join("client.root.key"))
                     .context("failed to read client.root.key")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.crt"),
                 fs::read(cockroachdb.join(format!("{}.node.crt", self.name)))
                     .context("failed to read node.crt")?,
+                0o600,
             ),
             (
                 PathBuf::from("/var/lib/secrets/cockroachdb/node.key"),
                 fs::read(cockroachdb.join(format!("{}.node.key", self.name)))
                     .context("failed to read node.key")?,
+                0o600,
+            ),
+            (
+                PathBuf::from("/root/.ssh/id_ed25519"),
+                fs::read(ssh.join("id_ed25519")).context("failed to read deploy key")?,
+                0o600,
+            ),
+            (
+                PathBuf::from("/root/.ssh/id_ed25519.pub"),
+                fs::read(ssh.join("id_ed25519.pub")).context("failed to read deploy pub key")?,
+                0o644,
             ),
             // sshd server key
             (
                 PathBuf::from("/var/lib/secrets/sshd_key"),
                 fs::read(secrets_dir.join("sshd").join(&self.name))
                     .context("failed to read sshd server key")?,
+                0o600,
+            ),
+            (
+                PathBuf::from("/var/lib/secrets/access-tokens"),
+                format!("ACCESS_TOKENS={access_tokens:}").as_bytes().into(),
+                0o600,
+            ),
+            (
+                PathBuf::from("/var/lib/secrets/disk_encryption_key"),
+                fs::read(secrets_dir.join("disk_encryption_key"))
+                    .context("failed to read disk_encrypted_key")?,
+                0o600,
             ),
         ];
         if mnemonic.exists() {
             secret_files.push((
                 PathBuf::from("/var/lib/secrets/mnemonic"),
                 fs::read(mnemonic).context("failed to read mnemonic")?,
+                0o600,
             ))
         }
-        if let Some(KmonitorConfig {
-            url,
-            username,
-            password,
-        }) = &self.kmonitor_config
-        {
-            secret_files.push((
-                PathBuf::from("/var/lib/secrets/telegraf"),
-                format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into()
-            ));
+        if let Some(KmonitorConfig { telegraf, promtail }) = &self.kmonitor_config {
+            if let Some(TelegrafConfig {
+                url,
+                username,
+                password,
+            }) = telegraf
+            {
+                secret_files.push((
+                    PathBuf::from("/var/lib/secrets/telegraf"),
+                    format!("MONITORING_URL={}\nMONITORING_USERNAME={username}\nMONITORING_PASSWORD={password}", url.as_ref().map(|u|u.to_string()).unwrap_or("https://mimir.monitoring-00-cluster.kuutamo.computer/api/v1/push".to_string())).as_bytes().into(),
+                    0o600
+                ));
+            }
+            if let Some(client) = promtail {
+                secret_files.push((
+                    PathBuf::from("/var/lib/secrets/promtail"),
+                    format!("CLIENT_URL={client}").as_bytes().into(),
+                    0o600,
+                ));
+            }
         }
 
         Secrets::new(secret_files.iter()).context("failed to prepare uploading secrets")
@@ -402,10 +526,21 @@ impl Host {
 /// Global configuration affecting all hosts
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Default, TomlExample)]
 pub struct Global {
-    /// Flake url where the nixos configuration is
-    #[serde(default = "default_flake")]
+    /// Flake url for your deployment config
+    /// Please refer https://github.com/kuutamolabs/deployment-example
+    #[toml_example(default = "github:kuutamolabs/deployment-example")]
+    pub deployment_flake: String,
+
+    /// Tokens for access the deployment flake and the dependencies thereof
+    /// Please make sure it is never exipired,
+    /// because we can not update the token after deploy
+    #[toml_example(default = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+    pub access_tokens: String,
+
+    /// Flake url for KND
+    #[serde(default = "default_knd_flake")]
     #[toml_example(default = "github:kuutamolabs/lightning-knd")]
-    pub flake: String,
+    pub knd_flake: String,
 
     /// Directory where the secrets are stored i.e. certificates
     #[serde(default = "default_secret_directory")]
@@ -418,13 +553,32 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     if global.secret_directory.is_relative() {
         global.secret_directory = working_directory.join(global.secret_directory);
     };
+    if let Ok(output) = Command::new("nix")
+        .args([
+            "flake",
+            "show",
+            "--refresh",
+            "--access-tokens",
+            &global.access_tokens,
+            &global.deployment_flake,
+        ])
+        .output()
+    {
+        if !output.status.success() && var("FLAKE_CHECK").is_err() {
+            bail!(
+                r#"deployment flake {} is not accessible, please check your access token, network connection, 
+and the deployment repository has a flake.lock"#,
+                global.deployment_flake
+            );
+        }
+    }
     Ok(global)
 }
 
 fn validate_host(
     name: &str,
     host: &HostConfig,
-    default: &HostConfig,
+    default: &HostDefaultConfig,
     preset_mnemonic: bool,
 ) -> Result<Host> {
     if !host.others.is_empty() {
@@ -482,14 +636,7 @@ fn validate_host(
         None
     };
 
-    let nixos_module = host
-        .nixos_module
-        .as_deref()
-        .with_context(|| format!("no nixos_module provided for hosts.{name}"))?
-        .to_string();
-
     let mut extra_nixos_modules = vec![];
-    extra_nixos_modules.extend_from_slice(&host.extra_nixos_modules);
     extra_nixos_modules.extend_from_slice(&default.extra_nixos_modules);
 
     let ipv4_gateway = host.ipv4_gateway.or(default.ipv4_gateway);
@@ -539,7 +686,6 @@ fn validate_host(
     let ssh_hostname = host
         .ssh_hostname
         .as_ref()
-        .or(default.ssh_hostname.as_ref())
         .cloned()
         .unwrap_or_else(|| address.to_string());
 
@@ -574,30 +720,39 @@ fn validate_host(
     let bitcoind_disks = host
         .bitcoind_disks
         .as_ref()
-        .or(default.bitcoind_disks.as_ref())
         .unwrap_or(&default_bitcoind_disks)
         .to_vec();
 
-    let kmonitor_config = match (
-        &host.self_monitoring_url,
-        &host.self_monitoring_username,
-        &host.self_monitoring_password,
+    let telegraf_config = match (
+        &host
+            .self_monitoring_url
+            .as_ref()
+            .or(default.self_monitoring_url.as_ref()),
+        &host
+            .self_monitoring_username
+            .as_ref()
+            .or(default.self_monitoring_username.as_ref()),
+        &host
+            .self_monitoring_password
+            .as_ref()
+            .or(default.self_monitoring_password.as_ref()),
         fs::read_to_string(
             host.kuutamo_monitoring_token_file
                 .as_ref()
+                .or(default.kuutamo_monitoring_token_file.as_ref())
                 .unwrap_or(&PathBuf::from("kuutamo-monitoring.token")),
         )
         .ok()
         .map(|s| s.trim().into())
         .and_then(|t| decode_token(t).ok()),
     ) {
-        (url, Some(username), Some(password), _) if url.is_some() => Some(KmonitorConfig {
-            url: url.clone(),
+        (url, Some(username), Some(password), _) if url.is_some() => Some(TelegrafConfig {
+            url: url.cloned(),
             username: username.to_string(),
             password: password.to_string(),
         }),
-        (url, _, _, Some((user_id, password))) if url.is_some() => Some(KmonitorConfig {
-            url: url.clone(),
+        (url, _, _, Some((user_id, password))) if url.is_some() => Some(TelegrafConfig {
+            url: url.cloned(),
             username: user_id,
             password,
         }),
@@ -609,9 +764,30 @@ fn validate_host(
             None
         }
     };
+    let kmonitor_config = if telegraf_config.is_some()
+        || host.promtail_client.is_some()
+        || default.promtail_client.is_some()
+    {
+        Some(KmonitorConfig {
+            telegraf: telegraf_config,
+            promtail: host
+                .promtail_client
+                .clone()
+                .or(default.promtail_client.clone()),
+        })
+    } else {
+        None
+    };
 
-    let telegraf_has_monitoring = kmonitor_config.is_some();
-    let telegraf_config_hash = calculate_hash(&kmonitor_config).to_string();
+    let telegraf_has_monitoring = kmonitor_config
+        .as_ref()
+        .map(|c| c.telegraf.is_some())
+        .unwrap_or_default();
+    let promtail_has_client = kmonitor_config
+        .as_ref()
+        .map(|c| c.promtail.is_some())
+        .unwrap_or_default();
+    let monitor_config_hash = calculate_hash(&kmonitor_config).to_string();
 
     if let Some(alias) = &host.kld_node_alias {
         // none ascii word will take more than one bytes and we can not validate it with len()
@@ -625,7 +801,7 @@ fn validate_host(
 
     Ok(Host {
         name,
-        nixos_module,
+        nixos_module: host.nixos_module.clone(),
         extra_nixos_modules,
         install_ssh_user,
         ssh_hostname,
@@ -643,7 +819,8 @@ fn validate_host(
         kld_log_level: host.kld_log_level.to_owned(),
         kmonitor_config,
         telegraf_has_monitoring,
-        telegraf_config_hash,
+        promtail_has_client,
+        monitor_config_hash,
         kld_node_alias: host.kld_node_alias.to_owned(),
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
@@ -656,7 +833,7 @@ fn validate_host(
 fn try_verify_kuutamo_monitoring_config(
     user_id: String,
     password: String,
-) -> Option<KmonitorConfig> {
+) -> Option<TelegrafConfig> {
     let client = Client::new();
     let username = format!("kld-{}", user_id);
     if let Ok(r) = client
@@ -672,7 +849,7 @@ fn try_verify_kuutamo_monitoring_config(
         eprintln!("Could not validate kuutamo-monitoring.token (network issue)");
     }
 
-    Some(KmonitorConfig {
+    Some(TelegrafConfig {
         url: None,
         username,
         password,
@@ -694,6 +871,7 @@ pub fn parse_config(
     preset_mnemonic: bool,
 ) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
+
     let mut hosts = config
         .hosts
         .iter()
@@ -763,7 +941,9 @@ fn decode_token(s: String) -> Result<(String, String)> {
 #[cfg(test)]
 pub(crate) const TEST_CONFIG: &str = r#"
 [global]
-flake = "github:myfork/lightning-knd"
+knd_flake = "github:kuutamolabs/lightning-knd"
+deployment_flake = "github:kuutamolabs/test-env-one"
+access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 [host_defaults]
 public_ssh_keys = [
@@ -797,7 +977,11 @@ pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
     let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
-    assert_eq!(config.global.flake, "github:myfork/lightning-knd");
+    assert_eq!(config.global.knd_flake, "github:kuutamolabs/lightning-knd");
+    assert_eq!(
+        config.global.deployment_flake,
+        "github:kuutamolabs/test-env-one"
+    );
 
     let hosts = &config.hosts;
     assert_eq!(hosts.len(), 3);
@@ -869,7 +1053,7 @@ fn test_validate_host() -> Result<()> {
                 .parse::<IpAddr>()
                 .context("Invalid IP address")?,
         ),
-        nixos_module: Some("kld-node".to_string()),
+        nixos_module: "kld-node".to_string(),
         ipv4_cidr: Some(0),
         ipv4_gateway: Some(
             "192.168.255.255"
@@ -883,7 +1067,7 @@ fn test_validate_host() -> Result<()> {
         ..Default::default()
     };
     assert_eq!(
-        validate_host("ipv4-only", &config, &HostConfig::default(), false).unwrap(),
+        validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).unwrap(),
         Host {
             name: "ipv4-only".to_string(),
             nixos_module: "kld-node".to_string(),
@@ -913,7 +1097,8 @@ fn test_validate_host() -> Result<()> {
             kld_log_level: None,
             kmonitor_config: None,
             telegraf_has_monitoring: false,
-            telegraf_config_hash: "13646096770106105413".to_string(),
+            promtail_has_client: false,
+            monitor_config_hash: "13646096770106105413".to_string(),
             api_ip_access_list: Vec::new(),
             rest_api_port: None,
             network_interface: None,
@@ -924,18 +1109,18 @@ fn test_validate_host() -> Result<()> {
     // If `ipv6_address` is provided, the `ipv6_gateway` and `ipv6_cidr` should be provided too,
     // else the error will raise
     config.ipv6_address = Some("2607:5300:203:6cdf::".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).is_err());
 
     config.ipv6_gateway = Some(
         "2607:5300:0203:6cff:00ff:00ff:00ff:00ff"
             .parse::<IpAddr>()
             .unwrap(),
     );
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_err());
+    assert!(validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).is_err());
 
     // The `ipv6_cidr` could be provided by subnet in address field
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
-    assert!(validate_host("ipv4-only", &config, &HostConfig::default(), false).is_ok());
+    assert!(validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).is_ok());
 
     Ok(())
 }

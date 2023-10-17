@@ -32,9 +32,10 @@
       kuutamo.bitcoind.network = "regtest";
       kuutamo.electrs.network = "regtest";
 
-      kuutamo.telegraf = {
+      kuutamo.monitor = {
         configHash = "";
-        hasMonitoring = false;
+        telegrafHasMonitoring = false;
+        promtailHasClient = false;
       };
 
       # IO on garnix is really slow

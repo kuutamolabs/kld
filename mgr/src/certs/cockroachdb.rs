@@ -1,5 +1,3 @@
-use super::cert_is_atleast_valid_for;
-use super::CertRenewPolicy;
 use crate::command::status_to_pretty_err;
 use crate::Host;
 use anyhow::{Context, Result};
@@ -15,17 +13,14 @@ fn cockroach(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
-fn create_or_update_ca(certs_dir: &Path, policy: &CertRenewPolicy) -> Result<()> {
+fn create_ca(certs_dir: &Path) -> Result<()> {
     let ca_key_path = certs_dir.join("ca.key");
     let ca_crt_path = certs_dir.join("ca.crt");
 
     let ca_key_exists = ca_key_path.exists();
 
     // create ca key
-    if ca_key_exists
-        && ca_crt_path.exists()
-        && cert_is_atleast_valid_for(&ca_crt_path, policy.ca_renew_seconds)
-    {
+    if ca_key_exists && ca_crt_path.exists() {
         return Ok(());
     }
 
@@ -40,8 +35,6 @@ fn create_or_update_ca(certs_dir: &Path, policy: &CertRenewPolicy) -> Result<()>
         })?;
     }
 
-    // if certificate expires in less than 1 year, create a new one
-
     cockroach(&[
         "cert",
         "create-ca",
@@ -50,23 +43,16 @@ fn create_or_update_ca(certs_dir: &Path, policy: &CertRenewPolicy) -> Result<()>
         "--ca-key",
         &ca_key_path.display().to_string(),
         "--lifetime",
-        &format!("{}s", policy.ca_valid_seconds),
+        "262800h",
         "--overwrite",
     ])
     .context("failed to create ca key")
 }
 
-fn create_or_update_client_cert(
-    certs_dir: &Path,
-    username: &str,
-    policy: &CertRenewPolicy,
-) -> Result<()> {
+fn create_client_cert(certs_dir: &Path, username: &str) -> Result<()> {
     let client_key_path = certs_dir.join(format!("client.{}.key", username));
     let client_crt_path = certs_dir.join(format!("client.{}.crt", username));
-    if client_key_path.exists()
-        && client_crt_path.exists()
-        && cert_is_atleast_valid_for(&client_crt_path, policy.cert_renew_seconds)
-    {
+    if client_key_path.exists() && client_crt_path.exists() {
         return Ok(());
     }
 
@@ -79,24 +65,17 @@ fn create_or_update_client_cert(
         "--ca-key",
         &certs_dir.join("ca.key").display().to_string(),
         "--lifetime",
-        &format!("{}s", policy.cert_valid_seconds),
+        "262799h",
         "--overwrite",
     ])
     .with_context(|| format!("failed to create client cert for {}", username))
 }
 
-fn create_or_update_node_cert(
-    certs_dir: &Path,
-    host: &Host,
-    policy: &CertRenewPolicy,
-) -> Result<()> {
+fn create_node_cert(certs_dir: &Path, host: &Host) -> Result<()> {
     let node_key_path = certs_dir.join(format!("{}.node.key", host.name));
     let node_crt_path = certs_dir.join(format!("{}.node.crt", host.name));
 
-    if node_key_path.exists()
-        && node_crt_path.exists()
-        && cert_is_atleast_valid_for(&node_crt_path, policy.cert_renew_seconds)
-    {
+    if node_key_path.exists() && node_crt_path.exists() {
         return Ok(());
     }
     cockroach(&[
@@ -109,7 +88,7 @@ fn create_or_update_node_cert(
         "--ca-key",
         &certs_dir.join("ca.key").display().to_string(),
         "--lifetime",
-        &format!("{}s", policy.cert_valid_seconds),
+        "262799h",
         "--overwrite",
     ])
     .with_context(|| format!("failed to create node cert for {}", host.name))?;
@@ -123,24 +102,20 @@ fn create_or_update_node_cert(
     Ok(())
 }
 
-pub fn create_or_update_cockroachdb_certs(
-    certs_dir: &Path,
-    hosts: &BTreeMap<String, Host>,
-    policy: &CertRenewPolicy,
-) -> Result<()> {
-    create_or_update_ca(certs_dir, policy)?;
+pub fn create_cockroachdb_certs(certs_dir: &Path, hosts: &BTreeMap<String, Host>) -> Result<()> {
+    create_ca(certs_dir)?;
 
-    create_or_update_client_cert(certs_dir, "root", policy)?;
-    create_or_update_client_cert(certs_dir, "kld", policy)?;
+    create_client_cert(certs_dir, "root")?;
+    create_client_cert(certs_dir, "kld")?;
 
     for host in hosts.values() {
-        create_or_update_node_cert(certs_dir, host, policy)?;
+        create_node_cert(certs_dir, host)?;
     }
     Ok(())
 }
 
 #[test]
-fn test_create_or_update_cockroachdb_certs() -> Result<()> {
+fn test_create_cockroachdb_certs() -> Result<()> {
     use crate::config::{parse_config, TEST_CONFIG};
     use tempfile::tempdir;
 
@@ -148,8 +123,7 @@ fn test_create_or_update_cockroachdb_certs() -> Result<()> {
     let config =
         parse_config(TEST_CONFIG, Path::new("/"), false).context("Failed to parse config")?;
 
-    create_or_update_cockroachdb_certs(dir.path(), &config.hosts, &CertRenewPolicy::default())
-        .context("Failed to create certs")?;
+    create_cockroachdb_certs(dir.path(), &config.hosts).context("Failed to create certs")?;
 
     let mut expected_files = ([
         "ca.crt",
@@ -170,56 +144,6 @@ fn test_create_or_update_cockroachdb_certs() -> Result<()> {
 
     for f in &expected_files {
         assert!(dir.path().join(f).exists(), "Expected file {} to exist", f);
-    }
-
-    let file_modification_times = expected_files
-        .iter()
-        .map(|f| {
-            let path = dir.path().join(f);
-            let metadata = fs::metadata(path).context("Failed to get file metadata")?;
-            let modified = metadata
-                .modified()
-                .context("Failed to get file modification time")?;
-            Ok((f.clone(), modified))
-        })
-        .collect::<Result<BTreeMap<_, _>>>()?;
-
-    create_or_update_cockroachdb_certs(dir.path(), &config.hosts, &CertRenewPolicy::default())
-        .context("Failed to create certs")?;
-
-    for f in &expected_files {
-        let path = dir.path().join(f);
-        let metadata = fs::metadata(&path).context("Failed to get file metadata")?;
-        let modified = file_modification_times
-            .get(f)
-            .with_context(|| format!("Expected file {} to be in file_modification_times", f))?;
-        let modified2 = metadata
-            .modified()
-            .context("Failed to get file modification time")?;
-        assert_eq!(
-            *modified, modified2,
-            "Expected file {} to not be modified",
-            f
-        );
-    }
-    let mut renew_now = CertRenewPolicy::default();
-    renew_now.ca_renew_seconds = renew_now.ca_valid_seconds + 1;
-    renew_now.cert_renew_seconds = renew_now.cert_valid_seconds + 1;
-
-    create_or_update_cockroachdb_certs(dir.path(), &config.hosts, &renew_now)?;
-
-    for f in &expected_files {
-        let path = dir.path().join(f);
-        let metadata = fs::metadata(&path).context("Failed to get file metadata")?;
-        let modified = file_modification_times.get(f).unwrap();
-        let modified2 = metadata
-            .modified()
-            .context("Failed to get file modification time")?;
-        assert_ne!(
-            *modified, modified2,
-            "Expected file {} to not be modified",
-            f
-        );
     }
 
     Ok(())

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use log::info;
+use std::env::var;
 use std::path::Path;
 use std::sync::Mutex;
 use std::{
@@ -10,7 +11,7 @@ use std::{
 
 use crate::{
     command::status_to_pretty_err,
-    utils::{timeout_ssh, unlock_over_ssh},
+    utils::{timeout_ssh, try_unlock_over_ssh},
 };
 
 use super::{Host, NixosFlake};
@@ -33,6 +34,7 @@ pub fn install(
     kexec_url: &str,
     flake: &NixosFlake,
     secrets_dir: &Path,
+    access_tokens: &String,
     debug: bool,
     no_reboot: bool,
 ) -> Result<()> {
@@ -49,7 +51,9 @@ pub fn install(
 
             let disk_encryption_key = secrets_dir.join("disk_encryption_key");
             let disk_encryption_key_path = disk_encryption_key.to_string_lossy();
-            let secrets = host.secrets(secrets_dir).context("Failed to get secrets")?;
+            let secrets = host
+                .secrets(secrets_dir, access_tokens)
+                .context("Failed to get secrets")?;
             let flake_uri = format!("{}#{}", flake.path().display(), host.name);
             let extra_files = format!("{}", secrets.path().display());
             let mut args = vec![
@@ -90,7 +94,7 @@ pub fn install(
             );
 
             loop {
-                if unlock_over_ssh(host, &disk_encryption_key).is_ok() {
+                if try_unlock_over_ssh(host, &disk_encryption_key).is_ok() {
                     info!("Unlocked {}", host.name);
                     break;
                 }
@@ -102,8 +106,8 @@ pub fn install(
                 .status()
                 .context("Failed to run ssh-keygen to remove old keys...")?;
 
-            loop {
-                // After unlock the sshd will start in port 22
+            // With root access, we check sshd start in port 22
+            while var("FLAKE_CHECK").is_ok() || var("DEBUG").is_ok() {
                 if timeout_ssh(host, &["exit", "0"], true)?.status.success() {
                     break;
                 }

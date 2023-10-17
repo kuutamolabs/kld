@@ -1,88 +1,68 @@
 # Global configuration affecting all hosts
 [global]
-# Flake url where the nixos configuration is
-flake = "github:kuutamolabs/lightning-knd"
+# Flake url for your deployment config
+# Please refer https://github.com/kuutamolabs/deployment-example
+deployment_flake = "github:kuutamolabs/deployment-example"
+
+# Tokens for access the deployment flake and the dependencies thereof
+# Please make sure it is never exipired,
+# because we can not update the token after deploy
+access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Flake url for KND
+knd_flake = "github:kuutamolabs/lightning-knd"
 
 # Directory where the secrets are stored i.e. certificates
 secret_directory = "secrets"
 
 # The default values of host will use if any corresponding value is not provided in following hosts
 [host_defaults]
-# Ipv4 address of the node
-# ipv4_address = "192.168.0.1"
-
-# Ipv4 gateway of the node
+# The default Ipv4 gateway of all node
 # ipv4_gateway = "192.168.0.254"
 
-# Ipv4 CIDR of the node
+# The default Ipv4 CIDR for all node
 # ipv4_cidr = 24
 
-# Nixos module will deploy to the node
-# nixos_module = "kld-node"
-
-# Extra nixos module will deploy to the node
-extra_nixos_modules = []
-
-# Mac address of the node
-# mac_address = "00:0A:02:0B:03:0C"
-
-# Ipv6 address of the node
-# ipv6_address = ""
-
-# Ipv6 gateway of the node
+# The default Ipv6 gateway of all node
 # ipv6_gateway = ""
 
-# Ipv6 cidr of the node
+# The default Ipv6 CIDR of all node
 # ipv6_cidr = 0
 
-# The ssh public keys of the user
+# The default ssh public keys of the user
 # After installation the user could login as root with the corresponding ssh private key
 public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...",]
 
-# Admin user for install,
+# The default admin user for install,
 # Please use `ubuntu` when you use OVH to install at first time,
 # Ubuntu did not allow `root` login
 # install_ssh_user = "ubuntu"
 
-# Setup ssh host name for connection and host label on monitoring dashboard
-# ssh_hostname = ""
+# Extra nixos module will deploy to the node
+extra_nixos_modules = []
 
-# Disk configure on the node
+# Default disk configure on all node
 # disks = ["/dev/vdb",]
 
-# bitcoind_disks = [ "", ]
-
-# String for node_alias, currently it only accept 32 chars ascii string for this field
-# kld_node_alias = ""
-
-# Set kld log level to `error`, `warn`, `info`, `debug`, `trace`
-# kld_log_level = "info"
-
-# Token file for monitoring, default is "kuutamo-monitoring.token"
+# The default Token file for monitoring, default is "kuutamo-monitoring.token"
 # Provide this if you have a different file
 # kuutamo_monitoring_token_file = "kuutamo-monitoring.token"
 
-# Self monitoring server
+# The default self monitoring server
 # The url should implements [Prometheus's Remote Write API] (https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).
 # self_monitoring_url = "https://my.monitoring.server/api/v1/push"
 
-# The http basic auth username to access self monitoring server
+# The default http basic auth username to access self monitoring server
 # self_monitoring_username = ""
 
-# The http basic auth password to access self monitoring server
+# The default http basic auth password to access self monitoring server
 # self_monitoring_password = ""
 
-# The communication port of kld
-# kld_rest_api_port = 2244
+# The default push endpoint for the promtail client with auth to collect the journal logs for all nodes
+# ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
+# promtail_client = ""
 
-# The ip addresses list will allow to communicate with kld, if empty, the kld-cli can only
-# use on the node.
-kld_api_ip_access_list = []
-
-# The interface to access network
-# network_interface = "eth0"
-
-# The configure for host, if any field not provided will use from host_defaults
+# The configuration for the host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
 # - the disk information of the node
@@ -97,10 +77,7 @@ kld_api_ip_access_list = []
 # ipv4_cidr = 24
 
 # Nixos module will deploy to the node
-# nixos_module = "kld-node"
-
-# Extra nixos module will deploy to the node
-extra_nixos_modules = []
+nixos_module = "kld-node"
 
 # Mac address of the node
 # mac_address = "00:0A:02:0B:03:0C"
@@ -113,10 +90,6 @@ extra_nixos_modules = []
 
 # Ipv6 cidr of the node
 # ipv6_cidr = 0
-
-# The ssh public keys of the user
-# After installation the user could login as root with the corresponding ssh private key
-public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...",]
 
 # Admin user for install,
 # Please use `ubuntu` when you use OVH to install at first time,
@@ -150,6 +123,10 @@ public_ssh_keys = ["ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA..
 
 # The http basic auth password to access self monitoring server
 # self_monitoring_password = ""
+
+# The push endpoint for the promtail client with auth to collect the journal logs for the node
+# ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
+# promtail_client = ""
 
 # The communication port of kld
 # kld_rest_api_port = 2244

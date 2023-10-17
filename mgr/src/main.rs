@@ -4,15 +4,14 @@
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use mgr::certs::{
-    create_or_update_cockroachdb_certs, create_or_update_lightning_certs, CertRenewPolicy,
+use mgr::certs::{create_cockroachdb_certs, create_lightning_certs};
+use mgr::secrets::{
+    create_deploy_key, generate_disk_encryption_key, generate_mnemonic_and_macaroons,
 };
-use mgr::secrets::{generate_disk_encryption_key, generate_mnemonic_and_macaroons};
 use mgr::ssh::generate_key_pair;
-use mgr::utils::unlock_over_ssh;
+use mgr::utils::try_unlock_over_ssh;
 use mgr::{config::ConfigFile, generate_nixos_flake, logging, Config, Host, NixosFlake};
 use std::collections::BTreeMap;
-use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use toml_example::traits::TomlExample;
@@ -52,20 +51,6 @@ struct InstallArgs {
 struct GenerateConfigArgs {
     /// Directory where to copy the configuration to.
     directory: PathBuf,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct DryUpdateArgs {
-    /// Comma-separated lists of hosts to perform the dry-update
-    #[clap(long, default_value = "")]
-    hosts: String,
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct UpdateArgs {
-    /// Comma-separated lists of hosts to perform the update
-    #[clap(long, default_value = "")]
-    hosts: String,
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -113,12 +98,6 @@ enum Command {
     GenerateExample,
     /// Install kld cluster on given hosts. This will remove all data of the current system!
     Install(InstallArgs),
-    /// Upload update to host and show which actions would be performed on an update
-    DryUpdate(DryUpdateArgs),
-    /// Update applications and OS of hosts, the mnemonic will not be updated
-    Update(UpdateArgs),
-    /// Rollback hosts to previous generation
-    Rollback(RollbackArgs),
     /// SSH into a host
     Ssh(SshArgs),
     /// Reboot hosts
@@ -127,13 +106,6 @@ enum Command {
     SystemInfo(SystemInfoArgs),
     /// Unlock nodes when after reboot
     Unlock(UnlockArgs),
-}
-
-#[derive(clap::Args, PartialEq, Debug, Clone)]
-struct RollbackArgs {
-    /// Comma-separated lists of hosts to perform the rollback
-    #[clap(long, default_value = "")]
-    hosts: String,
 }
 
 #[derive(Parser)]
@@ -198,10 +170,12 @@ fn install(
         &install_args.kexec_url,
         flake,
         &config.global.secret_directory,
+        &config.global.access_tokens,
         install_args.debug,
         install_args.no_reboot,
     )
 }
+
 fn generate_config(
     _args: &Args,
     config_args: &GenerateConfigArgs,
@@ -209,36 +183,6 @@ fn generate_config(
     flake: &NixosFlake,
 ) -> Result<()> {
     mgr::generate_config(&config_args.directory, flake)
-}
-
-fn dry_update(
-    _args: &Args,
-    dry_update_args: &DryUpdateArgs,
-    config: &Config,
-    flake: &NixosFlake,
-) -> Result<()> {
-    let hosts = filter_hosts(&dry_update_args.hosts, &config.hosts)?;
-    mgr::dry_update(&hosts, flake, &config.global.secret_directory)
-}
-
-fn update(
-    _args: &Args,
-    update_args: &UpdateArgs,
-    config: &Config,
-    flake: &NixosFlake,
-) -> Result<()> {
-    let hosts = filter_hosts(&update_args.hosts, &config.hosts)?;
-    mgr::update(&hosts, flake, &config.global.secret_directory)
-}
-
-fn rollback(
-    _args: &Args,
-    rollback_args: &RollbackArgs,
-    config: &Config,
-    flake: &NixosFlake,
-) -> Result<()> {
-    let hosts = filter_hosts(&rollback_args.hosts, &config.hosts)?;
-    mgr::rollback(&hosts, flake, &config.global.secret_directory)
 }
 
 fn ssh(_args: &Args, ssh_args: &SshArgs, config: &Config) -> Result<()> {
@@ -256,32 +200,37 @@ fn reboot(_args: &Args, reboot_args: &RebootArgs, config: &Config) -> Result<()>
     mgr::reboot(&hosts)
 }
 
+fn print_host_info(host: &Host) -> Result<()> {
+    println!("[{}]", host.name);
+    if let Ok(output) = std::process::Command::new("ssh")
+        .args([
+            host.deploy_ssh_target().as_str(),
+            "--",
+            "kld-ctl",
+            "system-info",
+        ])
+        .output()
+    {
+        if output.status.success() {
+            io::stdout().write_all(&output.stdout)?;
+        } else {
+            println!(
+                "fetch system info of {} error: {}",
+                host.name,
+                std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
+            );
+        }
+    } else {
+        println!("Fail to fetch system info from {}", host.name);
+    }
+    Ok(())
+}
+
 fn system_info(args: &SystemInfoArgs, config: &Config) -> Result<()> {
     println!("kld-mgr version: {}\n", env!("CARGO_PKG_VERSION"));
     let hosts = filter_hosts(&args.hosts, &config.hosts)?;
     for host in hosts {
-        println!("[{}]", host.name);
-        if let Ok(output) = std::process::Command::new("ssh")
-            .args([
-                host.deploy_ssh_target().as_str(),
-                "--",
-                "kld-ctl",
-                "system-info",
-            ])
-            .output()
-        {
-            if output.status.success() {
-                io::stdout().write_all(&output.stdout)?;
-            } else {
-                println!(
-                    "fetch system info of {} error: {}",
-                    host.name,
-                    std::str::from_utf8(&output.stderr).unwrap_or("fail to decode stderr")
-                );
-            }
-        } else {
-            println!("Fail to fetch system info from {}", host.name);
-        }
+        print_host_info(&host)?;
         println!("\n");
     }
     Ok(())
@@ -303,16 +252,15 @@ pub fn main() -> Result<()> {
                             &args.config.display()
                         )
                     })?;
-            create_or_update_lightning_certs(
+            create_deploy_key(&config.global.secret_directory)?;
+            create_lightning_certs(
                 &config.global.secret_directory.join("lightning"),
                 &config.hosts,
-                &CertRenewPolicy::default(),
             )
             .context("failed to create or update lightning certificates")?;
-            create_or_update_cockroachdb_certs(
+            create_cockroachdb_certs(
                 &config.global.secret_directory.join("cockroachdb"),
                 &config.hosts,
-                &CertRenewPolicy::default(),
             )
             .context("failed to create or update cockroachdb certificates")?;
 
@@ -337,29 +285,6 @@ pub fn main() -> Result<()> {
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             install(&args, install_args, &config, &flake)
         }
-        Command::Update(ref update_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
-            create_or_update_lightning_certs(
-                &config.global.secret_directory.join("lightning"),
-                &config.hosts,
-                &CertRenewPolicy::default(),
-            )
-            .context("failed to create or update lightning certificates")?;
-            create_or_update_cockroachdb_certs(
-                &config.global.secret_directory.join("cockroachdb"),
-                &config.hosts,
-                &CertRenewPolicy::default(),
-            )
-            .context("failed to create or update cockroachdb certificates")?;
-
-            let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
-            update(&args, update_args, &config, &flake)
-        }
         Command::Unlock(ref unlock_args) => {
             let config = mgr::load_configuration(&args.config, false).with_context(|| {
                 format!(
@@ -373,7 +298,7 @@ pub fn main() -> Result<()> {
                 .clone()
                 .unwrap_or_else(|| config.global.secret_directory.join("disk_encryption_key"));
             for host in filter_hosts(&unlock_args.hosts, &config.hosts)? {
-                unlock_over_ssh(&host, &disk_encryption_key)?;
+                try_unlock_over_ssh(&host, &disk_encryption_key)?;
             }
             Ok(())
         }
@@ -388,12 +313,6 @@ pub fn main() -> Result<()> {
             match args.action {
                 Command::GenerateConfig(ref config_args) => {
                     generate_config(&args, config_args, &config, &flake)
-                }
-                Command::DryUpdate(ref dry_update_args) => {
-                    dry_update(&args, dry_update_args, &config, &flake)
-                }
-                Command::Rollback(ref rollback_args) => {
-                    rollback(&args, rollback_args, &config, &flake)
                 }
                 Command::Ssh(ref ssh_args) => ssh(&args, ssh_args, &config),
                 Command::Reboot(ref reboot_args) => reboot(&args, reboot_args, &config),

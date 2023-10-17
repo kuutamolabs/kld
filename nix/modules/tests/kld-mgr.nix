@@ -51,6 +51,7 @@ in
     installer = { pkgs, ... }: {
       imports = [ shared ];
       systemd.network.networks."10-eth1".networkConfig.Address = "192.168.42.1/24";
+      environment.variables.FLAKE_CHECK = "true";
       environment.systemPackages = [ pkgs.git ];
 
       system.activationScripts.rsa-key = ''
@@ -112,16 +113,18 @@ in
       hostname = new_machine.succeed("hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
       new_machine.succeed("cat /etc/systemd/system/kld.service | grep -q 'kld-00-alias' || (echo node alias does not set && exit 1)")
-
+      nixos_upgrade_desc = new_machine.succeed("systemctl cat kuutamo-upgrade | grep Des | awk -F= '{print $2}'").strip()
+      assert nixos_upgrade_desc  == "Kuutamo customized NixOS Upgrade", "kuutamo-upgrade is not correct"
 
       new_machine.wait_for_unit("sshd.service")
+      new_machine.succeed("systemctl is-active kuutamo-upgrade.timer")
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts kld-00").strip()
       for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "bitcoind version", "cockroach version", "kld-cli version", "disk encrypted"):
           assert version_field  in system_info, f"{version_field} in system info:\n{system_info}"
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts db-00").strip()
-      for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "cockroach version", "disk encrypted"):
+      for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "cockroach version", "disk encrypted", "deployment flake"):
           assert version_field  in system_info, f"{version_field} not in system info:\n{system_info}"
       # TODO test actual service here
 
@@ -143,20 +146,18 @@ in
           new_machine.succeed(f"test $(stat -c %a {cert}) == 600 || (echo {cert} has wrong permissions >&2 && exit 1)")
           new_machine.succeed(f"test $(stat -c %U {cert}) == root || (echo {cert} does not belong to root >&2 && exit 1)")
 
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes dry-update --hosts kld-00 >&2")
-
-      # requires proper setup of certificates...
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes update --hosts kld-00 >&2")
-
       hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
 
-      installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml reboot --hosts kld-00 >&2")
+      # trigger upgrade on the same source
+      installer.succeed("scp -r /root/lightning-knd root@192.168.42.2:/root")
+      installer.succeed("scp -r /tmp/config root@192.168.42.2:/tmp")
+      new_machine.succeed("cd /root/lightning-knd && nix flake lock")
+
+      # the new machinse will soft reboot when upgrade
+      new_machine.execute("systemctl start kuutamo-upgrade", check_output=False)
       new_machine.connected = False
-
-      # XXX find out how we can make persist more than one profile in our test
-      #installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml --yes rollback --hosts kld-00 >&2")
-
+      new_machine.connect()
+      new_machine.wait_for_unit("sshd.service")
     '';
 })

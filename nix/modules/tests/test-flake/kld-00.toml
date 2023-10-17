@@ -1,6 +1,8 @@
 name = "kld-00"
 nixos_module = "kld-node"
 extra_nixos_modules = ["qemu-test-profile"]
+deployment_flake = "path:/tmp/config"
+upgrade_order = 2
 mac_address = "52:54:00:12:01:01"
 ipv4_address = "192.168.42.2"
 ipv4_cidr = 24
@@ -17,6 +19,7 @@ telegraf_has_monitoring = false
 telegraf_config_hash = "13646096770106105413"
 kld_node_alias = "kld-00-alias"
 network_interface = "eth1"
+keep_root = true
 
 [[cockroach_peers]]
 name = "db-00"

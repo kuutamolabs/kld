@@ -26,7 +26,6 @@ fn copy_dir_all<A: AsRef<Path>>(src: impl AsRef<Path>, dst: A) -> Result<()> {
     Ok(())
 }
 
-/// Install a Validator on a given machine
 pub fn generate_config(directory: &PathBuf, flake: &NixosFlake) -> Result<()> {
     copy_dir_all(flake.path(), directory).context("failed to copy flake")
 }

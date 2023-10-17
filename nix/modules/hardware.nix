@@ -11,6 +11,11 @@
     default = "eth0";
     description = lib.mdDoc "The network interface for internet";
   };
+  options.kuutamo.disko.unlockKeys = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = lib.mdDoc "Ssh key to login locked machines";
+  };
 
   imports = [
     ./raid-config.nix
@@ -53,14 +58,13 @@
       ssh = {
         enable = true;
         port = 2222;
-        authorizedKeys = config.users.extraUsers.root.openssh.authorizedKeys.keys;
+        authorizedKeys = config.kuutamo.disko.unlockKeys;
         hostKeys = [
           "/var/lib/secrets/sshd_key"
         ];
       };
       postCommands = ''
         ip link set dev ${config.kuutamo.disko.networkInterface} up
-
         ${lib.optionalString (config.kuutamo.network.ipv4.address != null) ''
           ip addr add ${config.kuutamo.network.ipv4.address}/${builtins.toString config.kuutamo.network.ipv4.cidr} dev ${config.kuutamo.disko.networkInterface}
           ip route add ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
@@ -72,7 +76,16 @@
           ip -6 route add default via ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
         ''}
       '';
-
     };
+    boot.initrd.luks.devices.root-encrypted.fallbackToPassword = true;
+    boot.initrd.luks.devices.root-encrypted.keyFile = "/key-file";
+    boot.initrd.postDeviceCommands = ''
+      set -x
+      if cat /proc/cmdline | grep 'disk-key'; then
+        echo "Unlock from kernel command"
+        key=$(cat /proc/cmdline | sed -e 's/^.*disk-key=//')
+        echo -n "$key" > /key-file;
+      fi
+    '';
   };
 }

@@ -47,6 +47,7 @@ craneLib.buildPackage {
     tests = craneLib.cargoTest {
       inherit src cargoArtifacts buildInputs cargoExtraArgs outputHashes;
       nativeBuildInputs = nativeBuildInputs ++ checkInputs;
+      FLAKE_CHECK = true;
     };
   };
 

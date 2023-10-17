@@ -1,7 +1,5 @@
 kuutamo is an open, turn-key, end-to-end solution for running best-in-class self-hosted nodes, anywhere.
 
-In the world of software, you usually need to decide between using a managed SaaS or running everything yourself in a self-hosted environment, which means handling all the operations to keep things running smoothly. At kuutamo we believe that there is a better way. A hybrid cloud native way. A next generation cloud. Our packaged services can be deployed anywhere, to any cloud, bare metal, and to our users own infrastructure. We aim to provide all the updates, monitoring and operations tooling needed, along with world-class SRE support for protocol and infrastructure services.
-
 # Lighting Service Provider (LSP) node cluster
 
 **Nota bene**: kuutamo is bleeding edge decentralized financial infrastructure. Use with caution and only with funds you are prepared to lose.
@@ -10,19 +8,22 @@ If you want to put it into production and would like to discuss SRE overlay supp
 ## Prerequisites
 
 - 1 or 3 server(s)/node(s): Any Linux OS
-- 1 workstation/local machine: Any Linux OS, MacOS.
+- 1 client/local machine: Any Linux OS, MacOS
 
-## Components
+## Key components
 
-- `kld-mgr` - A CLI tool that will SSH to your server(s) to perform the initial deployment and support ongoing infrastructure operations (e.g. upgrades)
-- `kld-cli` - A CLI tool that will talk to the `kld` API to support LSP operations (e.g. channel open)
-- `kld` - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
-- `cockroachdb` - Cockroach DB - a cloud-native, distributed SQL database
-- `telegraf` - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+### Client side:
+- `kld-mgr`       - A CLI tool that will SSH to your server(s) to perform the initial deployment
+- `kld-cli`       - A CLI tool that uses the kld API to support LSP operations
 
-The server(s) will run `kld` and `cockroachdb`.
-The local machine will run `kld-mgr`. `kld-mgr` requires root access to server(s); therefore in production, this should be executed on a hardened, trusted machine.
-`kld-cli` is also available on the server(s), and can be run on the local machine.
+### Server side:
+- `kld`             - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
+- `cockroachdb`     - a cloud-native, distributed SQL database
+- `telegraf`        - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+- `promtail`        - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
+- `bitcoind`        - a bitcoin client
+- `electrs`         - a bitcoin database indexer
+- `kuutamo-upgrade` - a updater service that will monitor the deployment repository and apply any required upgrades
 
 ## Nix quickstart
 
@@ -36,145 +37,93 @@ kld-cli:
 nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 ```
 
-## Example server hardware setup
+## Installing Nix
 
-- [OVH](https://www.ovhcloud.com/en-gb/bare-metal/rise/rise-1/) - Rise 1, 32GB RAM, 2 x 4TB HDD + 2 x 500GB NVMe, with Ubuntu
-
-Before [installing Ubuntu on the server](https://support.us.ovhcloud.com/hc/en-us/articles/115001775950-How-to-Install-an-OS-on-a-Dedicated-Server), [add your workstation SSH key](https://docs.ovh.com/gb/en/dedicated/creating-ssh-keys-dedicated/#importing-your-ssh-key-into-the-ovhcloud-control-panel_1).
-
-## workstation/local machine setup
-
-1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install is an excellent resource.
+1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install
 
 2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
 
-```bash
+```shell
 $ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
 ```
 3. Trust pre-built binaries (optional):
-
-```bash
+```shell
 $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
 ```
 
-4. Alias `kld-mgr` and use [`nix run`](https://determinate.systems/posts/nix-run) command:
-
-```bash
-$ printf 'alias kld-mgr="nix run --refresh github:kuutamolabs/lightning-knd --"' >> ~/.bashrc && source ~/.bashrc
-```
-5. Test the `kld-mgr` command:
-
-```bash
-$ kld-mgr --help
+4. Test
+```shell
+$ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
 ```
 
-Answer ‘y’ to the four questions asked.
-After some downloading, you should see the help output.
+## Install and in life operations
 
+By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability.
+
+The customized `kuutamo-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
+The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
+
+An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
+`kld-mgr` requires root SSH access to server(s) to perform the initial install.   
+Other cluster bootstrap methods can be used, such as via USB disk or PXE.
+
+> Note: For Test/Dev deployments you can retain Root and SSH capabilities by setting the `DEBUG` environment variable to `true` when performing `install`.
+
+Although monitoring is not mandatory for deploying a node, it is highly recommended.  
+Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the kld.toml.  
+To view Logs remotely set the `promtail_client` in the form `https://<user_id>:<token>@<client hostname>/loki/api/vi/push`
+
+![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
+
+- Step 1: Generate example `kld.toml``
+```shell
+$ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
 ```
-$ nix run github:kuutamolabs/lightning-knd#kld-mgr -- help
-Subcommand to run
+- Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
-Usage: kld-mgr [OPTIONS] <COMMAND>
-
-Commands:
-  generate-config   Generate NixOS configuration
-  generate-example  Generate kld.toml example
-  install           Install kld cluster on given hosts. This will remove all data of the current system!
-  dry-update        Upload update to host and show which actions would be performed on an update
-  update            Update hosts
-  rollback          Rollback hosts to previous generation
-  ssh               SSH into a host
-  reboot            Reboot hosts
-  system-info       Get system info from a host
-  help              Print this message or the help of the given subcommand(s)
-
-Options:
-      --config <CONFIG>  configuration file to load [env: KLD_CONFIG=] [default: kld.toml]
-      --yes              skip interactive dialogs by assuming the answer is yes
-  -h, --help             Print help
-  -V, --version          Print version
-
+- Step 5.1: Generate deployment config
+```shell
+$ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment
 ```
-
-## 3 server cluster
-
-1. Create a new directory, and in it, put your `kld.toml` file - Copy and edit the minimal template below to get started:
-
-```toml
-[global]
-flake = "github:kuutamo/lightning-knd/"
-
-[host_defaults]
-public_ssh_keys = [
- "ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAA you@computer",
-]
-
-# The example RISE1 server in OVH, deployed with a Ubuntu image
-# will be configured with 'ubuntu' as the admin user
-install_ssh_user = "ubuntu"
-
-# This allows us to specify different disks for the bitcoin datebase.
-# The example RISE1 server in OVH has 2x4TB HDD and 2x500GB NVMe
-# Here we specify the bitcoin DB should be on the 4TB disks.
-bitcoind_disks = [
-"/dev/sda",
-"/dev/sdb",
-]
-
-# The `kld-node` module contains both `kld` and `cockroachdb`
-# Currently each custer can support a maximum of 1 `kld-node`
-[hosts.kld-00]
-nixos_module = "kld-node"
-ipv4_address = "1.1.1.1"
-ipv4_cidr    = 24
-ipv4_gateway = "1.1.1.254"
-
-# Optionally, each cluster can support 2 additional database nodes.
-# The `cockroachdb-node` module only contains `cockroachdb`
-[hosts.db-00]
-nixos_module = "cockroachdb-node"
-ipv4_address = "2.2.2.2"
-ipv4_cidr    = 24
-ipv4_gateway = "2.2.2.254"
-
-[hosts.db-01]
-nixos_module = "cockroachdb-node"
-ipv4_address = "3.3.3.3"
-ipv4_cidr    = 24
-ipv4_gateway = "3.3.3.254"
+- Step 5.2: Setup Git & GitHub deployment repository 
+```shell 
+$ cd ./deployment
+$ git init
+$ git add .
+$ git commit -m "init deploy"
+$ git remote add origin git@github.com:my-org/deployment
+$ git push
+$ cd ..
 ```
 
-2. In this directory run:
+- Step 6: Add the flake-lock-update Github Action
+ ```shell
+$ mkdir -p ./deployment/.github/workflows`
+$ curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
+```
+Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
 
-```bash
-$ kld-mgr install
+- Step 7: Install
+```shell
+$ nix run github:kuutamolabs/lightning-knd#kld-mgr install
+```
+- Connect to node via API. kld API is served on port `2244`
+```shell
+$ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
 ```
 
-3. After this install finishes you can connect to the node.
 
-```bash
-$ kld-mgr ssh
-```
+## kld-cli
 
-4. Follow the logs
-
-```bash
-[root@kld-00:~]$ journalctl -u kld.service
-```
-
-5. Run `kld-cli`
-
-```bash
-[root@kld-00:~]$ kld-cli --help
-```
-```
+```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
+```
+```
 Usage: kld-cli --target <TARGET> --cert-path <CERT_PATH> --macaroon-path <MACAROON_PATH> <COMMAND>
 
 Commands:
   get-info                    Fetch information about this lightning node
-  sign                        Creates a signature of the message using node\'s secret key (message limit 65536 chars)
+  sign                        Creates a signature of the message using nodes secret key (message limit 65536 chars)
   get-balance                 Fetch confirmed and unconfirmed on-chain balance
   new-address                 Generates new on-chain address for receiving funds
   withdraw                    Send on-chain funds out of the wallet
@@ -208,16 +157,3 @@ Options:
   -V, --version                        Print version
 
 ```
-
-## One command upgrades
-
-In the folder:
-
-```bash
-$ kld-mgr update
-```
-
-## Monitoring Settings
-
-Although monitoring is not mandatory for deploying a node, it is highly recommended.
-Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the kld.toml.
