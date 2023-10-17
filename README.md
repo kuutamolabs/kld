@@ -23,7 +23,7 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `promtail`      - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
 - `bitcoind`      - a bitcoin client
 - `electrs`       - a bitcoin database indexer
-- `nixos-upgrade` - a customized updater service that will monitor the deployment repository and apply any required upgrades
+- `kuutamo-upgrade` - a customized updater service that will monitor the deployment repository and apply any required upgrades
 
 ## Nix quickstart
 
@@ -64,7 +64,7 @@ The customized `nixos-updater` service checks for updates in your private deploy
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
 An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
-`kld-mgr` requires root SSH access to server(s) to perform the initial install.   
+`kld-mgr` requires root SSH access to server(s) to perform the initial install.
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
@@ -79,8 +79,8 @@ $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
 ```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment
 ```
-- Step 5.2: Setup Git & GitHub deployment repository 
-```shell 
+- Step 5.2: Setup Git & GitHub deployment repository
+```shell
 $ cd ./deployment
 $ git init
 $ git add .

@@ -16,7 +16,7 @@
   config = {
     systemd.services.prepare-kexec.enable = false;
 
-    systemd.services.nixos-upgrade = {
+    systemd.services.kuutamo-upgrade = {
       description = "Kuutamo customized NixOS Upgrade";
 
       restartIfChanged = false;
@@ -80,7 +80,7 @@
       DefaultTimeoutStopSec=900s
     '';
 
-    systemd.timers.nixos-upgrade = {
+    systemd.timers.kuutamo-upgrade = {
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = config.kuutamo.upgrade.time;

@@ -113,11 +113,11 @@ in
       hostname = new_machine.succeed("hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
       new_machine.succeed("cat /etc/systemd/system/kld.service | grep -q 'kld-00-alias' || (echo node alias does not set && exit 1)")
-      nixos_upgrade_desc = new_machine.succeed("systemctl cat nixos-upgrade | grep Des | awk -F= '{print $2}'").strip()
-      assert nixos_upgrade_desc  == "Kuutamo customized NixOS Upgrade", "nixos-upgrade is not correct"
+      nixos_upgrade_desc = new_machine.succeed("systemctl cat kuutamo-upgrade | grep Des | awk -F= '{print $2}'").strip()
+      assert nixos_upgrade_desc  == "Kuutamo customized NixOS Upgrade", "kuutamo-upgrade is not correct"
 
       new_machine.wait_for_unit("sshd.service")
-      new_machine.succeed("systemctl is-active nixos-upgrade.timer")
+      new_machine.succeed("systemctl is-active kuutamo-upgrade.timer")
 
       system_info = installer.succeed("${lib.getExe kld-mgr} --config  /root/test-config.toml system-info --hosts kld-00").strip()
       for version_field in ("kld-mgr version", "kld-ctl version", "git sha", "git commit date", "bitcoind version", "cockroach version", "kld-cli version", "disk encrypted"):
@@ -155,7 +155,7 @@ in
       new_machine.succeed("cd /root/lightning-knd && nix flake lock")
 
       # the new machinse will soft reboot when upgrade
-      new_machine.execute("systemctl start nixos-upgrade", check_output=False)
+      new_machine.execute("systemctl start kuutamo-upgrade", check_output=False)
       new_machine.connected = False
       new_machine.connect()
       new_machine.wait_for_unit("sshd.service")
