@@ -215,7 +215,7 @@ struct HostConfig {
     /// Nixos module will deploy to the node
     #[serde(default)]
     #[toml_example(default = "kld-node")]
-    nixos_module: Option<String>,
+    nixos_module: String,
 
     /// Mac address of the node
     #[toml_example(default = [ ])]
@@ -635,12 +635,6 @@ fn validate_host(
         None
     };
 
-    let nixos_module = host
-        .nixos_module
-        .as_deref()
-        .with_context(|| format!("no nixos_module provided for hosts.{name}"))?
-        .to_string();
-
     let mut extra_nixos_modules = vec![];
     extra_nixos_modules.extend_from_slice(&default.extra_nixos_modules);
 
@@ -806,7 +800,7 @@ fn validate_host(
 
     Ok(Host {
         name,
-        nixos_module,
+        nixos_module: host.nixos_module.clone(),
         extra_nixos_modules,
         install_ssh_user,
         ssh_hostname,
@@ -1058,7 +1052,7 @@ fn test_validate_host() -> Result<()> {
                 .parse::<IpAddr>()
                 .context("Invalid IP address")?,
         ),
-        nixos_module: Some("kld-node".to_string()),
+        nixos_module: "kld-node".to_string(),
         ipv4_cidr: Some(0),
         ipv4_gateway: Some(
             "192.168.255.255"

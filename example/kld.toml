@@ -77,7 +77,7 @@ extra_nixos_modules = []
 # ipv4_cidr = 24
 
 # Nixos module will deploy to the node
-# nixos_module = "kld-node"
+nixos_module = "kld-node"
 
 # Mac address of the node
 # mac_address = "00:0A:02:0B:03:0C"
