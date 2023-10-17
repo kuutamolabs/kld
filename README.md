@@ -17,13 +17,13 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `kld-cli`       - A CLI tool that uses the kld API to support LSP operations
 
 ### Server side:
-- `kld`           - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
-- `cockroachdb`   - a cloud-native, distributed SQL database
-- `telegraf`      - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
-- `promtail`      - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
-- `bitcoind`      - a bitcoin client
-- `electrs`       - a bitcoin database indexer
-- `kuutamo-upgrade` - a customized updater service that will monitor the deployment repository and apply any required upgrades
+- `kld`             - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
+- `cockroachdb`     - a cloud-native, distributed SQL database
+- `telegraf`        - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+- `promtail`        - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
+- `bitcoind`        - a bitcoin client
+- `electrs`         - a bitcoin database indexer
+- `kuutamo-upgrade` - a updater service that will monitor the deployment repository and apply any required upgrades
 
 ## Nix quickstart
 
@@ -60,12 +60,18 @@ $ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
 
 By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability.
 
-The customized `nixos-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
+The customized `kuutamo-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
 An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
-`kld-mgr` requires root SSH access to server(s) to perform the initial install.
+`kld-mgr` requires root SSH access to server(s) to perform the initial install.   
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
+
+> Note: For Test/Dev deployments you can retain Root and SSH capabilities by setting the `DEBUG` environement variable to `true` when performing `install`.
+
+Although monitoring is not mandatory for deploying a node, it is highly recommended.  
+Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the kld.toml.  
+To view Logs remotely set the `promtail_client` in the form `https://<user_id>:<token>@<client hostname>/loki/api/vi/push`
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
 
@@ -79,8 +85,8 @@ $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
 ```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment
 ```
-- Step 5.2: Setup Git & GitHub deployment repository
-```shell
+- Step 5.2: Setup Git & GitHub deployment repository 
+```shell 
 $ cd ./deployment
 $ git init
 $ git add .
@@ -101,7 +107,7 @@ Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update
 ```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-mgr install
 ```
-- Connect to node via API
+- Connect to node via API. kld API is served on port `2244`
 ```shell
 $ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
 ```
@@ -151,8 +157,3 @@ Options:
   -V, --version                        Print version
 
 ```
-
-## Monitoring Settings
-
-Although monitoring is not mandatory for deploying a node, it is highly recommended.
-Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the kld.toml.
