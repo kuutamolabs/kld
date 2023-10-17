@@ -67,7 +67,7 @@ An example install and upgrade workflow is shown below using GitHub. Other Git p
 `kld-mgr` requires root SSH access to server(s) to perform the initial install.   
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
-> Note: For Test/Dev deployments you can retain Root and SSH capabilities by setting the `DEBUG` environement variable to `true` when performing `install`.
+> Note: For Test/Dev deployments you can retain Root and SSH capabilities by setting the `DEBUG` enviroment variable to `true` when performing `install`.
 
 Although monitoring is not mandatory for deploying a node, it is highly recommended.  
 Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the kld.toml.  

@@ -566,7 +566,8 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     {
         if !output.status.success() && var("FLAKE_CHECK").is_err() {
             bail!(
-                "deployment flake {} is not accessible, please check your access token or network connection",
+                r#"deployment flake {} is not accessible, please check your access token, network connection, 
+and the deployment repository has a flake.lock"#,
                 global.deployment_flake
             );
         }
