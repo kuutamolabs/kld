@@ -114,9 +114,8 @@ pub fn generate_mnemonic_and_macaroons(secret_directory: &Path) -> Result<()> {
     engine.input(&mnemonic.to_seed(""));
     engine.input("macaroon/0".as_bytes());
     let hash = sha256::Hash::from_engine(engine);
-    let seed = hash.into_inner();
 
-    let key = MacaroonKey::generate(&seed);
+    let key = MacaroonKey::generate(hash.as_ref());
     let mut admin_macaroon = Macaroon::create(None, &key, "admin".into())?;
     admin_macaroon.add_first_party_caveat("roles = admin|readonly".into());
 
