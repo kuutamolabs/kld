@@ -23,7 +23,7 @@ If you want to put it into production and would like to discuss SRE overlay supp
 - `promtail`        - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
 - `bitcoind`        - a bitcoin client
 - `electrs`         - a bitcoin database indexer
-- `kuutamo-upgrade` - a updater service that will monitor the deployment repository and apply any required upgrades
+- `kuutamo-upgrade` - an updater service that will monitor the deployment repository and apply any required upgrades
 
 ## Nix quickstart
 
@@ -70,12 +70,12 @@ Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 > Note: For Test/Dev deployments you can retain Root and SSH capabilities by setting the `DEBUG` environment variable to `true` when performing `install`.
 
 Although monitoring is not mandatory for deploying a node, it is highly recommended.  
-Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the kld.toml.  
+Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the `kld.toml`.  
 To view Logs remotely set the `promtail_client` in the form `https://<user_id>:<token>@<client hostname>/loki/api/vi/push`
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
 
-- Step 1: Generate example `kld.toml``
+- Step 1: Generate example `kld.toml`
 ```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
 ```
