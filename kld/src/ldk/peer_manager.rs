@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
 use crate::database::{peer::Peer, LdkDatabase};
 use crate::logger::KldLogger;
@@ -57,7 +57,7 @@ pub trait KuutamoPeerManger {
         &self,
         database: Arc<LdkDatabase>,
         public_key: PublicKey,
-        peer_addr: NetAddress,
+        peer_addr: SocketAddress,
     ) -> Result<()>;
 
     fn keep_channel_peers_connected(
@@ -66,7 +66,7 @@ pub trait KuutamoPeerManger {
         channel_manager: Arc<ChannelManager>,
     );
 
-    fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)>;
+    fn get_connected_peers(&self) -> Vec<(PublicKey, Option<SocketAddress>)>;
 
     fn is_connected(&self, public_key: &PublicKey) -> bool;
 
@@ -116,7 +116,7 @@ impl KuutamoPeerManger for Arc<PeerManager> {
         &self,
         database: Arc<LdkDatabase>,
         public_key: PublicKey,
-        peer_addr: NetAddress,
+        peer_addr: SocketAddress,
     ) -> Result<()> {
         if self.is_connected(&public_key) {
             return Ok(());
@@ -153,7 +153,7 @@ impl KuutamoPeerManger for Arc<PeerManager> {
                                 peer_manager.clone(),
                                 database.clone(),
                                 peer.public_key,
-                                peer.net_address.into(),
+                                peer.address.into(),
                             )
                             .await;
                         }
@@ -166,10 +166,10 @@ impl KuutamoPeerManger for Arc<PeerManager> {
         });
     }
 
-    fn get_connected_peers(&self) -> Vec<(PublicKey, Option<NetAddress>)> {
+    fn get_connected_peers(&self) -> Vec<(PublicKey, Option<SocketAddress>)> {
         self.get_peer_node_ids()
             .into_iter()
-            .map(|(k, a)| (k, a.map(NetAddress::from)))
+            .map(|(k, a)| (k, a.map(SocketAddress::from)))
             .collect()
     }
 
@@ -189,7 +189,7 @@ impl KuutamoPeerManger for Arc<PeerManager> {
     fn broadcast_node_announcement_from_settings(&self, settings: Arc<Settings>) {
         let mut alias = [0; 32];
         alias[..settings.node_alias.len()].copy_from_slice(settings.node_alias.as_bytes());
-        let addresses: Vec<lightning::ln::msgs::NetAddress> = settings
+        let addresses: Vec<lightning::ln::msgs::SocketAddress> = settings
             .public_addresses
             .clone()
             .into_iter()
@@ -203,9 +203,9 @@ async fn connect_peer(
     peer_manager: Arc<PeerManager>,
     database: Arc<LdkDatabase>,
     public_key: PublicKey,
-    peer_address: NetAddress,
+    address: SocketAddress,
 ) -> Result<JoinHandle<()>> {
-    let socket_addr = SocketAddr::try_from(peer_address.clone())?;
+    let socket_addr = SocketAddr::try_from(address.clone())?;
     let connection_closed =
         lightning_net_tokio::connect_outbound(peer_manager, public_key, socket_addr)
             .await
@@ -213,7 +213,7 @@ async fn connect_peer(
     database
         .persist_peer(&Peer {
             public_key,
-            net_address: peer_address.0,
+            address: address.0,
         })
         .await?;
     info!("Connected to peer {public_key}@{socket_addr}");

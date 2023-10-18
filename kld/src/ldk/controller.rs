@@ -7,7 +7,7 @@ use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{log_error, MillisatAmount, Service};
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
@@ -263,21 +263,21 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        peer_address: Option<NetAddress>,
+        peer_address: Option<SocketAddress>,
     ) -> Result<()> {
         if let Some(net_address) = peer_address {
             self.peer_manager
                 .connect_peer(self.database.clone(), public_key, net_address)
                 .await
         } else {
-            let addresses: Vec<NetAddress> = self
+            let addresses: Vec<SocketAddress> = self
                 .network_graph
                 .read_only()
                 .get_addresses(&public_key)
                 .context("No addresses found for node")?
                 .into_iter()
                 .map(|a| a.into())
-                .filter(|a: &NetAddress| a.is_ipv4())
+                .filter(|a: &SocketAddress| a.is_ipv4())
                 .collect();
             for address in addresses {
                 if let Err(e) = self
@@ -300,7 +300,7 @@ impl LightningInterface for Controller {
             .await
     }
 
-    fn public_addresses(&self) -> Vec<NetAddress> {
+    fn public_addresses(&self) -> Vec<SocketAddress> {
         self.settings.public_addresses.clone()
     }
 

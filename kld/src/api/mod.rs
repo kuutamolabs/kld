@@ -1,15 +1,15 @@
 mod channels;
 mod invoices;
 mod macaroon_auth;
-mod netaddress;
 mod network;
 mod payments;
 mod peers;
+mod skt_addr;
 mod utility;
 mod wallet;
 mod ws;
 
-pub use netaddress::NetAddress;
+pub use skt_addr::SocketAddress;
 
 pub use macaroon_auth::{KldMacaroon, MacaroonAuth};
 use serde::{Deserialize, Deserializer};

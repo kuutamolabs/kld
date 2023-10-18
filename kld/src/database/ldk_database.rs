@@ -21,7 +21,7 @@ use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
 use lightning::events::ClosureReason;
 use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
-use lightning::ln::msgs::NetAddress;
+use lightning::ln::msgs::SocketAddress;
 use lightning::ln::PaymentHash;
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::Router;
@@ -88,7 +88,7 @@ impl LdkDatabase {
             .execute(
                 "UPSERT INTO peers (public_key, address) \
             VALUES ($1, $2)",
-                &[&peer.public_key.encode(), &peer.net_address.encode()],
+                &[&peer.public_key.encode(), &peer.address.encode()],
             )
             .await?;
         Ok(())
@@ -112,7 +112,7 @@ impl LdkDatabase {
             .transpose()
     }
 
-    pub async fn fetch_peers(&self) -> Result<HashMap<PublicKey, NetAddress>> {
+    pub async fn fetch_peers(&self) -> Result<HashMap<PublicKey, SocketAddress>> {
         debug!("Fetching peers from database");
         let mut peers = HashMap::new();
         for row in self
@@ -123,9 +123,9 @@ impl LdkDatabase {
             .await?
         {
             let public_key: Vec<u8> = row.get("public_key");
-            let net_address: Vec<u8> = row.get("address");
-            let peer = Peer::deserialize(public_key, net_address)?;
-            peers.insert(peer.public_key, peer.net_address);
+            let address: Vec<u8> = row.get("address");
+            let peer = Peer::deserialize(public_key, address)?;
+            peers.insert(peer.public_key, peer.address);
         }
         debug!("Fetched {} peers", peers.len());
         Ok(peers)

@@ -1,6 +1,6 @@
 mod bitcoin_network;
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 pub use bitcoin_network::Network;
 use clap::{builder::OsStr, Parser};
 
@@ -46,7 +46,7 @@ pub struct Settings {
     pub node_alias: String,
     /// Public addresses to broadcast to the lightning network.
     #[arg(long, value_delimiter = ',', env = "KLD_PUBLIC_ADDRESSES")]
-    pub public_addresses: Vec<NetAddress>,
+    pub public_addresses: Vec<SocketAddress>,
 
     #[arg(long, default_value = "127.0.0.1:2233", env = "KLD_EXPORTER_ADDRESS")]
     pub exporter_address: String,

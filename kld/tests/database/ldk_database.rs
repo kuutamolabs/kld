@@ -24,7 +24,7 @@ use lightning::chain::Filter;
 
 use lightning::events::ClosureReason;
 use lightning::ln::features::ChannelTypeFeatures;
-use lightning::ln::msgs::NetAddress;
+use lightning::ln::msgs::SocketAddress;
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
@@ -49,7 +49,7 @@ pub async fn test_peers() -> Result<()> {
 
     let peer = Peer {
         public_key: random_public_key(),
-        net_address: NetAddress::IPv4 {
+        address: SocketAddress::TcpIpV4 {
             addr: [128, 23, 34, 2],
             port: 1000,
         },

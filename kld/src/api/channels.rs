@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use crate::database::forward::ForwardStatus;
 use crate::ldk::htlc_destination_to_string;
 use anyhow::Context;
@@ -115,7 +115,7 @@ pub(crate) async fn open_channel(
     let (public_key, net_address) = match fund_channel.id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
-            Some(net_address.parse::<NetAddress>().map_err(bad_request)?),
+            Some(net_address.parse::<SocketAddress>().map_err(bad_request)?),
         ),
         None => (
             PublicKey::from_str(&fund_channel.id).map_err(bad_request)?,
