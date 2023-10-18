@@ -30,8 +30,7 @@ bitcoin = "0.30.1"
 bitcoincore-rpc-json = "0.17.0"
 rust-bip39 = "1.0.0"
 base64 = "0.21.4"
-# see https://github.com/bitcoindevkit/bdk/pull/850, rebased to 0.28.0 release
-bdk = { git = "https://github.com/JosephGoulden/bdk", branch = "backport-begin-batch-result", features = [ "electrum" ] }
+bdk = { git = "https://github.com/kuutamolabs/bdk", branch = "0.29.0-allow-begin-match-fail", features = [ "electrum" ] }
 anyhow = { version = "1.0.71", features = [ "backtrace" ] }
 futures = "0.3"
 rand = "0.8.5"
