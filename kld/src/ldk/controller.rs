@@ -48,7 +48,7 @@ use lightning_invoice::DEFAULT_EXPIRY_TIME;
 use log::{error, info, warn};
 use rand::random;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use futures::{future::Shared, Future};
@@ -465,7 +465,7 @@ impl LightningInterface for Controller {
     ) -> Result<Option<(u64, u64)>> {
         Ok(self
             .scorer
-            .lock()
+            .try_read()
             .map_err(|e| anyhow!("failed to acquire lock on scorer {}", e))?
             .estimated_channel_liquidity_range(scid, target))
     }
@@ -544,7 +544,7 @@ pub struct Controller {
     keys_manager: Arc<KeysManager>,
     network_graph: Arc<NetworkGraph>,
     router: Arc<KldRouter>,
-    scorer: Arc<Mutex<Scorer>>,
+    scorer: Arc<std::sync::RwLock<Scorer>>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     _liquidity_manager: Arc<LiquidityManager>,
@@ -610,7 +610,7 @@ impl Controller {
                 .context("Could not query network graph from database")?
                 .unwrap_or_else(|| NetworkGraph::new(network, KldLogger::global())),
         );
-        let scorer = Arc::new(Mutex::new(
+        let scorer = Arc::new(std::sync::RwLock::new(
             database
                 .fetch_scorer(
                     ProbabilisticScoringDecayParameters::default(),
