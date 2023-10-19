@@ -363,6 +363,8 @@ impl LightningInterface for Controller {
         let route_params = RouteParameters {
             payment_params: PaymentParameters::from_node_id(invoice.payee_pub_key, 40),
             final_value_msat: invoice.amount.context("amount missing from invoice")?,
+            // TODO: configurable, when opening a channel or starting kld
+            max_total_routing_fee_msat: None,
         };
         self.channel_manager
             .send_payment(
@@ -395,6 +397,8 @@ impl LightningInterface for Controller {
         let route_params = RouteParameters {
             payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40, false),
             final_value_msat: amount,
+            // TODO: configurable, when opening a channel or starting kld
+            max_total_routing_fee_msat: None,
         };
         let route = self
             .router
