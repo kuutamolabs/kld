@@ -2,6 +2,7 @@ use anyhow::Context;
 use lightning::{
     chain::transaction::OutPoint,
     events::ClosureReason,
+    ln::ChannelId,
     ln::{channelmanager::ChannelDetails, features::ChannelTypeFeatures},
     routing::gossip::NodeId,
 };
@@ -14,7 +15,7 @@ use super::{microsecond_timestamp, RowExt};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Channel {
-    pub id: [u8; 32],
+    pub id: ChannelId,
     pub scid: u64,
     pub user_channel_id: u64,
     pub counterparty: NodeId,
@@ -54,7 +55,7 @@ impl TryFrom<Row> for Channel {
 
     fn try_from(row: Row) -> Result<Self, Self::Error> {
         Ok(Channel {
-            id: row.get::<&str, &[u8]>("id").try_into()?,
+            id: ChannelId::from_bytes(row.get::<&str, &[u8]>("id").try_into()?),
             scid: row.get::<&str, i64>("scid") as u64,
             user_channel_id: row.get::<&str, i64>("user_channel_id") as u64,
             counterparty: row.read("counterparty")?,

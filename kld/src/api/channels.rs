@@ -19,6 +19,7 @@ use bitcoin::secp256k1::PublicKey;
 use lightning::events::HTLCDestination;
 use lightning::ln::channelmanager::ChannelDetails;
 use lightning::ln::features::ChannelTypeFeatures;
+use lightning::ln::ChannelId;
 use lightning::util::config::MaxDustHTLCExposure;
 
 use crate::api::bad_request;
@@ -174,7 +175,7 @@ pub(crate) async fn set_channel_fee(
             }
         }
         for (node_id, channels) in peer_channels {
-            let channel_ids: Vec<[u8; 32]> = channels.iter().map(|c| c.channel_id).collect();
+            let channel_ids: Vec<ChannelId> = channels.iter().map(|c| c.channel_id).collect();
             let (base, ppm) = lightning_interface
                 .set_channel_fee(&node_id, &channel_ids, channel_fee.ppm, channel_fee.base)
                 .map_err(internal_server)?;

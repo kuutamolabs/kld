@@ -24,6 +24,7 @@ use lightning::ln::channelmanager::{
 };
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
+use lightning::ln::ChannelId;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{
@@ -177,7 +178,7 @@ impl LightningInterface for Controller {
 
     async fn close_channel(
         &self,
-        channel_id: &[u8; 32],
+        channel_id: &ChannelId,
         counterparty_node_id: &PublicKey,
     ) -> Result<()> {
         if !self.bitcoind_client.is_synchronised().await {
@@ -191,7 +192,7 @@ impl LightningInterface for Controller {
     fn set_channel_fee(
         &self,
         counterparty_node_id: &PublicKey,
-        channel_ids: &[[u8; 32]],
+        channel_ids: &[ChannelId],
         forwarding_fee_proportional_millionths: Option<u32>,
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)> {

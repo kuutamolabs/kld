@@ -35,7 +35,7 @@ use lightning::{
     ln::{
         channelmanager::{ChannelCounterparty, ChannelDetails},
         features::{ChannelTypeFeatures, Features, InitFeatures},
-        PaymentPreimage, PaymentSecret,
+        ChannelId, PaymentPreimage, PaymentSecret,
     },
     routing::gossip::{ChannelInfo, NodeAlias, NodeAnnouncementInfo, NodeId, NodeInfo},
     util::{
@@ -71,7 +71,7 @@ impl Default for MockLightning {
         channel_features.set_scid_privacy_optional();
 
         let channel = ChannelDetails {
-            channel_id: [1u8; 32],
+            channel_id: ChannelId::from_bytes([1u8; 32]),
             counterparty: ChannelCounterparty {
                 node_id: public_key,
                 features: InitFeatures::empty(),
@@ -128,7 +128,12 @@ impl Default for MockLightning {
         let invoice =
             kld::database::invoice::Invoice::new(Some("label".to_string()), invoice).unwrap();
         let payment = Payment::of_invoice_outbound(&invoice, Some("label".to_string()));
-        let forward = Forward::success([3u8; 32], [4u8; 32], 5000000, 3000);
+        let forward = Forward::success(
+            ChannelId::from_bytes([3u8; 32]),
+            ChannelId::from_bytes([4u8; 32]),
+            5000000,
+            3000,
+        );
 
         Self {
             num_peers: 5,
@@ -198,7 +203,7 @@ impl LightningInterface for MockLightning {
     fn set_channel_fee(
         &self,
         _counterparty_node_id: &PublicKey,
-        _channel_id: &[[u8; 32]],
+        _channel_id: &[ChannelId],
         forwarding_fee_proportional_millionths: Option<u32>,
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)> {
@@ -231,7 +236,7 @@ impl LightningInterface for MockLightning {
         Ok(OpenChannelResult {
             transaction,
             txid,
-            channel_id: [1u8; 32],
+            channel_id: ChannelId::from_bytes([1u8; 32]),
         })
     }
 
@@ -258,7 +263,7 @@ impl LightningInterface for MockLightning {
 
     async fn close_channel(
         &self,
-        _channel_id: &[u8; 32],
+        _channel_id: &ChannelId,
         _counterparty_node_id: &PublicKey,
     ) -> Result<()> {
         Ok(())

@@ -22,6 +22,7 @@ use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
 use lightning::events::ClosureReason;
 use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::SocketAddress;
+use lightning::ln::ChannelId;
 use lightning::ln::PaymentHash;
 use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::Router;
@@ -167,7 +168,7 @@ impl LdkDatabase {
             .execute(
                 &statement,
                 &[
-                    &channel.id.as_ref(),
+                    &channel.id.0.as_ref(),
                     &(channel.scid as i64),
                     &(channel.user_channel_id as i64),
                     &channel.counterparty.encode(),
@@ -185,7 +186,7 @@ impl LdkDatabase {
 
     pub async fn close_channel(
         &self,
-        channel_id: &[u8; 32],
+        channel_id: &ChannelId,
         closure_reason: &ClosureReason,
     ) -> Result<()> {
         debug!("Close channel {}", channel_id.to_hex());
@@ -201,7 +202,7 @@ impl LdkDatabase {
                 &[
                     &to_primitive(&microsecond_timestamp()),
                     &closure_reason.encode(),
-                    &channel_id.as_ref(),
+                    &channel_id.0.as_ref(),
                 ],
             )
             .await?;
@@ -509,8 +510,8 @@ impl LdkDatabase {
                 &statement,
                 &[
                     &forward.id,
-                    &forward.inbound_channel_id.as_ref(),
-                    &forward.outbound_channel_id.as_ref().map(|x| x.as_ref()),
+                    &forward.inbound_channel_id.0.as_ref(),
+                    &forward.outbound_channel_id.as_ref().map(|x| x.0.as_ref()),
                     &(forward.amount.map(|x| x as i64)),
                     &(forward.fee.map(|x| x as i64)),
                     &forward.status,

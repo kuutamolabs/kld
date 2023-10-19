@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lightning::{
-    ln::channelmanager::ChannelDetails,
+    ln::{channelmanager::ChannelDetails, ChannelId},
     routing::gossip::{ChannelInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
@@ -51,7 +51,7 @@ pub trait LightningInterface: Send + Sync {
     fn set_channel_fee(
         &self,
         counterparty_node_id: &PublicKey,
-        channel_id: &[[u8; 32]],
+        channel_id: &[ChannelId],
         forwarding_fee_proportional_millionths: Option<u32>,
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)>;
@@ -81,7 +81,7 @@ pub trait LightningInterface: Send + Sync {
 
     async fn close_channel(
         &self,
-        channel_id: &[u8; 32],
+        channel_id: &ChannelId,
         counterparty_node_id: &PublicKey,
     ) -> Result<()>;
 
@@ -155,5 +155,5 @@ impl ToString for PeerStatus {
 pub struct OpenChannelResult {
     pub transaction: Transaction,
     pub txid: Txid,
-    pub channel_id: [u8; 32],
+    pub channel_id: ChannelId,
 }
