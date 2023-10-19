@@ -891,7 +891,9 @@ impl Controller {
         .await?;
         info!("Chain listeners synchronised. Registering ChannelMonitors with ChainMonitor");
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
-            chain_monitor.watch_channel(funding_outpoint, channel_monitor);
+            if let Err(e) = chain_monitor.watch_channel(funding_outpoint, channel_monitor) {
+                warn!("Could not sync info for channel: {e:?}");
+            }
             info!("Registered {}", funding_outpoint.txid);
         }
 
