@@ -14,7 +14,7 @@ use bitcoin::{
     Network, Txid,
 };
 use kld::{
-    api::NetAddress,
+    api::SocketAddress,
     database::{
         channel::Channel,
         forward::{Forward, ForwardStatus, TotalForwards},
@@ -57,7 +57,7 @@ pub struct MockLightning {
     pub wallet_balance: u64,
     pub channel: ChannelDetails,
     pub public_key: PublicKey,
-    pub ipv4_address: NetAddress,
+    pub ipv4_address: SocketAddress,
     pub invoice: Invoice,
     pub payment: Payment,
     pub forward: Forward,
@@ -217,7 +217,7 @@ impl LightningInterface for MockLightning {
         Some(TEST_ALIAS.to_string())
     }
 
-    fn public_addresses(&self) -> Vec<NetAddress> {
+    fn public_addresses(&self) -> Vec<SocketAddress> {
         let addr1: SocketAddrV4 = "127.0.0.1:2312".parse().unwrap();
         let addr2: SocketAddrV6 = "[2001:db8::1]:8080".parse().unwrap();
         vec![addr1.into(), addr2.into()]
@@ -252,7 +252,7 @@ impl LightningInterface for MockLightning {
     async fn connect_peer(
         &self,
         _public_key: PublicKey,
-        _socket_addr: Option<NetAddress>,
+        _socket_addr: Option<SocketAddress>,
     ) -> Result<()> {
         Ok(())
     }
