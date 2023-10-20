@@ -41,17 +41,12 @@ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
 
 1. Install the Nix package manager, if you don't already have it. https://zero-to-nix.com/start/install
 
-2. Enable `nix` command and [flakes](https://www.tweag.io/blog/2020-05-25-flakes/) features:
-
-```shell
-$ mkdir -p ~/.config/nix/ && printf 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
-```
-3. Trust pre-built binaries (optional):
+2. Trust pre-built binaries (optional):
 ```shell
 $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org/\ntrusted-public-keys = cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' | sudo tee -a /etc/nix/nix.conf && sudo systemctl restart nix-daemon
 ```
 
-4. Test
+3. Test
 ```shell
 $ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
 ```
