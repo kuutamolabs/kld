@@ -17,6 +17,7 @@ use crate::log_error;
 use crate::settings::Settings;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning::events::{Event, PathFailure, PaymentPurpose};
+use lightning::ln::ChannelId;
 use lightning::routing::gossip::NodeId;
 use lightning::sign::KeysManager;
 use log::{error, info, warn};
@@ -158,6 +159,7 @@ impl EventHandler {
                 channel_id,
                 reason,
                 user_channel_id,
+                ..
             } => {
                 info!("EVENT: Channel {}: {reason}.", channel_id.to_hex());
                 self.async_api_requests
@@ -233,6 +235,7 @@ impl EventHandler {
                 purpose,
                 amount_msat,
                 receiver_node_id: _,
+                ..
             } => {
                 info!(
                     "EVENT: Payment claimed with hash {} of {} millisats",
@@ -371,7 +374,7 @@ impl EventHandler {
                 let nodes = read_only_network_graph.nodes();
                 let channels = self.channel_manager.list_channels();
 
-                let node_str = |channel_id: &Option<[u8; 32]>| match channel_id {
+                let node_str = |channel_id: &Option<ChannelId>| match channel_id {
                     None => String::new(),
                     Some(channel_id) => match channels.iter().find(|c| c.channel_id == *channel_id)
                     {
@@ -389,7 +392,7 @@ impl EventHandler {
                         }
                     },
                 };
-                let channel_str = |channel_id: &Option<[u8; 32]>| {
+                let channel_str = |channel_id: &Option<ChannelId>| {
                     channel_id
                         .map(|channel_id| format!(" with channel {}", channel_id.to_hex()))
                         .unwrap_or_default()
@@ -467,7 +470,7 @@ impl EventHandler {
                     forwarding_channel_manager.process_pending_htlc_forwards();
                 });
             }
-            Event::SpendableOutputs { outputs } => {
+            Event::SpendableOutputs { outputs, .. } => {
                 let mut spendable_outputs: Vec<SpendableOutput> =
                     outputs.into_iter().map(SpendableOutput::new).collect();
                 for spendable_output in &spendable_outputs {

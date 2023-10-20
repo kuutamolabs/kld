@@ -4,7 +4,7 @@ mod event_handler;
 pub mod lightning_interface;
 mod peer_manager;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
@@ -70,7 +70,7 @@ pub type Scorer = ProbabilisticScorer<Arc<NetworkGraph>, Arc<KldLogger>>;
 pub(crate) type KldRouter = DefaultRouter<
     Arc<NetworkGraph>,
     Arc<KldLogger>,
-    Arc<Mutex<Scorer>>,
+    Arc<RwLock<Scorer>>,
     ProbabilisticScoringFeeParameters,
     Scorer,
 >;

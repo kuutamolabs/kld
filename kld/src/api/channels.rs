@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use crate::database::forward::ForwardStatus;
 use crate::ldk::htlc_destination_to_string;
 use anyhow::Context;
@@ -19,6 +19,7 @@ use bitcoin::secp256k1::PublicKey;
 use lightning::events::HTLCDestination;
 use lightning::ln::channelmanager::ChannelDetails;
 use lightning::ln::features::ChannelTypeFeatures;
+use lightning::ln::ChannelId;
 use lightning::util::config::MaxDustHTLCExposure;
 
 use crate::api::bad_request;
@@ -115,7 +116,7 @@ pub(crate) async fn open_channel(
     let (public_key, net_address) = match fund_channel.id.split_once('@') {
         Some((public_key, net_address)) => (
             PublicKey::from_str(public_key).map_err(bad_request)?,
-            Some(net_address.parse::<NetAddress>().map_err(bad_request)?),
+            Some(net_address.parse::<SocketAddress>().map_err(bad_request)?),
         ),
         None => (
             PublicKey::from_str(&fund_channel.id).map_err(bad_request)?,
@@ -174,7 +175,7 @@ pub(crate) async fn set_channel_fee(
             }
         }
         for (node_id, channels) in peer_channels {
-            let channel_ids: Vec<[u8; 32]> = channels.iter().map(|c| c.channel_id).collect();
+            let channel_ids: Vec<ChannelId> = channels.iter().map(|c| c.channel_id).collect();
             let (base, ppm) = lightning_interface
                 .set_channel_fee(&node_id, &channel_ids, channel_fee.ppm, channel_fee.base)
                 .map_err(internal_server)?;

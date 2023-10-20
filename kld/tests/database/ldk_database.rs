@@ -24,7 +24,8 @@ use lightning::chain::Filter;
 
 use lightning::events::ClosureReason;
 use lightning::ln::features::ChannelTypeFeatures;
-use lightning::ln::msgs::NetAddress;
+use lightning::ln::msgs::SocketAddress;
+use lightning::ln::ChannelId;
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::DefaultRouter;
@@ -49,7 +50,7 @@ pub async fn test_peers() -> Result<()> {
 
     let peer = Peer {
         public_key: random_public_key(),
-        net_address: NetAddress::IPv4 {
+        address: SocketAddress::TcpIpV4 {
             addr: [128, 23, 34, 2],
             port: 1000,
         },
@@ -81,11 +82,16 @@ pub async fn test_forwards() -> Result<()> {
 
     let amount = 1000000;
     let fee = 100;
-    let forward_success = Forward::success([0u8; 32], [1u8; 32], amount, fee);
+    let forward_success = Forward::success(
+        ChannelId::from_bytes([0u8; 32]),
+        ChannelId::from_bytes([1u8; 32]),
+        amount,
+        fee,
+    );
     database.persist_forward(forward_success.clone()).await?;
 
     let forward_fail = Forward::failure(
-        [3u8; 32],
+        ChannelId::from_bytes([3u8; 32]),
         lightning::events::HTLCDestination::FailedPayment {
             payment_hash: PaymentHash([1u8; 32]),
         },
@@ -339,7 +345,7 @@ pub async fn test_channels() -> Result<()> {
     type_features.set_scid_privacy_required();
 
     let channel = Channel {
-        id: random(),
+        id: ChannelId::from_bytes(random()),
         scid: 111,
         user_channel_id: i64::MAX as u64,
         counterparty: NodeId::from_str(TEST_PUBLIC_KEY)?,
