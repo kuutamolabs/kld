@@ -7,7 +7,7 @@ use crate::database::payment::{Payment, PaymentDirection};
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{log_error, MillisatAmount, Service};
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use api::FeeRate;
@@ -24,6 +24,7 @@ use lightning::ln::channelmanager::{
 };
 use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
+use lightning::ln::ChannelId;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
 use lightning::routing::scoring::{
@@ -47,7 +48,7 @@ use lightning_invoice::DEFAULT_EXPIRY_TIME;
 use log::{error, info, warn};
 use rand::random;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use futures::{future::Shared, Future};
@@ -177,7 +178,7 @@ impl LightningInterface for Controller {
 
     async fn close_channel(
         &self,
-        channel_id: &[u8; 32],
+        channel_id: &ChannelId,
         counterparty_node_id: &PublicKey,
     ) -> Result<()> {
         if !self.bitcoind_client.is_synchronised().await {
@@ -191,7 +192,7 @@ impl LightningInterface for Controller {
     fn set_channel_fee(
         &self,
         counterparty_node_id: &PublicKey,
-        channel_ids: &[[u8; 32]],
+        channel_ids: &[ChannelId],
         forwarding_fee_proportional_millionths: Option<u32>,
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)> {
@@ -263,21 +264,21 @@ impl LightningInterface for Controller {
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        peer_address: Option<NetAddress>,
+        peer_address: Option<SocketAddress>,
     ) -> Result<()> {
         if let Some(net_address) = peer_address {
             self.peer_manager
                 .connect_peer(self.database.clone(), public_key, net_address)
                 .await
         } else {
-            let addresses: Vec<NetAddress> = self
+            let addresses: Vec<SocketAddress> = self
                 .network_graph
                 .read_only()
                 .get_addresses(&public_key)
                 .context("No addresses found for node")?
                 .into_iter()
                 .map(|a| a.into())
-                .filter(|a: &NetAddress| a.is_ipv4())
+                .filter(|a: &SocketAddress| a.is_ipv4())
                 .collect();
             for address in addresses {
                 if let Err(e) = self
@@ -300,7 +301,7 @@ impl LightningInterface for Controller {
             .await
     }
 
-    fn public_addresses(&self) -> Vec<NetAddress> {
+    fn public_addresses(&self) -> Vec<SocketAddress> {
         self.settings.public_addresses.clone()
     }
 
@@ -362,6 +363,8 @@ impl LightningInterface for Controller {
         let route_params = RouteParameters {
             payment_params: PaymentParameters::from_node_id(invoice.payee_pub_key, 40),
             final_value_msat: invoice.amount.context("amount missing from invoice")?,
+            // TODO: configurable, when opening a channel or starting kld
+            max_total_routing_fee_msat: None,
         };
         self.channel_manager
             .send_payment(
@@ -394,6 +397,8 @@ impl LightningInterface for Controller {
         let route_params = RouteParameters {
             payment_params: PaymentParameters::for_keysend(payee.as_pubkey()?, 40, false),
             final_value_msat: amount,
+            // TODO: configurable, when opening a channel or starting kld
+            max_total_routing_fee_msat: None,
         };
         let route = self
             .router
@@ -460,7 +465,7 @@ impl LightningInterface for Controller {
     ) -> Result<Option<(u64, u64)>> {
         Ok(self
             .scorer
-            .lock()
+            .try_read()
             .map_err(|e| anyhow!("failed to acquire lock on scorer {}", e))?
             .estimated_channel_liquidity_range(scid, target))
     }
@@ -539,7 +544,7 @@ pub struct Controller {
     keys_manager: Arc<KeysManager>,
     network_graph: Arc<NetworkGraph>,
     router: Arc<KldRouter>,
-    scorer: Arc<Mutex<Scorer>>,
+    scorer: Arc<std::sync::RwLock<Scorer>>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
     _liquidity_manager: Arc<LiquidityManager>,
@@ -605,7 +610,7 @@ impl Controller {
                 .context("Could not query network graph from database")?
                 .unwrap_or_else(|| NetworkGraph::new(network, KldLogger::global())),
         );
-        let scorer = Arc::new(Mutex::new(
+        let scorer = Arc::new(std::sync::RwLock::new(
             database
                 .fetch_scorer(
                     ProbabilisticScoringDecayParameters::default(),
@@ -886,7 +891,9 @@ impl Controller {
         .await?;
         info!("Chain listeners synchronised. Registering ChannelMonitors with ChainMonitor");
         for (_, (channel_monitor, _, _, _), funding_outpoint) in chain_listener_channel_monitors {
-            chain_monitor.watch_channel(funding_outpoint, channel_monitor);
+            if let Err(e) = chain_monitor.watch_channel(funding_outpoint, channel_monitor) {
+                warn!("Could not sync info for channel: {e:?}");
+            }
             info!("Registered {}", funding_outpoint.txid);
         }
 

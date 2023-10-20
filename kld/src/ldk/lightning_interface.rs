@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lightning::{
-    ln::channelmanager::ChannelDetails,
+    ln::{channelmanager::ChannelDetails, ChannelId},
     routing::gossip::{ChannelInfo, NodeId, NodeInfo},
     util::{config::UserConfig, indexed_map::IndexedMap},
 };
@@ -15,7 +15,7 @@ use crate::{
     MillisatAmount,
 };
 
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
@@ -51,21 +51,21 @@ pub trait LightningInterface: Send + Sync {
     fn set_channel_fee(
         &self,
         counterparty_node_id: &PublicKey,
-        channel_id: &[[u8; 32]],
+        channel_id: &[ChannelId],
         forwarding_fee_proportional_millionths: Option<u32>,
         forwarding_fee_base_msat: Option<u32>,
     ) -> Result<(u32, u32)>;
 
     fn alias_of(&self, node_id: &PublicKey) -> Option<String>;
 
-    fn public_addresses(&self) -> Vec<NetAddress>;
+    fn public_addresses(&self) -> Vec<SocketAddress>;
 
     async fn list_peers(&self) -> Result<Vec<Peer>>;
 
     async fn connect_peer(
         &self,
         public_key: PublicKey,
-        socket_addr: Option<NetAddress>,
+        socket_addr: Option<SocketAddress>,
     ) -> Result<()>;
 
     async fn disconnect_peer(&self, public_key: PublicKey) -> Result<()>;
@@ -81,7 +81,7 @@ pub trait LightningInterface: Send + Sync {
 
     async fn close_channel(
         &self,
-        channel_id: &[u8; 32],
+        channel_id: &ChannelId,
         counterparty_node_id: &PublicKey,
     ) -> Result<()>;
 
@@ -130,7 +130,7 @@ pub trait LightningInterface: Send + Sync {
 
 pub struct Peer {
     pub public_key: PublicKey,
-    pub net_address: Option<NetAddress>,
+    pub net_address: Option<SocketAddress>,
     pub status: PeerStatus,
     pub alias: String,
 }
@@ -155,5 +155,5 @@ impl ToString for PeerStatus {
 pub struct OpenChannelResult {
     pub transaction: Transaction,
     pub txid: Txid,
-    pub channel_id: [u8; 32],
+    pub channel_id: ChannelId,
 }

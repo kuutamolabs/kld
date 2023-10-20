@@ -1,4 +1,4 @@
-use crate::api::NetAddress;
+use crate::api::SocketAddress;
 use anyhow::anyhow;
 use api::{FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
@@ -163,7 +163,7 @@ fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
         addresses: n
             .addresses()
             .iter()
-            .map(|a| NetAddress(a.clone()).to_string())
+            .map(|a| SocketAddress(a.clone()).to_string())
             .collect(),
     })
 }
