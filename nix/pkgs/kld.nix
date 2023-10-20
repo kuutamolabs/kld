@@ -39,6 +39,14 @@ craneLib.buildPackage {
   name = "kld";
   inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs outputHashes;
   cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
+
+  # avoid recompiling openssl
+  preBuild = ''
+    rm -rf ./target
+    cp -r ${cargoArtifacts} ./target
+    chmod -R u+w ./target
+  '';
+
   passthru = {
     clippy = craneLib.cargoClippy {
       inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs cargoExtraArgs outputHashes;
