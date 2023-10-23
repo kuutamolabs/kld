@@ -32,6 +32,7 @@
       "igc" # 2.5GbitE adapter
       "cdc_ether"
       "virtio_net"
+      "virtio_rng"
       "virtio_pci"
       "virtio_mmio"
       "virtio_blk"
