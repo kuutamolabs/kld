@@ -63,15 +63,18 @@ in
         type = "mdadm";
         level = 1;
         content = {
-          type = "luks";
-          name = "root-encrypted";
-          keyFile = "/var/lib/disk_encryption_key";
-          settings.preLVM = false;
-          content = {
-            type = "filesystem";
-            format = "ext4";
-            mountpoint = "/";
-          };
+          type = "filesystem";
+          format = "ext4";
+          mountpoint = "/";
+          # type = "luks";
+          # name = "root-encrypted";
+          # keyFile = "/var/lib/disk_encryption_key";
+          # settings.preLVM = false;
+          # content = {
+          #   type = "filesystem";
+          #   format = "ext4";
+          #   mountpoint = "/";
+          # };
         };
       };
       bitcoind = lib.mkIf (config.kuutamo.disko.bitcoindDisks != [ ]) {
