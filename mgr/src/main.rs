@@ -45,6 +45,10 @@ struct InstallArgs {
     /// transmit any copies over the internet.
     #[clap(long, default_value = "false")]
     generate_secret_on_remote: bool,
+
+    /// Disable disk encrypt feature for some platform
+    #[clap(long, default_value = "false")]
+    no_encrypt: bool,
 }
 
 #[derive(clap::Args, PartialEq, Debug, Clone)]
@@ -173,6 +177,7 @@ fn install(
         &config.global.access_tokens,
         install_args.debug,
         install_args.no_reboot,
+        install_args.no_encrypt,
     )
 }
 

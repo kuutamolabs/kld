@@ -37,6 +37,7 @@ pub fn install(
     access_tokens: &String,
     debug: bool,
     no_reboot: bool,
+    no_encrypt: bool,
 ) -> Result<()> {
     flake.show()?;
     hosts
@@ -48,7 +49,6 @@ pub fn install(
             } else {
                 format!("{}@{}", host.install_ssh_user, host.ssh_hostname)
             };
-
             let disk_encryption_key = secrets_dir.join("disk_encryption_key");
             let disk_encryption_key_path = disk_encryption_key.to_string_lossy();
             let secrets = host
@@ -59,9 +59,6 @@ pub fn install(
             let mut args = vec![
                 "--extra-files",
                 &extra_files,
-                "--disk-encryption-keys",
-                "/var/lib/disk_encryption_key",
-                &disk_encryption_key_path,
                 "--kexec",
                 kexec_url,
                 "--flake",
@@ -70,6 +67,13 @@ pub fn install(
                 "accept-flake-config",
                 "true",
             ];
+            if !no_encrypt {
+                args.extend_from_slice(&[
+                    "--disk-encryption-keys",
+                    "/var/lib/disk_encryption_key",
+                    &disk_encryption_key_path,
+                ]);
+            }
             if cfg!(target_os = "macos") {
                 args.push("--build-on-remote")
             }
