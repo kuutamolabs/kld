@@ -175,9 +175,11 @@ fn install(
         flake,
         &config.global.secret_directory,
         &config.global.access_tokens,
-        install_args.debug,
-        install_args.no_reboot,
-        install_args.no_encrypt,
+        mgr::InstallOption {
+            debug: install_args.debug,
+            no_reboot: install_args.no_reboot,
+            no_encrypt: install_args.no_encrypt,
+        },
     )
 }
 

@@ -4,6 +4,7 @@ pub use config::{calculate_hash, load_configuration, Config, Host};
 pub use flake::{generate_nixos_flake, NixosFlake};
 pub use generate_config::generate_config;
 pub use install::install;
+pub use install::InstallOption;
 pub use nixos_rebuild::nixos_rebuild;
 pub use reboot::reboot;
 pub use ssh::ssh;

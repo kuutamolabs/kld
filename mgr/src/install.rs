@@ -16,6 +16,12 @@ use crate::{
 
 use super::{Host, NixosFlake};
 
+pub struct InstallOption {
+    pub debug: bool,
+    pub no_reboot: bool,
+    pub no_encrypt: bool,
+}
+
 lazy_static! {
     static ref CTRL_WAS_PRESSED: Mutex<Receiver<()>> = {
         let (ctrlc_tx, ctrlc_rx) = channel();
@@ -35,10 +41,13 @@ pub fn install(
     flake: &NixosFlake,
     secrets_dir: &Path,
     access_tokens: &String,
-    debug: bool,
-    no_reboot: bool,
-    no_encrypt: bool,
+    option: InstallOption,
 ) -> Result<()> {
+    let InstallOption {
+        debug,
+        no_reboot,
+        no_encrypt,
+    } = option;
     flake.show()?;
     hosts
         .iter()
