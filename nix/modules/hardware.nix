@@ -42,7 +42,7 @@
     ];
     # XXX on some platforms we pick up the wrong console. In this cases we default to serial,
     # also our ipmi has VGA output, uncomment the line below.
-    srvos.boot.consoles = lib.mkDefault [ ];
+    # srvos.boot.consoles = lib.mkDefault [ ];
 
     # Enable raid support specifically, this will disable srvos's
     # systemd-initrd as well, which currently is not compatible with mdraid.
