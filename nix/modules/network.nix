@@ -90,7 +90,8 @@ in
 
     systemd.network = {
       enable = true;
-      networks."ethernet".extraConfig = ''
+      networks."ethernet".extraConfig = if (cfg.ipv4.cidr == 32 || cfg.ipv6.cidr == 128) then
+        ''
         [Match]
         ${if cfg.macAddress == null then ''
           Name = ${cfg.interface}
@@ -98,16 +99,43 @@ in
           MACAddress = ${cfg.macAddress}
         ''}
 
+        [Address]
+        ${lib.optionalString (cfg.ipv4.address != null) ''
+          Address = ${cfg.ipv4.address}
+          Peer = ${cfg.ipv4.gateway}
+        ''}
+        ${lib.optionalString (cfg.ipv6.address != null) ''
+          Address = ${cfg.ipv6.address}
+          Peer = ${cfg.ipv6.gateway}
+        ''}
+
         [Network]
         ${lib.optionalString (cfg.ipv4.address != null) ''
-          Address = ${cfg.ipv4.address}/${toString cfg.ipv4.cidr}
           Gateway = ${cfg.ipv4.gateway}
         ''}
         ${lib.optionalString (cfg.ipv6.address != null) ''
-          Address = ${cfg.ipv6.address}/${toString cfg.ipv6.cidr}
           Gateway = ${cfg.ipv6.gateway}
         ''}
-      '';
+      ''
+      else
+        ''
+          [Match]
+          ${if cfg.macAddress == null then ''
+            Name = ${cfg.interface}
+          '' else  ''
+            MACAddress = ${cfg.macAddress}
+          ''}
+
+          [Network]
+          ${lib.optionalString (cfg.ipv4.address != null) ''
+            Address = ${cfg.ipv4.address}/${toString cfg.ipv4.cidr}
+            Gateway = ${cfg.ipv4.gateway}
+          ''}
+          ${lib.optionalString (cfg.ipv6.address != null) ''
+            Address = ${cfg.ipv6.address}/${toString cfg.ipv4.cidr}
+            Gateway = ${cfg.ipv6.gateway}
+          ''}
+        '';
     };
   };
 }
