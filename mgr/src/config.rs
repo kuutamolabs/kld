@@ -628,7 +628,7 @@ fn validate_host(
     };
 
     let ipv4_cidr = if let Some(cidr) = host.ipv4_cidr.or(default.ipv4_cidr) {
-        if !(0..32_u8).contains(&cidr) {
+        if !(0..33_u8).contains(&cidr) {
             bail!("ipv4_cidr for hosts.{name} is not between 0 and 32: {cidr}")
         }
         Some(cidr)
@@ -654,7 +654,7 @@ fn validate_host(
         }
 
         if let Some(ipv6_cidr) = ipv6_cidr {
-            if !(0..128_u8).contains(&ipv6_cidr) {
+            if !(0..129_u8).contains(&ipv6_cidr) {
                 bail!("ipv6_cidr for hosts.{name} is not between 0 and 128: {ipv6_cidr}")
             }
         } else if mask.is_none() {
