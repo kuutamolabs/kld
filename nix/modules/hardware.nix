@@ -53,40 +53,40 @@
     boot.loader.grub.efiSupport = true;
     boot.loader.grub.efiInstallAsRemovable = true;
 
-    # # initrd networking for unlocking LUKS
-    # boot.initrd.network = {
-    #   enable = true;
-    #   ssh = {
-    #     enable = true;
-    #     port = 2222;
-    #     authorizedKeys = config.kuutamo.disko.unlockKeys;
-    #     hostKeys = [
-    #       "/var/lib/secrets/sshd_key"
-    #     ];
-    #   };
-    #   postCommands = ''
-    #     ip link set dev ${config.kuutamo.disko.networkInterface} up
-    #     ${lib.optionalString (config.kuutamo.network.ipv4.address != null) ''
-    #       ip addr add ${config.kuutamo.network.ipv4.address}/${builtins.toString config.kuutamo.network.ipv4.cidr} dev ${config.kuutamo.disko.networkInterface}
-    #       ip route add ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
-    #       ip route add default via ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
-    #     ''}
-    #     ${lib.optionalString (config.kuutamo.network.ipv6.address != null) ''
-    #       ip -6 addr add ${config.kuutamo.network.ipv6.address}/${builtins.toString config.kuutamo.network.ipv6.cidr} dev ${config.kuutamo.disko.networkInterface}
-    #       ip -6 route add ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
-    #       ip -6 route add default via ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
-    #     ''}
-    #   '';
-    # };
-    # boot.initrd.luks.devices.root-encrypted.fallbackToPassword = true;
-    # boot.initrd.luks.devices.root-encrypted.keyFile = "/key-file";
-    # boot.initrd.postDeviceCommands = ''
-    #   set -x
-    #   if cat /proc/cmdline | grep 'disk-key'; then
-    #     echo "Unlock from kernel command"
-    #     key=$(cat /proc/cmdline | sed -e 's/^.*disk-key=//')
-    #     echo -n "$key" > /key-file;
-    #   fi
-    # '';
+    # initrd networking for unlocking LUKS
+    boot.initrd.network = {
+      enable = true;
+      ssh = {
+        enable = true;
+        port = 2222;
+        authorizedKeys = config.kuutamo.disko.unlockKeys;
+        hostKeys = [
+          "/var/lib/secrets/sshd_key"
+        ];
+      };
+      postCommands = ''
+        ip link set dev ${config.kuutamo.disko.networkInterface} up
+        ${lib.optionalString (config.kuutamo.network.ipv4.address != null) ''
+          ip addr add ${config.kuutamo.network.ipv4.address}/${builtins.toString config.kuutamo.network.ipv4.cidr} dev ${config.kuutamo.disko.networkInterface}
+          ip route add ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
+          ip route add default via ${config.kuutamo.network.ipv4.gateway} dev ${config.kuutamo.disko.networkInterface}
+        ''}
+        ${lib.optionalString (config.kuutamo.network.ipv6.address != null) ''
+          ip -6 addr add ${config.kuutamo.network.ipv6.address}/${builtins.toString config.kuutamo.network.ipv6.cidr} dev ${config.kuutamo.disko.networkInterface}
+          ip -6 route add ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
+          ip -6 route add default via ${config.kuutamo.network.ipv6.gateway} dev ${config.kuutamo.disko.networkInterface}
+        ''}
+      '';
+    };
+    boot.initrd.luks.devices.root-encrypted.fallbackToPassword = true;
+    boot.initrd.luks.devices.root-encrypted.keyFile = "/key-file";
+    boot.initrd.postDeviceCommands = ''
+      set -x
+      if cat /proc/cmdline | grep 'disk-key'; then
+        echo "Unlock from kernel command"
+        key=$(cat /proc/cmdline | sed -e 's/^.*disk-key=//')
+        echo -n "$key" > /key-file;
+      fi
+    '';
   };
 }
