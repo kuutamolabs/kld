@@ -20,6 +20,15 @@ use url::Url;
 use super::secrets::Secrets;
 use super::NixosFlake;
 
+#[derive(Debug, Default, Deserialize)]
+enum Provier {
+    Aws,
+    #[default]
+    Gcp,
+    Ovh,
+    Other,
+}
+
 /// IpV6String allows prefix only address format and normal ipv6 address
 ///
 /// Some providers include the subnet in their address shown in the webinterface i.e. 2607:5300:203:5cdf::/64
@@ -196,6 +205,10 @@ struct HostDefaultConfig {
     /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
     #[serde(default)]
     promtail_client: Option<String>,
+
+    /// The default provider for all nodes
+    #[toml_example(default = "gcp")]
+    provider: Option<Provier>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -302,6 +315,10 @@ struct HostConfig {
     #[toml_example(default = "eth0")]
     network_interface: Option<String>,
 
+    /// The provider for the nodes
+    #[toml_example(skip)]
+    provider: Option<Provier>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -382,6 +399,9 @@ pub struct Host {
 
     /// Is the mnemonic provided by mgr
     pub kld_preset_mnemonic: Option<bool>,
+
+    /// The default consoles patch for the node
+    pub default_consoles: Option<Vec<String>>,
 }
 
 impl Host {
@@ -566,7 +586,7 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
     {
         if !output.status.success() && var("FLAKE_CHECK").is_err() {
             bail!(
-                r#"deployment flake {} is not accessible, please check your access token, network connection, 
+                r#"deployment flake {} is not accessible, please check your access token, network connection,
 and the deployment repository has a flake.lock"#,
                 global.deployment_flake
             );
@@ -799,6 +819,15 @@ fn validate_host(
         }
     }
 
+    let default_consoles = match host
+        .provider
+        .as_ref()
+        .unwrap_or(default.provider.as_ref().unwrap_or(&Provier::default()))
+    {
+        Provier::Ovh => Some(Vec::new()),
+        _ => None,
+    };
+
     Ok(Host {
         name,
         nixos_module: host.nixos_module.clone(),
@@ -826,6 +855,7 @@ fn validate_host(
         rest_api_port: host.kld_rest_api_port,
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
+        default_consoles,
     })
 }
 
@@ -1103,6 +1133,7 @@ fn test_validate_host() -> Result<()> {
             rest_api_port: None,
             network_interface: None,
             kld_preset_mnemonic: Some(false),
+            default_consoles: None,
         }
     );
 
