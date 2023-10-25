@@ -120,8 +120,8 @@ fn test_create_cockroachdb_certs() -> Result<()> {
     use tempfile::tempdir;
 
     let dir = tempdir().context("Failed to create temporary directory")?;
-    let config =
-        parse_config(TEST_CONFIG, Path::new("/"), false).context("Failed to parse config")?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"), false, false)
+        .context("Failed to parse config")?;
 
     create_cockroachdb_certs(dir.path(), &config.hosts).context("Failed to create certs")?;
 
