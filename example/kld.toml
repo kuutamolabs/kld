@@ -96,8 +96,8 @@ nixos_module = "kld-node"
 # Ubuntu did not allow `root` login
 # install_ssh_user = "ubuntu"
 
-# Setup ssh host name for connection and host label on monitoring dashboard
-# ssh_hostname = ""
+# Setup host name for connection and host label on monitoring dashboard
+# hostname = ""
 
 # Disk configure on the node
 # disks = ["/dev/vdb",]

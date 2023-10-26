@@ -53,7 +53,7 @@ in
 
     kuutamo.cockroachdb.join = lib.optionals ((builtins.length cfg.cockroach_peers) > 1) (builtins.map (peer: peer.name) cfg.cockroach_peers);
 
-    kuutamo.monitor.hostname = cfg.ssh_hostname;
+    kuutamo.monitor.hostname = cfg.hostname;
     kuutamo.monitor.telegrafHasMonitoring = cfg.telegraf_has_monitoring or false;
     kuutamo.monitor.promtailHasClient = cfg.promtail_has_client or false;
     kuutamo.monitor.configHash = cfg.monitor_config_hash or "";

@@ -44,9 +44,9 @@ pub fn install(
         .map(|host| {
             info!("Install {}", host.name);
             let connection_string = if host.install_ssh_user.is_empty() {
-                host.ssh_hostname.clone()
+                host.hostname.clone()
             } else {
-                format!("{}@{}", host.install_ssh_user, host.ssh_hostname)
+                format!("{}@{}", host.install_ssh_user, host.hostname)
             };
 
             let disk_encryption_key = secrets_dir.join("disk_encryption_key");
@@ -102,7 +102,7 @@ pub fn install(
 
             // remove potential old ssh keys before adding new ones...
             let _ = Command::new("ssh-keygen")
-                .args(["-R", &host.ssh_hostname])
+                .args(["-R", &host.hostname])
                 .status()
                 .context("Failed to run ssh-keygen to remove old keys...")?;
 
