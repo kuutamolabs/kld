@@ -133,7 +133,7 @@ pub fn test_nixos_flake() -> Result<()> {
     use crate::config::{parse_config, TEST_CONFIG};
     use std::process::Command;
 
-    let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"), false, false)?;
     let flake = generate_nixos_flake(&config)?;
     let flake_path = flake.path();
     let flake_nix = flake_path.join("flake.nix");

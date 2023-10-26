@@ -548,7 +548,11 @@ pub struct Global {
     pub secret_directory: PathBuf,
 }
 
-fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> {
+fn validate_global(
+    global: &Global,
+    working_directory: &Path,
+    check_deployment_repo: bool,
+) -> Result<Global> {
     let mut global = global.clone();
     if global.secret_directory.is_relative() {
         global.secret_directory = working_directory.join(global.secret_directory);
@@ -564,7 +568,7 @@ fn validate_global(global: &Global, working_directory: &Path) -> Result<Global> 
         ])
         .output()
     {
-        if !output.status.success() && var("FLAKE_CHECK").is_err() {
+        if !output.status.success() && var("FLAKE_CHECK").is_err() && check_deployment_repo {
             bail!(
                 r#"deployment flake {} is not accessible, please check your access token, network connection, 
 and the deployment repository has a flake.lock"#,
@@ -628,7 +632,7 @@ fn validate_host(
     };
 
     let ipv4_cidr = if let Some(cidr) = host.ipv4_cidr.or(default.ipv4_cidr) {
-        if !(0..32_u8).contains(&cidr) {
+        if !(0..33_u8).contains(&cidr) {
             bail!("ipv4_cidr for hosts.{name} is not between 0 and 32: {cidr}")
         }
         Some(cidr)
@@ -654,7 +658,7 @@ fn validate_host(
         }
 
         if let Some(ipv6_cidr) = ipv6_cidr {
-            if !(0..128_u8).contains(&ipv6_cidr) {
+            if !(0..129_u8).contains(&ipv6_cidr) {
                 bail!("ipv6_cidr for hosts.{name} is not between 0 and 128: {ipv6_cidr}")
             }
         } else if mask.is_none() {
@@ -869,6 +873,7 @@ pub fn parse_config(
     content: &str,
     working_directory: &Path,
     preset_mnemonic: bool,
+    check_deployment_repo: bool,
 ) -> Result<Config> {
     let config: ConfigFile = toml::from_str(content)?;
 
@@ -911,13 +916,17 @@ pub fn parse_config(
         );
     }
 
-    let global = validate_global(&config.global, working_directory)?;
+    let global = validate_global(&config.global, working_directory, check_deployment_repo)?;
 
     Ok(Config { hosts, global })
 }
 
 /// Load configuration from path
-pub fn load_configuration(path: &Path, preset_mnemonic: bool) -> Result<Config> {
+pub fn load_configuration(
+    path: &Path,
+    preset_mnemonic: bool,
+    check_deployment_repo: bool,
+) -> Result<Config> {
     let content = fs::read_to_string(path).context("Cannot read file")?;
     let working_directory = path.parent().with_context(|| {
         format!(
@@ -925,7 +934,12 @@ pub fn load_configuration(path: &Path, preset_mnemonic: bool) -> Result<Config> 
             path.display()
         )
     })?;
-    parse_config(&content, working_directory, preset_mnemonic)
+    parse_config(
+        &content,
+        working_directory,
+        preset_mnemonic,
+        check_deployment_repo,
+    )
 }
 
 fn decode_token(s: String) -> Result<(String, String)> {
@@ -976,7 +990,7 @@ ipv6_address = "2605:9880:400::4"
 pub fn test_parse_config() -> Result<()> {
     use std::str::FromStr;
 
-    let config = parse_config(TEST_CONFIG, Path::new("/"), false)?;
+    let config = parse_config(TEST_CONFIG, Path::new("/"), false, false)?;
     assert_eq!(config.global.knd_flake, "github:kuutamolabs/lightning-knd");
     assert_eq!(
         config.global.deployment_flake,
@@ -1008,7 +1022,7 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"), false)?;
+    parse_config(TEST_CONFIG, Path::new("/"), false, false)?;
 
     Ok(())
 }
@@ -1018,6 +1032,7 @@ pub fn test_parse_config_with_redundant_filds() {
     let parse_result = parse_config(
         &format!("{}\nredundant = 111", TEST_CONFIG),
         Path::new("/"),
+        false,
         false,
     );
     assert!(parse_result.is_err());

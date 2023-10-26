@@ -244,14 +244,17 @@ pub fn main() -> Result<()> {
     let res = match args.action {
         Command::GenerateExample => Ok(println!("{}", ConfigFile::toml_example())),
         Command::Install(ref install_args) => {
-            let config =
-                mgr::load_configuration(&args.config, !install_args.generate_secret_on_remote)
-                    .with_context(|| {
-                        format!(
-                            "failed to parse configuration file: {}",
-                            &args.config.display()
-                        )
-                    })?;
+            let config = mgr::load_configuration(
+                &args.config,
+                !install_args.generate_secret_on_remote,
+                true,
+            )
+            .with_context(|| {
+                format!(
+                    "failed to parse configuration file: {}",
+                    &args.config.display()
+                )
+            })?;
             create_deploy_key(&config.global.secret_directory)?;
             create_lightning_certs(
                 &config.global.secret_directory.join("lightning"),
@@ -286,12 +289,13 @@ pub fn main() -> Result<()> {
             install(&args, install_args, &config, &flake)
         }
         Command::Unlock(ref unlock_args) => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
+            let config =
+                mgr::load_configuration(&args.config, false, false).with_context(|| {
+                    format!(
+                        "failed to parse configuration file: {}",
+                        &args.config.display()
+                    )
+                })?;
 
             let disk_encryption_key = unlock_args
                 .key_file
@@ -303,12 +307,13 @@ pub fn main() -> Result<()> {
             Ok(())
         }
         _ => {
-            let config = mgr::load_configuration(&args.config, false).with_context(|| {
-                format!(
-                    "failed to parse configuration file: {}",
-                    &args.config.display()
-                )
-            })?;
+            let config =
+                mgr::load_configuration(&args.config, false, false).with_context(|| {
+                    format!(
+                        "failed to parse configuration file: {}",
+                        &args.config.display()
+                    )
+                })?;
             let flake = generate_nixos_flake(&config).context("failed to generate flake")?;
             match args.action {
                 Command::GenerateConfig(ref config_args) => {
