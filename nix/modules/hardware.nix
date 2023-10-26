@@ -80,7 +80,6 @@
     boot.initrd.luks.devices.root-encrypted.fallbackToPassword = true;
     boot.initrd.luks.devices.root-encrypted.keyFile = "/key-file";
     boot.initrd.postDeviceCommands = ''
-      set -x
       if cat /proc/cmdline | grep 'disk-key'; then
         echo "Unlock from kernel command"
         key=$(cat /proc/cmdline | sed -e 's/^.*disk-key=//')
