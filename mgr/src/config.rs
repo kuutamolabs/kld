@@ -246,9 +246,9 @@ struct HostConfig {
     #[toml_example(default = "ubuntu")]
     install_ssh_user: Option<String>,
 
-    /// Setup ssh host name for connection and host label on monitoring dashboard
+    /// Setup host name for connection and host label on monitoring dashboard
     #[serde(default)]
-    ssh_hostname: Option<String>,
+    hostname: Option<String>,
 
     /// Disk configure on the node
     #[serde(default)]
@@ -339,8 +339,8 @@ pub struct Host {
     /// SSH Username used when connecting during installation
     pub install_ssh_user: String,
 
-    /// SSH hostname used for connection and host label on monitoring dashboard
-    pub ssh_hostname: String,
+    /// Hostname used for connection and host label on monitoring dashboard
+    pub hostname: String,
 
     /// Public ssh keys that will be added to the nixos configuration
     pub public_ssh_keys: Vec<String>,
@@ -515,7 +515,7 @@ impl Host {
     }
     /// The hostname to which we will deploy
     pub fn deploy_ssh_target(&self) -> String {
-        format!("root@{}", self.ssh_hostname)
+        format!("root@{}", self.hostname)
     }
     /// The hostname to which we will deploy
     pub fn flake_uri(&self, flake: &NixosFlake) -> String {
@@ -570,7 +570,7 @@ fn validate_global(
     {
         if !output.status.success() && var("FLAKE_CHECK").is_err() && check_deployment_repo {
             bail!(
-                r#"deployment flake {} is not accessible, please check your access token, network connection, 
+                r#"deployment flake {} is not accessible, please check your access token, network connection,
 and the deployment repository has a flake.lock"#,
                 global.deployment_flake
             );
@@ -687,8 +687,8 @@ fn validate_host(
         bail!("no ipv4_gateway or ipv6_gateway provided for hosts.{name}");
     }
 
-    let ssh_hostname = host
-        .ssh_hostname
+    let hostname = host
+        .hostname
         .as_ref()
         .cloned()
         .unwrap_or_else(|| address.to_string());
@@ -808,7 +808,7 @@ fn validate_host(
         nixos_module: host.nixos_module.clone(),
         extra_nixos_modules,
         install_ssh_user,
-        ssh_hostname,
+        hostname,
         mac_address,
         ipv4_address,
         ipv4_cidr,
@@ -1103,7 +1103,7 @@ fn test_validate_host() -> Result<()> {
             ipv6_cidr: None,
             ipv6_gateway: None,
             install_ssh_user: "root".to_string(),
-            ssh_hostname: "192.168.0.1".to_string(),
+            hostname: "192.168.0.1".to_string(),
             public_ssh_keys: vec!["".to_string()],
             disks: vec!["/dev/nvme0n1".into(), "/dev/nvme1n1".into()],
             cockroach_peers: vec![],

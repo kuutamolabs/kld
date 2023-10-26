@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::net::IpAddr;
 use std::path::Path;
+use std::str::FromStr;
 use x509_parser::extensions::GeneralName;
 use x509_parser::extensions::ParsedExtension;
 use x509_parser::pem::Pem;
@@ -96,7 +97,15 @@ IP.2 = ::1
     }
     if let Some(ip) = host.ipv6_address {
         conf += &format!("IP.{ip_num} = {ip}\n");
+        ip_num += 1;
     }
+
+    if std::net::IpAddr::from_str(&host.hostname).is_ok() {
+        conf += &format!("IP.{ip_num} = {}\n", host.hostname);
+    } else {
+        conf += &format!("DNS.2 = {}\n", host.hostname);
+    }
+
     std::fs::write(&cert_conf, conf)?;
     openssl(&[
         "req",
