@@ -15,11 +15,11 @@
     default = [ ];
     description = lib.mdDoc "Ssh key to login locked machines";
   };
-  options.kuutamo.console.defaults = lib.mkOption {
-    type = lib.types.nullOf lib.types.listOf lib.types.str;
-    default = null;
+  options.kuutamo.disko.defaultConsols = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
     description = lib.mdDoc ''On some platforms we pick up the wrong console.
-    For example OVH, it will set [] for VGA console output'';
+    In this cases we default to serial will set false for  defaultConsoles'';
   };
 
   imports = [
@@ -45,9 +45,11 @@
       "9p"
       "9pnet_virtio"
     ];
-    # XXX: handle console defaults
-    # for OVH
-    # srvos.boot.consoles = lib.mkDefault []
+    srvos.boot.consoles = lib.mkDefault (if config.kuutamo.disko.defaultConsols
+    then
+      [ "tty0" "ttyS0,115200" ]
+    else
+      [ ]);
 
     # Enable raid support specifically, this will disable srvos's
     # systemd-initrd as well, which currently is not compatible with mdraid.
