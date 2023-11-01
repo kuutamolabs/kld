@@ -206,7 +206,7 @@ struct HostDefaultConfig {
     #[serde(default)]
     promtail_client: Option<String>,
 
-    /// The default provider for all nodes
+    /// The default provider for all nodes, the value should be one of gcp, aws, ovh or other
     #[toml_example(default = "gcp")]
     provider: Option<Provier>,
 }
@@ -315,8 +315,8 @@ struct HostConfig {
     #[toml_example(default = "eth0")]
     network_interface: Option<String>,
 
-    /// The provider for the nodes
-    #[toml_example(skip)]
+    /// The provider for the nodes, the value should be one of gcp, aws, ovh or other
+    #[toml_example(default = "gcp")]
     provider: Option<Provier>,
 
     #[serde(flatten)]
