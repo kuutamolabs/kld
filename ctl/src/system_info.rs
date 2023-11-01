@@ -10,10 +10,22 @@ struct SystemInfo {
     upgrade_time: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct DeploymentInfo {
+    git_sha: String,
+    git_commit_date: String,
+}
+
 fn read_system_info() -> Result<SystemInfo> {
     let content = std::fs::read_to_string("/etc/system-info.toml")
         .context("fail to read /etc/system-info.toml")?;
     Ok(toml::from_str::<SystemInfo>(&content)?)
+}
+
+fn read_deployment_info() -> Result<DeploymentInfo> {
+    let content = std::fs::read_to_string("/etc/deployment-info.toml")
+        .context("fail to read /etc/deployment-info.toml")?;
+    Ok(toml::from_str::<DeploymentInfo>(&content)?)
 }
 
 fn bitcoind_version() -> Result<String> {
@@ -89,6 +101,11 @@ pub fn system_info(inline: bool) {
         if let Some(time) = system_info.upgrade_time {
             info.push(("upgrade time", time));
         }
+    }
+
+    if let Ok(deployment_info) = read_deployment_info() {
+        info.push(("deployment git sha", deployment_info.git_sha));
+        info.push(("deployment git commit date", deployment_info.git_commit_date));
     }
 
     if let Ok(version) = bitcoind_version() {

@@ -85,9 +85,25 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
     system = "x86_64-linux";
     modules = [
 {modules}
-      {{ kuutamo.deployConfig = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "node.toml"; path = ./{name}.toml; }})); }}
+      {{ kuutamo.deployConfig = kldConfigurations."{name}"; }}
+      ({{self, ...}}: {{
+        environment.etc."deployment-info.toml".text = ''
+          git_sha = "${{self.rev or "dirty"}}"
+          git_commit_date = "${{self.lastModifiedDate}}"
+        '';
+      }})
     ];
   }};"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let kld_configurations = config
+        .hosts
+        .iter()
+        .map(|(name, host)| {
+            format!(
+          r#"{name} = builtins.fromTOML (builtins.readFile (builtins.path {{ name = "node.toml"; path = ./{name}.toml; }}));"#
             )
         })
         .collect::<Vec<_>>()
@@ -96,7 +112,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
     let mut configuration_file =
         File::create(configuration_path).context("could not create configurations.nix")?;
     let configuration_content = format!(
-        r#"{{ lightning-knd, ... }}: {{
+        r#"{{ lightning-knd, kldConfigurations, ... }}: {{
 {configurations}
 }}
 "#
@@ -116,7 +132,12 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
     "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
   ];
 
-  outputs = inputs: import ./configurations.nix inputs;
+  outputs = inputs: rec {{
+    nixosConfigurations = (import ./configurations.nix {{ lightning-knd = inputs.lightning-knd; inherit kldConfigurations; }}).nixosConfigurations ;
+    kldConfigurations = {{
+      { kld_configurations }
+    }};
+  }};
 }}
 "#
     );
