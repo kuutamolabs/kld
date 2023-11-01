@@ -93,8 +93,8 @@ $ cd ..
 
 - Step 6: Add the flake-lock-update Github Action
  ```shell
-$ mkdir -p ./deployment/.github/workflows`
-$ curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml`
+$ mkdir -p ./deployment/.github/workflows
+$ curl https://raw.githubusercontent.com/DeterminateSystems/update-flake-lock/main/.github/workflows/update.yml --output ./deployment/.github/workflows/upgrade.yml
 ```
 Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update-flake-lock) to configure this Action to your requirements.
 
@@ -104,7 +104,7 @@ $ nix run github:kuutamolabs/lightning-knd#kld-mgr install
 ```
 - Connect to node via API. kld API is served on port `2244`
 ```shell
-$ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"`
+$ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"
 ```
 
 
