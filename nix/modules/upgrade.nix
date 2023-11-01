@@ -44,6 +44,7 @@
 
       script =
         let
+          nix = "${config.nix.package.out}/bin/nix";
           readlink = "${pkgs.coreutils}/bin/readlink";
           nixos-rebuild = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild";
           nix-collect-garbage = "${config.nix.package.out}/bin/nix-collect-garbage";
@@ -53,6 +54,7 @@
           gzip = "${pkgs.gzip}/bin/gzip";
         in
         ''
+          ${nix} --refresh --access-tokens $ACCESS_TOKENS flake show ${config.kuutamo.upgrade.deploymentFlake}
           ${nixos-rebuild} switch \
             --no-update-lock-file \
             --option accept-flake-config true \
