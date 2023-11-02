@@ -12,13 +12,15 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::info;
 use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGauge, TextEncoder};
 
+use crate::bitcoind::BitcoindMetrics;
 use crate::database::DBConnection;
 use crate::ldk::LightningInterface;
-use crate::Service;
 
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
 static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
+static FEE: OnceLock<Gauge> = OnceLock::new();
+static BLOCK_HEIGHT: OnceLock<IntGauge> = OnceLock::new();
 
 // NOTE:
 // Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
@@ -31,7 +33,7 @@ static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningInterface>,
     database: Arc<dyn DBConnection>,
-    bitcoind: Arc<dyn Service>,
+    bitcoind: Arc<dyn BitcoindMetrics>,
     req: Request<Body>,
 ) -> hyper::Result<Response<Body>> {
     match (req.method(), req.uri().path()) {
@@ -75,6 +77,15 @@ async fn response_examples(
             if let Some(g) = WALLET_BALANCE.get() {
                 g.set(lightning_metrics.wallet_balance() as f64)
             }
+            // XXX better from dbconnection not lightning_metrics, if the fee is get from database
+            if let (Some(g), Ok(total_fee)) =
+                (FEE.get(), lightning_metrics.fetch_total_forwards().await)
+            {
+                g.set(total_fee.fee as f64)
+            }
+            if let (Some(g), Ok(h)) = (BLOCK_HEIGHT.get(), bitcoind.block_height().await) {
+                g.set(h.into())
+            }
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
             let encoder = TextEncoder::new();
@@ -99,7 +110,7 @@ pub async fn start_prometheus_exporter(
     address: String,
     lightning_metrics: Arc<dyn LightningInterface>,
     database: Arc<dyn DBConnection>,
-    bitcoind: Arc<dyn Service>,
+    bitcoind: Arc<dyn BitcoindMetrics>,
     quit_signal: Shared<impl Future<Output = ()>>,
 ) -> Result<()> {
     UPTIME
@@ -136,6 +147,17 @@ pub async fn start_prometheus_exporter(
         .set(register_gauge!(
             "wallet_balance",
             "The bitcoin wallet balance"
+        )?)
+        .unwrap_or_default();
+    FEE.set(register_gauge!(
+        "fee",
+        "The total fee from successful channels"
+    )?)
+    .unwrap_or_default();
+    BLOCK_HEIGHT
+        .set(register_int_gauge!(
+            "block_height",
+            "The block height kld observed"
         )?)
         .unwrap_or_default();
 
