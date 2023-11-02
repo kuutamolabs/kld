@@ -77,11 +77,11 @@ async fn call_exporter(address: &str, method: &str) -> Result<String, reqwest::E
 }
 
 fn get_metric<'a>(metrics: &'a str, name: &str) -> Result<&'a str> {
-    Ok(metrics
+    metrics
         .lines()
         .find(|x| x.starts_with(name))
         .with_context(|| "Metric not found")?
         .split(' ')
         .last()
-        .with_context(|| "Bad metric format")?)
+        .with_context(|| "Bad metric format")
 }

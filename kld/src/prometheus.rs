@@ -10,7 +10,7 @@ use futures::Future;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::info;
-use prometheus::{self, register_gauge, register_int_gauge, Encoder, IntGauge, Gauge, TextEncoder};
+use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGauge, TextEncoder};
 
 use crate::ldk::LightningInterface;
 use crate::Service;
@@ -50,13 +50,29 @@ async fn response_examples(
                 g.set(START.get_or_init(Instant::now).elapsed().as_millis() as f64)
             }
             if let Some(g) = NODE_COUNT.get() {
-                g.set(lightning_metrics.graph_num_nodes().try_into().unwrap_or(i64::MAX))
+                g.set(
+                    lightning_metrics
+                        .graph_num_nodes()
+                        .try_into()
+                        .unwrap_or(i64::MAX),
+                )
             }
             if let Some(g) = NETWORK_CHANNEL_COUNT.get() {
-                g.set(lightning_metrics.graph_num_channels().try_into().unwrap_or(i64::MAX))
+                g.set(
+                    lightning_metrics
+                        .graph_num_channels()
+                        .try_into()
+                        .unwrap_or(i64::MAX),
+                )
             }
             if let Some(g) = CHANNEL_COUNT.get() {
-                g.set(lightning_metrics.list_channels().len().try_into().unwrap_or(i64::MAX))
+                g.set(
+                    lightning_metrics
+                        .list_channels()
+                        .len()
+                        .try_into()
+                        .unwrap_or(i64::MAX),
+                )
             }
             if let Some(g) = PEER_COUNT.get() {
                 g.set(lightning_metrics.num_peers().try_into().unwrap_or(i64::MAX))
