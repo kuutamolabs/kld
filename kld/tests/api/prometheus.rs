@@ -51,6 +51,16 @@ pub async fn test_prometheus() -> Result<()> {
         get_metric(&result, "wallet_balance")?,
         format!("{}", metrics.wallet_balance)
     );
+    assert_eq!(
+        get_metric(&result, "fee")?,
+        format!(
+            "{}",
+            metrics
+                .forward
+                .fee
+                .expect("test should have fee in forward channel")
+        )
+    );
 
     let not_found = call_exporter(&address, "wrong").await?;
     assert_eq!(not_found, "Not Found");

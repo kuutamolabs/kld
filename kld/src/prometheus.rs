@@ -19,6 +19,7 @@ use crate::Service;
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
 static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
+static FEE: OnceLock<Gauge> = OnceLock::new();
 
 // NOTE:
 // Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
@@ -74,6 +75,15 @@ async fn response_examples(
             }
             if let Some(g) = WALLET_BALANCE.get() {
                 g.set(lightning_metrics.wallet_balance() as f64)
+            }
+            if let Some(g) = FEE.get() {
+                g.set(
+                    lightning_metrics
+                        .fetch_total_forwards()
+                        .await
+                        .map(|total_fee| total_fee.fee as f64)
+                        .unwrap_or(-1.0),
+                )
             }
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
@@ -138,6 +148,11 @@ pub async fn start_prometheus_exporter(
             "The bitcoin wallet balance"
         )?)
         .unwrap_or_default();
+    FEE.set(register_gauge!(
+        "fee",
+        "The total fee from successful channels"
+    )?)
+    .unwrap_or_default();
 
     let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
