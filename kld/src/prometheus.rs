@@ -10,17 +10,21 @@ use futures::Future;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::info;
-use prometheus::{self, register_gauge, Encoder, Gauge, TextEncoder};
+use prometheus::{self, register_gauge, register_int_gauge, Encoder, IntGauge, Gauge, TextEncoder};
 
 use crate::ldk::LightningInterface;
 use crate::Service;
 
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
-static NODE_COUNT: OnceLock<Gauge> = OnceLock::new();
-static NETWORK_CHANNEL_COUNT: OnceLock<Gauge> = OnceLock::new();
-static PEER_COUNT: OnceLock<Gauge> = OnceLock::new();
 static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
+
+// NOTE:
+// Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
+// should use IntGauge
+static NODE_COUNT: OnceLock<IntGauge> = OnceLock::new();
+static NETWORK_CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
+static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
 
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningInterface>,
@@ -45,13 +49,13 @@ async fn response_examples(
                 g.set(START.get_or_init(Instant::now).elapsed().as_millis() as f64)
             }
             if let Some(g) = NODE_COUNT.get() {
-                g.set(lightning_metrics.graph_num_nodes() as f64)
+                g.set(lightning_metrics.graph_num_nodes().try_into().unwrap_or(i64::MAX))
             }
             if let Some(g) = NETWORK_CHANNEL_COUNT.get() {
-                g.set(lightning_metrics.graph_num_channels() as f64)
+                g.set(lightning_metrics.graph_num_channels().try_into().unwrap_or(i64::MAX))
             }
             if let Some(g) = PEER_COUNT.get() {
-                g.set(lightning_metrics.num_peers() as f64)
+                g.set(lightning_metrics.num_peers().try_into().unwrap_or(i64::MAX))
             }
             if let Some(g) = WALLET_BALANCE.get() {
                 g.set(lightning_metrics.wallet_balance() as f64)
@@ -90,19 +94,19 @@ pub async fn start_prometheus_exporter(
         )?)
         .unwrap_or_default();
     NODE_COUNT
-        .set(register_gauge!(
+        .set(register_int_gauge!(
             "node_count",
             "The number of nodes in the lightning graph"
         )?)
         .unwrap_or_default();
     NETWORK_CHANNEL_COUNT
-        .set(register_gauge!(
+        .set(register_int_gauge!(
             "network_channel_count",
             "The number of channels in the lightning network"
         )?)
         .unwrap_or_default();
     PEER_COUNT
-        .set(register_gauge!(
+        .set(register_int_gauge!(
             "peer_count",
             "The number of peers this node has"
         )?)

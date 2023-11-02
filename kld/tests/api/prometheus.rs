@@ -33,16 +33,22 @@ pub async fn test_prometheus() -> Result<()> {
     assert_eq!(pid, std::process::id().to_string());
 
     let result = call_exporter(&address, "metrics").await?;
-    assert!(get_metric(&result, "uptime")?.is_finite());
-    assert_eq!(get_metric(&result, "node_count")?, metrics.num_nodes as f64);
+    assert!(get_metric(&result, "uptime").is_ok());
+    assert_eq!(
+        get_metric(&result, "node_count")?,
+        format!("{}", metrics.num_nodes)
+    );
     assert_eq!(
         get_metric(&result, "network_channel_count")?,
-        metrics.num_channels as f64
+        format!("{}", metrics.num_channels)
     );
-    assert_eq!(get_metric(&result, "peer_count")?, metrics.num_peers as f64);
+    assert_eq!(
+        get_metric(&result, "peer_count")?,
+        format!("{}", metrics.num_peers)
+    );
     assert_eq!(
         get_metric(&result, "wallet_balance")?,
-        metrics.wallet_balance as f64
+        format!("{}", metrics.wallet_balance)
     );
 
     let not_found = call_exporter(&address, "wrong").await?;
@@ -69,13 +75,12 @@ async fn call_exporter(address: &str, method: &str) -> Result<String, reqwest::E
         .await
 }
 
-fn get_metric(metrics: &str, name: &str) -> Result<f64> {
+fn get_metric<'a>(metrics: &'a str, name: &str) -> Result<&'a str> {
     Ok(metrics
         .lines()
         .find(|x| x.starts_with(name))
         .with_context(|| "Metric not found")?
         .split(' ')
         .last()
-        .with_context(|| "Bad metric format")?
-        .parse::<f64>()?)
+        .with_context(|| "Bad metric format")?)
 }
