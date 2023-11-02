@@ -76,6 +76,7 @@ async fn response_examples(
             if let Some(g) = WALLET_BALANCE.get() {
                 g.set(lightning_metrics.wallet_balance() as f64)
             }
+            // XXX better from dbconnection not lightning_metrics, if the fee is get from database
             if let (Some(g), Ok(total_fee)) =
                 (FEE.get(), lightning_metrics.fetch_total_forwards().await)
             {
