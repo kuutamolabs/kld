@@ -66,14 +66,8 @@ async fn response_examples(
                         .unwrap_or(i64::MAX),
                 )
             }
-            if let Some(g) = CHANNEL_COUNT.get() {
-                g.set(
-                    database
-                        .open_channel_count()
-                        .await
-                        .map(|i| i.try_into().unwrap_or(i64::MAX))
-                        .unwrap_or(-1),
-                )
+            if let (Some(g), Ok(i)) = (CHANNEL_COUNT.get(), database.open_channel_count().await) {
+                g.set(i.try_into().unwrap_or(i64::MAX));
             }
             if let Some(g) = PEER_COUNT.get() {
                 g.set(lightning_metrics.num_peers().try_into().unwrap_or(i64::MAX))
