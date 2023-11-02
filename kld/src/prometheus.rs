@@ -29,6 +29,14 @@ static NETWORK_CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
 static CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
 static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
 
+// NOTE:
+// Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
+// should use IntGauge
+static NODE_COUNT: OnceLock<IntGauge> = OnceLock::new();
+static NETWORK_CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
+static CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
+static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
+
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningInterface>,
     database: Arc<dyn DBConnection>,
