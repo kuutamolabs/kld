@@ -42,6 +42,7 @@ pub async fn test_prometheus() -> Result<()> {
         get_metric(&result, "network_channel_count")?,
         format!("{}", metrics.num_channels)
     );
+    assert_eq!(get_metric(&result, "channel_count")?, "1".to_string());
     assert_eq!(
         get_metric(&result, "peer_count")?,
         format!("{}", metrics.num_peers)

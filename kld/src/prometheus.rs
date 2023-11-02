@@ -24,6 +24,7 @@ static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
 // should use IntGauge
 static NODE_COUNT: OnceLock<IntGauge> = OnceLock::new();
 static NETWORK_CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
+static CHANNEL_COUNT: OnceLock<IntGauge> = OnceLock::new();
 static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
 
 async fn response_examples(
@@ -53,6 +54,9 @@ async fn response_examples(
             }
             if let Some(g) = NETWORK_CHANNEL_COUNT.get() {
                 g.set(lightning_metrics.graph_num_channels().try_into().unwrap_or(i64::MAX))
+            }
+            if let Some(g) = CHANNEL_COUNT.get() {
+                g.set(lightning_metrics.list_channels().len().try_into().unwrap_or(i64::MAX))
             }
             if let Some(g) = PEER_COUNT.get() {
                 g.set(lightning_metrics.num_peers().try_into().unwrap_or(i64::MAX))
@@ -103,6 +107,12 @@ pub async fn start_prometheus_exporter(
         .set(register_int_gauge!(
             "network_channel_count",
             "The number of channels in the lightning network"
+        )?)
+        .unwrap_or_default();
+    CHANNEL_COUNT
+        .set(register_int_gauge!(
+            "channel_count",
+            "The number of channels opened by us"
         )?)
         .unwrap_or_default();
     PEER_COUNT
