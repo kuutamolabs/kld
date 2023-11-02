@@ -76,14 +76,10 @@ async fn response_examples(
             if let Some(g) = WALLET_BALANCE.get() {
                 g.set(lightning_metrics.wallet_balance() as f64)
             }
-            if let Some(g) = FEE.get() {
-                g.set(
-                    lightning_metrics
-                        .fetch_total_forwards()
-                        .await
-                        .map(|total_fee| total_fee.fee as f64)
-                        .unwrap_or(-1.0),
-                )
+            if let (Some(g), Ok(total_fee)) =
+                (FEE.get(), lightning_metrics.fetch_total_forwards().await)
+            {
+                g.set(total_fee.fee as f64)
             }
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
