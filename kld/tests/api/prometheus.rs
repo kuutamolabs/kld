@@ -36,7 +36,7 @@ pub async fn test_prometheus() -> Result<()> {
     assert!(get_metric(&result, "uptime")?.is_finite());
     assert_eq!(get_metric(&result, "node_count")?, metrics.num_nodes as f64);
     assert_eq!(
-        get_metric(&result, "channel_count")?,
+        get_metric(&result, "network_channel_count")?,
         metrics.num_channels as f64
     );
     assert_eq!(get_metric(&result, "peer_count")?, metrics.num_peers as f64);

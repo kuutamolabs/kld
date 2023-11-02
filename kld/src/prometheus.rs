@@ -18,7 +18,7 @@ use crate::Service;
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
 static NODE_COUNT: OnceLock<Gauge> = OnceLock::new();
-static CHANNEL_COUNT: OnceLock<Gauge> = OnceLock::new();
+static NETWORK_CHANNEL_COUNT: OnceLock<Gauge> = OnceLock::new();
 static PEER_COUNT: OnceLock<Gauge> = OnceLock::new();
 static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
 
@@ -47,7 +47,7 @@ async fn response_examples(
             if let Some(g) = NODE_COUNT.get() {
                 g.set(lightning_metrics.graph_num_nodes() as f64)
             }
-            if let Some(g) = CHANNEL_COUNT.get() {
+            if let Some(g) = NETWORK_CHANNEL_COUNT.get() {
                 g.set(lightning_metrics.graph_num_channels() as f64)
             }
             if let Some(g) = PEER_COUNT.get() {
@@ -95,10 +95,10 @@ pub async fn start_prometheus_exporter(
             "The number of nodes in the lightning graph"
         )?)
         .unwrap_or_default();
-    CHANNEL_COUNT
+    NETWORK_CHANNEL_COUNT
         .set(register_gauge!(
-            "channel_count",
-            "The number of channels in the lightning graph"
+            "network_channel_count",
+            "The number of channels in the lightning network"
         )?)
         .unwrap_or_default();
     PEER_COUNT
