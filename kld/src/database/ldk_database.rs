@@ -1,6 +1,7 @@
 use crate::database::{microsecond_timestamp, to_primitive};
 use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
+use crate::settings::Settings;
 use crate::to_i64;
 
 use super::channel::Channel;
@@ -37,7 +38,6 @@ use lightning::util::ser::Writeable;
 use log::{debug, error};
 
 use super::peer::Peer;
-use crate::settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
@@ -148,25 +148,22 @@ impl LdkDatabase {
 
     pub async fn persist_channel(&self, channel: Channel) -> Result<()> {
         debug!("Persist channel {}", channel.id.to_hex());
-        let statement = "
-            INSERT INTO channels (
-                id,
-                scid,
-                user_channel_id,
-                counterparty,
-                funding_txo,
-                is_public,
-                is_outbound,
-                value,
-                type_features,
-                open_timestamp
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
-            .to_string();
         self.durable_connection
             .get()
             .await
             .execute(
-                &statement,
+                "INSERT INTO channels (
+                    id,
+                    scid,
+                    user_channel_id,
+                    counterparty,
+                    funding_txo,
+                    is_public,
+                    is_outbound,
+                    value,
+                    type_features,
+                    open_timestamp
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 &[
                     &channel.id.0.as_ref(),
                     &(channel.scid as i64),
@@ -190,15 +187,11 @@ impl LdkDatabase {
         closure_reason: &ClosureReason,
     ) -> Result<()> {
         debug!("Close channel {}", channel_id.to_hex());
-        let statement = "
-            UPDATE channels SET close_timestamp = $1, closure_reason = $2
-            WHERE id = $3"
-            .to_string();
         self.durable_connection
             .get()
             .await
             .execute(
-                &statement,
+                "UPDATE channels SET close_timestamp = $1, closure_reason = $2 WHERE id = $3",
                 &[
                     &to_primitive(&microsecond_timestamp()),
                     &closure_reason.encode(),
@@ -210,8 +203,12 @@ impl LdkDatabase {
     }
 
     pub async fn fetch_channel_history(&self) -> Result<Vec<Channel>> {
-        let statement = "
-            SELECT
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(
+                "SELECT
                 id,
                 scid,
                 user_channel_id,
@@ -227,14 +224,9 @@ impl LdkDatabase {
             FROM
                 channels
             WHERE close_timestamp IS NOT NULL
-            "
-        .to_string();
-
-        let rows = self
-            .durable_connection
-            .get()
-            .await
-            .query(&statement, &[])
+            ",
+                &[],
+            )
             .await?;
 
         let mut channels = vec![];
@@ -246,20 +238,17 @@ impl LdkDatabase {
 
     pub async fn persist_spendable_output(&self, output: SpendableOutput) -> Result<()> {
         debug!("Persist spendable output {}:{}", output.txid, output.vout);
-        let statement = "
-            UPSERT INTO spendable_outputs (
-                txid,
-                vout,
-                value,
-                descriptor,
-                status
-            ) VALUES ($1, $2, $3, $4, $5)"
-            .to_string();
         self.durable_connection
             .get()
             .await
             .execute(
-                &statement,
+                "UPSERT INTO spendable_outputs (
+                    txid,
+                    vout,
+                    value,
+                    descriptor,
+                    status
+                ) VALUES ($1, $2, $3, $4, $5)",
                 &[
                     &output.txid.as_ref(),
                     &(output.vout as i64),
@@ -273,23 +262,21 @@ impl LdkDatabase {
     }
 
     pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutput>> {
-        let statement = "
-            SELECT
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(
+                "SELECT
                 txid,
                 vout,
                 value,
                 descriptor,
                 status
             FROM
-                spendable_outputs
-            "
-        .to_string();
-
-        let rows = self
-            .durable_connection
-            .get()
-            .await
-            .query(&statement, &[])
+                spendable_outputs",
+                &[],
+            )
             .await?;
 
         let mut outputs = vec![];
@@ -304,21 +291,19 @@ impl LdkDatabase {
             "Persist invoice with hash: {}",
             invoice.payment_hash.0.to_hex()
         );
-        let query = "
-            UPSERT INTO invoices (
-                payment_hash,
-                label,
-                bolt11,
-                payee_pub_key,
-                expiry,
-                amount,
-                timestamp
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)";
         self.durable_connection
             .get()
             .await
             .execute(
-                query,
+                "UPSERT INTO invoices (
+                    payment_hash,
+                    label,
+                    bolt11,
+                    payee_pub_key,
+                    expiry,
+                    amount,
+                    timestamp
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 &[
                     &invoice.payment_hash.0.as_ref(),
                     &invoice.label,
@@ -403,25 +388,22 @@ impl LdkDatabase {
 
     pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
         debug!("Persist payment id: {}", payment.id.0.to_hex());
-        let statement = "
-            UPSERT INTO payments (
-                id,
-                hash,
-                preimage,
-                secret,
-                label,
-                status,
-                amount,
-                fee,
-                direction,
-                timestamp
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
-            .to_string();
         self.durable_connection
             .get()
             .await
             .execute(
-                &statement,
+                "UPSERT INTO payments (
+                    id,
+                    hash,
+                    preimage,
+                    secret,
+                    label,
+                    status,
+                    amount,
+                    fee,
+                    direction,
+                    timestamp
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 &[
                     &payment.id.0.as_ref(),
                     &payment.hash.as_ref().map(|x| x.0.as_ref()),
@@ -483,18 +465,6 @@ impl LdkDatabase {
 
     pub async fn persist_forward(&self, forward: Forward) -> Result<()> {
         debug!("Persist forward with ID {}", forward.id);
-        let statement = "
-            UPSERT INTO forwards (
-                id,
-                inbound_channel_id,
-                outbound_channel_id,
-                amount,
-                fee,
-                status,
-                htlc_destination,
-                timestamp
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
-            .to_string();
 
         let htlc_destination = if let Some(htlc_destination) = forward.htlc_destination {
             let mut bytes = vec![];
@@ -507,7 +477,16 @@ impl LdkDatabase {
             .get()
             .await
             .execute(
-                &statement,
+                "UPSERT INTO forwards (
+                    id,
+                    inbound_channel_id,
+                    outbound_channel_id,
+                    amount,
+                    fee,
+                    status,
+                    htlc_destination,
+                    timestamp
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &forward.id,
                     &forward.inbound_channel_id.0.as_ref(),
@@ -559,21 +538,19 @@ impl LdkDatabase {
     }
 
     pub async fn fetch_total_forwards(&self) -> Result<TotalForwards> {
-        let statement = "
-            SELECT
-                count(*) AS count,
-                COALESCE(CAST(sum(amount) AS INT), 0) AS amount,
-                COALESCE(CAST(sum(fee) AS INT), 0) AS fee
-            FROM forwards
-            WHERE status = 'succeeded';
-            "
-        .to_string();
-
         Ok(self
             .durable_connection
             .get()
             .await
-            .query_one(&statement, &[])
+            .query_one(
+                "SELECT
+                    count(*) AS count,
+                    COALESCE(CAST(sum(amount) AS INT), 0) AS amount,
+                    COALESCE(CAST(sum(fee) AS INT), 0) AS fee
+                FROM forwards
+                WHERE status = 'succeeded';",
+                &[],
+            )
             .await?
             .into())
     }

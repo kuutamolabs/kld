@@ -70,6 +70,25 @@ impl Service for DurableConnection {
     }
 }
 
+#[async_trait]
+pub trait DBConnection: Service {
+    async fn open_channel_count(&self) -> Result<u64>;
+}
+
+#[async_trait]
+impl DBConnection for DurableConnection {
+    async fn open_channel_count(&self) -> Result<u64> {
+        Ok(self
+            .get()
+            .await
+            .execute(
+                "SELECT COUNT(*) FROM orders WHERE close_timestamp IS NULL;",
+                &[],
+            )
+            .await?)
+    }
+}
+
 impl DurableConnection {
     pub async fn new_migrate(settings: Arc<Settings>) -> DurableConnection {
         info!(
