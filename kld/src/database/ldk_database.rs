@@ -1,6 +1,7 @@
 use crate::database::{microsecond_timestamp, to_primitive};
 use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
+use crate::settings::Settings;
 use crate::to_i64;
 
 use super::channel::Channel;
@@ -37,7 +38,6 @@ use lightning::util::ser::Writeable;
 use log::{debug, error};
 
 use super::peer::Peer;
-use crate::settings::Settings;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;

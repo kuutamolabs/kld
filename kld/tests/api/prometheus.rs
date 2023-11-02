@@ -5,7 +5,7 @@ use std::sync::Arc;
 use test_utils::{poll, ports::get_available_port};
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
-use kld::{prometheus::start_prometheus_exporter, Service};
+use kld::{database::DBConnection, prometheus::start_prometheus_exporter, Service};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
@@ -66,6 +66,13 @@ impl Service for MockService {
     }
     async fn is_synchronised(&self) -> bool {
         self.1
+    }
+}
+
+#[async_trait]
+impl DBConnection for MockService {
+    async fn open_channel_count(&self) -> Result<u64> {
+        Ok(1)
     }
 }
 

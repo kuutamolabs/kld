@@ -12,6 +12,7 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::info;
 use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGauge, TextEncoder};
 
+use crate::database::DBConnection;
 use crate::ldk::LightningInterface;
 use crate::Service;
 
@@ -29,7 +30,7 @@ static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
 
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningInterface>,
-    database: Arc<dyn Service>,
+    database: Arc<dyn DBConnection>,
     bitcoind: Arc<dyn Service>,
     req: Request<Body>,
 ) -> hyper::Result<Response<Body>> {
@@ -67,11 +68,11 @@ async fn response_examples(
             }
             if let Some(g) = CHANNEL_COUNT.get() {
                 g.set(
-                    lightning_metrics
-                        .list_channels()
-                        .len()
-                        .try_into()
-                        .unwrap_or(i64::MAX),
+                    database
+                        .open_channel_count()
+                        .await
+                        .map(|i| i.try_into().unwrap_or(i64::MAX))
+                        .unwrap_or(-1),
                 )
             }
             if let Some(g) = PEER_COUNT.get() {
@@ -103,7 +104,7 @@ fn not_found() -> Response<Body> {
 pub async fn start_prometheus_exporter(
     address: String,
     lightning_metrics: Arc<dyn LightningInterface>,
-    database: Arc<dyn Service>,
+    database: Arc<dyn DBConnection>,
     bitcoind: Arc<dyn Service>,
     quit_signal: Shared<impl Future<Output = ()>>,
 ) -> Result<()> {
