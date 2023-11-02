@@ -5,7 +5,10 @@ use std::sync::Arc;
 use test_utils::{poll, ports::get_available_port};
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
-use kld::{database::DBConnection, prometheus::start_prometheus_exporter, Service};
+use kld::{
+    bitcoind::BitcoindMetrics, database::DBConnection, prometheus::start_prometheus_exporter,
+    Service,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
@@ -61,6 +64,7 @@ pub async fn test_prometheus() -> Result<()> {
                 .expect("test should have fee in forward channel")
         )
     );
+    assert_eq!(get_metric(&result, "block_height")?, "1000".to_string());
 
     let not_found = call_exporter(&address, "wrong").await?;
     assert_eq!(not_found, "Not Found");
@@ -83,6 +87,13 @@ impl Service for MockService {
 impl DBConnection for MockService {
     async fn open_channel_count(&self) -> Result<u64> {
         Ok(1)
+    }
+}
+
+#[async_trait]
+impl BitcoindMetrics for MockService {
+    async fn block_height(&self) -> Result<u32> {
+        Ok(1000)
     }
 }
 

@@ -227,6 +227,21 @@ impl Service for BitcoindClient {
     }
 }
 
+#[async_trait]
+pub trait BitcoindMetrics: Service {
+    async fn block_height(&self) -> Result<u32>;
+}
+
+#[async_trait]
+impl BitcoindMetrics for BitcoindClient {
+    async fn block_height(&self) -> Result<u32> {
+        match self.client.get_best_block().await {
+            Ok((_, Some(h))) => Ok(h),
+            _ => Err(anyhow!("Could not get best block from bitcoind")),
+        }
+    }
+}
+
 struct JsonString(String);
 
 impl JsonString {

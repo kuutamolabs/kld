@@ -12,14 +12,15 @@ use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use log::info;
 use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGauge, TextEncoder};
 
+use crate::bitcoind::BitcoindMetrics;
 use crate::database::DBConnection;
 use crate::ldk::LightningInterface;
-use crate::Service;
 
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
 static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
 static FEE: OnceLock<Gauge> = OnceLock::new();
+static BLOCK_HEIGHT: OnceLock<IntGauge> = OnceLock::new();
 
 // NOTE:
 // Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
@@ -40,7 +41,7 @@ static PEER_COUNT: OnceLock<IntGauge> = OnceLock::new();
 async fn response_examples(
     lightning_metrics: Arc<dyn LightningInterface>,
     database: Arc<dyn DBConnection>,
-    bitcoind: Arc<dyn Service>,
+    bitcoind: Arc<dyn BitcoindMetrics>,
     req: Request<Body>,
 ) -> hyper::Result<Response<Body>> {
     match (req.method(), req.uri().path()) {
@@ -90,6 +91,9 @@ async fn response_examples(
             {
                 g.set(total_fee.fee as f64)
             }
+            if let (Some(g), Ok(h)) = (BLOCK_HEIGHT.get(), bitcoind.block_height().await) {
+                g.set(h.into())
+            }
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
             let encoder = TextEncoder::new();
@@ -114,7 +118,7 @@ pub async fn start_prometheus_exporter(
     address: String,
     lightning_metrics: Arc<dyn LightningInterface>,
     database: Arc<dyn DBConnection>,
-    bitcoind: Arc<dyn Service>,
+    bitcoind: Arc<dyn BitcoindMetrics>,
     quit_signal: Shared<impl Future<Output = ()>>,
 ) -> Result<()> {
     UPTIME
@@ -158,6 +162,12 @@ pub async fn start_prometheus_exporter(
         "The total fee from successful channels"
     )?)
     .unwrap_or_default();
+    BLOCK_HEIGHT
+        .set(register_int_gauge!(
+            "block_height",
+            "The block height kld observed"
+        )?)
+        .unwrap_or_default();
 
     let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
