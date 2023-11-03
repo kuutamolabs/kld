@@ -82,7 +82,7 @@ impl DBConnection for DurableConnection {
             .get()
             .await
             .execute(
-                "SELECT COUNT(*) FROM orders WHERE close_timestamp IS NULL;",
+                "SELECT COUNT(*) FROM channels WHERE close_timestamp IS NULL;",
                 &[],
             )
             .await?)
