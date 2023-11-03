@@ -155,6 +155,9 @@ impl LightningInterface for MockLightning {
     fn alias(&self) -> String {
         "test".to_string()
     }
+    fn color(&self) -> String {
+        "6e2cf7".to_string()
+    }
     fn identity_pubkey(&self) -> PublicKey {
         self.public_key
     }

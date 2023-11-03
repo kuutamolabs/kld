@@ -105,6 +105,10 @@ impl LightningInterface for Controller {
         self.settings.node_alias.clone()
     }
 
+    fn color(&self) -> String {
+        self.settings.node_alias_color.clone()
+    }
+
     fn network(&self) -> bitcoin::Network {
         self.settings.bitcoin_network.into()
     }
