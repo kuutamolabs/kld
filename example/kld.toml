@@ -62,6 +62,9 @@ extra_nixos_modules = []
 # ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
 # promtail_client = ""
 
+# The default provider for all nodes, the value should be one of gcp, aws, ovh or other
+# provider = "gcp"
+
 # The configuration for the host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
@@ -137,5 +140,8 @@ kld_api_ip_access_list = []
 
 # The interface to access network
 # network_interface = "eth0"
+
+# The provider for the nodes, the value should be one of gcp, aws, ovh or other
+# provider = "gcp"
 
 

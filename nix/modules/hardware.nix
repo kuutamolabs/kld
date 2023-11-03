@@ -5,7 +5,6 @@
     default = [ "/dev/nvme0n1" "/dev/nvme1n1" ];
     description = lib.mdDoc "Disks formatted by disko";
   };
-
   options.kuutamo.disko.networkInterface = lib.mkOption {
     type = lib.types.str;
     default = "eth0";
@@ -15,6 +14,17 @@
     type = lib.types.listOf lib.types.str;
     default = [ ];
     description = lib.mdDoc "Ssh key to login locked machines";
+  };
+  options.kuutamo.console.set = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = lib.mdDoc ''set default consoles'';
+  };
+  options.kuutamo.console.defaults = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = lib.mdDoc ''On some platforms we pick up the wrong console.
+    For example OVH, it will set [] for VGA console output'';
   };
 
   imports = [
@@ -39,9 +49,17 @@
       "9p"
       "9pnet_virtio"
     ];
-    # XXX on some platforms we pick up the wrong console. In this cases we default to serial,
-    # also our ipmi has VGA output, uncomment the line below.
-    # srvos.boot.consoles = lib.mkDefault [ ];
+    srvos.boot.consoles = {
+      _type = "override";
+      content = config.kuutamo.console.defaults;
+      priority =
+        if config.kuutamo.console.set
+        then
+          999
+        else
+        # will not over write any other Default values
+          1001;
+    };
 
     # Enable raid support specifically, this will disable srvos's
     # systemd-initrd as well, which currently is not compatible with mdraid.
