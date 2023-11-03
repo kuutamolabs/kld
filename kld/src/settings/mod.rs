@@ -44,6 +44,9 @@ pub struct Settings {
     /// The node alias on the lightning network.
     #[arg(long, default_value = "", env = "KLD_NODE_ALIAS")]
     pub node_alias: String,
+    /// The node alias color on the lightning network.
+    #[arg(long, default_value = "6e2cf7", env = "KLD_NODE_ALIAS_COLOR")]
+    pub node_alias_color: String,
     /// Public addresses to broadcast to the lightning network.
     #[arg(long, value_delimiter = ',', env = "KLD_PUBLIC_ADDRESSES")]
     pub public_addresses: Vec<SocketAddress>,

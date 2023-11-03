@@ -16,3 +16,4 @@ result-*
 mgr/kld*.toml
 mgr/secrets
 mgr/secrets*
+mgr/deployment

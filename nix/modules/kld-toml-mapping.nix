@@ -22,6 +22,7 @@ in
       # Check and ignore private ipv4 here
       # ++ lib.optional (cfg ? ipv4_address) "${cfg.ipv4_address}:9234"
       ++ lib.optional (cfg ? ipv6_address) "[${cfg.ipv6_address}]:9234";
+    kuutamo.kld.nodeAliasColor = cfg.kld_node_alias_color or null;
     kuutamo.kld.apiIpAccessList = cfg.api_ip_access_list or [ ];
     kuutamo.kld.restApiPort = cfg.rest_api_port or 2244;
     kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
