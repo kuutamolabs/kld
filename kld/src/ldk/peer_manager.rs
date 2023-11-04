@@ -8,6 +8,7 @@ use crate::settings::Settings;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
+use hex::FromHex;
 use ldk_lsp_client::LiquidityManager;
 use lightning::sign::KeysManager;
 use lightning::{
@@ -195,7 +196,9 @@ impl KuutamoPeerManger for Arc<PeerManager> {
             .into_iter()
             .map(|a| a.inner())
             .collect();
-        self.broadcast_node_announcement([0; 3], alias, addresses);
+
+        let color = <[u8; 3]>::from_hex(&settings.node_alias_color).unwrap_or([110, 44, 247]);
+        self.broadcast_node_announcement(color, alias, addresses);
     }
 }
 

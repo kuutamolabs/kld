@@ -24,6 +24,8 @@ use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 pub trait LightningInterface: Send + Sync {
     fn alias(&self) -> String;
 
+    fn color(&self) -> String;
+
     fn identity_pubkey(&self) -> PublicKey;
 
     async fn synced(&self) -> Result<bool>;

@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose, Engine as _};
+use hex::FromHex;
 use log::warn;
 use regex::Regex;
 use reqwest::blocking::Client;
@@ -196,6 +197,10 @@ struct HostDefaultConfig {
     /// ex: https://<user_id>:<token>@<client hostname>/loki/api/vi/push
     #[serde(default)]
     promtail_client: Option<String>,
+
+    /// The default alias color for all node
+    #[toml_example(default = "6e2cf7")]
+    pub kld_node_alias_color: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -260,6 +265,11 @@ struct HostConfig {
 
     /// String for node_alias, currently it only accept 32 chars ascii string for this field
     pub kld_node_alias: Option<String>,
+
+    /// The default alias color for the node
+    #[toml_example(default = "6e2cf7")]
+    pub kld_node_alias_color: Option<String>,
+
     /// Set kld log level to `error`, `warn`, `info`, `debug`, `trace`
     #[serde(default)]
     #[toml_example(default = "info")]
@@ -356,6 +366,9 @@ pub struct Host {
 
     /// alias of node in lightning
     pub kld_node_alias: Option<String>,
+    /// alias color of node in lightning
+    pub kld_node_alias_color: Option<String>,
+
     /// Log level for kld service
     pub kld_log_level: Option<LogLevel>,
 
@@ -794,12 +807,18 @@ fn validate_host(
     let monitor_config_hash = calculate_hash(&kmonitor_config).to_string();
 
     if let Some(alias) = &host.kld_node_alias {
-        // none ascii word will take more than one bytes and we can not validate it with len()
-        if !alias.is_ascii() {
-            bail!("currently alias should be ascii");
+        if alias.as_bytes().len() > 32 {
+            bail!("alias should be less then 32 bytes");
         }
-        if alias.len() > 32 {
-            bail!("alias should be 32 bytes");
+    }
+
+    let kld_node_alias_color = host
+        .kld_node_alias_color
+        .as_ref()
+        .or(default.kld_node_alias_color.as_ref());
+    if let Some(color_code) = kld_node_alias_color {
+        if <[u8; 3]>::from_hex(color_code).is_err() {
+            bail!("alias color should be in hex format");
         }
     }
 
@@ -826,6 +845,7 @@ fn validate_host(
         promtail_has_client,
         monitor_config_hash,
         kld_node_alias: host.kld_node_alias.to_owned(),
+        kld_node_alias_color: kld_node_alias_color.cloned(),
         api_ip_access_list: host.kld_api_ip_access_list.to_owned(),
         rest_api_port: host.kld_rest_api_port,
         network_interface: host.network_interface.to_owned(),
@@ -1109,6 +1129,7 @@ fn test_validate_host() -> Result<()> {
             cockroach_peers: vec![],
             bitcoind_disks: vec![],
             kld_node_alias: None,
+            kld_node_alias_color: None,
             kld_log_level: None,
             kmonitor_config: None,
             telegraf_has_monitoring: false,
