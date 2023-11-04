@@ -1,5 +1,3 @@
-kuutamo is an open, turn-key, end-to-end solution for running best-in-class self-hosted nodes, anywhere.
-
 # Lighting Service Provider (LSP) node cluster
 
 **Nota bene**: kuutamo is bleeding edge decentralized financial infrastructure. Use with caution and only with funds you are prepared to lose.
