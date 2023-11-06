@@ -72,20 +72,22 @@ impl Service for DurableConnection {
 
 #[async_trait]
 pub trait DBConnection: Service {
-    async fn open_channel_count(&self) -> Result<u64>;
+    async fn open_channel_count(&self) -> Result<i64>;
 }
 
 #[async_trait]
 impl DBConnection for DurableConnection {
-    async fn open_channel_count(&self) -> Result<u64> {
-        Ok(self
+    async fn open_channel_count(&self) -> Result<i64> {
+        let row = self
             .get()
             .await
-            .execute(
+            .query_one(
                 "SELECT COUNT(*) FROM channels WHERE close_timestamp IS NULL;",
                 &[],
             )
-            .await?)
+            .await?;
+        let count: i64 = row.get("count");
+        Ok(count)
     }
 }
 

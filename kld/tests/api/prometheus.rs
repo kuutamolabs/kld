@@ -85,7 +85,7 @@ impl Service for MockService {
 
 #[async_trait]
 impl DBConnection for MockService {
-    async fn open_channel_count(&self) -> Result<u64> {
+    async fn open_channel_count(&self) -> Result<i64> {
         Ok(1)
     }
 }
