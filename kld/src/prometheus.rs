@@ -69,7 +69,7 @@ async fn response_examples(
                 )
             }
             if let (Some(g), Ok(i)) = (CHANNEL_COUNT.get(), database.open_channel_count().await) {
-                g.set(i.try_into().unwrap_or(i64::MAX));
+                g.set(i);
             }
             if let Some(g) = PEER_COUNT.get() {
                 g.set(lightning_metrics.num_peers().try_into().unwrap_or(i64::MAX))
