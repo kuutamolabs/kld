@@ -17,7 +17,7 @@ doctest = false
 [dependencies]
 api = { path = "../api" }
 
-lightning = { version = "0.0.117", features = ["max_level_trace", "_test_utils"] }
+lightning = { version = "0.0.118", features = ["max_level_trace", "_test_utils"] }
 lightning-block-sync = { version = "0.0.117", features = [ "rpc-client" ] }
 lightning-invoice = "0.25.0"
 lightning-net-tokio = "0.0.117"
