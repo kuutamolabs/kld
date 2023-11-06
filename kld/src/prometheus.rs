@@ -18,7 +18,10 @@ use crate::ldk::LightningInterface;
 
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
+/// The free balance without any channel setting
 static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
+/// The balance already used in channel and bond in our side
+static CHANNEL_BALANCE: OnceLock<Gauge> = OnceLock::new();
 static FEE: OnceLock<Gauge> = OnceLock::new();
 static BLOCK_HEIGHT: OnceLock<IntGauge> = OnceLock::new();
 
@@ -76,6 +79,14 @@ async fn response_examples(
             }
             if let Some(g) = WALLET_BALANCE.get() {
                 g.set(lightning_metrics.wallet_balance() as f64)
+            }
+            if let Some(g) = CHANNEL_BALANCE.get() {
+                let mut total_channel_balance = 0;
+                let channels = lightning_metrics.list_channels();
+                for channel in channels {
+                    total_channel_balance += channel.balance_msat;
+                }
+                g.set((total_channel_balance as f64) / 1000.0)
             }
             // XXX better from dbconnection not lightning_metrics, if the fee is get from database
             if let (Some(g), Ok(total_fee)) =
@@ -147,6 +158,12 @@ pub async fn start_prometheus_exporter(
         .set(register_gauge!(
             "wallet_balance",
             "The bitcoin wallet balance"
+        )?)
+        .unwrap_or_default();
+    CHANNEL_BALANCE
+        .set(register_gauge!(
+            "channel_balance",
+            "The bitcoin balance in channel and in our side"
         )?)
         .unwrap_or_default();
     FEE.set(register_gauge!(

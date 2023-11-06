@@ -55,6 +55,10 @@ pub async fn test_prometheus() -> Result<()> {
         format!("{}", metrics.wallet_balance)
     );
     assert_eq!(
+        get_metric(&result, "channel_balance")?,
+        format!("{}", metrics.channel.balance_msat / 1000)
+    );
+    assert_eq!(
         get_metric(&result, "fee")?,
         format!(
             "{}",
