@@ -20,7 +20,7 @@ api = { path = "../api" }
 lightning = { version = "0.0.117", features = ["max_level_trace", "_test_utils"] }
 lightning-block-sync = { version = "0.0.117", features = [ "rpc-client" ] }
 lightning-invoice = "0.25.0"
-lightning-net-tokio = "0.0.117"
+lightning-net-tokio = "0.0.118"
 lightning-background-processor = { version = "0.0.117", features = [ "futures" ] }
 lightning-rapid-gossip-sync = "0.0.117"
 ldk-lsp-client = { git = "https://github.com/kuutamolabs/ldk-lsp-client", branch = "kuutamo" }
