@@ -57,6 +57,9 @@
             --no-update-lock-file \
             --option accept-flake-config true \
             --option access-tokens $ACCESS_TOKENS \
+            --option narinfo-cache-positive-ttl 0 \
+            --option narinfo-cache-negative-ttl 0 \
+            --option tarball-ttl 0 \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
 
