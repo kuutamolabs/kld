@@ -57,6 +57,9 @@
             --no-update-lock-file \
             --option accept-flake-config true \
             --option access-tokens $ACCESS_TOKENS \
+            --option narinfo-cache-positive-ttl 0 \
+            --option narinfo-cache-negative-ttl 0 \
+            --option tarball-ttl 0 \
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
 
@@ -70,7 +73,8 @@
           cp /var/lib/secrets/disk_encryption_key $initrd/initrd/key-file
           cd $initrd/initrd
           find . |${cpio} -H newc -o | ${gzip} -9 >> ../current-initrd
-          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --reuse-cmdline && ${systemctl} kexec
+          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --append="$(cat $p/kernel-params) init=$p/init"
+          ${systemctl} kexec
         '';
 
       after = [ "network-online.target" ];
