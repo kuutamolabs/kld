@@ -2,7 +2,7 @@ mod client;
 mod commands;
 
 use crate::client::Api;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use commands::{KldCliCommand, KldCliSubCommand};
 
@@ -45,7 +45,21 @@ fn run_command(args: KldCliCommand) -> Result<()> {
             base_fee,
             ppm_fee,
         } => api.set_channel_fee(id, base_fee, ppm_fee)?,
-        KldCliSubCommand::CloseChannel { id } => api.close_channel(id)?,
+        KldCliSubCommand::CloseChannel {
+            id,
+            force_close: None,
+        } => api.close_channel(id)?,
+        KldCliSubCommand::CloseChannel {
+            id,
+            force_close: Some(broadcast_flag),
+        } => {
+            let need_broadcast = match broadcast_flag.as_str() {
+                "broadcast" => true,
+                "no-broadcast" => false,
+                _ => bail!("the broadcast-flag need to `broadcast` or `no-broadcast`"),
+            };
+            api.force_close_channel(id, need_broadcast)?
+        }
         KldCliSubCommand::NetworkNodes { id } => api.list_network_nodes(id)?,
         KldCliSubCommand::NetworkChannels { id } => api.list_network_channels(id)?,
         KldCliSubCommand::FeeRates { style } => api.fee_rates(style)?,

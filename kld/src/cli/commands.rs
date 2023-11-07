@@ -98,6 +98,12 @@ pub enum KldCliSubCommand {
         /// Channel ID or short channel ID to close.
         #[arg()]
         id: String,
+
+        /// Force closes a channel with or without broadcasting the latest local transaction(s) .
+        /// If `broadcast-flag` is `broadcast`, it will immediately broadcasting the latest local transaction(s) and rejecting new HTLCs on the given channel.
+        /// If `broadcast-flag` is `no-broadcast`, it will rejecting new HTLCs on the given channel but skips broadcasting the latest local transaction(s).
+        #[arg(short, long, name = "broadcast-flag")]
+        force_close: Option<String>,
     },
     /// Get node information from the network graph.
     NetworkNodes {

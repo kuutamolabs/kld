@@ -66,6 +66,11 @@ pub async fn test_unauthorized() -> Result<()> {
         (Method::POST, routes::OPEN_CHANNEL),
         (Method::POST, routes::SET_CHANNEL_FEE),
         (Method::DELETE, routes::CLOSE_CHANNEL),
+        (Method::DELETE, routes::FORCE_CLOSE_CHANNEL_WITH_BROADCAST),
+        (
+            Method::DELETE,
+            routes::FORCE_CLOSE_CHANNEL_WITHOUT_BROADCAST,
+        ),
         (Method::POST, routes::WITHDRAW),
         (Method::GET, routes::NEW_ADDR),
         (Method::POST, routes::CONNECT_PEER),
@@ -343,6 +348,36 @@ async fn test_close_channel_admin() -> Result<()> {
         &context,
         Method::DELETE,
         &routes::CLOSE_CHANNEL.replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
+    )?
+    .send()
+    .await?;
+    assert!(result.status().is_success());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_force_close_channel_with_broadcast_admin() -> Result<()> {
+    let context = create_api_server().await?;
+    let result = admin_request(
+        &context,
+        Method::DELETE,
+        &routes::FORCE_CLOSE_CHANNEL_WITH_BROADCAST
+            .replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
+    )?
+    .send()
+    .await?;
+    assert!(result.status().is_success());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_force_close_channel_without_broadcast_admin() -> Result<()> {
+    let context = create_api_server().await?;
+    let result = admin_request(
+        &context,
+        Method::DELETE,
+        &routes::FORCE_CLOSE_CHANNEL_WITHOUT_BROADCAST
+            .replace(":id", &TEST_SHORT_CHANNEL_ID.to_string()),
     )?
     .send()
     .await?;

@@ -233,6 +233,42 @@ pub(crate) async fn close_channel(
     }
 }
 
+pub(crate) async fn force_close_channel_with_broadcast(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Path(channel_id): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+        c.channel_id.to_hex() == channel_id
+            || c.short_channel_id.unwrap_or_default().to_string() == channel_id
+    }) {
+        lightning_interface
+            .force_close_channel(&channel.channel_id, &channel.counterparty.node_id, true)
+            .await
+            .map_err(internal_server)?;
+        Ok(Json(()))
+    } else {
+        Err(ApiError::NotFound(channel_id))
+    }
+}
+
+pub(crate) async fn force_close_channel_without_broadcast(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Path(channel_id): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+        c.channel_id.to_hex() == channel_id
+            || c.short_channel_id.unwrap_or_default().to_string() == channel_id
+    }) {
+        lightning_interface
+            .force_close_channel(&channel.channel_id, &channel.counterparty.node_id, false)
+            .await
+            .map_err(internal_server)?;
+        Ok(Json(()))
+    } else {
+        Err(ApiError::NotFound(channel_id))
+    }
+}
+
 pub(crate) async fn local_remote_balance(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {

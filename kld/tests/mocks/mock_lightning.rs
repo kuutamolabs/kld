@@ -272,6 +272,15 @@ impl LightningInterface for MockLightning {
         Ok(())
     }
 
+    async fn force_close_channel(
+        &self,
+        _channel_id: &ChannelId,
+        _counterparty_node_id: &PublicKey,
+        _may_broadcast: bool,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     fn get_node(&self, _node_id: &NodeId) -> Option<NodeInfo> {
         let mut alias = [0u8; 32];
         alias[..TEST_ALIAS.len()].copy_from_slice(TEST_ALIAS.as_bytes());

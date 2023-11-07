@@ -19,7 +19,8 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{
-            channel_history, close_channel, list_forwards, list_peer_channels,
+            channel_history, close_channel, force_close_channel_with_broadcast,
+            force_close_channel_without_broadcast, list_forwards, list_peer_channels,
             local_remote_balance, open_channel, set_channel_fee,
         },
         invoices::{decode_invoice, generate_invoice, list_invoices},
@@ -113,6 +114,14 @@ impl RestApi {
             .route(routes::OPEN_CHANNEL, post(open_channel))
             .route(routes::SET_CHANNEL_FEE, post(set_channel_fee))
             .route(routes::CLOSE_CHANNEL, delete(close_channel))
+            .route(
+                routes::FORCE_CLOSE_CHANNEL_WITH_BROADCAST,
+                delete(force_close_channel_with_broadcast),
+            )
+            .route(
+                routes::FORCE_CLOSE_CHANNEL_WITHOUT_BROADCAST,
+                delete(force_close_channel_without_broadcast),
+            )
             .route(routes::NEW_ADDR, get(new_address))
             .route(routes::WITHDRAW, post(transfer))
             .route(routes::CONNECT_PEER, post(connect_peer))
