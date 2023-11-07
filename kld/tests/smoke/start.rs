@@ -214,6 +214,34 @@ pub async fn test_start() -> Result<()> {
         )
         .await?;
 
+    kld_0
+        .call_rest_api(
+            Method::DELETE,
+            &routes::FORCE_CLOSE_CHANNEL_WITH_BROADCAST.replace(
+                ":id",
+                channel
+                    .short_channel_id
+                    .as_ref()
+                    .context("expected short channel id")?,
+            ),
+            (),
+        )
+        .await?;
+
+    kld_0
+        .call_rest_api(
+            Method::DELETE,
+            &routes::FORCE_CLOSE_CHANNEL_WITHOUT_BROADCAST.replace(
+                ":id",
+                channel
+                    .short_channel_id
+                    .as_ref()
+                    .context("expected short channel id")?,
+            ),
+            (),
+        )
+        .await?;
+
     bitcoin
         .generate_blocks(10, &Address::from_str(TEST_ADDRESS)?, true)
         .await?;

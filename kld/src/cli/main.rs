@@ -45,7 +45,14 @@ fn run_command(args: KldCliCommand) -> Result<()> {
             base_fee,
             ppm_fee,
         } => api.set_channel_fee(id, base_fee, ppm_fee)?,
-        KldCliSubCommand::CloseChannel { id } => api.close_channel(id)?,
+        KldCliSubCommand::CloseChannel {
+            id,
+            force_close: None,
+        } => api.close_channel(id)?,
+        KldCliSubCommand::CloseChannel {
+            id,
+            force_close: Some(need_broadcast),
+        } => api.force_close_channel(id, need_broadcast)?,
         KldCliSubCommand::NetworkNodes { id } => api.list_network_nodes(id)?,
         KldCliSubCommand::NetworkChannels { id } => api.list_network_channels(id)?,
         KldCliSubCommand::FeeRates { style } => api.fee_rates(style)?,

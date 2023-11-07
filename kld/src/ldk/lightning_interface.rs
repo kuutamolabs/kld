@@ -87,6 +87,13 @@ pub trait LightningInterface: Send + Sync {
         counterparty_node_id: &PublicKey,
     ) -> Result<()>;
 
+    async fn force_close_channel(
+        &self,
+        channel_id: &ChannelId,
+        counterparty_node_id: &PublicKey,
+        with_broadcast: bool,
+    ) -> Result<()>;
+
     fn get_node(&self, node_id: &NodeId) -> Option<NodeInfo>;
 
     fn nodes(&self) -> IndexedMap<NodeId, NodeInfo>;

@@ -175,6 +175,23 @@ impl Api {
         deserialize::<()>(response)
     }
 
+    pub fn force_close_channel(&self, id: String, may_broadcast: bool) -> Result<String> {
+        let response = if may_broadcast {
+            self.request(
+                Method::DELETE,
+                &routes::FORCE_CLOSE_CHANNEL_WITH_BROADCAST.replace(":id", &id),
+            )
+            .send()?
+        } else {
+            self.request(
+                Method::DELETE,
+                &routes::FORCE_CLOSE_CHANNEL_WITHOUT_BROADCAST.replace(":id", &id),
+            )
+            .send()?
+        };
+        deserialize::<()>(response)
+    }
+
     pub fn list_network_nodes(&self, id: Option<String>) -> Result<String> {
         let response = if let Some(id) = id {
             self.request(Method::GET, &routes::LIST_NETWORK_NODE.replace(":id", &id))

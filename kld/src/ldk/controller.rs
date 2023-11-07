@@ -193,6 +193,25 @@ impl LightningInterface for Controller {
             .map_err(ldk_error)
     }
 
+    async fn force_close_channel(
+        &self,
+        channel_id: &ChannelId,
+        counterparty_node_id: &PublicKey,
+        with_broadcast: bool,
+    ) -> Result<()> {
+        if !self.bitcoind_client.is_synchronised().await {
+            bail!("Bitcoind is synchronising blockchain")
+        }
+        if with_broadcast {
+            self.channel_manager
+                .force_close_broadcasting_latest_txn(channel_id, counterparty_node_id)
+        } else {
+            self.channel_manager
+                .force_close_without_broadcasting_txn(channel_id, counterparty_node_id)
+        }
+        .map_err(ldk_error)
+    }
+
     fn set_channel_fee(
         &self,
         counterparty_node_id: &PublicKey,
