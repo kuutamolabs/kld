@@ -73,7 +73,8 @@
           cp /var/lib/secrets/disk_encryption_key $initrd/initrd/key-file
           cd $initrd/initrd
           find . |${cpio} -H newc -o | ${gzip} -9 >> ../current-initrd
-          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --reuse-cmdline && ${systemctl} kexec
+          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --append="$(cat $p/kernel-params) init=$p/init"
+          ${systemctl} kexec
         '';
 
       after = [ "network-online.target" ];
