@@ -56,7 +56,7 @@ fn run_command(args: KldCliCommand) -> Result<()> {
             let need_broadcast = match broadcast_flag.as_str() {
                 "broadcast" => true,
                 "no-broadcast" => false,
-                _ => bail!("the broadcast-flage need to `broadcast` or `no-broadcast`"),
+                _ => bail!("the broadcast-flag need to `broadcast` or `no-broadcast`"),
             };
             api.force_close_channel(id, need_broadcast)?
         }
