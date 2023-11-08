@@ -2,10 +2,7 @@ use std::sync::{Arc, Weak};
 
 use crate::logger::KldLogger;
 use crate::settings::Settings;
-use bitcoin::{
-    blockdata::constants::{genesis_block, ChainHash},
-    BlockHash,
-};
+use bitcoin::blockdata::constants::ChainHash;
 use lightning::routing::{
     gossip::P2PGossipSync,
     utxo::{UtxoFuture, UtxoLookup, UtxoLookupError, UtxoResult},
@@ -25,7 +22,7 @@ pub struct BitcoindUtxoLookup {
     bitcoind: Arc<BitcoindClient>,
     network_graph: Arc<NetworkGraph>,
     gossip_sync: Weak<P2PGossipSync<Arc<NetworkGraph>, Arc<BitcoindUtxoLookup>, Arc<KldLogger>>>,
-    genesis: BlockHash,
+    genesis: ChainHash,
     runtime: Handle,
 }
 
@@ -38,14 +35,11 @@ impl BitcoindUtxoLookup {
             P2PGossipSync<Arc<NetworkGraph>, Arc<BitcoindUtxoLookup>, Arc<KldLogger>>,
         >,
     ) -> BitcoindUtxoLookup {
-        let genesis = genesis_block(settings.bitcoin_network.into())
-            .header
-            .block_hash();
         BitcoindUtxoLookup {
             bitcoind,
             network_graph,
             gossip_sync,
-            genesis,
+            genesis: ChainHash::using_genesis_block(settings.bitcoin_network.into()),
             runtime: tokio::runtime::Handle::current(),
         }
     }
