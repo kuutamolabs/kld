@@ -484,7 +484,7 @@ impl EventHandler {
                     .collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client
-                    .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
+                    .get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep);
 
                 let best_block_height = self.bitcoind_client.block_height().await?;
                 let spending_tx = self
@@ -515,6 +515,10 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
             } => unreachable!(),
+            Event::InvoiceRequestFailed { payment_id } => {
+                // XXX Handle it
+                info!("Invoice request failed, payment id: {payment_id:}");
+            }
             Event::BumpTransaction(_) => unreachable!(),
         };
         Ok(())

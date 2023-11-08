@@ -63,7 +63,8 @@ pub(crate) type LiquidityManager = ldk_lsp_client::LiquidityManager<
 pub(crate) type ChannelManager =
     SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>;
 
-pub(crate) type OnionMessenger = SimpleArcOnionMessenger<KldLogger>;
+pub(crate) type OnionMessenger =
+    SimpleArcOnionMessenger<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>;
 
 pub type Scorer = ProbabilisticScorer<Arc<NetworkGraph>, Arc<KldLogger>>;
 

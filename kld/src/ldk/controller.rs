@@ -746,7 +746,7 @@ impl Controller {
             keys_manager.clone(),
             KldLogger::global(),
             Arc::new(lightning::onion_message::DefaultMessageRouter {}),
-            IgnoringMessageHandler {},
+            channel_manager.clone(),
             IgnoringMessageHandler {},
         ));
         let ephemeral_bytes: [u8; 32] = random();

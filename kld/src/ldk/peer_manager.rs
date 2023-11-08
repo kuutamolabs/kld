@@ -33,7 +33,7 @@ pub(crate) type PeerManager = peer_handler::PeerManager<
             Arc<KldLogger>,
         >,
     >,
-    Arc<SimpleArcOnionMessenger<KldLogger>>,
+    Arc<SimpleArcOnionMessenger<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>>,
     Arc<KldLogger>,
     Arc<
         LiquidityManager<

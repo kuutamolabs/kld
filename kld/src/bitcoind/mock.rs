@@ -81,10 +81,13 @@ impl BlockSource for MockBitcoindClient {
 impl FeeEstimator for MockBitcoindClient {
     fn get_est_sat_per_1000_weight(&self, confirmation_target: ConfirmationTarget) -> u32 {
         match confirmation_target {
-            ConfirmationTarget::Background => 500,
-            ConfirmationTarget::Normal => 2000,
-            ConfirmationTarget::HighPriority => 10000,
-            ConfirmationTarget::MempoolMinimum => 500,
+            ConfirmationTarget::NonAnchorChannelFee => 2000,
+            ConfirmationTarget::OnChainSweep => 10000,
+            ConfirmationTarget::ChannelCloseMinimum
+            | ConfirmationTarget::AnchorChannelFee
+            | ConfirmationTarget::MinAllowedAnchorChannelRemoteFee
+            | ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee => 500,
+            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => 10000,
         }
     }
 }
