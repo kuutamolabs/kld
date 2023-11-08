@@ -144,4 +144,9 @@ kld_api_ip_access_list = []
 # The interface to access network
 # network_interface = "eth0"
 
+# The schedule for check out deployment repo and upgrade the node
+# Normally, we do not need to specify the schedule, and the upgrade time will base the node
+# order of the cluster.
+# upgrade_schedule = "*-*-* 0:00:00"
+
 
