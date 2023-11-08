@@ -63,18 +63,25 @@
             --flake ${config.kuutamo.upgrade.deploymentFlake}
           ${nix-collect-garbage}
 
-          # Unload kexec if existing
-          # then put disk encrypted key into the new initrd
-          ${kexec} -u
-          p=$(${readlink} -f /nix/var/nix/profiles/system)
-          initrd=$(mktemp -d)
-          mkdir -p $initrd/initrd
-          cp $p/initrd $initrd/current-initrd
-          cp /var/lib/secrets/disk_encryption_key $initrd/initrd/key-file
-          cd $initrd/initrd
-          find . |${cpio} -H newc -o | ${gzip} -9 >> ../current-initrd
-          ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --append="$(cat $p/kernel-params) init=$p/init"
-          ${systemctl} kexec
+          # If any change on kernel, then reboot by kexec
+          booted="$(${readlink} /run/booted-system/{initrd,kernel,kernel-modules})"
+          built="$(${readlink} /nix/var/nix/profiles/system/{initrd,kernel,kernel-modules})"
+          if [ "''${booted}" = "''${built}" ]; then
+            echo "No kernel update... skipping reboot"
+          else
+            # Unload kexec if existing
+            # then put disk encrypted key into the new initrd
+            ${kexec} -u
+            p=$(${readlink} -f /nix/var/nix/profiles/system)
+            initrd=$(mktemp -d)
+            mkdir -p $initrd/initrd
+            cp $p/initrd $initrd/current-initrd
+            cp /var/lib/secrets/disk_encryption_key $initrd/initrd/key-file
+            cd $initrd/initrd
+            find . |${cpio} -H newc -o | ${gzip} -9 >> ../current-initrd
+            ${kexec} --load $p/kernel --initrd=$initrd/current-initrd --append="$(cat $p/kernel-params) init=$p/init"
+            ${systemctl} kexec
+          fi
         '';
 
       after = [ "network-online.target" ];
