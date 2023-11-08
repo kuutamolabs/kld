@@ -64,8 +64,7 @@ in
 
     kuutamo.upgrade.deploymentFlake = cfg.deployment_flake;
 
-    # If the upgrade_schedule is not set, we will user upgrade order and assume the upgrade can be done in 10 mins,
-    # so the node will not upgrade at the same time
+    # If the upgrade_schedule is not set, we will use the upgrade order and assume each upgrade can be done in 10 mins.
     kuutamo.upgrade.time = if (cfg ? upgrade_schedule) then cfg.upgrade_schedule else "*-*-* 2:${toString (cfg.upgrade_order or 0)}0:00";
   };
 }

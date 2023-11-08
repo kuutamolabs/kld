@@ -312,11 +312,10 @@ struct HostConfig {
     #[toml_example(default = "eth0")]
     network_interface: Option<String>,
 
-    /// The schedule for check out deployment repo and upgrade the node
-    /// Normally, we do not need to specify the schedule, and the upgrade time will base the node
-    /// order of the cluster.
+    /// By default, the nodes in cluster will update daily, sequetially, starting at 2 AM UTC.
+    /// On a per node basis you can override this with the setting below
     #[serde(default)]
-    #[toml_example(default = "*-*-* 0:00:00")]
+    #[toml_example(default = "*-*-* 2:00:00")]
     upgrade_schedule: Option<String>,
 
     #[serde(flatten)]
@@ -403,8 +402,8 @@ pub struct Host {
     /// Is the mnemonic provided by mgr
     pub kld_preset_mnemonic: Option<bool>,
 
-    /// The time schedule for update node, normally we do not need to set this, it will be handled
-    /// by the order of node in the cluster
+    /// By default, the nodes in cluster will update daily, sequetially, starting at 2 AM UTC.
+    /// On a per node basis you can override this with the setting below
     pub upgrade_schedule: Option<String>,
 }
 
