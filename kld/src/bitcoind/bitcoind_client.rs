@@ -116,19 +116,43 @@ impl BitcoindClient {
                 BitcoindClient::estimate_fee(
                     priorities.clone(),
                     client.clone(),
-                    ConfirmationTarget::Background,
+                    ConfirmationTarget::NonAnchorChannelFee,
                 )
                 .await;
                 BitcoindClient::estimate_fee(
                     priorities.clone(),
                     client.clone(),
-                    ConfirmationTarget::Normal,
+                    ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee,
                 )
                 .await;
                 BitcoindClient::estimate_fee(
                     priorities.clone(),
                     client.clone(),
-                    ConfirmationTarget::HighPriority,
+                    ConfirmationTarget::MinAllowedAnchorChannelRemoteFee,
+                )
+                .await;
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::AnchorChannelFee,
+                )
+                .await;
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::ChannelCloseMinimum,
+                )
+                .await;
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::OnChainSweep,
+                )
+                .await;
+                BitcoindClient::estimate_fee(
+                    priorities.clone(),
+                    client.clone(),
+                    ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee,
                 )
                 .await;
                 tokio::time::sleep(Duration::from_secs(60)).await;
@@ -190,9 +214,9 @@ impl BitcoindInterface for BitcoindClient {
     }
 
     fn fee_rates_kw(&self) -> (u32, u32, u32) {
-        let urgent = self.get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
-        let normal = self.get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
-        let slow = self.get_est_sat_per_1000_weight(ConfirmationTarget::Background);
+        let urgent = self.get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep);
+        let normal = self.get_est_sat_per_1000_weight(ConfirmationTarget::NonAnchorChannelFee);
+        let slow = self.get_est_sat_per_1000_weight(ConfirmationTarget::ChannelCloseMinimum);
         (urgent, normal, slow)
     }
 
@@ -361,10 +385,15 @@ impl Priorities {
 
     fn priority_of(&self, conf_target: &ConfirmationTarget) -> Arc<Priority> {
         match conf_target {
-            ConfirmationTarget::Background => self.background.clone(),
-            ConfirmationTarget::Normal => self.normal.clone(),
-            ConfirmationTarget::HighPriority => self.high.clone(),
-            ConfirmationTarget::MempoolMinimum => self.background.clone(),
+            ConfirmationTarget::NonAnchorChannelFee => self.normal.clone(),
+            ConfirmationTarget::OnChainSweep => self.high.clone(),
+            ConfirmationTarget::ChannelCloseMinimum
+            | ConfirmationTarget::AnchorChannelFee
+            | ConfirmationTarget::MinAllowedAnchorChannelRemoteFee
+            | ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee => self.background.clone(),
+            // XXX
+            // Upstream change high() * 10, our fee model need additional review after upgrade
+            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => self.high.clone(),
         }
     }
 

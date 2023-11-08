@@ -248,16 +248,17 @@ impl<
         match fee_rate {
             api::FeeRate::Urgent => FeeRate::from_sat_per_kwu(
                 self.bitcoind_client
-                    .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority)
+                    .get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep)
                     as f32,
             ),
             api::FeeRate::Normal => FeeRate::from_sat_per_kwu(
                 self.bitcoind_client
-                    .get_est_sat_per_1000_weight(ConfirmationTarget::Normal) as f32,
+                    .get_est_sat_per_1000_weight(ConfirmationTarget::NonAnchorChannelFee)
+                    as f32,
             ),
             api::FeeRate::Slow => FeeRate::from_sat_per_kwu(
                 self.bitcoind_client
-                    .get_est_sat_per_1000_weight(ConfirmationTarget::Background)
+                    .get_est_sat_per_1000_weight(ConfirmationTarget::ChannelCloseMinimum)
                     as f32,
             ),
             api::FeeRate::PerKw(s) => FeeRate::from_sat_per_kwu(s as f32),

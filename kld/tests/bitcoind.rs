@@ -50,19 +50,19 @@ pub async fn test_bitcoind_client() -> Result<()> {
         2000,
         bitcoind
             .client
-            .get_est_sat_per_1000_weight(ConfirmationTarget::Background)
+            .get_est_sat_per_1000_weight(ConfirmationTarget::ChannelCloseMinimum)
     );
     assert_eq!(
         5000,
         bitcoind
             .client
-            .get_est_sat_per_1000_weight(ConfirmationTarget::Normal)
+            .get_est_sat_per_1000_weight(ConfirmationTarget::NonAnchorChannelFee)
     );
     assert_eq!(
         10000,
         bitcoind
             .client
-            .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority)
+            .get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep)
     );
 
     bitcoind.client.poll_for_fee_estimates();

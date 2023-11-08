@@ -484,7 +484,7 @@ impl EventHandler {
                     .collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client
-                    .get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority);
+                    .get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep);
 
                 let best_block_height = self.bitcoind_client.block_height().await?;
                 let spending_tx = self

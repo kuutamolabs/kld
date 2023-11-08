@@ -2,7 +2,10 @@ use std::sync::{Arc, Weak};
 
 use crate::logger::KldLogger;
 use crate::settings::Settings;
-use bitcoin::{blockdata::constants::genesis_block, BlockHash};
+use bitcoin::{
+    blockdata::constants::{genesis_block, ChainHash},
+    BlockHash,
+};
 use lightning::routing::{
     gossip::P2PGossipSync,
     utxo::{UtxoFuture, UtxoLookup, UtxoLookupError, UtxoResult},
@@ -49,7 +52,7 @@ impl BitcoindUtxoLookup {
 }
 
 impl UtxoLookup for BitcoindUtxoLookup {
-    fn get_utxo(&self, genesis_hash: &BlockHash, short_channel_id: u64) -> UtxoResult {
+    fn get_utxo(&self, genesis_hash: &ChainHash, short_channel_id: u64) -> UtxoResult {
         if *genesis_hash != self.genesis {
             return UtxoResult::Sync(Err(UtxoLookupError::UnknownChain));
         }
