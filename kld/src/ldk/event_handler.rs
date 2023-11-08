@@ -515,6 +515,10 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat: _,
             } => unreachable!(),
+            lightning::events::Event::InvoiceRequestFailed { payment_id } => {
+                // XXX Handle it
+                info!("Invoice request failed, payment id: {payment_id:}");
+            }
             Event::BumpTransaction(_) => unreachable!(),
         };
         Ok(())
