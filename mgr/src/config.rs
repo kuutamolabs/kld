@@ -312,6 +312,12 @@ struct HostConfig {
     #[toml_example(default = "eth0")]
     network_interface: Option<String>,
 
+    /// By default, the nodes in cluster will update daily, sequetially, starting at 2 AM UTC.
+    /// On a per node basis you can override this with the setting below
+    #[serde(default)]
+    #[toml_example(default = "*-*-* 2:00:00")]
+    upgrade_schedule: Option<String>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -395,6 +401,10 @@ pub struct Host {
 
     /// Is the mnemonic provided by mgr
     pub kld_preset_mnemonic: Option<bool>,
+
+    /// By default, the nodes in cluster will update daily, sequetially, starting at 2 AM UTC.
+    /// On a per node basis you can override this with the setting below
+    pub upgrade_schedule: Option<String>,
 }
 
 impl Host {
@@ -822,6 +832,13 @@ fn validate_host(
         }
     }
 
+    // XXX Do validate timer format
+    // if let Some(schedule) = host.update_schedule.as_ref() {
+    //     if parse(schedule).is_err() {
+    //         bail!("update schedule is not valid")
+    //     }
+    // }
+
     Ok(Host {
         name,
         nixos_module: host.nixos_module.clone(),
@@ -850,6 +867,7 @@ fn validate_host(
         rest_api_port: host.kld_rest_api_port,
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
+        upgrade_schedule: host.upgrade_schedule.to_owned(),
     })
 }
 
@@ -1099,6 +1117,7 @@ fn test_validate_host() -> Result<()> {
         ipv6_gateway: None,
         ipv6_cidr: None,
         public_ssh_keys: vec!["".to_string()],
+        upgrade_schedule: Some("*-*-* 2:00:00".to_string()),
         ..Default::default()
     };
     assert_eq!(
@@ -1139,6 +1158,7 @@ fn test_validate_host() -> Result<()> {
             rest_api_port: None,
             network_interface: None,
             kld_preset_mnemonic: Some(false),
+            upgrade_schedule: Some("*-*-* 2:00:00".to_string()),
         }
     );
 
