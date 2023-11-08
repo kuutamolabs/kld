@@ -385,15 +385,13 @@ impl Priorities {
 
     fn priority_of(&self, conf_target: &ConfirmationTarget) -> Arc<Priority> {
         match conf_target {
+            ConfirmationTarget::OnChainSweep
+            | ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => self.high.clone(),
             ConfirmationTarget::NonAnchorChannelFee => self.normal.clone(),
-            ConfirmationTarget::OnChainSweep => self.high.clone(),
             ConfirmationTarget::ChannelCloseMinimum
             | ConfirmationTarget::AnchorChannelFee
             | ConfirmationTarget::MinAllowedAnchorChannelRemoteFee
             | ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee => self.background.clone(),
-            // XXX
-            // Upstream change high() * 10, our fee model need additional review after upgrade
-            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => self.high.clone(),
         }
     }
 
