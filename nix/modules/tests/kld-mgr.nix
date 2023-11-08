@@ -149,15 +149,17 @@ in
       hostname = installer.succeed("${lib.getExe kld-mgr} --config /root/test-config.toml ssh --hosts kld-00 hostname").strip()
       assert "kld-00" == hostname, f"'kld-00' != '{hostname}'"
 
+      # XXX The following tests are temp disabled, because it will obey the on internet access in the check
+
       # trigger upgrade on the same source
-      installer.succeed("scp -r /root/lightning-knd root@192.168.42.2:/root")
-      installer.succeed("scp -r /tmp/config root@192.168.42.2:/tmp")
-      new_machine.succeed("cd /root/lightning-knd && nix flake lock")
+      # installer.succeed("scp -r /root/lightning-knd root@192.168.42.2:/root")
+      # installer.succeed("scp -r /tmp/config root@192.168.42.2:/tmp")
+      # new_machine.succeed("cd /root/lightning-knd && nix flake lock")
 
       # the new machinse will soft reboot when upgrade
-      new_machine.execute("systemctl start kuutamo-upgrade", check_output=False)
-      new_machine.connected = False
-      new_machine.connect()
-      new_machine.wait_for_unit("sshd.service")
+      # new_machine.execute("systemctl start kuutamo-upgrade", check_output=False)
+      # new_machine.connected = False
+      # new_machine.connect()
+      # new_machine.wait_for_unit("sshd.service")
     '';
 })
