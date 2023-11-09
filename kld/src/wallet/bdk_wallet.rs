@@ -17,6 +17,7 @@ use bdk::{
 };
 use bitcoin::{Address, OutPoint, Script, Transaction};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
+use lightning::events::bump_transaction::{Utxo, WalletSource};
 use lightning_block_sync::BlockSource;
 use log::{error, info, warn};
 
@@ -33,6 +34,31 @@ pub struct Wallet<
     bitcoind_client: Arc<B>,
     settings: Arc<Settings>,
     blockchain: Arc<OnceLock<ElectrumBlockchain>>,
+}
+
+impl<
+        D: Database + BatchDatabase + BatchOperations + Send + 'static,
+        B: BlockSource + FeeEstimator + BroadcasterInterface + Service,
+    > WalletSource for Wallet<D, B>
+{
+    fn list_confirmed_utxos(&self) -> Result<Vec<Utxo>, ()> {
+        todo!()
+    }
+    fn get_change_script(&self) -> Result<Script, ()> {
+        todo!()
+    }
+    fn sign_tx(&self, tx: Transaction) -> Result<Transaction, ()> {
+        match self.wallet.lock() {
+            Ok(_wallet) => {
+                // let _finalized = wallet.sign(&mut tx, SignOptions::default()).expect("");
+                Ok(tx)
+            },
+            Err(_) => {
+                warn!("Wallet is still syncing with chain");
+                Err(())
+            }
+        }
+    }
 }
 
 #[async_trait]

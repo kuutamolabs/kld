@@ -14,8 +14,10 @@ use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::log_error;
+use crate::logger::KldLogger;
 use crate::settings::Settings;
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
+use lightning::events::bump_transaction::{self, BumpTransactionEventHandler};
 use lightning::events::{Event, PathFailure, PaymentPurpose};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::NodeId;
@@ -43,6 +45,12 @@ pub(crate) struct EventHandler {
     async_api_requests: Arc<AsyncAPIRequests>,
     settings: Arc<Settings>,
     runtime_handle: Handle,
+    btx_handler: BumpTransactionEventHandler<
+        Arc<BitcoindClient>,
+        Arc<bump_transaction::Wallet<Arc<Wallet<WalletDatabase, BitcoindClient>>, Arc<KldLogger>>>,
+        Arc<KeysManager>,
+        Arc<KldLogger>,
+    >,
 }
 
 impl EventHandler {
@@ -57,6 +65,17 @@ impl EventHandler {
         peer_manager: Arc<PeerManager>,
         async_api_requests: Arc<AsyncAPIRequests>,
         settings: Arc<Settings>,
+        btx_handler: BumpTransactionEventHandler<
+            Arc<BitcoindClient>,
+            Arc<
+                bump_transaction::Wallet<
+                    Arc<Wallet<WalletDatabase, BitcoindClient>>,
+                    Arc<KldLogger>,
+                >,
+            >,
+            Arc<KeysManager>,
+            Arc<KldLogger>,
+        >,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -69,6 +88,7 @@ impl EventHandler {
             async_api_requests,
             settings,
             runtime_handle: Handle::current(),
+            btx_handler,
         }
     }
 }
@@ -519,7 +539,7 @@ impl EventHandler {
                 // XXX Handle it
                 info!("Invoice request failed, payment id: {payment_id:}");
             }
-            Event::BumpTransaction(_) => unreachable!(),
+            Event::BumpTransaction(btx_event) => self.btx_handler.handle_event(&btx_event),
         };
         Ok(())
     }

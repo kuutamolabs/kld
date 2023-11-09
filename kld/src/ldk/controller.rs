@@ -19,6 +19,7 @@ use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
+use lightning::events::bump_transaction::{self, BumpTransactionEventHandler};
 use lightning::ln::channelmanager::{
     self, ChannelDetails, PaymentId, PaymentSendFailure, RecipientOnionFields,
 };
@@ -766,6 +767,25 @@ impl Controller {
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
 
+        let bitcoind_client_clone = bitcoind_client.clone();
+        let peer_manager_clone = peer_manager.clone();
+        let wallet_clone = wallet.clone();
+        let peer_port = settings.peer_port;
+        let database_clone = database.clone();
+        let channel_manager_clone = channel_manager.clone();
+        let chain_monitor_clone = chain_monitor.clone();
+        let scorer_clone = scorer.clone();
+        let settings_clone = settings.clone();
+        let ldk_wallet = Arc::new(bump_transaction::Wallet::new(
+            wallet.clone(),
+            KldLogger::global(),
+        ));
+        let btx_handler = BumpTransactionEventHandler::new(
+            bitcoind_client.clone(),
+            ldk_wallet,
+            keys_manager.clone(),
+            KldLogger::global(),
+        );
         let event_handler = EventHandler::new(
             channel_manager.clone(),
             bitcoind_client.clone(),
@@ -776,17 +796,8 @@ impl Controller {
             peer_manager.clone(),
             async_api_requests.clone(),
             settings.clone(),
+            btx_handler,
         );
-
-        let bitcoind_client_clone = bitcoind_client.clone();
-        let peer_manager_clone = peer_manager.clone();
-        let wallet_clone = wallet.clone();
-        let peer_port = settings.peer_port;
-        let database_clone = database.clone();
-        let channel_manager_clone = channel_manager.clone();
-        let chain_monitor_clone = chain_monitor.clone();
-        let scorer_clone = scorer.clone();
-        let settings_clone = settings.clone();
         tokio::spawn(async move {
             bitcoind_client_clone
                 .wait_for_blockchain_synchronisation()
@@ -815,7 +826,6 @@ impl Controller {
                 channel_manager_clone.clone(),
             );
             peer_manager_clone.broadcast_node_announcement_from_settings(settings_clone);
-
             tokio::spawn(async move {
                 if let Err(e) = process_events_async(
                     database_clone.clone(),
