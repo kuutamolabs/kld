@@ -113,81 +113,37 @@ impl BitcoindClient {
         let priorities = self.priorities.clone();
         tokio::spawn(async move {
             loop {
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::NonAnchorChannelFee,
-                )
-                .await;
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee,
-                )
-                .await;
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::MinAllowedAnchorChannelRemoteFee,
-                )
-                .await;
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::AnchorChannelFee,
-                )
-                .await;
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::ChannelCloseMinimum,
-                )
-                .await;
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::OnChainSweep,
-                )
-                .await;
-                BitcoindClient::estimate_fee(
-                    priorities.clone(),
-                    client.clone(),
-                    ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee,
-                )
-                .await;
+                BitcoindClient::estimate_fee(priorities.clone(), client.clone()).await;
                 tokio::time::sleep(Duration::from_secs(60)).await;
             }
         });
     }
 
-    async fn estimate_fee(
-        priorities: Arc<Priorities>,
-        client: Arc<RpcClient>,
-        conf_target: ConfirmationTarget,
-    ) {
-        let priority = priorities.priority_of(&conf_target);
-        match client
-            .call_method::<JsonString>(
-                "estimatesmartfee",
-                &[json!(priority.n_blocks), json!(priority.estimate_mode)],
-            )
-            .await
-            .map(|r| serde_json::from_str::<EstimateSmartFeeResult>(&r.0))
-        {
-            Ok(Ok(result)) => {
-                // Bitcoind returns fee in BTC/kB.
-                // So convert to sats and divide by 4 to get sats per 1000 weight units.
-                let fee = ((result
-                    .fee_rate
-                    .map(|amount| amount.to_sat())
-                    .unwrap_or(priority.default_fee_rate as u64)
-                    / 4) as u32)
-                    .max(MIN_FEERATE);
-                priorities.store(conf_target, fee);
-            }
-            Ok(Err(e)) => error!("Could not fetch fee estimate: {}", e),
-            Err(e) => error!("Could not fetch fee estimate: {}", e),
-        };
+    async fn estimate_fee(priorities: Arc<Priorities>, client: Arc<RpcClient>) {
+        for class in priorities.list_class() {
+            match client
+                .call_method::<JsonString>(
+                    "estimatesmartfee",
+                    &[json!(class.n_blocks), json!(class.estimate_mode)],
+                )
+                .await
+                .map(|r| serde_json::from_str::<EstimateSmartFeeResult>(&r.0))
+            {
+                Ok(Ok(result)) => {
+                    // Bitcoind returns fee in BTC/kB.
+                    // So convert to sats and divide by 4 to get sats per 1000 weight units.
+                    let fee = ((result
+                        .fee_rate
+                        .map(|amount| amount.to_sat())
+                        .unwrap_or(class.default_fee_rate as u64)
+                        / 4) as u32)
+                        .max(MIN_FEERATE);
+                    Priorities::store(class, fee);
+                }
+                Ok(Err(e)) => error!("Could not fetch fee estimate: {}", e),
+                Err(e) => error!("Could not fetch fee estimate: {}", e),
+            };
+        }
     }
 }
 
@@ -345,7 +301,7 @@ impl BlockSource for BitcoindClient {
     }
 }
 
-struct Priority {
+struct PriorityClass {
     // sats per 1000 weight unit
     fee_rate: AtomicU32,
     default_fee_rate: u32,
@@ -354,27 +310,27 @@ struct Priority {
 }
 
 struct Priorities {
-    background: Arc<Priority>,
-    normal: Arc<Priority>,
-    high: Arc<Priority>,
+    background: Arc<PriorityClass>,
+    normal: Arc<PriorityClass>,
+    high: Arc<PriorityClass>,
 }
 
 impl Priorities {
     fn new() -> Priorities {
         Priorities {
-            background: Arc::new(Priority {
+            background: Arc::new(PriorityClass {
                 fee_rate: AtomicU32::new(MIN_FEERATE),
                 default_fee_rate: MIN_FEERATE,
                 n_blocks: 144,
                 estimate_mode: EstimateMode::Economical,
             }),
-            normal: Arc::new(Priority {
+            normal: Arc::new(PriorityClass {
                 fee_rate: AtomicU32::new(5000),
                 default_fee_rate: 5000,
                 n_blocks: 18,
                 estimate_mode: EstimateMode::Economical,
             }),
-            high: Arc::new(Priority {
+            high: Arc::new(PriorityClass {
                 fee_rate: AtomicU32::new(10000),
                 default_fee_rate: 10000,
                 n_blocks: 6,
@@ -383,27 +339,42 @@ impl Priorities {
         }
     }
 
-    fn priority_of(&self, conf_target: &ConfirmationTarget) -> Arc<Priority> {
+    /// Return a base class and a mulipler
+    fn priority_of(&self, conf_target: &ConfirmationTarget) -> (Arc<PriorityClass>, Option<f32>) {
         match conf_target {
-            ConfirmationTarget::OnChainSweep
-            | ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => self.high.clone(),
-            ConfirmationTarget::NonAnchorChannelFee => self.normal.clone(),
+            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => {
+                (self.high.clone(), Some(2.0))
+            }
+            ConfirmationTarget::OnChainSweep => (self.high.clone(), None),
+            ConfirmationTarget::NonAnchorChannelFee => (self.normal.clone(), None),
             ConfirmationTarget::ChannelCloseMinimum
             | ConfirmationTarget::AnchorChannelFee
             | ConfirmationTarget::MinAllowedAnchorChannelRemoteFee
-            | ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee => self.background.clone(),
+            | ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee => {
+                (self.background.clone(), None)
+            }
         }
     }
 
     fn get(&self, conf_target: &ConfirmationTarget) -> u32 {
-        self.priority_of(conf_target)
-            .fee_rate
-            .load(Ordering::Acquire)
+        let (priority, multiplier) = self.priority_of(conf_target);
+        let base = priority.fee_rate.load(Ordering::Acquire);
+        if let Some(multiplier) = multiplier {
+            ((base as f32) * multiplier) as u32
+        } else {
+            base
+        }
     }
 
-    fn store(&self, conf_target: ConfirmationTarget, fee: u32) {
-        self.priority_of(&conf_target)
-            .fee_rate
-            .store(fee, Ordering::Release);
+    fn store(class: Arc<PriorityClass>, fee: u32) {
+        class.fee_rate.store(fee, Ordering::Release);
+    }
+
+    fn list_class(&self) -> Vec<Arc<PriorityClass>> {
+        vec![
+            self.background.clone(),
+            self.normal.clone(),
+            self.high.clone(),
+        ]
     }
 }
