@@ -27,7 +27,7 @@ let
   nativeBuildInputs = [ pkg-config ];
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
-    "git+https://github.com/JosephGoulden/bdk?branch=backport-begin-batch-result#39d8626e8c40455b6089975fda79000941094910" = "sha256-Z48LIgN8/qfgGvzjPQnn39xK3nVsCWF9uIm0xwCTDhA=";
+    "git+https://github.com/kuutamolabs/bdk?branch=0.28.2-allow-begin-match-fail#198c698c6c97055fc3f88f8af92f42a45ef709eb" = "sha256-jDYkAS1u6yl5MgBaPUS+RIcf47vCdnBsRS9/IHeS6yI=";
     "git+https://github.com/hyperium/mime#938484de95445a2af931515d2b7252612c575da7" = "sha256-Zdhw4wWK2ZJrv62YoJMdTHaQhIyKxtG2UCu/m3mQwy0=";
     "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kuutamo#e75f1a2a1510b6ef8d565332dda0f9230bf3ef7f" = "sha256-AmA0MX35bjHx9ocqSxxcnzpxDE7fTRvfwsCfV0P2khQ=";
   };
