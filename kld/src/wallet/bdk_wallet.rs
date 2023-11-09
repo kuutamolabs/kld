@@ -42,7 +42,20 @@ impl<
     > WalletSource for Wallet<D, B>
 {
     fn list_confirmed_utxos(&self) -> Result<Vec<Utxo>, ()> {
-        todo!()
+        // XXX How to decide the utxo is confirmed
+        if let Ok(utxo_list) = self.list_utxos() {
+            Ok(utxo_list.into_iter().map(|(local_utxo, deatils)| Utxo{
+                outpoint: local_utxo.outpoint,
+                output: local_utxo.txout,
+                // The upper-bound weight consumed by the input’s full TxIn::script_sig and TxIn::witness,
+                // each with their lengths included, required to satisfy the output’s script.
+                // The weight consumed by the input’s script_sig must account for WITNESS_SCALE_FACTOR.
+                satisfaction_weight: 0
+            }).collect())
+        } else {
+            warn!("Failed to list utxos from wallet");
+            Err(())
+        }
     }
     fn get_change_script(&self) -> Result<Script, ()> {
         todo!()
