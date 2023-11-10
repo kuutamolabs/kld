@@ -10,11 +10,12 @@ use bdk::{
     bitcoin::util::bip32::ExtendedPrivKey,
     blockchain::{log_progress, ElectrumBlockchain, GetHeight},
     database::{BatchDatabase, BatchOperations, Database},
-    electrum_client::Client,
     template::Bip84,
     wallet::AddressInfo,
-    Balance, FeeRate, KeychainKind, LocalUtxo, SignOptions, SyncOptions, TransactionDetails,
+    FeeRate, KeychainKind, LocalUtxo, SignOptions, SyncOptions, TransactionDetails,
 };
+use bdk_electrum::electrum_client::Client;
+use bdk_chain::keychain::Balance;
 use bitcoin::{Address, OutPoint, Script, Transaction};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;

@@ -1,7 +1,8 @@
 use anyhow::Result;
 use api::FeeRate;
 use async_trait::async_trait;
-use bdk::{wallet::AddressInfo, Balance, LocalUtxo, TransactionDetails};
+use bdk::{wallet::AddressInfo, LocalUtxo, TransactionDetails};
+use bdk_chain::keychain::Balance;
 use bitcoin::{Address, OutPoint, Transaction};
 
 #[async_trait]
