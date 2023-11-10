@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::FutureExt;
+use lightning::chain::chaininterface::ConfirmationTarget;
 use std::sync::Arc;
 use test_utils::{poll, ports::get_available_port};
 
@@ -98,6 +99,9 @@ impl DBConnection for MockService {
 impl BitcoindMetrics for MockService {
     async fn block_height(&self) -> Result<u32> {
         Ok(1000)
+    }
+    fn fee_for(&self, _target: ConfirmationTarget) -> u32 {
+        0
     }
 }
 

@@ -9,6 +9,7 @@ use futures::future::Shared;
 use futures::Future;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use lightning::chain::chaininterface::ConfirmationTarget;
 use log::info;
 use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGauge, TextEncoder};
 
@@ -24,6 +25,14 @@ static WALLET_BALANCE: OnceLock<Gauge> = OnceLock::new();
 static CHANNEL_BALANCE: OnceLock<Gauge> = OnceLock::new();
 static FEE: OnceLock<Gauge> = OnceLock::new();
 static BLOCK_HEIGHT: OnceLock<IntGauge> = OnceLock::new();
+
+static ON_CHAIN_SWEEP_FEE: OnceLock<IntGauge> = OnceLock::new();
+static MAX_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
+static NON_ANCHOR_CHANNEL_FEE: OnceLock<IntGauge> = OnceLock::new();
+static CHANNEL_CLOSE_MINIMUM_FEE: OnceLock<IntGauge> = OnceLock::new();
+static ANCHOR_CHANNEL_FEE: OnceLock<IntGauge> = OnceLock::new();
+static MIN_ALLOWED_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
+static MIN_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
 
 // NOTE:
 // Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
@@ -96,6 +105,52 @@ async fn response_examples(
             }
             if let (Some(g), Ok(h)) = (BLOCK_HEIGHT.get(), bitcoind.block_height().await) {
                 g.set(h.into())
+            }
+
+            if let Some(g) = ON_CHAIN_SWEEP_FEE.get() {
+                g.set(bitcoind.fee_for(ConfirmationTarget::OnChainSweep).into())
+            }
+            if let Some(g) = MAX_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE.get() {
+                g.set(
+                    bitcoind
+                        .fee_for(ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee)
+                        .into(),
+                )
+            }
+            if let Some(g) = NON_ANCHOR_CHANNEL_FEE.get() {
+                g.set(
+                    bitcoind
+                        .fee_for(ConfirmationTarget::NonAnchorChannelFee)
+                        .into(),
+                )
+            }
+            if let Some(g) = CHANNEL_CLOSE_MINIMUM_FEE.get() {
+                g.set(
+                    bitcoind
+                        .fee_for(ConfirmationTarget::ChannelCloseMinimum)
+                        .into(),
+                )
+            }
+            if let Some(g) = ANCHOR_CHANNEL_FEE.get() {
+                g.set(
+                    bitcoind
+                        .fee_for(ConfirmationTarget::AnchorChannelFee)
+                        .into(),
+                )
+            }
+            if let Some(g) = MIN_ALLOWED_ANCHOR_CHANNEL_REMOTE_FEE.get() {
+                g.set(
+                    bitcoind
+                        .fee_for(ConfirmationTarget::MinAllowedAnchorChannelRemoteFee)
+                        .into(),
+                )
+            }
+            if let Some(g) = MIN_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE.get() {
+                g.set(
+                    bitcoind
+                        .fee_for(ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee)
+                        .into(),
+                )
             }
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
@@ -175,6 +230,48 @@ pub async fn start_prometheus_exporter(
         .set(register_int_gauge!(
             "block_height",
             "The block height kld observed"
+        )?)
+        .unwrap_or_default();
+    ON_CHAIN_SWEEP_FEE
+        .set(register_int_gauge!(
+            "on_chain_sweep_fee",
+            "The fee for ConfirmationTarget::OnChainSweep"
+        )?)
+        .unwrap_or_default();
+    MAX_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE
+        .set(register_int_gauge!(
+            "max_allowed_non_anchor_channel_remote_fee",
+            "The fee for ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee"
+        )?)
+        .unwrap_or_default();
+    NON_ANCHOR_CHANNEL_FEE
+        .set(register_int_gauge!(
+            "non_anchor_channel_fee",
+            "The fee for ConfirmationTarget::NonAnchorChannelFee"
+        )?)
+        .unwrap_or_default();
+    CHANNEL_CLOSE_MINIMUM_FEE
+        .set(register_int_gauge!(
+            "channel_close_minimum_fee",
+            "The fee for ConfirmationTarget::ChannelCloseMinimum"
+        )?)
+        .unwrap_or_default();
+    ANCHOR_CHANNEL_FEE
+        .set(register_int_gauge!(
+            "anchor_channel_fee",
+            "The fee for ConfirmationTarget::AnchorChannelFee"
+        )?)
+        .unwrap_or_default();
+    MIN_ALLOWED_ANCHOR_CHANNEL_REMOTE_FEE
+        .set(register_int_gauge!(
+            "min_allowed_anchor_channel_remote_fee",
+            "The fee for ConfirmationTarget::MinAllowedAnchorChannelRemoteFee"
+        )?)
+        .unwrap_or_default();
+    MIN_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE
+        .set(register_int_gauge!(
+            "min_allowed_non_anchor_channel_remote_fee",
+            "The fee for ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee"
         )?)
         .unwrap_or_default();
 
