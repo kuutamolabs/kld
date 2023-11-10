@@ -210,6 +210,7 @@ impl Service for BitcoindClient {
 #[async_trait]
 pub trait BitcoindMetrics: Service {
     async fn block_height(&self) -> Result<u32>;
+    fn fee_for(&self, target: ConfirmationTarget) -> u32;
 }
 
 #[async_trait]
@@ -219,6 +220,9 @@ impl BitcoindMetrics for BitcoindClient {
             Ok((_, Some(h))) => Ok(h),
             _ => Err(anyhow!("Could not get best block from bitcoind")),
         }
+    }
+    fn fee_for(&self, target: ConfirmationTarget) -> u32 {
+        self.priorities.get(&target)
     }
 }
 
