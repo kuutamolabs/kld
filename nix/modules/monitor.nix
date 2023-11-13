@@ -125,6 +125,11 @@ in
               host = config.kuutamo.monitor.hostname;
             };
           };
+          mem = {
+            tags = {
+              host = config.kuutamo.monitor.hostname;
+            };
+          };
           prometheus.insecure_skip_verify = true;
           prometheus.urls = [
             "https://${config.kuutamo.cockroachdb.http.address}:${toString config.kuutamo.cockroachdb.http.port}/_status/vars"
