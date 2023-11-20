@@ -27,7 +27,7 @@ ldk-lsp-client = { git = "https://github.com/kuutamolabs/ldk-lsp-client", branch
 
 macaroon = "0.3.0"
 bitcoin = "0.29.2"
-bitcoincore-rpc-json = "0.16.0"
+bitcoincore-rpc-json = "0.18.0"
 rust-bip39 = "1.0.0"
 base64 = "0.21.4"
 bdk = { git = "https://github.com/kuutamolabs/bdk", branch = "0.28.2-allow-begin-match-fail", features = [ "electrum" ] }
