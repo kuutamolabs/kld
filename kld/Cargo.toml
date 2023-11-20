@@ -61,7 +61,7 @@ refinery = { version = "0.8.11", features = [ "tokio-postgres" ] }
 
 # paperclip generated
 tokio-util = { version = "0.7.10", features = ["codec"] }
-http = "0.2"
+http = "1.0"
 serde_yaml = "0.9"
 lazy_static = "1.4"
 bytes = "1.5"
