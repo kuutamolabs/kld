@@ -4,6 +4,7 @@ use futures::FutureExt;
 use lightning::chain::chaininterface::ConfirmationTarget;
 use std::sync::Arc;
 use test_utils::{poll, ports::get_available_port};
+use time::OffsetDateTime;
 
 use crate::{mocks::mock_lightning::MockLightning, quit_signal};
 use kld::{
@@ -95,6 +96,9 @@ impl DBConnection for MockService {
     }
     async fn fetch_scorer(&self) -> Result<Vec<u8>> {
         Ok(Vec::new())
+    }
+    async fn fetch_scorer_update_time(&self) -> Result<OffsetDateTime> {
+        Ok(OffsetDateTime::from_unix_timestamp(0).unwrap())
     }
 }
 
