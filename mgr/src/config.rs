@@ -204,7 +204,7 @@ struct HostDefaultConfig {
 
     /// The default probe interval for all node
     pub probe_interval: Option<u64>,
-    /// The default probe ammount in msat for all node
+    /// The default probe amount in msat for all node
     pub probe_amt_msat: Option<u64>,
 }
 
@@ -325,11 +325,11 @@ struct HostConfig {
 
     /// The probe interval in second for the node
     #[serde(default)]
-    #[toml_example(default = "5")]
+    #[toml_example(default = 5)]
     pub probe_interval: Option<u64>,
-    /// The default probe ammount in msat for the node
+    /// The default probe amount in msat for the node
     #[serde(default)]
-    #[toml_example(default = "1")]
+    #[toml_example(default = 50000)]
     pub probe_amt_msat: Option<u64>,
 
     #[serde(flatten)]
@@ -423,7 +423,7 @@ pub struct Host {
     /// The probe only work with `probe_interval` and `probe_amt_msat` both set with a non-zero int
     /// The probe interval for the node
     pub probe_interval: Option<u64>,
-    /// The default probe ammount in msat for the node
+    /// The default probe amount in msat for the node
     pub probe_amt_msat: Option<u64>,
 }
 
