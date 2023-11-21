@@ -93,6 +93,9 @@ impl DBConnection for MockService {
     async fn open_channel_count(&self) -> Result<i64> {
         Ok(1)
     }
+    async fn fetch_scorer(&self) -> Result<Vec<u8>> {
+        Ok(Vec::new())
+    }
 }
 
 #[async_trait]
