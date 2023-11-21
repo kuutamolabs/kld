@@ -26,7 +26,9 @@ use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
-use lightning::routing::router::{DefaultRouter, PaymentParameters, RouteParameters, Router};
+use lightning::routing::router::{
+    DefaultRouter, PaymentParameters, RouteParameters, Router, ScorerAccountingForInFlightHtlcs,
+};
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
 };
@@ -45,7 +47,7 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
 use lightning_invoice::DEFAULT_EXPIRY_TIME;
-use log::{error, info, warn};
+use log::{debug, error, info, trace, warn};
 use rand::random;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -778,6 +780,36 @@ impl Controller {
             settings.clone(),
         );
 
+        if settings.probe_interval > 0 && settings.probe_amt_msat > 0 {
+            let probing_cm = channel_manager.clone();
+            let probing_graph = network_graph.clone();
+            let probing_scorer = scorer.clone();
+            let interval = settings.probe_interval;
+            let amt_msat = settings.probe_amt_msat;
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(interval));
+                loop {
+                    interval.tick().await;
+                    let rcpt = {
+                        let lck = probing_graph.read_only();
+                        if lck.nodes().is_empty() {
+                            return;
+                        }
+                        let mut it = lck
+                            .nodes()
+                            .unordered_iter()
+                            .skip(::rand::random::<usize>() % lck.nodes().len());
+                        it.next().map(|n| *n.0)
+                    };
+                    if let Some(rcpt) = rcpt {
+                        if let Ok(pk) = bitcoin::secp256k1::PublicKey::from_slice(rcpt.as_slice()) {
+                            send_probe(&probing_cm, pk, &probing_graph, amt_msat, &probing_scorer);
+                        }
+                    }
+                }
+            });
+        }
+
         let bitcoind_client_clone = bitcoind_client.clone();
         let peer_manager_clone = peer_manager.clone();
         let wallet_clone = wallet.clone();
@@ -941,5 +973,49 @@ impl Controller {
 impl Drop for Controller {
     fn drop(&mut self) {
         self.stop()
+    }
+}
+
+fn send_probe(
+    channel_manager: &ChannelManager,
+    recipient: PublicKey,
+    graph: &NetworkGraph,
+    amt_msat: u64,
+    scorer: &std::sync::RwLock<Scorer>,
+) {
+    let chans = channel_manager.list_usable_channels();
+    let chan_refs = chans.iter().collect::<Vec<_>>();
+    let mut payment_params = PaymentParameters::from_node_id(recipient, 144);
+    payment_params.max_path_count = 1;
+    let in_flight_htlcs = channel_manager.compute_inflight_htlcs();
+    let scorer = scorer.read().unwrap();
+    let inflight_scorer = ScorerAccountingForInFlightHtlcs::new(&scorer, &in_flight_htlcs);
+    let score_params: ProbabilisticScoringFeeParameters = Default::default();
+    let route_res = lightning::routing::router::find_route(
+        &channel_manager.get_our_node_id(),
+        &RouteParameters::from_payment_params_and_value(payment_params, amt_msat),
+        graph,
+        Some(&chan_refs),
+        KldLogger::global(),
+        &inflight_scorer,
+        &score_params,
+        &[32; 32],
+    );
+    if let Ok(route) = route_res {
+        for path in route.paths {
+            trace!("Probe {amt_msat:} on {path:?}");
+            match channel_manager.send_probe(path.clone()) {
+                Ok(_) => {
+                    debug!("Probe success with {amt_msat:} on {path:?}");
+                    // XXX probe_successful
+                }
+                Err(_) => {
+                    debug!("Probe failed with {amt_msat:} on {path:?}");
+                    // XXX  probe_failed
+                }
+            }
+        }
+    } else {
+        trace!("Can not probe, because no route to {recipient:?}");
     }
 }

@@ -26,6 +26,8 @@ in
     kuutamo.kld.apiIpAccessList = cfg.api_ip_access_list or [ ];
     kuutamo.kld.restApiPort = cfg.rest_api_port or 2244;
     kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
+    kuutamo.kld.probeInterval = cfg.probe_interval or 0;
+    kuutamo.kld.probeAmtMSat = cfg.probe_amt_msat or 0;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;

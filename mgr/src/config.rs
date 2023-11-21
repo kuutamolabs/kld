@@ -201,6 +201,11 @@ struct HostDefaultConfig {
     /// The default alias color for all node
     #[toml_example(default = "6e2cf7")]
     pub kld_node_alias_color: Option<String>,
+
+    /// The default probe interval for all node
+    pub probe_interval: Option<u64>,
+    /// The default probe ammount in msat for all node
+    pub probe_amt_msat: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -318,6 +323,15 @@ struct HostConfig {
     #[toml_example(default = "*-*-* 2:00:00")]
     upgrade_schedule: Option<String>,
 
+    /// The probe interval in second for the node
+    #[serde(default)]
+    #[toml_example(default = "5")]
+    pub probe_interval: Option<u64>,
+    /// The default probe ammount in msat for the node
+    #[serde(default)]
+    #[toml_example(default = "1")]
+    pub probe_amt_msat: Option<u64>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -405,6 +419,12 @@ pub struct Host {
     /// By default, the nodes in cluster will update daily, sequetially, starting at 2 AM UTC.
     /// On a per node basis you can override this with the setting below
     pub upgrade_schedule: Option<String>,
+
+    /// The probe only work with `probe_interval` and `probe_amt_msat` both set with a non-zero int
+    /// The probe interval for the node
+    pub probe_interval: Option<u64>,
+    /// The default probe ammount in msat for the node
+    pub probe_amt_msat: Option<u64>,
 }
 
 impl Host {
@@ -868,6 +888,8 @@ fn validate_host(
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
         upgrade_schedule: host.upgrade_schedule.to_owned(),
+        probe_interval: host.probe_interval.or(default.probe_interval),
+        probe_amt_msat: host.probe_amt_msat.or(default.probe_amt_msat),
     })
 }
 
@@ -1159,6 +1181,8 @@ fn test_validate_host() -> Result<()> {
             network_interface: None,
             kld_preset_mnemonic: Some(false),
             upgrade_schedule: Some("*-*-* 2:00:00".to_string()),
+            probe_interval: None,
+            probe_amt_msat: None,
         }
     );
 
