@@ -6,7 +6,7 @@ If you want to put it into production and would like to discuss SRE overlay supp
 ## Prerequisites
 
 - 1 or 3 server(s)/node(s): Any Linux OS
-- 1 client/local machine: Any Linux OS, MacOS
+- 1 client/local machine: Any Linux OS
 
 ## Key components
 
@@ -57,13 +57,13 @@ The customized `kuutamo-updater` service checks for updates in your private depl
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
 An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
-`kld-mgr` requires root SSH access to server(s) to perform the initial install.   
+`kld-mgr` requires root SSH access to server(s) to perform the initial install.
 Other cluster bootstrap methods can be used, such as via USB disk or PXE.
 
 > Note: For Test/Dev deployments you can retain Root and SSH capabilities by setting the `DEBUG` environment variable to `true` when performing `install`.
 
-Although monitoring is not mandatory for deploying a node, it is highly recommended.  
-Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the `kld.toml`.  
+Although monitoring is not mandatory for deploying a node, it is highly recommended.
+Configure the `self_monitoring_url`, `self_monitoring_username`, and `self_monitoring_password` fields of the host in the `kld.toml`.
 To view Logs remotely set the `promtail_client` in the form `https://<user_id>:<token>@<client hostname>/loki/api/vi/push`
 
 ![install and upgrade GitOps setup](./install-upgrade-gitops.jpg)
@@ -78,8 +78,8 @@ $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
 ```shell
 $ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment
 ```
-- Step 5.2: Setup Git & GitHub deployment repository 
-```shell 
+- Step 5.2: Setup Git & GitHub deployment repository
+```shell
 $ cd ./deployment
 $ git init
 $ git add .
