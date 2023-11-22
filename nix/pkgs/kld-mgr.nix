@@ -4,12 +4,7 @@
 , pkg-config
 , self
 , nix
-, nixos-rebuild
-, rsync
-, git
-, openssh
 , hostPlatform
-, makeWrapper
 , libiconv
 }:
 let
@@ -22,7 +17,7 @@ let
   inherit (self.inputs.nixos-anywhere.packages.${hostPlatform.system}) nixos-anywhere;
 
   buildInputs = [ openssl libiconv ];
-  nativeBuildInputs = [ pkg-config makeWrapper ];
+  nativeBuildInputs = [ pkg-config ];
   checkInputs = [ nix openssl cockroachdb ];
 
   cargoExtraArgs = "--workspace --all-features";
@@ -50,16 +45,6 @@ craneLib.buildPackage {
       FLAKE_CHECK = true;
     };
   };
-
-  # openssh is suffixed so we use the host's openssh to avoid this
-  # https://github.com/numtide/nixos-anywhere/issues/62 from happening
-  postInstall = ''
-    wrapProgram $out/bin/kld-mgr \
-      --prefix PATH : ${lib.makeBinPath [
-          nixos-anywhere cockroachdb nixos-rebuild nix git rsync openssl
-      ]} \
-      --suffix PATH : ${lib.makeBinPath [ openssh ]}
-  '';
 
   # we run tests in a separate package
   doCheck = false;
