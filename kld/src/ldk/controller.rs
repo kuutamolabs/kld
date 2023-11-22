@@ -27,8 +27,10 @@ use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
 use lightning::routing::router::{
-    DefaultRouter, PaymentParameters, RouteParameters, Router, ScorerAccountingForInFlightHtlcs,
+    DefaultRouter, Path, PaymentParameters, RouteParameters, Router,
+    ScorerAccountingForInFlightHtlcs,
 };
+use lightning::routing::scoring::ScoreUpdate;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
 };
@@ -988,7 +990,13 @@ fn send_probe(
     let mut payment_params = PaymentParameters::from_node_id(recipient, 144);
     payment_params.max_path_count = 1;
     let in_flight_htlcs = channel_manager.compute_inflight_htlcs();
-    let scorer = scorer.read().unwrap();
+    let mut scorer = match scorer.write() {
+        Ok(scorer) => scorer,
+        Err(e) => {
+            trace!("Can not fetch write lock of scorer: {e:?}");
+            return;
+        }
+    };
     let inflight_scorer = ScorerAccountingForInFlightHtlcs::new(&scorer, &in_flight_htlcs);
     let score_params: ProbabilisticScoringFeeParameters = Default::default();
     let route_res = lightning::routing::router::find_route(
@@ -1007,11 +1015,36 @@ fn send_probe(
             match channel_manager.send_probe(path.clone()) {
                 Ok(_) => {
                     debug!("Probe success with {amt_msat:} on {path:?}");
-                    // XXX probe_successful
+                    scorer.probe_successful(&path);
                 }
                 Err(_) => {
-                    debug!("Probe failed with {amt_msat:} on {path:?}");
-                    // XXX  probe_failed
+                    trace!("Probe failed with {amt_msat:} on {path:?}");
+                    let Path {
+                        mut hops,
+                        blinded_tail,
+                    } = path.clone();
+                    while let Some(pop_hop) = hops.pop() {
+                        if hops.is_empty() {
+                            debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
+                            scorer.probe_failed(&path, pop_hop.short_channel_id);
+                        } else if channel_manager
+                            .send_probe(Path {
+                                hops: hops.clone(),
+                                blinded_tail: blinded_tail.clone(),
+                            })
+                            .is_ok()
+                        {
+                            debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
+                            scorer.probe_failed(
+                                &Path {
+                                    hops: hops.clone(),
+                                    blinded_tail: blinded_tail.clone(),
+                                },
+                                pop_hop.short_channel_id,
+                            );
+                            break;
+                        }
+                    }
                 }
             }
         }
