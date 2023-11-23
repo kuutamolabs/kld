@@ -73,6 +73,13 @@ pub struct Settings {
     pub database_client_cert_path: String,
     #[arg(long, default_value = "", env = "KLD_DATABASE_CLIENT_KEY_PATH")]
     pub database_client_key_path: String,
+
+    /// The time interval to do random probe, 0 will disable the feature
+    #[arg(long, default_value = "0", env = "KLD_PROBE_INTERVAL")]
+    pub probe_interval: u64,
+    /// The amount in million satoshis is used to probe
+    #[arg(long, default_value = "0", env = "KLD_PROBE_AMT_MSAT")]
+    pub probe_amt_msat: u64,
 }
 
 impl Settings {

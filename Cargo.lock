@@ -1132,6 +1132,7 @@ dependencies = [
  "clap_complete",
  "criterion",
  "futures",
+ "futures-util",
  "hex",
  "http",
  "hyper",

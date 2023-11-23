@@ -73,6 +73,7 @@ impl Service for DurableConnection {
 #[async_trait]
 pub trait DBConnection: Service {
     async fn open_channel_count(&self) -> Result<i64>;
+    async fn fetch_scorer_update_time(&self) -> Result<OffsetDateTime>;
 }
 
 #[async_trait]
@@ -88,6 +89,15 @@ impl DBConnection for DurableConnection {
             .await?;
         let count: i64 = row.get("count");
         Ok(count)
+    }
+
+    async fn fetch_scorer_update_time(&self) -> Result<OffsetDateTime> {
+        let row = self
+            .get()
+            .await
+            .query_one("SELECT timestamp FROM scorer;", &[])
+            .await?;
+        Ok(row.get_timestamp("timestamp"))
     }
 }
 

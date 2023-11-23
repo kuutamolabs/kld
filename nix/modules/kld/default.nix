@@ -176,6 +176,22 @@ in
         The alias color of this lightning node
       '';
     };
+
+    probeInterval = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = ''
+        The time intervel for probe
+      '';
+    };
+
+    probeAmtMSat = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = ''
+        The probe amount in msat
+      '';
+    };
   };
 
   config = {
@@ -240,6 +256,8 @@ in
         KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
         KLD_ELECTRS_URL = lib.mkDefault "${electrsCfg.address}:${toString electrsCfg.port}";
+        KLD_PROBE_INTERVAL = lib.mkDefault "${toString cfg.probeInterval}";
+        KLD_PROBE_AMT_MSAT = lib.mkDefault "${toString cfg.probeAmtMSat}";
       } // lib.optionalAttrs (cfg.publicAddresses != [ ]) { KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses; };
 
       path = [

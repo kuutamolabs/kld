@@ -33,6 +33,7 @@ static CHANNEL_CLOSE_MINIMUM_FEE: OnceLock<IntGauge> = OnceLock::new();
 static ANCHOR_CHANNEL_FEE: OnceLock<IntGauge> = OnceLock::new();
 static MIN_ALLOWED_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
 static MIN_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
+static SCORER_UPDATE_TIMESTAMP: OnceLock<IntGauge> = OnceLock::new();
 
 // NOTE:
 // Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
@@ -152,6 +153,13 @@ async fn response_examples(
                         .into(),
                 )
             }
+            if let (Some(g), Ok(ts)) = (
+                SCORER_UPDATE_TIMESTAMP.get(),
+                database.fetch_scorer_update_time().await,
+            ) {
+                g.set(ts.unix_timestamp());
+            }
+
             let metric_families = prometheus::gather();
             let mut buffer = vec![];
             let encoder = TextEncoder::new();
@@ -272,6 +280,12 @@ pub async fn start_prometheus_exporter(
         .set(register_int_gauge!(
             "min_allowed_non_anchor_channel_remote_fee",
             "The fee for ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee"
+        )?)
+        .unwrap_or_default();
+    SCORER_UPDATE_TIMESTAMP
+        .set(register_int_gauge!(
+            "scorer_update_timestamp",
+            "The update time of scorer"
         )?)
         .unwrap_or_default();
 

@@ -31,7 +31,7 @@ use crate::{
         },
         payments::{keysend, list_payments, pay_invoice},
         peers::{connect_peer, disconnect_peer, list_peers},
-        utility::{estimate_channel_liquidity_range, get_fees, sign},
+        utility::{estimate_channel_liquidity_range, get_fees, score, sign},
         wallet::{get_balance, list_funds, new_address, transfer},
         ws::ws_handler,
     },
@@ -107,6 +107,7 @@ impl RestApi {
             .route(routes::LIST_FORWARDS, get(list_forwards))
             .route(routes::LIST_CHANNEL_HISTORY, get(channel_history))
             .route(routes::DECODE_INVOICE, get(decode_invoice))
+            .route(routes::SCORER, get(score))
             .layer(from_fn(readonly_auth));
 
         let admin_routes = Router::new()

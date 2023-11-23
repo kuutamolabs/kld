@@ -1,5 +1,6 @@
 use std::{
-    fs::{self},
+    fs::{self, File},
+    io::Write,
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
@@ -353,6 +354,14 @@ impl Api {
             )
             .send()?;
         deserialize::<GetV1UtilityDecodeInvoiceStringResponse>(response)
+    }
+
+    pub fn scorer(&self, path: PathBuf) -> Result<String> {
+        let scorer = self.request(Method::GET, routes::SCORER).send()?.bytes()?;
+        let mut f = File::create(&path)?;
+        f.write_all(&scorer)?;
+
+        Ok(format!("scorer save in {}", path.display()))
     }
 
     fn request_builder(&self, method: Method, route: &str) -> RequestBuilder {
