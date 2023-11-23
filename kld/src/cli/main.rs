@@ -83,6 +83,7 @@ fn run_command(args: KldCliCommand) -> Result<()> {
         KldCliSubCommand::ListForwards { status } => api.list_forwards(status)?,
         KldCliSubCommand::ListChannelHistory => api.channel_history()?,
         KldCliSubCommand::Decode { invoice } => api.decode(invoice)?,
+        KldCliSubCommand::Scorer { path } => api.scorer(path.unwrap_or("scorer.bin".into()))?,
     };
     if output != "null" {
         println!("{output}");

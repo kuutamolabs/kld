@@ -194,4 +194,7 @@ pub enum KldCliSubCommand {
     ListChannelHistory,
     /// Decode invoice
     Decode { invoice: String },
+
+    /// Download scorer to the path, if unspecific, will use `scorer.bin` as default
+    Scorer { path: Option<PathBuf> },
 }
