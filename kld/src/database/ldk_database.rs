@@ -712,6 +712,16 @@ where
             });
         Ok(scorer)
     }
+
+    pub async fn fetch_scorer_binary(&self) -> Result<Vec<u8>> {
+        let row = self
+            .durable_connection
+            .wait()
+            .await
+            .query_one("SELECT scorer FROM scorer;", &[])
+            .await?;
+        Ok(row.get("scorer"))
+    }
 }
 
 impl<'a, M: Deref, T: Deref, ES: Deref, NS: Deref, SP: Deref, F: Deref, R: Deref, L: Deref, S>

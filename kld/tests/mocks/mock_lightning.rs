@@ -374,4 +374,8 @@ impl LightningInterface for MockLightning {
         channel.closure_reason = Some(ClosureReason::CooperativeClosure);
         Ok(vec![channel])
     }
+
+    async fn scorer(&self) -> Result<Vec<u8>> {
+        Ok(Vec::new())
+    }
 }

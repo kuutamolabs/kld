@@ -508,6 +508,10 @@ impl LightningInterface for Controller {
     async fn channel_history(&self) -> Result<Vec<Channel>> {
         self.database.fetch_channel_history().await
     }
+
+    async fn scorer(&self) -> Result<Vec<u8>> {
+        self.database.fetch_scorer_binary().await
+    }
 }
 
 pub(crate) struct AsyncAPIRequests {

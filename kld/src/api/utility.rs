@@ -109,3 +109,13 @@ pub(crate) async fn get_fees(
     };
     Ok(Json(response))
 }
+
+pub(crate) async fn score(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+) -> Result<impl IntoResponse, ApiError> {
+    let score = lightning_interface
+        .scorer()
+        .await
+        .map_err(internal_server)?;
+    Ok(score)
+}

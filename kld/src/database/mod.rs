@@ -73,7 +73,6 @@ impl Service for DurableConnection {
 #[async_trait]
 pub trait DBConnection: Service {
     async fn open_channel_count(&self) -> Result<i64>;
-    async fn fetch_scorer(&self) -> Result<Vec<u8>>;
     async fn fetch_scorer_update_time(&self) -> Result<OffsetDateTime>;
 }
 
@@ -90,14 +89,6 @@ impl DBConnection for DurableConnection {
             .await?;
         let count: i64 = row.get("count");
         Ok(count)
-    }
-    async fn fetch_scorer(&self) -> Result<Vec<u8>> {
-        let row = self
-            .get()
-            .await
-            .query_one("SELECT scorer FROM scorer;", &[])
-            .await?;
-        Ok(row.get("scorer"))
     }
 
     async fn fetch_scorer_update_time(&self) -> Result<OffsetDateTime> {

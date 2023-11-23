@@ -166,18 +166,6 @@ async fn response_examples(
             encoder.encode(&metric_families, &mut buffer).unwrap();
             Ok(Response::new(Body::from(buffer)))
         }
-        (&Method::GET, "/scorer") => match database.fetch_scorer().await {
-            Ok(scorer) => {
-                let chunks: Vec<Result<_, std::io::Error>> = vec![Ok(scorer)];
-                Ok(Response::new(Body::wrap_stream(
-                    futures_util::stream::iter(chunks),
-                )))
-            }
-            Err(e) => Ok(Response::builder()
-                .status(StatusCode::BAD_GATEWAY)
-                .body(Body::from(format!("{e:}")))
-                .expect("Fail to build 502 response")),
-        },
         _ => Ok(not_found()),
     }
 }
