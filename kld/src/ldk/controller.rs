@@ -53,6 +53,7 @@ use log::{debug, error, info, trace, warn};
 use rand::random;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 
 use futures::{future::Shared, Future};
@@ -793,9 +794,9 @@ impl Controller {
             let interval = settings.probe_interval;
             let amt_msat = settings.probe_amt_msat;
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(interval));
+                let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
                 loop {
-                    interval.tick().await;
+                    interval_timer.tick().await;
                     let rcpt = {
                         let lck = probing_graph.read_only();
                         if lck.nodes().is_empty() {
@@ -809,7 +810,14 @@ impl Controller {
                     };
                     if let Some(rcpt) = rcpt {
                         if let Ok(pk) = bitcoin::secp256k1::PublicKey::from_slice(rcpt.as_slice()) {
-                            send_probe(&probing_cm, pk, &probing_graph, amt_msat, &probing_scorer);
+                            send_probe(
+                                &probing_cm,
+                                pk,
+                                &probing_graph,
+                                amt_msat,
+                                &probing_scorer,
+                                interval,
+                            );
                         }
                     }
                 }
@@ -988,6 +996,7 @@ fn send_probe(
     graph: &NetworkGraph,
     amt_msat: u64,
     scorer: &std::sync::RwLock<Scorer>,
+    interval: u64,
 ) {
     let chans = channel_manager.list_usable_channels();
     let chan_refs = chans.iter().collect::<Vec<_>>();
@@ -1028,6 +1037,7 @@ fn send_probe(
                         blinded_tail,
                     } = path.clone();
                     while let Some(pop_hop) = hops.pop() {
+                        sleep(Duration::from_secs(interval));
                         if hops.is_empty() {
                             debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
                             scorer.probe_failed(&path, pop_hop.short_channel_id);
