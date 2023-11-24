@@ -1042,15 +1042,13 @@ fn send_probe(
                     } = path.clone();
                     while let Some(pop_hop) = hops.pop() {
                         sleep(Duration::from_secs(interval));
-                        if hops.is_empty() {
-                            debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
-                            scorer.probe_failed(&path, pop_hop.short_channel_id);
-                        } else if channel_manager
-                            .send_probe(Path {
-                                hops: hops.clone(),
-                                blinded_tail: blinded_tail.clone(),
-                            })
-                            .is_ok()
+                        if !hops.is_empty()
+                            && channel_manager
+                                .send_probe(Path {
+                                    hops: hops.clone(),
+                                    blinded_tail: blinded_tail.clone(),
+                                })
+                                .is_ok()
                         {
                             debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
                             scorer.probe_failed(
