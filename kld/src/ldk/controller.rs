@@ -788,6 +788,10 @@ impl Controller {
         );
 
         if settings.probe_interval > 0 && settings.probe_amt_msat > 0 {
+            info!(
+                "Start probing with {} every {} secs",
+                settings.probe_amt_msat, settings.probe_interval
+            );
             let probing_cm = channel_manager.clone();
             let probing_graph = network_graph.clone();
             let probing_scorer = scorer.clone();
