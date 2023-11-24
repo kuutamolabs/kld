@@ -1051,9 +1051,10 @@ fn send_probe(
                                 .is_ok()
                         {
                             debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
+                            hops.push(pop_hop.clone());
                             scorer.probe_failed(
                                 &Path {
-                                    hops: hops.clone(),
+                                    hops,
                                     blinded_tail: blinded_tail.clone(),
                                 },
                                 pop_hop.short_channel_id,
