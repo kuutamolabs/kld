@@ -297,6 +297,8 @@ pub fn main() -> Result<()> {
                     )
                 })?;
 
+            println!("{:?}", unlock_args);
+
             let disk_encryption_key = unlock_args
                 .key_file
                 .clone()
