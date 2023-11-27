@@ -67,7 +67,7 @@ serde_yaml = "0.9"
 lazy_static = "1.4"
 bytes = "1.5"
 mime = { git = "https://github.com/hyperium/mime" }
-url = "2.4"
+url = "2.5"
 serde_derive = "1"
 
 [dev-dependencies]
