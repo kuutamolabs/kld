@@ -1138,7 +1138,7 @@ dependencies = [
  "hyper",
  "lazy_static",
  "ldk-lsp-client",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1180,10 +1180,10 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "ldk-lsp-client"
 version = "0.1.0"
-source = "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kuutamo#e75f1a2a1510b6ef8d565332dda0f9230bf3ef7f"
+source = "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kuutamo-118#3f568072e31592919f2eef045313ecc0b6aacc6d"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
  "lightning-invoice",
  "lightning-net-tokio",
  "serde",
@@ -1215,43 +1215,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52cec5fa9382154fe9671e8df93095b800c7d77abc66e2a5ef839d672521c5e"
 dependencies = [
  "bitcoin",
+]
+
+[[package]]
+name = "lightning"
+version = "0.0.118"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+dependencies = [
+ "bitcoin",
  "hex",
+ "musig2",
  "regex",
 ]
 
 [[package]]
 name = "lightning-background-processor"
 version = "0.0.118"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "783150db7ad7b822e8029eae749123a377ed728b513a1610c3d9d3b31252da3e"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
  "lightning-rapid-gossip-sync",
 ]
 
 [[package]]
 name = "lightning-block-sync"
 version = "0.0.118"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e7710047d038a03fce32ac72b00c6ad79438053d3e8520cc7be97019660a694"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
  "serde_json",
 ]
 
 [[package]]
 name = "lightning-invoice"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eb24878b0f4ef75f020976c886d9ad1503867802329cc963e0ab4623ea3b25c"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
 dependencies = [
  "bech32",
  "bitcoin",
  "bitcoin_hashes",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
  "num-traits",
  "secp256k1",
 ]
@@ -1259,22 +1265,20 @@ dependencies = [
 [[package]]
 name = "lightning-net-tokio"
 version = "0.0.118"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86ee02c5a817b46a5fd6de4b2e196b58ae0e6eca5f3b8a6f0b0cd67bd9485ecc"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
  "tokio",
 ]
 
 [[package]]
 name = "lightning-rapid-gossip-sync"
 version = "0.0.118"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac66654c7593a16277cd9f1b7a078729318cad5cee2fe8948a2df4f756decb73"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
 ]
 
 [[package]]
@@ -1401,6 +1405,14 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "musig2"
+version = "0.1.0"
+source = "git+https://github.com/arik-so/rust-musig2?rev=27797d7#27797d78cf64e8974e38d7f31ebb11e455015a9e"
+dependencies = [
+ "bitcoin",
 ]
 
 [[package]]
@@ -2533,7 +2545,7 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "kld",
- "lightning",
+ "lightning 0.0.118 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl",
  "postgres-openssl",
  "rand",
