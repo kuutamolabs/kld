@@ -16,6 +16,7 @@ use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGa
 use crate::bitcoind::BitcoindMetrics;
 use crate::database::DBConnection;
 use crate::ldk::LightningInterface;
+use crate::settings::Settings;
 
 static START: OnceLock<Instant> = OnceLock::new();
 static UPTIME: OnceLock<Gauge> = OnceLock::new();
@@ -34,6 +35,8 @@ static ANCHOR_CHANNEL_FEE: OnceLock<IntGauge> = OnceLock::new();
 static MIN_ALLOWED_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
 static MIN_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
 static SCORER_UPDATE_TIMESTAMP: OnceLock<IntGauge> = OnceLock::new();
+static PROBE_INTERVAL: OnceLock<IntGauge> = OnceLock::new();
+static PROBE_AMOUNT: OnceLock<Gauge> = OnceLock::new();
 
 // NOTE:
 // Gauge will slow down about 20%~30%, unleast the count reach the limit, else we
@@ -181,7 +184,7 @@ fn not_found() -> Response<Body> {
 
 /// Starts an prometheus exporter backend
 pub async fn start_prometheus_exporter(
-    address: String,
+    settings: Arc<Settings>,
     lightning_metrics: Arc<dyn LightningInterface>,
     database: Arc<dyn DBConnection>,
     bitcoind: Arc<dyn BitcoindMetrics>,
@@ -288,8 +291,29 @@ pub async fn start_prometheus_exporter(
             "The update time of scorer"
         )?)
         .unwrap_or_default();
+    PROBE_INTERVAL
+        .set(register_int_gauge!(
+            "probe_interval",
+            "The interval of probe in seconds"
+        )?)
+        .unwrap_or_default();
+    if let Some(g) = PROBE_INTERVAL.get() {
+        g.set(settings.probe_interval as i64)
+    }
+    PROBE_AMOUNT
+        .set(register_gauge!(
+            "probe_amount",
+            "The amount in BTC for each probe"
+        )?)
+        .unwrap_or_default();
+    if let Some(g) = PROBE_AMOUNT.get() {
+        g.set(settings.probe_amt_msat as f64 * 0.01)
+    }
 
-    let addr = address.parse().context("Failed to parse exporter")?;
+    let addr = settings
+        .exporter_address
+        .parse()
+        .context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
         let lightning_metrics_clone = lightning_metrics.clone();
         let bitcoind_clone = bitcoind.clone();

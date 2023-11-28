@@ -96,7 +96,7 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
             info!("Received quit signal.");
             Ok(())
         },
-        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone()) => {
+        result = start_prometheus_exporter(settings, controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone()) => {
             result.context("Prometheus exporter failed")
         },
         result = server.serve(bitcoind_client.clone(), controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
