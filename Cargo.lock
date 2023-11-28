@@ -1220,7 +1220,7 @@ dependencies = [
 [[package]]
 name = "lightning"
 version = "0.0.118"
-source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#c5b750f1f16c31bc9aa2b2f471aa2cb0dda5e45a"
 dependencies = [
  "bitcoin",
  "hex",
@@ -1231,7 +1231,7 @@ dependencies = [
 [[package]]
 name = "lightning-background-processor"
 version = "0.0.118"
-source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#c5b750f1f16c31bc9aa2b2f471aa2cb0dda5e45a"
 dependencies = [
  "bitcoin",
  "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
@@ -1241,7 +1241,7 @@ dependencies = [
 [[package]]
 name = "lightning-block-sync"
 version = "0.0.118"
-source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#c5b750f1f16c31bc9aa2b2f471aa2cb0dda5e45a"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
@@ -1252,7 +1252,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.26.0"
-source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#c5b750f1f16c31bc9aa2b2f471aa2cb0dda5e45a"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -1265,7 +1265,7 @@ dependencies = [
 [[package]]
 name = "lightning-net-tokio"
 version = "0.0.118"
-source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#c5b750f1f16c31bc9aa2b2f471aa2cb0dda5e45a"
 dependencies = [
  "bitcoin",
  "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
@@ -1275,7 +1275,7 @@ dependencies = [
 [[package]]
 name = "lightning-rapid-gossip-sync"
 version = "0.0.118"
-source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#5b8ca079547909f0e665fc480ec36868d61b0065"
+source = "git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118#c5b750f1f16c31bc9aa2b2f471aa2cb0dda5e45a"
 dependencies = [
  "bitcoin",
  "lightning 0.0.118 (git+https://github.com/kuutamolabs/rust-lightning?branch=kuutamo-118)",
