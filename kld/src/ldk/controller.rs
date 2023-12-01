@@ -799,6 +799,7 @@ impl Controller {
             let amt_msat = settings.probe_amt_msat;
             tokio::spawn(async move {
                 let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
+                interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                 loop {
                     interval_timer.tick().await;
                     let rcpt = {
