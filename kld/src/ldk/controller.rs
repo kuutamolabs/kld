@@ -1,9 +1,9 @@
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::bitcoind::{BitcoindClient, BitcoindUtxoLookup};
-use crate::database::channel::Channel;
 use crate::database::forward::{Forward, ForwardStatus, TotalForwards};
 use crate::database::invoice::Invoice;
 use crate::database::payment::{Payment, PaymentDirection};
+use crate::database::ChannelRecord;
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{log_error, MillisatAmount, Service};
 
@@ -506,7 +506,7 @@ impl LightningInterface for Controller {
         self.database.fetch_forwards(status).await
     }
 
-    async fn channel_history(&self) -> Result<Vec<Channel>> {
+    async fn channel_history(&self) -> Result<Vec<ChannelRecord>> {
         self.database.fetch_channel_history().await
     }
 

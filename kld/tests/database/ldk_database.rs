@@ -7,12 +7,12 @@ use bitcoin::hashes::hex::FromHex;
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{Secp256k1, SecretKey};
 use bitcoin::{Network, TxOut, Txid};
-use kld::database::channel::Channel;
 use kld::database::forward::{Forward, ForwardStatus};
 use kld::database::invoice::Invoice;
 use kld::database::payment::{Payment, PaymentDirection};
 use kld::database::peer::Peer;
-use kld::database::{microsecond_timestamp, LdkDatabase};
+use kld::database::ChannelRecord;
+use kld::database::LdkDatabase;
 use kld::ldk::Scorer;
 
 use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
@@ -23,11 +23,14 @@ use lightning::chain::transaction::OutPoint;
 use lightning::chain::Filter;
 
 use lightning::events::ClosureReason;
-use lightning::ln::features::ChannelTypeFeatures;
+use lightning::ln::channelmanager::{
+    ChannelCounterparty, ChannelDetails, CounterpartyForwardingInfo,
+};
+use lightning::ln::features::{ChannelTypeFeatures, InitFeatures};
 use lightning::ln::msgs::SocketAddress;
 use lightning::ln::ChannelId;
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
-use lightning::routing::gossip::{NetworkGraph, NodeId};
+use lightning::routing::gossip::NetworkGraph;
 use lightning::routing::router::DefaultRouter;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
@@ -344,35 +347,65 @@ pub async fn test_channels() -> Result<()> {
     type_features.set_zero_conf_optional();
     type_features.set_scid_privacy_required();
 
-    let channel = Channel {
-        id: ChannelId::from_bytes(random()),
-        scid: 111,
-        user_channel_id: i64::MAX as u64,
-        counterparty: NodeId::from_str(TEST_PUBLIC_KEY)?,
-        funding_txo: OutPoint {
+    let channel = ChannelDetails {
+        channel_id: ChannelId::from_bytes(random()),
+        short_channel_id: Some(u64::MAX), // i64::MAX + 1
+        user_channel_id: u128::MAX,       // u64::MAX + 1
+        counterparty: ChannelCounterparty {
+            node_id: bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY).unwrap(),
+            features: InitFeatures::empty(),
+            unspendable_punishment_reserve: 0,
+            forwarding_info: Some(CounterpartyForwardingInfo {
+                fee_base_msat: u32::MAX,
+                fee_proportional_millionths: u32::MAX,
+                cltv_expiry_delta: u16::MAX,
+            }),
+            outbound_htlc_minimum_msat: Some(u64::MAX),
+            outbound_htlc_maximum_msat: Some(u64::MAX),
+        },
+        funding_txo: Some(OutPoint {
             txid: Txid::from_hex(TEST_TX_ID)?,
             index: 0,
-        },
+        }),
         is_public: true,
         is_outbound: true,
-        value: 1020120401,
-        type_features,
-        open_timestamp: microsecond_timestamp(),
-        close_timestamp: None,
-        closure_reason: None,
+        channel_value_satoshis: u64::MAX,
+        channel_type: Some(ChannelTypeFeatures::empty()),
+        balance_msat: u64::MAX,
+        channel_shutdown_state: None,
+        config: None,
+        confirmations: Some(u32::MAX),
+        confirmations_required: Some(u32::MAX),
+        feerate_sat_per_1000_weight: Some(u32::MAX),
+        force_close_spend_delay: Some(u16::MAX),
+        inbound_capacity_msat: u64::MAX,
+        inbound_htlc_maximum_msat: None,
+        inbound_htlc_minimum_msat: None,
+        inbound_scid_alias: None,
+        is_channel_ready: true,
+        is_usable: false,
+        next_outbound_htlc_limit_msat: u64::MAX,
+        next_outbound_htlc_minimum_msat: u64::MAX,
+        outbound_capacity_msat: u64::MAX,
+        outbound_scid_alias: Some(u64::MAX),
+        unspendable_punishment_reserve: Some(u64::MAX),
     };
-    database.persist_channel(channel.clone()).await?;
+    database.persist_channel(&channel).await?;
 
     let reason = ClosureReason::CooperativeClosure;
-    database.close_channel(&channel.id, &reason).await?;
+    database.close_channel(&channel.channel_id, &reason).await?;
 
     let channels = database.fetch_channel_history().await?;
     assert_eq!(1, channels.len());
-    let persisted_channel = channels.first().context("expected channel")?;
-    assert!(persisted_channel
-        .close_timestamp
-        .is_some_and(|t| t > channel.open_timestamp));
-    assert_eq!(persisted_channel.closure_reason, Some(reason));
+    let ChannelRecord {
+        open_timestamp,
+        update_timestamp,
+        closure_reason,
+        detail,
+    } = channels.first().context("expected channel")?;
+    assert!(update_timestamp > open_timestamp);
+    assert_eq!(*detail, channel);
+    assert_eq!(*closure_reason, Some(reason.to_string()));
 
     Ok(())
 }
