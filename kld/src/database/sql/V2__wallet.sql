@@ -6,7 +6,7 @@ INSERT INTO wallet_version VALUES (1);
 
 CREATE TABLE wallet_script_pubkeys (
 	keychain TEXT,
-	child INT,
+	child INT4,
 	script BLOB,
 	INDEX (keychain, child),
 	INDEX (script)

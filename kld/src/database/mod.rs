@@ -38,28 +38,6 @@ pub struct ChannelRecord {
     pub detail: ChannelDetails,
 }
 
-#[macro_export]
-macro_rules! to_i64 {
-    ($int: expr) => {
-        i64::try_from($int).unwrap()
-    };
-}
-
-#[macro_export]
-macro_rules! from_i64 {
-    ($row: expr, $name: expr) => {
-        $row.get::<&str, i64>(&$name).try_into().unwrap()
-    };
-}
-
-#[macro_export]
-macro_rules! from_maybe_i64 {
-    ($row: expr, $name: expr) => {
-        $row.get::<&str, Option<i64>>(&$name)
-            .map(|x| x.try_into().unwrap())
-    };
-}
-
 pub struct DurableConnection {
     client: Arc<AsyncRwLock<Client>>, // Used across await points.
     connection_task: Arc<RwLock<JoinHandle<()>>>,

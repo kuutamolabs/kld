@@ -2,7 +2,6 @@ use crate::database::{microsecond_timestamp, to_primitive, RowExt};
 use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::settings::Settings;
-use crate::to_i64;
 
 use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
@@ -830,11 +829,6 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let mut monitor_buf = vec![];
         monitor.write(&mut monitor_buf).unwrap();
         let latest_update_id = monitor.get_latest_update_id();
-        let latest_update_id = if latest_update_id == u64::MAX {
-            i64::MAX
-        } else {
-            to_i64!(latest_update_id)
-        };
 
         let durable_connection = self.durable_connection.clone();
         let chain_monitor = self
@@ -849,7 +843,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                 .execute(
                     "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
                 VALUES ($1, $2, $3)",
-                    &[&out_point_buf, &monitor_buf, &latest_update_id],
+                    &[&out_point_buf, &monitor_buf, &(latest_update_id as i64)],
                 )
                 .await;
             match result {
@@ -900,7 +894,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                                 &[
                                     &out_point_buf,
                                     &ciphertext,
-                                    &to_i64!(monitor.get_latest_update_id()),
+                                    &(monitor.get_latest_update_id() as i64),
                                 ],
                             )
                             .await
@@ -925,7 +919,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                     block_in_place!(
                         "UPSERT INTO channel_monitor_updates (out_point, update, update_id) \
                         VALUES ($1, $2, $3)",
-                        &[&out_point_buf, &ciphertext, &to_i64!(update.update_id)],
+                        &[&out_point_buf, &ciphertext, &(update.update_id as i64)],
                         self
                     );
                 }
