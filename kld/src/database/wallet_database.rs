@@ -85,7 +85,7 @@ impl WalletDatabase {
     ) -> Result<i64, Error> {
         execute_blocking!(
 			"UPSERT INTO wallet_utxos (value, keychain, vout, txid, script, is_spent) VALUES ($1, $2, $3, $4, $5, $6)",
-			&[&(value as i64), &keychain, &(vout as i64), &txid, &script, &is_spent],
+			&[&(value as i64), &keychain, &(vout as i32), &txid, &script, &is_spent],
 			self
 		)
 		.map(|_| 0)
@@ -275,7 +275,7 @@ impl WalletDatabase {
         for row in rows {
             let value: u64 = row.get::<usize, i64>(0).try_into().unwrap();
             let keychain: String = row.get(1);
-            let vout: u32 = row.get::<usize, i64>(2).try_into().unwrap();
+            let vout = row.get::<usize, i32>(2) as u32;
             let txid: Vec<u8> = row.get(3);
             let script: Vec<u8> = row.get(4);
             let is_spent: bool = row.get(5);
@@ -298,7 +298,7 @@ impl WalletDatabase {
     fn select_utxo_by_outpoint(&self, txid: &[u8], vout: u32) -> Result<Option<LocalUtxo>, Error> {
         let rows = query_blocking!(
             "SELECT value, keychain, script, is_spent FROM wallet_utxos WHERE txid=$1 AND vout=$2",
-            &[&txid, &(vout as i64)],
+            &[&txid, &(vout as i32)],
             self
         )?;
         match rows.get(0) {
@@ -554,7 +554,7 @@ impl WalletDatabase {
     fn delete_utxo_by_outpoint(&self, txid: &[u8], vout: u32) -> Result<(), Error> {
         execute_blocking!(
             "DELETE FROM wallet_utxos WHERE txid=$1 AND vout=$2",
-            &[&txid, &(vout as i64)],
+            &[&txid, &(vout as i32)],
             self
         )
         .map(|_| ())

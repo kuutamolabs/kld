@@ -15,7 +15,7 @@ CREATE TABLE wallet_script_pubkeys (
 CREATE TABLE wallet_utxos (
 	value INT,
 	keychain TEXT,
-	vout INT,
+	vout INT4,
 	txid BLOB,
 	script BLOB,
 	is_spent BOOL,
