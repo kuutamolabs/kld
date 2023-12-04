@@ -3,7 +3,6 @@ pub mod invoice;
 mod ldk_database;
 pub mod payment;
 pub mod peer;
-pub mod spendable_output;
 mod wallet_database;
 
 use std::{
@@ -14,6 +13,7 @@ use std::{
 use async_trait::async_trait;
 pub use ldk_database::LdkDatabase;
 use lightning::ln::channelmanager::ChannelDetails;
+use lightning::sign::SpendableOutputDescriptor;
 use lightning::util::ser::MaybeReadable;
 use postgres_types::ToSql;
 use time::{OffsetDateTime, PrimitiveDateTime};
@@ -36,6 +36,11 @@ pub struct ChannelRecord {
     pub update_timestamp: OffsetDateTime,
     pub closure_reason: Option<String>,
     pub detail: ChannelDetails,
+}
+
+pub struct SpendableOutputRecord {
+    pub descriptor: SpendableOutputDescriptor,
+    pub is_spent: bool,
 }
 
 pub struct DurableConnection {

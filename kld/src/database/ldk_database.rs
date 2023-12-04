@@ -6,7 +6,6 @@ use crate::settings::Settings;
 use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
-use super::spendable_output::SpendableOutput;
 use super::{DurableConnection, Params};
 use anyhow::{anyhow, bail, Result};
 use bitcoin::hashes::hex::ToHex;
@@ -28,7 +27,10 @@ use lightning::routing::router::Router;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, WriteableScore,
 };
-use lightning::sign::{EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner};
+use lightning::sign::{
+    EntropySource, NodeSigner, SignerProvider, SpendableOutputDescriptor,
+    WriteableEcdsaChannelSigner,
+};
 use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
@@ -36,7 +38,7 @@ use lightning::util::ser::Writeable;
 use log::{debug, error};
 
 use super::peer::Peer;
-use super::ChannelRecord;
+use super::{ChannelRecord, SpendableOutputRecord};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
@@ -248,8 +250,30 @@ impl LdkDatabase {
         Ok(outputs)
     }
 
-    pub async fn persist_spendable_output(&self, output: &SpendableOutput) -> Result<()> {
-        debug!("Persist spendable output {}:{}", output.txid, output.index);
+    pub async fn persist_spendable_output(
+        &self,
+        descriptor: &SpendableOutputDescriptor,
+        is_spent: bool,
+    ) -> Result<()> {
+        let (txid, index, value) = match descriptor {
+            SpendableOutputDescriptor::StaticOutput { outpoint, output } => {
+                (outpoint.txid, outpoint.index, output.value)
+            }
+            SpendableOutputDescriptor::DelayedPaymentOutput(descriptor) => (
+                descriptor.outpoint.txid,
+                descriptor.outpoint.index,
+                descriptor.output.value,
+            ),
+            SpendableOutputDescriptor::StaticPaymentOutput(descriptor) => (
+                descriptor.outpoint.txid,
+                descriptor.outpoint.index,
+                descriptor.output.value,
+            ),
+        };
+        debug!("Persist spendable output {}:{}", txid, index);
+        let mut data = vec![];
+        descriptor.write(&mut data)?;
+
         self.durable_connection
             .get()
             .await
@@ -258,33 +282,30 @@ impl LdkDatabase {
                     txid,
                     "index",
                     value,
-                    descriptor,
-                    status
+                    data,
+                    is_spent
                 ) VALUES ($1, $2, $3, $4, $5)"#,
                 &[
-                    &output.txid.as_ref(),
-                    &(output.index as i16),
-                    &(output.value as i64),
-                    &output.serialize_descriptor()?,
-                    &output.status,
+                    &txid.as_ref(),
+                    &(index as i16),
+                    &(value as i64),
+                    &data,
+                    &is_spent,
                 ],
             )
             .await?;
         Ok(())
     }
 
-    pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutput>> {
+    pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutputRecord>> {
         let rows = self
             .durable_connection
             .get()
             .await
             .query(
                 r#"SELECT
-                txid,
-                "index",
-                value,
-                descriptor,
-                status
+                data,
+                is_spent
             FROM
                 spendable_outputs"#,
                 &[],
@@ -293,7 +314,10 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
-            outputs.push(row.try_into()?);
+            outputs.push(SpendableOutputRecord {
+                descriptor: row.read("data")?,
+                is_spent: row.get::<&str, bool>("is_spent"),
+            });
         }
         Ok(outputs)
     }

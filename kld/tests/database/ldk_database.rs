@@ -15,7 +15,6 @@ use kld::database::ChannelRecord;
 use kld::database::LdkDatabase;
 use kld::ldk::Scorer;
 
-use kld::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use kld::logger::KldLogger;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::ChainMonitor;
@@ -323,11 +322,12 @@ pub async fn test_spendable_outputs() -> Result<()> {
         index: 2,
     };
     let descriptor = SpendableOutputDescriptor::StaticOutput { outpoint, output };
-    let mut spendable_output = SpendableOutput::new(descriptor);
-    database.persist_spendable_output(&spendable_output).await?;
+    database
+        .persist_spendable_output(&descriptor, false)
+        .await?;
 
-    spendable_output.status = SpendableOutputStatus::Spent;
-    database.persist_spendable_output(&spendable_output).await?;
+    // Update is_spent after it spend
+    database.persist_spendable_output(&descriptor, true).await?;
 
     let spendable_outputs = database.fetch_spendable_outputs().await?;
     assert_eq!(1, spendable_outputs.len());

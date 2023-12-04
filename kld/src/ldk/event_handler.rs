@@ -10,7 +10,6 @@ use bitcoin::secp256k1::Secp256k1;
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
 use crate::database::forward::Forward;
 use crate::database::payment::Payment;
-use crate::database::spendable_output::{SpendableOutput, SpendableOutputStatus};
 use crate::database::{LdkDatabase, WalletDatabase};
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::log_error;
@@ -19,7 +18,7 @@ use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget,
 use lightning::events::{Event, PathFailure, PaymentPurpose};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::NodeId;
-use lightning::sign::KeysManager;
+use lightning::sign::{KeysManager, SpendableOutputDescriptor};
 use log::{error, info, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
@@ -470,17 +469,11 @@ impl EventHandler {
                 });
             }
             Event::SpendableOutputs { outputs, .. } => {
-                let mut spendable_outputs: Vec<SpendableOutput> =
-                    outputs.into_iter().map(SpendableOutput::new).collect();
-                for spendable_output in &spendable_outputs {
+                for spendable_output in outputs.iter() {
                     info!("EVENT: New {:?}", spendable_output);
-                    self.persist_spendable_output(spendable_output).await;
+                    self.persist_spendable_output(spendable_output, false).await;
                 }
                 let destination_address = self.wallet.new_internal_address()?;
-                let output_descriptors = &spendable_outputs
-                    .iter()
-                    .map(|o| &o.descriptor)
-                    .collect::<Vec<_>>();
                 let tx_feerate = self
                     .bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep);
@@ -489,7 +482,7 @@ impl EventHandler {
                 let spending_tx = self
                     .keys_manager
                     .spend_spendable_outputs(
-                        output_descriptors,
+                        &outputs.iter().collect::<Vec<_>>()[..],
                         Vec::new(),
                         destination_address.script_pubkey(),
                         tx_feerate,
@@ -502,9 +495,8 @@ impl EventHandler {
                     destination_address.address
                 );
                 self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
-                for spendable_output in spendable_outputs.iter_mut() {
-                    spendable_output.status = SpendableOutputStatus::Spent;
-                    self.persist_spendable_output(spendable_output).await;
+                for spendable_output in outputs.iter() {
+                    self.persist_spendable_output(spendable_output, true).await;
                 }
             }
             Event::HTLCIntercepted {
@@ -523,10 +515,14 @@ impl EventHandler {
         Ok(())
     }
 
-    async fn persist_spendable_output(&self, spendable_output: &SpendableOutput) {
+    async fn persist_spendable_output(
+        &self,
+        spendable_output: &SpendableOutputDescriptor,
+        is_spent: bool,
+    ) {
         if let Err(e) = self
             .ldk_database
-            .persist_spendable_output(spendable_output)
+            .persist_spendable_output(spendable_output, is_spent)
             .await
         {
             log_error(&e)
