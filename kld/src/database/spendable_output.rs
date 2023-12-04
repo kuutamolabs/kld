@@ -11,7 +11,7 @@ use super::RowExt;
 #[derive(Clone, Debug)]
 pub struct SpendableOutput {
     pub txid: Txid,
-    pub vout: u16,
+    pub index: u16,
     pub value: u64,
     pub descriptor: SpendableOutputDescriptor,
     pub status: SpendableOutputStatus,
@@ -19,7 +19,7 @@ pub struct SpendableOutput {
 
 impl SpendableOutput {
     pub fn new(descriptor: SpendableOutputDescriptor) -> Self {
-        let (txid, vout, value) = match &descriptor {
+        let (txid, index, value) = match &descriptor {
             SpendableOutputDescriptor::StaticOutput { outpoint, output } => {
                 (outpoint.txid, outpoint.index, output.value)
             }
@@ -36,7 +36,7 @@ impl SpendableOutput {
         };
         SpendableOutput {
             txid,
-            vout,
+            index,
             value,
             descriptor,
             status: SpendableOutputStatus::Unspent,
@@ -57,7 +57,7 @@ impl TryFrom<Row> for SpendableOutput {
         let bytes: &[u8] = row.get("txid");
         Ok(SpendableOutput {
             txid: Txid::from_slice(bytes)?,
-            vout: row.get::<&str, i64>("vout") as u16,
+            index: row.get::<&str, i16>("index") as u16,
             value: row.get::<&str, i64>("value") as MillisatAmount,
             descriptor: row.read("descriptor")?,
             status: row.get("status"),

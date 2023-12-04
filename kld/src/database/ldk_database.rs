@@ -248,22 +248,22 @@ impl LdkDatabase {
         Ok(outputs)
     }
 
-    pub async fn persist_spendable_output(&self, output: SpendableOutput) -> Result<()> {
-        debug!("Persist spendable output {}:{}", output.txid, output.vout);
+    pub async fn persist_spendable_output(&self, output: &SpendableOutput) -> Result<()> {
+        debug!("Persist spendable output {}:{}", output.txid, output.index);
         self.durable_connection
             .get()
             .await
             .execute(
-                "UPSERT INTO spendable_outputs (
+                r#"UPSERT INTO spendable_outputs (
                     txid,
-                    vout,
+                    "index",
                     value,
                     descriptor,
                     status
-                ) VALUES ($1, $2, $3, $4, $5)",
+                ) VALUES ($1, $2, $3, $4, $5)"#,
                 &[
                     &output.txid.as_ref(),
-                    &(output.vout as i64),
+                    &(output.index as i16),
                     &(output.value as i64),
                     &output.serialize_descriptor()?,
                     &output.status,
@@ -279,14 +279,14 @@ impl LdkDatabase {
             .get()
             .await
             .query(
-                "SELECT
+                r#"SELECT
                 txid,
-                vout,
+                "index",
                 value,
                 descriptor,
                 status
             FROM
-                spendable_outputs",
+                spendable_outputs"#,
                 &[],
             )
             .await?;

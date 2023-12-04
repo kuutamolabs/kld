@@ -474,7 +474,7 @@ impl EventHandler {
                     outputs.into_iter().map(SpendableOutput::new).collect();
                 for spendable_output in &spendable_outputs {
                     info!("EVENT: New {:?}", spendable_output);
-                    self.persist_spendable_output(spendable_output.clone());
+                    self.persist_spendable_output(spendable_output).await;
                 }
                 let destination_address = self.wallet.new_internal_address()?;
                 let output_descriptors = &spendable_outputs
@@ -504,7 +504,7 @@ impl EventHandler {
                 self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
                 for spendable_output in spendable_outputs.iter_mut() {
                     spendable_output.status = SpendableOutputStatus::Spent;
-                    self.persist_spendable_output(spendable_output.clone());
+                    self.persist_spendable_output(spendable_output).await;
                 }
             }
             Event::HTLCIntercepted {
@@ -523,13 +523,14 @@ impl EventHandler {
         Ok(())
     }
 
-    fn persist_spendable_output(&self, spendable_output: SpendableOutput) {
-        let database = self.ldk_database.clone();
-        self.runtime_handle.spawn(async move {
-            if let Err(e) = database.persist_spendable_output(spendable_output).await {
-                log_error(&e)
-            }
-        });
+    async fn persist_spendable_output(&self, spendable_output: &SpendableOutput) {
+        if let Err(e) = self
+            .ldk_database
+            .persist_spendable_output(spendable_output)
+            .await
+        {
+            log_error(&e)
+        }
     }
 
     fn persist_forward(&self, forward: Forward) {

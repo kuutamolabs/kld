@@ -324,12 +324,10 @@ pub async fn test_spendable_outputs() -> Result<()> {
     };
     let descriptor = SpendableOutputDescriptor::StaticOutput { outpoint, output };
     let mut spendable_output = SpendableOutput::new(descriptor);
-    database
-        .persist_spendable_output(spendable_output.clone())
-        .await?;
+    database.persist_spendable_output(&spendable_output).await?;
 
     spendable_output.status = SpendableOutputStatus::Spent;
-    database.persist_spendable_output(spendable_output).await?;
+    database.persist_spendable_output(&spendable_output).await?;
 
     let spendable_outputs = database.fetch_spendable_outputs().await?;
     assert_eq!(1, spendable_outputs.len());
