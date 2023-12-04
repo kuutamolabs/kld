@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::api::SocketAddress;
-use crate::database::forward::ForwardStatus;
+use crate::database::{forward::ForwardStatus, ChannelRecord};
 use crate::ldk::htlc_destination_to_string;
 use anyhow::Context;
 use api::ChannelFee;
@@ -372,27 +372,31 @@ pub(crate) async fn channel_history(
 
     let mut response = vec![];
 
-    for channel in channel_history {
+    for ChannelRecord {
+        open_timestamp,
+        update_timestamp,
+        closure_reason,
+        detail,
+    } in channel_history
+    {
         response.push(GetV1ChannelHistoryResponseItem {
-            close_timestamp: channel
-                .close_timestamp
-                .context("expected close timestamp")
-                .map_err(internal_server)?
-                .unix_timestamp(),
-            closure_reason: channel
-                .closure_reason
-                .context("expected closure reason")
-                .map_err(internal_server)?
-                .to_string(),
-            counterparty: channel.counterparty.to_string(),
-            funding_txo: format!("{}:{}", channel.funding_txo.txid, channel.funding_txo.index),
-            id: channel.id.to_hex(),
-            is_outbound: channel.is_outbound,
-            is_public: channel.is_public,
-            open_timestamp: channel.open_timestamp.unix_timestamp(),
-            scid: channel.scid as i64,
-            user_channel_id: channel.user_channel_id as i64,
-            value: channel.value as i64,
+            close_timestamp: update_timestamp.unix_timestamp(),
+            closure_reason: closure_reason.unwrap_or_default(),
+            counterparty: detail.counterparty.node_id.to_string(),
+            funding_txo: detail
+                .funding_txo
+                .map(|txo| format!("{}:{}", txo.txid, txo.index))
+                .unwrap_or_default(),
+            id: detail.channel_id.to_hex(),
+            is_outbound: detail.is_outbound,
+            is_public: detail.is_public,
+            open_timestamp: open_timestamp.unix_timestamp(),
+            scid: detail
+                .short_channel_id
+                .map(|id| id as i64)
+                .unwrap_or_default(),
+            user_channel_id: detail.user_channel_id as i64,
+            value: detail.channel_value_satoshis as i64,
         });
     }
 

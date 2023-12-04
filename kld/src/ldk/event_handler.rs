@@ -148,8 +148,7 @@ impl EventHandler {
                     .iter()
                     .find(|c| c.channel_id == channel_id)
                 {
-                    let channel = channel_details.clone().try_into()?;
-                    self.ldk_database.persist_channel(channel).await?;
+                    self.ldk_database.persist_channel(channel_details).await?;
                 }
                 info!("Broadcasting node announcement message");
                 self.peer_manager
