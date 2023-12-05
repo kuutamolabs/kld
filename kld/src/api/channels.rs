@@ -61,15 +61,15 @@ pub(crate) async fn list_peer_channels(
                 .unwrap_or_default(),
             channel_id: channel.channel_id.to_hex(),
             dust_limit_msat: match config.max_dust_htlc_exposure {
-                MaxDustHTLCExposure::FixedLimitMsat(x) => x as i64,
-                MaxDustHTLCExposure::FeeRateMultiplier(x) => x as i64,
+                MaxDustHTLCExposure::FixedLimitMsat(x) => x,
+                MaxDustHTLCExposure::FeeRateMultiplier(x) => x,
             },
             features: channel
                 .channel_type
                 .map(format_features)
                 .unwrap_or_default(),
-            fee_base_msat: config.forwarding_fee_base_msat as i64,
-            fee_proportional_millionths: config.forwarding_fee_proportional_millionths as i64,
+            fee_base_msat: config.forwarding_fee_base_msat,
+            fee_proportional_millionths: config.forwarding_fee_proportional_millionths,
             funding: None,
             funding_txid: channel.funding_txo.map(|x| x.txid.to_string()),
             htlcs: None,
@@ -85,25 +85,23 @@ pub(crate) async fn list_peer_channels(
                 .unwrap_or_default(),
             peer_id: channel.counterparty.node_id.to_string(),
             private: !channel.is_public,
-            receivable_msat: channel.inbound_capacity_msat as i64,
+            receivable_msat: channel.inbound_capacity_msat,
             short_channel_id: channel.short_channel_id.map(|x| x.to_string()),
-            spendable_msat: channel.outbound_capacity_msat as i64,
+            spendable_msat: channel.outbound_capacity_msat,
             state: if channel.is_usable {
                 GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
             } else {
                 GetV1ChannelListPeerChannelsResponseState::Openingd
             },
-            our_reserve_msat: channel
-                .unspendable_punishment_reserve
-                .map(|x| (x * 1000) as i64),
-            their_reserve_msat: (channel.counterparty.unspendable_punishment_reserve * 1000) as i64,
-            to_them_msat: ((channel.channel_value_satoshis * 1000) - channel.balance_msat) as i64,
-            minimum_htlc_in_msat: channel.inbound_htlc_minimum_msat.map(|x| x as i64),
-            max_total_htlc_in_msat: channel.inbound_htlc_maximum_msat.map(|x| x as i64),
-            minimum_htlc_out_msat: channel.next_outbound_htlc_minimum_msat as i64,
-            maximum_htlc_out_msat: channel.next_outbound_htlc_limit_msat as i64,
-            to_us_msat: channel.balance_msat as i64,
-            total_msat: channel.channel_value_satoshis as i64 * 1000,
+            our_reserve_msat: channel.unspendable_punishment_reserve.map(|x| x * 1000),
+            their_reserve_msat: (channel.counterparty.unspendable_punishment_reserve * 1000),
+            to_them_msat: ((channel.channel_value_satoshis * 1000) - channel.balance_msat),
+            minimum_htlc_in_msat: channel.inbound_htlc_minimum_msat,
+            max_total_htlc_in_msat: channel.inbound_htlc_maximum_msat,
+            minimum_htlc_out_msat: channel.next_outbound_htlc_minimum_msat,
+            maximum_htlc_out_msat: channel.next_outbound_htlc_limit_msat,
+            to_us_msat: channel.balance_msat,
+            total_msat: channel.channel_value_satoshis * 1000,
         })
     }
     Ok(Json(response))
@@ -287,10 +285,10 @@ pub(crate) async fn local_remote_balance(
         }
     }
     Ok(Json(GetV1ChannelLocalremotebalResponse {
-        inactive_balance: (inactive_msat / 1000) as i64,
-        pending_balance: (pending_msat / 1000) as i64,
-        local_balance: (local_msat / 1000) as i64,
-        remote_balance: (remote_msat / 1000) as i64,
+        inactive_balance: inactive_msat / 1000,
+        pending_balance: pending_msat / 1000,
+        local_balance: local_msat / 1000,
+        remote_balance: remote_msat / 1000,
     }))
 }
 
@@ -337,21 +335,19 @@ pub(crate) async fn list_forwards(
                 .htlc_destination
                 .as_ref()
                 .map(htlc_destination_to_string),
-            fee_msat: forward.fee.map(|x| x as i64),
+            fee_msat: forward.fee,
             in_channel: forward.inbound_channel_id.to_hex(),
-            in_msat: forward.amount.map(|x| x as i64),
+            in_msat: forward.amount,
             out_channel: forward.outbound_channel_id.map(|x| x.to_hex()),
-            out_msat: forward
-                .amount
-                .and_then(|a| forward.fee.map(|f| (a - f) as i64)),
+            out_msat: forward.amount.and_then(|a| forward.fee.map(|f| a - f)),
             payment_hash: match forward.htlc_destination {
                 Some(HTLCDestination::FailedPayment { payment_hash }) => {
                     Some(payment_hash.0.to_hex())
                 }
                 _ => None,
             },
-            received_time: forward.timestamp.unix_timestamp(),
-            resolved_time: Some(forward.timestamp.unix_timestamp()),
+            received_time: forward.timestamp.unix_timestamp() as u64,
+            resolved_time: Some(forward.timestamp.unix_timestamp() as u64),
             status: match forward.status {
                 ForwardStatus::Succeeded => GetV1ChannelListForwardsResponseItemStatus::Settled,
                 ForwardStatus::Failed => GetV1ChannelListForwardsResponseItemStatus::Failed,
@@ -391,12 +387,9 @@ pub(crate) async fn channel_history(
             is_outbound: detail.is_outbound,
             is_public: detail.is_public,
             open_timestamp: open_timestamp.unix_timestamp(),
-            scid: detail
-                .short_channel_id
-                .map(|id| id as i64)
-                .unwrap_or_default(),
-            user_channel_id: detail.user_channel_id as i64,
-            value: detail.channel_value_satoshis as i64,
+            scid: detail.short_channel_id.unwrap_or_default(),
+            user_channel_id: detail.user_channel_id,
+            value: detail.channel_value_satoshis,
         });
     }
 
