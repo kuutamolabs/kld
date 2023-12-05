@@ -809,8 +809,8 @@ async fn test_fetch_forwards() -> Result<()> {
     );
     assert_eq!(Some(4997000), forward.out_msat);
     assert_eq!(None, forward.payment_hash);
-    assert!(forward.received_time > 0);
-    assert!(forward.resolved_time.is_some());
+    assert!(forward.received_timestamp > 0);
+    assert!(forward.resolved_timestamp.is_some());
     assert_eq!(None, forward.failcode);
     assert_eq!(None, forward.failreason);
     Ok(())

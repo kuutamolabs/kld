@@ -65,6 +65,7 @@ fn patch_api(out_dir: &String) {
                 .replace("i64", "u64")
                 .replace("i32", "u32")
                 .replace("_timestamp: u64", "_timestamp: i64")
+                .replace("_timestamp: Option<u64>", "_timestamp: Option<i64>")
                 .replace(
                     "_timestamp(mut self, value: impl Into<u64>)",
                     "_timestamp(mut self, value: impl Into<i64>)",

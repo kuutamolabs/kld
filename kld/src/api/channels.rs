@@ -346,8 +346,8 @@ pub(crate) async fn list_forwards(
                 }
                 _ => None,
             },
-            received_time: forward.timestamp.unix_timestamp() as u64,
-            resolved_time: Some(forward.timestamp.unix_timestamp() as u64),
+            received_timestamp: forward.timestamp.unix_timestamp(),
+            resolved_timestamp: Some(forward.timestamp.unix_timestamp()),
             status: match forward.status {
                 ForwardStatus::Succeeded => GetV1ChannelListForwardsResponseItemStatus::Settled,
                 ForwardStatus::Failed => GetV1ChannelListForwardsResponseItemStatus::Failed,

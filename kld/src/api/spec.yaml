@@ -337,7 +337,7 @@ paths:
                   type: string
                   description: status of the HTLC
                   enum: [offered, settled, local_failed, failed]
-                received_time:
+                received_timestamp:
                   type: integer
                   minimum: 0
                   description: the UNIX timestamp when this was received
@@ -355,7 +355,7 @@ paths:
                   type: integer
                   minimum: 0
                   description: If out_channel is present, the amount we sent out the out_channel
-                resolved_time:
+                resolved_timestamp:
                   type: integer
                   minimum: 0
                   description: If status is "settled" or "failed", the UNIX timestamp when this was resolved
@@ -368,7 +368,7 @@ paths:
               required:
                 - in_channel
                 - status
-                - received_time
+                - received_timestamp
         "400":
           description: Bad request
         "500":
