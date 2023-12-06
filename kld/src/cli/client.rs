@@ -305,10 +305,7 @@ impl Api {
     }
 
     pub fn estimate_channel_liquidity(&self, scid: u64, target: String) -> Result<String> {
-        let body = GetV1EstimateChannelLiquidityBody {
-            scid: scid as i64,
-            target,
-        };
+        let body = GetV1EstimateChannelLiquidityBody { scid, target };
         let response = self
             .request_with_body(Method::GET, routes::ESTIMATE_CHANNEL_LIQUIDITY, body)
             .send()?;

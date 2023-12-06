@@ -1,10 +1,8 @@
-pub mod channel;
 pub mod forward;
 pub mod invoice;
 mod ldk_database;
 pub mod payment;
 pub mod peer;
-pub mod spendable_output;
 mod wallet_database;
 
 use std::{
@@ -14,6 +12,8 @@ use std::{
 
 use async_trait::async_trait;
 pub use ldk_database::LdkDatabase;
+use lightning::ln::channelmanager::ChannelDetails;
+use lightning::sign::SpendableOutputDescriptor;
 use lightning::util::ser::MaybeReadable;
 use postgres_types::ToSql;
 use time::{OffsetDateTime, PrimitiveDateTime};
@@ -31,26 +31,16 @@ use crate::{ldk::decode_error, settings::Settings};
 
 use crate::{log_error, Service};
 
-#[macro_export]
-macro_rules! to_i64 {
-    ($int: expr) => {
-        i64::try_from($int).unwrap()
-    };
+pub struct ChannelRecord {
+    pub open_timestamp: OffsetDateTime,
+    pub update_timestamp: OffsetDateTime,
+    pub closure_reason: Option<String>,
+    pub detail: ChannelDetails,
 }
 
-#[macro_export]
-macro_rules! from_i64 {
-    ($row: expr, $name: expr) => {
-        $row.get::<&str, i64>(&$name).try_into().unwrap()
-    };
-}
-
-#[macro_export]
-macro_rules! from_maybe_i64 {
-    ($row: expr, $name: expr) => {
-        $row.get::<&str, Option<i64>>(&$name)
-            .map(|x| x.try_into().unwrap())
-    };
+pub struct SpendableOutputRecord {
+    pub descriptor: SpendableOutputDescriptor,
+    pub is_spent: bool,
 }
 
 pub struct DurableConnection {

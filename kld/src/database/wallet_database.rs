@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::DurableConnection;
 use crate::settings::Settings;
-use crate::to_i64;
 use anyhow::Result;
 use bdk::{
     database::{BatchDatabase, BatchOperations, Database, SyncTime},
@@ -69,7 +68,7 @@ impl WalletDatabase {
     ) -> Result<i64, Error> {
         execute_blocking!(
             "INSERT INTO wallet_script_pubkeys (keychain, child, script) VALUES ($1, $2, $3)",
-            &[&keychain, &to_i64!(child), &script],
+            &[&keychain, &(child as i32), &script],
             self
         )
         .map(|_| 0)
@@ -86,7 +85,7 @@ impl WalletDatabase {
     ) -> Result<i64, Error> {
         execute_blocking!(
 			"UPSERT INTO wallet_utxos (value, keychain, vout, txid, script, is_spent) VALUES ($1, $2, $3, $4, $5, $6)",
-			&[&to_i64!(value), &keychain, &to_i64!(vout), &txid, &script, &is_spent],
+			&[&(value as i64), &keychain, &(vout as i32), &txid, &script, &is_spent],
 			self
 		)
 		.map(|_| 0)
@@ -125,11 +124,11 @@ impl WalletDatabase {
 			"INSERT INTO wallet_transaction_details (txid, timestamp, received, sent, fee, height) VALUES ($1, $2, $3, $4, $5, $6)",
 			&[
 				&txid,
-				&timestamp.map(|x| to_i64!(x)),
-				&to_i64!(transaction.received),
-				&to_i64!(transaction.sent),
-				&transaction.fee.map(|x| to_i64!(x)),
-				&height.map(|x| to_i64!(x))
+				&timestamp.map(|x| x as i64),
+				&(transaction.received as i64),
+				&(transaction.sent as i64),
+				&transaction.fee.map(|x| x as i64),
+				&height.map(|x| x as i64)
 			],
 			self
 		)
@@ -150,11 +149,11 @@ impl WalletDatabase {
         execute_blocking!(
 			"UPDATE wallet_transaction_details SET timestamp=$1, received=$2, sent=$3, fee=$4, height=$5 WHERE txid=$6",
 			&[
-				&timestamp.map(|x| to_i64!(x)),
-				&to_i64!(transaction.received),
-				&to_i64!(transaction.sent),
-				&transaction.fee.map(|x| to_i64!(x)),
-				&height.map(|x| to_i64!(x)),
+				&timestamp.map(|x| x as i64),
+				&(transaction.received as i64),
+				&(transaction.sent as i64),
+				&transaction.fee.map(|x| x as i64),
+				&height.map(|x| x as i64),
 				&txid,
 			],
 			self
@@ -165,7 +164,7 @@ impl WalletDatabase {
     fn insert_last_derivation_index(&self, keychain: String, value: u32) -> Result<i64, Error> {
         execute_blocking!(
             "INSERT INTO wallet_last_derivation_indices (keychain, value) VALUES ($1, $2)",
-            &[&keychain, &to_i64!(value)],
+            &[&keychain, &(value as i64)],
             self
         )
         .map(|_| 0)
@@ -183,7 +182,7 @@ impl WalletDatabase {
     fn update_last_derivation_index(&self, keychain: String, value: u32) -> Result<(), Error> {
         execute_blocking!(
             "UPSERT INTO wallet_last_derivation_indices (keychain, value) VALUES ($1, $2)",
-            &[&keychain, &to_i64!(value)],
+            &[&keychain, &(value as i64)],
             self
         )
         .map(|_| ())
@@ -193,8 +192,8 @@ impl WalletDatabase {
         execute_blocking!(
             "UPSERT INTO wallet_sync_time (id, height, timestamp) VALUES (0, $1, $2)",
             &[
-                &to_i64!(data.block_time.height),
-                &to_i64!(data.block_time.timestamp)
+                &(data.block_time.height as i64),
+                &(data.block_time.timestamp as i64)
             ],
             self
         )
@@ -232,7 +231,7 @@ impl WalletDatabase {
     ) -> Result<Option<Script>, Error> {
         let rows = query_blocking!(
             "SELECT script FROM wallet_script_pubkeys WHERE keychain=$1 AND child=$2",
-            &[&keychain, &to_i64!(child)],
+            &[&keychain, &(child as i32)],
             self
         )?;
 
@@ -259,7 +258,7 @@ impl WalletDatabase {
             Some(row) => {
                 let keychain: String = row.get(0);
                 let keychain: KeychainKind = serde_json::from_str(&keychain)?;
-                let child: u32 = row.get::<usize, i64>(1).try_into().unwrap();
+                let child = row.get::<usize, i32>(1) as u32;
                 Ok(Some((keychain, child)))
             }
             None => Ok(None),
@@ -276,7 +275,7 @@ impl WalletDatabase {
         for row in rows {
             let value: u64 = row.get::<usize, i64>(0).try_into().unwrap();
             let keychain: String = row.get(1);
-            let vout: u32 = row.get::<usize, i64>(2).try_into().unwrap();
+            let vout = row.get::<usize, i32>(2) as u32;
             let txid: Vec<u8> = row.get(3);
             let script: Vec<u8> = row.get(4);
             let is_spent: bool = row.get(5);
@@ -299,7 +298,7 @@ impl WalletDatabase {
     fn select_utxo_by_outpoint(&self, txid: &[u8], vout: u32) -> Result<Option<LocalUtxo>, Error> {
         let rows = query_blocking!(
             "SELECT value, keychain, script, is_spent FROM wallet_utxos WHERE txid=$1 AND vout=$2",
-            &[&txid, &to_i64!(vout)],
+            &[&txid, &(vout as i32)],
             self
         )?;
         match rows.get(0) {
@@ -537,7 +536,7 @@ impl WalletDatabase {
     fn delete_script_pubkey_by_path(&self, keychain: String, child: u32) -> Result<(), Error> {
         execute_blocking!(
             "DELETE FROM wallet_script_pubkeys WHERE keychain=$1 AND child=$2",
-            &[&keychain, &to_i64!(child)],
+            &[&keychain, &(child as i32)],
             self
         )
         .map(|_| ())
@@ -555,7 +554,7 @@ impl WalletDatabase {
     fn delete_utxo_by_outpoint(&self, txid: &[u8], vout: u32) -> Result<(), Error> {
         execute_blocking!(
             "DELETE FROM wallet_utxos WHERE txid=$1 AND vout=$2",
-            &[&txid, &to_i64!(vout)],
+            &[&txid, &(vout as i32)],
             self
         )
         .map(|_| ())

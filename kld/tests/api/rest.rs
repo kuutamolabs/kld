@@ -682,7 +682,7 @@ async fn test_list_payments() -> Result<()> {
         GetV1PayListPaymentsResponsePaymentsItemStatus::Pending
     ));
     assert!(payment_response.payment_preimage.is_none());
-    assert_eq!(payment.amount as i64, payment_response.amount_sent_msat);
+    assert_eq!(payment.amount, payment_response.amount_sent_msat);
     Ok(())
 }
 #[tokio::test(flavor = "multi_thread")]
@@ -741,7 +741,7 @@ async fn test_estimate_liquidity() -> Result<()> {
         Method::GET,
         routes::ESTIMATE_CHANNEL_LIQUIDITY,
         || GetV1EstimateChannelLiquidityBody {
-            scid: TEST_SHORT_CHANNEL_ID as i64,
+            scid: TEST_SHORT_CHANNEL_ID,
             target: TEST_PUBLIC_KEY.to_string(),
         },
     )?
@@ -809,8 +809,8 @@ async fn test_fetch_forwards() -> Result<()> {
     );
     assert_eq!(Some(4997000), forward.out_msat);
     assert_eq!(None, forward.payment_hash);
-    assert!(forward.received_time > 0);
-    assert!(forward.resolved_time.is_some());
+    assert!(forward.received_timestamp > 0);
+    assert!(forward.resolved_timestamp.is_some());
     assert_eq!(None, forward.failcode);
     assert_eq!(None, forward.failreason);
     Ok(())
@@ -828,9 +828,9 @@ async fn test_channel_history() -> Result<()> {
     let channel = response.first().context("expected channel")?;
     assert_eq!(mock_lightning().channel.channel_id.to_hex(), channel.id);
     assert_eq!(mock_lightning().channel.channel_id.to_hex(), channel.id);
-    assert_eq!(TEST_SHORT_CHANNEL_ID as i64, channel.scid);
+    assert_eq!(TEST_SHORT_CHANNEL_ID, channel.scid);
     assert_eq!(
-        mock_lightning().channel.user_channel_id as i64,
+        mock_lightning().channel.user_channel_id,
         channel.user_channel_id
     );
     assert_eq!(TEST_PUBLIC_KEY, channel.counterparty);

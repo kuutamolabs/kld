@@ -85,13 +85,13 @@ pub(crate) async fn estimate_channel_liquidity_range(
 ) -> Result<impl IntoResponse, ApiError> {
     let node_id = NodeId::from_str(&body.target).map_err(bad_request)?;
     match lightning_interface
-        .estimated_channel_liquidity_range(body.scid as u64, &node_id)
+        .estimated_channel_liquidity_range(body.scid, &node_id)
         .await
         .map_err(internal_server)?
     {
         Some((minimum, maximum)) => Ok(Json(GetV1EstimateChannelLiquidityResponse {
-            minimum: minimum as i64,
-            maximum: maximum as i64,
+            minimum,
+            maximum,
         })),
         None => Err(ApiError::NotFound(body.scid.to_string())),
     }
@@ -105,7 +105,7 @@ pub(crate) async fn get_fees(
         .await
         .map_err(internal_server)?;
     let response = GetV1GetFeesResponse {
-        fee_collected: total_forwards.fee as i64,
+        fee_collected: total_forwards.fee,
     };
     Ok(Json(response))
 }

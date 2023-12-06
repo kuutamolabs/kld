@@ -7,10 +7,10 @@ use lightning::{
 
 use crate::{
     database::{
-        channel::Channel,
         forward::{Forward, ForwardStatus, TotalForwards},
         invoice::Invoice,
         payment::{Payment, PaymentDirection},
+        ChannelRecord,
     },
     MillisatAmount,
 };
@@ -134,7 +134,7 @@ pub trait LightningInterface: Send + Sync {
 
     async fn fetch_total_forwards(&self) -> Result<TotalForwards>;
 
-    async fn channel_history(&self) -> Result<Vec<Channel>>;
+    async fn channel_history(&self) -> Result<Vec<ChannelRecord>>;
 
     async fn scorer(&self) -> Result<Vec<u8>>;
 }

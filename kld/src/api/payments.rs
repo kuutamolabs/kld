@@ -120,12 +120,9 @@ pub(crate) async fn list_payments(
                 _ => GetV1PayListPaymentsResponsePaymentsItemStatus::Failed,
             },
             payment_preimage: p.preimage.map(|i| i.0.to_hex()),
-            amount_sent_msat: p.amount as i64,
-            amount_msat: p
-                .bolt11
-                .as_ref()
-                .and_then(|b| b.amount_milli_satoshis().map(|a| a as i64)),
-            created_at: p.timestamp.unix_timestamp(),
+            amount_sent_msat: p.amount,
+            amount_msat: p.bolt11.as_ref().and_then(|b| b.amount_milli_satoshis()),
+            created_at: p.timestamp.unix_timestamp() as u64,
             destination: p
                 .bolt11
                 .and_then(|b| b.payee_pub_key().map(|pk| pk.to_string())),

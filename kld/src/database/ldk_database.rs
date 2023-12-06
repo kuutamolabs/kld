@@ -1,14 +1,11 @@
-use crate::database::{microsecond_timestamp, to_primitive};
+use crate::database::{microsecond_timestamp, to_primitive, RowExt};
 use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::settings::Settings;
-use crate::to_i64;
 
-use super::channel::Channel;
 use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
-use super::spendable_output::SpendableOutput;
 use super::{DurableConnection, Params};
 use anyhow::{anyhow, bail, Result};
 use bitcoin::hashes::hex::ToHex;
@@ -21,16 +18,19 @@ use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
 use lightning::events::ClosureReason;
-use lightning::ln::channelmanager::{ChannelManager, ChannelManagerReadArgs};
+use lightning::ln::channelmanager::{ChannelDetails, ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::SocketAddress;
 use lightning::ln::ChannelId;
 use lightning::ln::PaymentHash;
-use lightning::routing::gossip::NetworkGraph;
+use lightning::routing::gossip::{NetworkGraph, NodeId};
 use lightning::routing::router::Router;
 use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, WriteableScore,
 };
-use lightning::sign::{EntropySource, NodeSigner, SignerProvider, WriteableEcdsaChannelSigner};
+use lightning::sign::{
+    EntropySource, NodeSigner, SignerProvider, SpendableOutputDescriptor,
+    WriteableEcdsaChannelSigner,
+};
 use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
 use lightning::util::ser::ReadableArgs;
@@ -38,6 +38,7 @@ use lightning::util::ser::Writeable;
 use log::{debug, error};
 
 use super::peer::Peer;
+use super::{ChannelRecord, SpendableOutputRecord};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::Cursor;
@@ -146,38 +147,53 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn persist_channel(&self, channel: Channel) -> Result<()> {
-        debug!("Persist channel {}", channel.id.to_hex());
-        self.durable_connection
-            .get()
-            .await
-            .execute(
-                "INSERT INTO channels (
-                    id,
-                    scid,
-                    user_channel_id,
-                    counterparty,
-                    funding_txo,
-                    is_public,
-                    is_outbound,
-                    value,
-                    type_features,
-                    open_timestamp
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-                &[
-                    &channel.id.0.as_ref(),
-                    &(channel.scid as i64),
-                    &(channel.user_channel_id as i64),
-                    &channel.counterparty.encode(),
-                    &channel.funding_txo.encode(),
-                    &channel.is_public,
-                    &channel.is_outbound,
-                    &(channel.value as i64),
-                    &channel.type_features.encode(),
-                    &to_primitive(&channel.open_timestamp),
-                ],
-            )
-            .await?;
+    pub async fn persist_channel(&self, channel: &ChannelDetails) -> Result<()> {
+        debug!("Persist channel {}", channel.channel_id);
+        if let Some(scid) = &channel.short_channel_id {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "INSERT INTO channels (
+                        channel_id,
+                        counterparty,
+                        short_channel_id,
+                        is_usable,
+                        is_public,
+                        data
+                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
+                    &[
+                        &channel.channel_id.0.as_ref(),
+                        &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
+                        &(*scid as i64),
+                        &channel.is_usable,
+                        &channel.is_public,
+                        &channel.encode(),
+                    ],
+                )
+                .await?;
+        } else {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "INSERT INTO channels (
+                        channel_id,
+                        counterparty,
+                        is_usable,
+                        is_public,
+                        data
+                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
+                    &[
+                        &channel.channel_id.0.as_ref(),
+                        &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
+                        &channel.is_usable,
+                        &channel.is_public,
+                        &channel.encode(),
+                    ],
+                )
+                .await?;
+        }
         Ok(())
     }
 
@@ -191,7 +207,7 @@ impl LdkDatabase {
             .get()
             .await
             .execute(
-                "UPDATE channels SET close_timestamp = $1, closure_reason = $2 WHERE id = $3",
+                "UPDATE channels SET is_usable = false, update_timestamp = $1, closure_reason = $2 WHERE channel_id = $3",
                 &[
                     &to_primitive(&microsecond_timestamp()),
                     &closure_reason.encode(),
@@ -202,86 +218,106 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn fetch_channel_history(&self) -> Result<Vec<Channel>> {
+    pub async fn fetch_channel_history(&self) -> Result<Vec<ChannelRecord>> {
         let rows = self
             .durable_connection
             .get()
             .await
             .query(
                 "SELECT
-                id,
-                scid,
-                user_channel_id,
-                counterparty,
-                funding_txo,
-                is_public,
-                is_outbound,
-                value,
-                type_features,
-                open_timestamp,
-                close_timestamp,
-                closure_reason
+                    data,
+                    open_timestamp,
+                    update_timestamp,
+                    closure_reason
             FROM
                 channels
-            WHERE close_timestamp IS NOT NULL
-            ",
-                &[],
-            )
-            .await?;
-
-        let mut channels = vec![];
-        for row in rows {
-            channels.push(row.try_into()?);
-        }
-        Ok(channels)
-    }
-
-    pub async fn persist_spendable_output(&self, output: SpendableOutput) -> Result<()> {
-        debug!("Persist spendable output {}:{}", output.txid, output.vout);
-        self.durable_connection
-            .get()
-            .await
-            .execute(
-                "UPSERT INTO spendable_outputs (
-                    txid,
-                    vout,
-                    value,
-                    descriptor,
-                    status
-                ) VALUES ($1, $2, $3, $4, $5)",
-                &[
-                    &output.txid.as_ref(),
-                    &(output.vout as i64),
-                    &(output.value as i64),
-                    &output.serialize_descriptor()?,
-                    &output.status,
-                ],
-            )
-            .await?;
-        Ok(())
-    }
-
-    pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutput>> {
-        let rows = self
-            .durable_connection
-            .get()
-            .await
-            .query(
-                "SELECT
-                txid,
-                vout,
-                value,
-                descriptor,
-                status
-            FROM
-                spendable_outputs",
+            WHERE is_usable = false",
                 &[],
             )
             .await?;
 
         let mut outputs = vec![];
         for row in rows {
-            outputs.push(row.try_into()?);
+            outputs.push(ChannelRecord {
+                open_timestamp: row.get_timestamp("open_timestamp"),
+                update_timestamp: row.get_timestamp("update_timestamp"),
+                closure_reason: row
+                    .read_optional("closure_reason")?
+                    .map(|r: ClosureReason| r.to_string()),
+                detail: row.read("data")?,
+            });
+        }
+        Ok(outputs)
+    }
+
+    pub async fn persist_spendable_output(
+        &self,
+        descriptor: &SpendableOutputDescriptor,
+        is_spent: bool,
+    ) -> Result<()> {
+        let (txid, index, value) = match descriptor {
+            SpendableOutputDescriptor::StaticOutput { outpoint, output } => {
+                (outpoint.txid, outpoint.index, output.value)
+            }
+            SpendableOutputDescriptor::DelayedPaymentOutput(descriptor) => (
+                descriptor.outpoint.txid,
+                descriptor.outpoint.index,
+                descriptor.output.value,
+            ),
+            SpendableOutputDescriptor::StaticPaymentOutput(descriptor) => (
+                descriptor.outpoint.txid,
+                descriptor.outpoint.index,
+                descriptor.output.value,
+            ),
+        };
+        debug!("Persist spendable output {}:{}", txid, index);
+        let mut data = vec![];
+        descriptor.write(&mut data)?;
+
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                r#"UPSERT INTO spendable_outputs (
+                    txid,
+                    "index",
+                    value,
+                    data,
+                    is_spent
+                ) VALUES ($1, $2, $3, $4, $5)"#,
+                &[
+                    &txid.as_ref(),
+                    &(index as i16),
+                    &(value as i64),
+                    &data,
+                    &is_spent,
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn fetch_spendable_outputs(&self) -> Result<Vec<SpendableOutputRecord>> {
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(
+                r#"SELECT
+                data,
+                is_spent
+            FROM
+                spendable_outputs"#,
+                &[],
+            )
+            .await?;
+
+        let mut outputs = vec![];
+        for row in rows {
+            outputs.push(SpendableOutputRecord {
+                descriptor: row.read("data")?,
+                is_spent: row.get::<&str, bool>("is_spent"),
+            });
         }
         Ok(outputs)
     }
@@ -817,11 +853,6 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
         let mut monitor_buf = vec![];
         monitor.write(&mut monitor_buf).unwrap();
         let latest_update_id = monitor.get_latest_update_id();
-        let latest_update_id = if latest_update_id == u64::MAX {
-            i64::MAX
-        } else {
-            to_i64!(latest_update_id)
-        };
 
         let durable_connection = self.durable_connection.clone();
         let chain_monitor = self
@@ -836,7 +867,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                 .execute(
                     "UPSERT INTO channel_monitors (out_point, monitor, update_id) \
                 VALUES ($1, $2, $3)",
-                    &[&out_point_buf, &monitor_buf, &latest_update_id],
+                    &[&out_point_buf, &monitor_buf, &(latest_update_id as i64)],
                 )
                 .await;
             match result {
@@ -887,7 +918,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                                 &[
                                     &out_point_buf,
                                     &ciphertext,
-                                    &to_i64!(monitor.get_latest_update_id()),
+                                    &(monitor.get_latest_update_id() as i64),
                                 ],
                             )
                             .await
@@ -912,7 +943,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> chain::chainmonitor::Persist<Ch
                     block_in_place!(
                         "UPSERT INTO channel_monitor_updates (out_point, update, update_id) \
                         VALUES ($1, $2, $3)",
-                        &[&out_point_buf, &ciphertext, &to_i64!(update.update_id)],
+                        &[&out_point_buf, &ciphertext, &(update.update_id as i64)],
                         self
                     );
                 }

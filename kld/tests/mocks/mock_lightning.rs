@@ -16,9 +16,8 @@ use bitcoin::{
 use kld::{
     api::SocketAddress,
     database::{
-        channel::Channel,
         forward::{Forward, ForwardStatus, TotalForwards},
-        microsecond_timestamp,
+        microsecond_timestamp, ChannelRecord,
     },
 };
 use kld::{
@@ -368,11 +367,13 @@ impl LightningInterface for MockLightning {
         Ok(vec![self.forward.clone()])
     }
 
-    async fn channel_history(&self) -> Result<Vec<Channel>> {
-        let mut channel: Channel = self.channel.clone().try_into()?;
-        channel.close_timestamp = Some(microsecond_timestamp());
-        channel.closure_reason = Some(ClosureReason::CooperativeClosure);
-        Ok(vec![channel])
+    async fn channel_history(&self) -> Result<Vec<ChannelRecord>> {
+        Ok(vec![ChannelRecord {
+            open_timestamp: microsecond_timestamp(),
+            update_timestamp: microsecond_timestamp(),
+            closure_reason: Some(ClosureReason::CooperativeClosure.to_string()),
+            detail: self.channel.clone(),
+        }])
     }
 
     async fn scorer(&self) -> Result<Vec<u8>> {
