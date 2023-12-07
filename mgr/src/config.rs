@@ -806,6 +806,9 @@ fn validate_host(
         (None, _, _, Some((user_id, password))) => {
             try_verify_kuutamo_monitoring_config(user_id, password)
         }
+        (None, Some(_), _, None) | (None, _, Some(_), None) => {
+            bail!("The monitoring config for {name} is incomplete, please check");
+        }
         _ => {
             eprintln!("auth information for monitoring is insufficient, will not set up monitoring when deploying");
             None
@@ -1202,5 +1205,33 @@ fn test_validate_host() -> Result<()> {
     config.ipv6_address = Some("2607:5300:203:6cdf::/64".into());
     assert!(validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).is_ok());
 
+    Ok(())
+}
+
+#[test]
+fn test_incomplete_monitoring_setting() -> Result<()> {
+    let config = HostConfig {
+        ipv4_address: Some(
+            "192.168.0.1"
+                .parse::<IpAddr>()
+                .context("Invalid IP address")?,
+        ),
+        nixos_module: "kld-node".to_string(),
+        ipv4_cidr: Some(0),
+        ipv4_gateway: Some(
+            "192.168.255.255"
+                .parse::<IpAddr>()
+                .context("Invalid IP address")?,
+        ),
+        ipv6_address: None,
+        ipv6_gateway: None,
+        ipv6_cidr: None,
+        public_ssh_keys: vec!["".to_string()],
+        upgrade_schedule: Some("*-*-* 2:00:00".to_string()),
+        self_monitoring_username: Some("username".to_string()),
+        self_monitoring_password: Some("password".to_string()),
+        ..Default::default()
+    };
+    assert!(validate_host("ipv4-only", &config, &HostDefaultConfig::default(), false).is_err());
     Ok(())
 }
