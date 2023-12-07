@@ -1,0 +1,4 @@
+[Navigate]
+"<q>" = "Quit"
+"k"  = "NavUp"
+"j"= "NavDown"

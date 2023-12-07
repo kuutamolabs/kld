@@ -2,4 +2,5 @@
 members = [
     "kld",
     "test-utils",
+    "tui",
 ]

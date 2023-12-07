@@ -1,6 +1,8 @@
 [default.extend-words]
 lightning  = "lightning"
 inh = "inh"
+ratatui = "ratatui"
+Clos = "Clos"
 
 [files]
 extend-exclude = [ "*.csr" ]

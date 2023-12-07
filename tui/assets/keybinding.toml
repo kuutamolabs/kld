@@ -1,0 +1,11 @@
+[Navigate]
+"<esc>"     = "Quit"
+"<tab>"     = "SwitchTab"
+"<up>"      = "NavUp"
+"<down>"    = "NavDown"
+"<enter>"   = "EnderCmdMode"
+
+[Command]
+"<esc>"   = "ExitCmdMode"
+"<tab>"   = "SwitchInputs"
+"<enter>" = "TriggerExecute"
