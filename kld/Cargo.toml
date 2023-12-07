@@ -5,7 +5,7 @@ edition = "2021"
 
 [[bin]]
 name = "kld"
-path = "src/main.rs"
+path = "src/kld/main.rs"
 
 [[bin]]
 name = "kld-cli"
