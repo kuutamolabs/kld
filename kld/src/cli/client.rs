@@ -7,12 +7,6 @@ use std::{
 };
 
 use anyhow::Result;
-use api::{
-    routes, ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
-    GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds,
-    NetworkChannel, NetworkNode, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse,
-    SignRequest, SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
-};
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
@@ -26,6 +20,13 @@ use kld::api::codegen::{
     post_v1_peer_connect_body::PostV1PeerConnectBody,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
+use kld::api::payloads::{
+    ChannelFee, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse, GenerateInvoice,
+    GenerateInvoiceResponse, GetInfo, Invoice, KeysendRequest, ListFunds, NetworkChannel,
+    NetworkNode, PayInvoice, PaymentResponse, Peer, SetChannelFeeResponse, SignRequest,
+    SignResponse, WalletBalance, WalletTransfer, WalletTransferResponse,
+};
+use kld::api::routes;
 use reqwest::{
     blocking::{Client, ClientBuilder, RequestBuilder, Response},
     header::{HeaderValue, CONTENT_TYPE},
@@ -387,6 +388,8 @@ fn deserialize<T: DeserializeOwned + Serialize>(response: Response) -> Result<St
     if response.status().is_success() {
         Ok(to_string_pretty(&response.json::<T>()?)?)
     } else {
-        Ok(to_string_pretty(&response.json::<api::Error>()?)?)
+        Ok(to_string_pretty(
+            &response.json::<kld::api::payloads::Error>()?,
+        )?)
     }
 }

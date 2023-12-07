@@ -1,6 +1,6 @@
+use super::payloads::{Chain, GetInfo, SignRequest, SignResponse};
+use super::API_VERSION;
 use anyhow::anyhow;
-use api::{Chain, GetInfo};
-use api::{SignRequest, SignResponse, API_VERSION};
 use axum::Json;
 use axum::{response::IntoResponse, Extension};
 use bitcoin::Network;

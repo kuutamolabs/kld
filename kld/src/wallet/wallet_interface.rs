@@ -1,5 +1,5 @@
+use crate::api::payloads::FeeRate;
 use anyhow::Result;
-use api::FeeRate;
 use async_trait::async_trait;
 use bdk::{wallet::AddressInfo, Balance, LocalUtxo, TransactionDetails};
 use bitcoin::{Address, OutPoint, Transaction};

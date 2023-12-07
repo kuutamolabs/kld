@@ -23,7 +23,7 @@ impl WalletInterface for MockWallet {
         &self,
         _address: Address,
         amount: u64,
-        _fee_rate: Option<api::FeeRate>,
+        _fee_rate: Option<kld::api::payloads::FeeRate>,
         _min_conf: Option<u8>,
         _utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)> {

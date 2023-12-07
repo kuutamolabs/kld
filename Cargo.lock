@@ -90,17 +90,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bitcoin",
- "hex",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1117,7 +1106,6 @@ name = "kld"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "api",
  "async-trait",
  "axum",
  "axum-server",

@@ -15,8 +15,6 @@ path = "src/cli/main.rs"
 doctest = false
 
 [dependencies]
-api = { path = "../api" }
-
 lightning = { version = "0.0.118", features = ["max_level_trace", "_test_utils"] }
 lightning-block-sync = { version = "0.0.118", features = [ "rpc-client" ] }
 lightning-invoice = "0.26.0"

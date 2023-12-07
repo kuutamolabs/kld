@@ -2,12 +2,13 @@ use std::{str::FromStr, time::Duration};
 
 use crate::START_N_BLOCKS;
 use anyhow::{Context, Result};
-use api::{
-    routes, FundChannel, FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo,
-    Invoice, KeysendRequest, PayInvoice, PaymentResponse, WalletBalance,
-};
 use bitcoin::Address;
 use hyper::Method;
+use kld::api::payloads::{
+    FundChannel, FundChannelResponse, GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice,
+    KeysendRequest, PayInvoice, PaymentResponse, WalletBalance,
+};
+use kld::api::routes;
 use kld::{
     api::codegen::{
         get_v1_channel_list_peer_channels_response::{
@@ -120,7 +121,7 @@ pub async fn test_start() -> Result<()> {
                     id: format!("{}@127.0.0.1:{}", info_1.id, settings_1.peer_port),
                     satoshis: channel_amount.to_string(),
                     push_msat: Some(push_amount_msat.to_string()),
-                    fee_rate: Some(api::FeeRate::PerKb(fee_rate_kb as u32)),
+                    fee_rate: Some(kld::api::payloads::FeeRate::PerKb(fee_rate_kb as u32)),
                     ..Default::default()
                 }
             )

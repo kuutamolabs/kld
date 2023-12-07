@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{
     consensus::deserialize,
@@ -13,6 +12,7 @@ use bitcoin::{
     secp256k1::{PublicKey, Secp256k1, SecretKey},
     Network, Txid,
 };
+use kld::api::payloads::FeeRate;
 use kld::{
     api::SocketAddress,
     database::{
