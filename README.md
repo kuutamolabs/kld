@@ -1,4 +1,4 @@
-# Lighting Service Provider (LSP) node cluster
+# kuutamo lightning distribution - a Lighting Service Provider (LSP) node cluster
 
 **Nota bene**: kuutamo is bleeding edge decentralized financial infrastructure. Use with caution and only with funds you are prepared to lose.
 If you want to put it into production and would like to discuss SRE overlay support, please get in touch with us at [opencore-support@kuutamo.co](mailto:opencore-support@kuutamo.co)
@@ -13,6 +13,7 @@ If you want to put it into production and would like to discuss SRE overlay supp
 ### Client side:
 - `kld-mgr`       - A CLI tool that will SSH to your server(s) to perform the initial deployment
 - `kld-cli`       - A CLI tool that uses the kld API to support LSP operations
+- `kld-tui`       - A Terminal User Interface that uses the kld API to support LSP operations
 
 ### Server side:
 - `kld`             - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
@@ -27,12 +28,17 @@ If you want to put it into production and would like to discuss SRE overlay supp
 
 kld-mgr:
 ```bash
-nix run github:kuutamolabs/lightning-knd#kld-mgr -- help
+nix run github:kuutamolabs/kld#kld-mgr -- help
 ```
 
 kld-cli:
 ```bash
-nix run github:kuutamolabs/lightning-knd#kld-cli -- help
+nix run github:kuutamolabs/kld#kld-cli -- help
+```
+
+kld-tui:
+```bash
+nix run github:kuutamolabs/kld#kld-tui -- help
 ```
 
 ## Installing Nix
@@ -46,14 +52,14 @@ $ printf 'trusted-substituters = https://cache.garnix.io https://cache.nixos.org
 
 3. Test
 ```shell
-$ nix run --refresh github:kuutamolabs/lightning-knd#kld-mgr -- help
+$ nix run --refresh github:kuutamolabs/kld#kld-mgr -- help
 ```
 
 ## Install and in life operations
 
 By default, nodes are locked down once installed and cannot be connected to over SSH. Nodes are upgraded using a GitOps model enabling complete system change auditability.
 
-The customized `kuutamo-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
+The `kuutamo-updater` service checks for updates in your private deployment repository. If found, the cluster will upgrade.
 The maintainers of the deployment repository control when upgrades are accepted. They will review/audit, approve and merge the updated `flake.lock` PR.
 
 An example install and upgrade workflow is shown below using GitHub. Other Git platforms such as Bitbucket and GitLab can be used inplace.
@@ -70,13 +76,13 @@ To view Logs remotely set the `promtail_client` in the form `https://<user_id>:<
 
 - Step 1: Generate example `kld.toml`
 ```shell
-$ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-example > kld.toml
+$ nix run github:kuutamolabs/kld#kld-mgr generate-example > kld.toml
 ```
 - Step 2: Generate classic token with full repo permission, please refer to the [Github doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
 - Step 5.1: Generate deployment config
 ```shell
-$ nix run github:kuutamolabs/lightning-knd#kld-mgr generate-config ./deployment
+$ nix run github:kuutamolabs/kld#kld-mgr generate-config ./deployment
 ```
 - Step 5.2: Setup Git & GitHub deployment repository
 ```shell
@@ -98,18 +104,18 @@ Please refer to [update-flake-lock](https://github.com/DeterminateSystems/update
 
 - Step 7: Install
 ```shell
-$ nix run github:kuutamolabs/lightning-knd#kld-mgr install
+$ nix run github:kuutamolabs/kld#kld-mgr install
 ```
 - Connect to node via API. kld API is served on port `2244`
 ```shell
-$ nix run github:kuutamolabs/lightning-knd/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"
+$ nix run github:kuutamolabs/kld/mgr#kld-cli -- -t "x.x.x.x:2244" -c "secrets/lightning/ca.pem" -m "secrets/admin.macaroon get-info"
 ```
 
 
 ## kld-cli
 
 ```shell
-$ nix run github:kuutamolabs/lightning-knd#kld-cli -- help
+$ nix run github:kuutamolabs/kld#kld-cli -- help
 ```
 ```
 Usage: kld-cli --target <TARGET> --cert-path <CERT_PATH> --macaroon-path <MACAROON_PATH> <COMMAND>
