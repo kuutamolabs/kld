@@ -9,6 +9,10 @@
       kld-mgr = pkgs.callPackage ./kld-mgr.nix {
         inherit self;
       };
+      kld-tui = pkgs.callPackage ./kld-tui.nix {
+        craneLib = inputs.crane.lib.${system};
+        inherit self;
+      };
       kld-ctl = pkgs.callPackage ./kld-ctl.nix {
         inherit self;
       };

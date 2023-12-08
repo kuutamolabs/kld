@@ -1,6 +1,8 @@
+use super::payloads::{
+    FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates,
+};
 use crate::api::SocketAddress;
 use anyhow::anyhow;
-use api::{FeeRates, FeeRatesResponse, NetworkChannel, NetworkNode, OnChainFeeEstimates};
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use lightning::routing::gossip::{ChannelInfo, ChannelUpdateInfo, NodeId, NodeInfo};

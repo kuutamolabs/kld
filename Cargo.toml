@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "api",
     "kld",
     "test-utils",
+    "tui",
 ]

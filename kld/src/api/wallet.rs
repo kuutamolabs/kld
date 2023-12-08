@@ -1,12 +1,8 @@
+use super::payloads::{
+    ChannelState, ListFunds, ListFundsChannel, ListFundsOutput, OutputStatus, WalletBalance,
+    WalletTransfer, WalletTransferResponse,
+};
 use anyhow::anyhow;
-use api::ChannelState;
-use api::ListFunds;
-use api::ListFundsChannel;
-use api::ListFundsOutput;
-use api::OutputStatus;
-use api::WalletBalance;
-use api::WalletTransfer;
-use api::WalletTransferResponse;
 use axum::extract::Query;
 use axum::{response::IntoResponse, Extension, Json};
 use bitcoin::consensus::encode;

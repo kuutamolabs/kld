@@ -4,11 +4,6 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use api::{
-    FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice, ListFunds,
-    NetworkChannel, NetworkNode, PaymentResponse, Peer, SetChannelFeeResponse, SignResponse,
-    WalletBalance, WalletTransferResponse,
-};
 use kld::api::codegen::{
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
@@ -18,6 +13,11 @@ use kld::api::codegen::{
     get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
     get_v1_pay_list_payments_response::GetV1PayListPaymentsResponse,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
+};
+use kld::api::payloads::{
+    FeeRatesResponse, FundChannelResponse, GenerateInvoiceResponse, GetInfo, Invoice, ListFunds,
+    NetworkChannel, NetworkNode, PaymentResponse, Peer, SetChannelFeeResponse, SignResponse,
+    WalletBalance, WalletTransferResponse,
 };
 
 use super::rest::create_api_server;

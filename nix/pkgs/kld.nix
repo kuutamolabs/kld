@@ -6,17 +6,18 @@
 , cockroachdb
 , electrs
 , pkg-config
+, sqlite
 , self
 }:
 let
   paths = [
     "Cargo.toml"
     "Cargo.lock"
-    "api"
     "kld"
     "benches"
     "settings"
     "test-utils"
+    "tui"
   ];
   src = lib.cleanSourceWith {
     src = self;
@@ -24,7 +25,7 @@ let
   };
   cargoToml = "${src}/kld/Cargo.toml";
   buildInputs = [ openssl ];
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [ pkg-config sqlite ];
   cargoExtraArgs = "--workspace --all-features";
   outputHashes = {
     "git+https://github.com/kuutamolabs/bdk?branch=0.28.2-allow-begin-match-fail#198c698c6c97055fc3f88f8af92f42a45ef709eb" = "sha256-jDYkAS1u6yl5MgBaPUS+RIcf47vCdnBsRS9/IHeS6yI=";
@@ -38,7 +39,7 @@ in
 craneLib.buildPackage {
   name = "kld";
   inherit src cargoToml cargoArtifacts buildInputs nativeBuildInputs outputHashes;
-  cargoExtraArgs = "${cargoExtraArgs} --bins --examples --lib";
+  cargoExtraArgs = "${cargoExtraArgs} --bin kld --bin kld-cli --examples --lib";
 
   # avoid recompiling openssl
   preBuild = ''

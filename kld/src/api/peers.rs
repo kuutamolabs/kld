@@ -4,12 +4,12 @@ use super::codegen::{
     post_v1_peer_connect_body::PostV1PeerConnectBody,
     post_v1_peer_connect_response::PostV1PeerConnectResponse,
 };
+use super::payloads::Peer;
 use crate::{
     api::bad_request,
     ldk::{LightningInterface, PeerStatus},
 };
 use anyhow::Result;
-use api::Peer;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
 use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
 use http::StatusCode;

@@ -7,10 +7,10 @@ use crate::database::ChannelRecord;
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{log_error, MillisatAmount, Service};
 
+use crate::api::payloads::FeeRate;
 use crate::api::SocketAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
-use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;

@@ -43,13 +43,14 @@ use test_utils::{
     TEST_SHORT_CHANNEL_ID, TEST_TX, TEST_TX_ID,
 };
 
-use api::{
-    routes, ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
+use kld::api::payloads::{
+    ChannelFee, ChannelState, FeeRate, FeeRatesResponse, FundChannel, FundChannelResponse,
     GenerateInvoice, GenerateInvoiceResponse, GetInfo, Invoice, InvoiceStatus, KeysendRequest,
     ListFunds, NetworkChannel, NetworkNode, OutputStatus, PayInvoice, PaymentResponse, Peer,
     SetChannelFeeResponse, SignRequest, SignResponse, WalletBalance, WalletTransfer,
     WalletTransferResponse,
 };
+use kld::api::routes;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
@@ -465,7 +466,7 @@ async fn test_disconnect_peer_admin() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_disconnect_peer_admin_malformed_key() -> Result<()> {
     let context = create_api_server().await?;
-    let response: api::Error = admin_request(
+    let response: kld::api::payloads::Error = admin_request(
         &context,
         Method::DELETE,
         &routes::DISCONNECT_PEER.replace(":id", "abcd"),
@@ -890,7 +891,7 @@ fn fund_channel_request() -> FundChannel {
     FundChannel {
         id: TEST_PUBLIC_KEY.to_string() + "@1.2.3.4:1234",
         satoshis: "2100000".to_string(),
-        fee_rate: Some(api::FeeRate::Urgent),
+        fee_rate: Some(kld::api::payloads::FeeRate::Urgent),
         announce: Some(false),
         push_msat: Some("10000".to_string()),
         close_to: None,

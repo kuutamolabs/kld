@@ -2,8 +2,10 @@ mod channels;
 mod invoices;
 mod macaroon_auth;
 mod network;
+pub mod payloads;
 mod payments;
 mod peers;
+pub mod routes;
 mod skt_addr;
 mod utility;
 mod wallet;
@@ -40,7 +42,6 @@ use crate::{
     wallet::WalletInterface,
 };
 use anyhow::{Context, Result};
-use api::routes;
 use axum::{
     extract::Extension,
     middleware::from_fn,
@@ -57,6 +58,8 @@ use hyper::StatusCode;
 use log::{error, info, warn};
 use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tower_http::cors::CorsLayer;
+
+pub const API_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct RestApi {
     server: Server<RustlsAcceptor>,
@@ -198,7 +201,7 @@ impl IntoResponse for ApiError {
 }
 
 fn build_api_error(status_code: StatusCode, detail: String) -> Response {
-    let error = api::Error {
+    let error = crate::api::payloads::Error {
         status: status_code.to_string(),
         detail,
     };

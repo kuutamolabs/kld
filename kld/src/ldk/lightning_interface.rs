@@ -15,8 +15,8 @@ use crate::{
     MillisatAmount,
 };
 
+use crate::api::payloads::FeeRate;
 use crate::api::SocketAddress;
-use api::FeeRate;
 use async_trait::async_trait;
 use bitcoin::{secp256k1::PublicKey, Network, Transaction, Txid};
 

@@ -2,15 +2,13 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use super::payloads::{
+    ChannelFee, FundChannel, FundChannelResponse, SetChannelFee, SetChannelFeeResponse,
+};
 use crate::api::SocketAddress;
 use crate::database::{forward::ForwardStatus, ChannelRecord};
 use crate::ldk::htlc_destination_to_string;
 use anyhow::Context;
-use api::ChannelFee;
-use api::FundChannel;
-use api::FundChannelResponse;
-use api::SetChannelFee;
-use api::SetChannelFeeResponse;
 use axum::extract::Path;
 use axum::extract::Query;
 use axum::{response::IntoResponse, Extension, Json};

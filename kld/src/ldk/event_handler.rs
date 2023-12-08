@@ -99,7 +99,7 @@ impl EventHandler {
                         Ok(tx) => tx,
                         Err(e) => {
                             respond(Err(anyhow!("Failed funding transaction: {e}")));
-                            bail!(e);
+                            return Err(anyhow!("Failed funding transaction: {e}"));
                         }
                     };
 

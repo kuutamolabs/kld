@@ -55,7 +55,7 @@ impl<
         &self,
         address: Address,
         amount: u64,
-        fee_rate: Option<api::FeeRate>,
+        fee_rate: Option<crate::api::payloads::FeeRate>,
         min_conf: Option<u8>,
         utxos: Vec<OutPoint>,
     ) -> Result<(Transaction, TransactionDetails)> {
@@ -225,7 +225,7 @@ impl<
         &self,
         output_script: &Script,
         channel_value_satoshis: &u64,
-        fee_rate: api::FeeRate,
+        fee_rate: crate::api::payloads::FeeRate,
     ) -> Result<Transaction> {
         let wallet = self.wallet.lock().unwrap();
 
@@ -244,25 +244,25 @@ impl<
         Ok(funding_tx)
     }
 
-    fn to_bdk_fee_rate(&self, fee_rate: api::FeeRate) -> FeeRate {
+    fn to_bdk_fee_rate(&self, fee_rate: crate::api::payloads::FeeRate) -> FeeRate {
         match fee_rate {
-            api::FeeRate::Urgent => FeeRate::from_sat_per_kwu(
+            crate::api::payloads::FeeRate::Urgent => FeeRate::from_sat_per_kwu(
                 self.bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::OnChainSweep)
                     as f32,
             ),
-            api::FeeRate::Normal => FeeRate::from_sat_per_kwu(
+            crate::api::payloads::FeeRate::Normal => FeeRate::from_sat_per_kwu(
                 self.bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::NonAnchorChannelFee)
                     as f32,
             ),
-            api::FeeRate::Slow => FeeRate::from_sat_per_kwu(
+            crate::api::payloads::FeeRate::Slow => FeeRate::from_sat_per_kwu(
                 self.bitcoind_client
                     .get_est_sat_per_1000_weight(ConfirmationTarget::ChannelCloseMinimum)
                     as f32,
             ),
-            api::FeeRate::PerKw(s) => FeeRate::from_sat_per_kwu(s as f32),
-            api::FeeRate::PerKb(s) => FeeRate::from_sat_per_kvb(s as f32),
+            crate::api::payloads::FeeRate::PerKw(s) => FeeRate::from_sat_per_kwu(s as f32),
+            crate::api::payloads::FeeRate::PerKb(s) => FeeRate::from_sat_per_kvb(s as f32),
         }
     }
 }
@@ -296,19 +296,19 @@ mod test {
         let balance = wallet.balance()?;
         assert_eq!(balance, Balance::default());
 
-        let urgent_fee_rate = wallet.to_bdk_fee_rate(api::FeeRate::Urgent);
+        let urgent_fee_rate = wallet.to_bdk_fee_rate(crate::api::payloads::FeeRate::Urgent);
         assert_eq!(40f32, urgent_fee_rate.as_sat_per_vb());
 
-        let normal_fee_rate = wallet.to_bdk_fee_rate(api::FeeRate::Normal);
+        let normal_fee_rate = wallet.to_bdk_fee_rate(crate::api::payloads::FeeRate::Normal);
         assert_eq!(8f32, normal_fee_rate.as_sat_per_vb());
 
-        let slow_fee_rate = wallet.to_bdk_fee_rate(api::FeeRate::Slow);
+        let slow_fee_rate = wallet.to_bdk_fee_rate(crate::api::payloads::FeeRate::Slow);
         assert_eq!(2f32, slow_fee_rate.as_sat_per_vb());
 
-        let perkw_fee_rate = wallet.to_bdk_fee_rate(api::FeeRate::PerKw(4000));
+        let perkw_fee_rate = wallet.to_bdk_fee_rate(crate::api::payloads::FeeRate::PerKw(4000));
         assert_eq!(16f32, perkw_fee_rate.as_sat_per_vb());
 
-        let perkb_fee_rate = wallet.to_bdk_fee_rate(api::FeeRate::PerKb(1000));
+        let perkb_fee_rate = wallet.to_bdk_fee_rate(crate::api::payloads::FeeRate::PerKb(1000));
         assert_eq!(1f32, perkb_fee_rate.as_sat_per_vb());
 
         Ok(())
