@@ -827,14 +827,16 @@ async fn test_channel_history() -> Result<()> {
             .json()
             .await?;
     let channel = response.first().context("expected channel")?;
-    assert_eq!(mock_lightning().channel.channel_id.to_hex(), channel.id);
-    assert_eq!(mock_lightning().channel.channel_id.to_hex(), channel.id);
-    assert_eq!(TEST_SHORT_CHANNEL_ID, channel.scid);
+    assert_eq!(
+        mock_lightning().channel.channel_id.to_hex(),
+        channel.channel_id
+    );
+    assert_eq!(Some(TEST_SHORT_CHANNEL_ID), channel.short_channel_id);
     assert_eq!(
         mock_lightning().channel.user_channel_id,
         channel.user_channel_id
     );
-    assert_eq!(TEST_PUBLIC_KEY, channel.counterparty);
+    assert_eq!(TEST_PUBLIC_KEY, channel.counterparty_node_id);
     assert_eq!(format!("{TEST_TX_ID}:2"), channel.funding_txo);
     assert!(channel.is_public);
     assert!(channel.is_outbound);
@@ -844,7 +846,7 @@ async fn test_channel_history() -> Result<()> {
         channel.closure_reason,
         ClosureReason::CooperativeClosure.to_string()
     );
-    assert_eq!(channel.value, 1000000);
+    assert_eq!(channel.channel_value_satoshis, 1000000);
     Ok(())
 }
 

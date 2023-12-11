@@ -62,6 +62,22 @@ fn patch_api(out_dir: &String) {
                     "user_channel_id(mut self, value: impl Into<i64>)",
                     "user_channel_id(mut self, value: impl Into<u128>)",
                 )
+                .replace(
+                    "force_close_spend_delay: Option<i64>",
+                    "force_close_spend_delay: Option<u16>",
+                )
+                .replace(
+                    "force_close_spend_delay(mut self, value: impl Into<i64>)",
+                    "force_close_spend_delay(mut self, value: impl Into<u16>)",
+                )
+                .replace(
+                    "config_cltv_expiry_delta: i64",
+                    "config_cltv_expiry_delta: u16",
+                )
+                .replace(
+                    "config_cltv_expiry_delta(mut self, value: impl Into<i64>)",
+                    "config_cltv_expiry_delta(mut self, value: impl Into<u16>)",
+                )
                 .replace("i64", "u64")
                 .replace("i32", "u32")
                 .replace("_timestamp: u64", "_timestamp: i64")
