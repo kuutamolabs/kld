@@ -50,9 +50,11 @@ use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
 use lightning_invoice::DEFAULT_EXPIRY_TIME;
 use log::{debug, error, info, trace, warn};
+use prometheus::IntCounter;
 use rand::random;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::OnceLock;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 
@@ -596,6 +598,11 @@ impl Controller {
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
         seed: &[u8; 32],
         quit_signal: Shared<impl Future<Output = ()> + Send + 'static>,
+        probe_metrics: (
+            &'static OnceLock<IntCounter>,
+            &'static OnceLock<IntCounter>,
+            &'static OnceLock<IntCounter>,
+        ),
     ) -> Result<Controller> {
         let database = Arc::new(LdkDatabase::new(
             settings.clone(),
@@ -822,6 +829,7 @@ impl Controller {
                                 amt_msat,
                                 &probing_scorer,
                                 interval,
+                                probe_metrics,
                             );
                         }
                     }
@@ -1002,6 +1010,11 @@ fn send_probe(
     amt_msat: u64,
     scorer: &std::sync::RwLock<Scorer>,
     interval: u64,
+    probe_metrics: (
+        &OnceLock<IntCounter>,
+        &OnceLock<IntCounter>,
+        &OnceLock<IntCounter>,
+    ),
 ) {
     let chans = channel_manager.list_usable_channels();
     let chan_refs = chans.iter().collect::<Vec<_>>();
@@ -1030,9 +1043,15 @@ fn send_probe(
     if let Ok(route) = route_res {
         for path in route.paths {
             trace!("Probe {amt_msat:} on {path:?}");
+            if let Some(g) = probe_metrics.0.get() {
+                g.inc()
+            }
             match channel_manager.send_probe(path.clone()) {
                 Ok(_) => {
                     debug!("Probe success with {amt_msat:} on {path:?}");
+                    if let Some(g) = probe_metrics.1.get() {
+                        g.inc()
+                    }
                     scorer.probe_successful(&path);
                 }
                 Err(_) => {
@@ -1041,6 +1060,9 @@ fn send_probe(
                         mut hops,
                         blinded_tail,
                     } = path.clone();
+                    if let Some(g) = probe_metrics.2.get() {
+                        g.inc()
+                    }
                     while let Some(pop_hop) = hops.pop() {
                         sleep(Duration::from_secs(interval));
                         if !hops.is_empty()

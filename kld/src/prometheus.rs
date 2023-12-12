@@ -11,7 +11,10 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use lightning::chain::chaininterface::ConfirmationTarget;
 use log::info;
-use prometheus::{self, register_gauge, register_int_gauge, Encoder, Gauge, IntGauge, TextEncoder};
+use prometheus::{
+    self, register_gauge, register_int_counter, register_int_gauge, Encoder, Gauge, IntCounter,
+    IntGauge, TextEncoder,
+};
 
 use crate::bitcoind::BitcoindMetrics;
 use crate::database::DBConnection;
@@ -186,6 +189,11 @@ pub async fn start_prometheus_exporter(
     database: Arc<dyn DBConnection>,
     bitcoind: Arc<dyn BitcoindMetrics>,
     quit_signal: Shared<impl Future<Output = ()>>,
+    probe_metrics: (
+        &OnceLock<IntCounter>,
+        &OnceLock<IntCounter>,
+        &OnceLock<IntCounter>,
+    ),
 ) -> Result<()> {
     UPTIME
         .set(register_gauge!(
@@ -288,7 +296,27 @@ pub async fn start_prometheus_exporter(
             "The update time of scorer"
         )?)
         .unwrap_or_default();
-
+    probe_metrics
+        .0
+        .set(register_int_counter!(
+            "probe_total_count",
+            "The total count of probe has tried"
+        )?)
+        .unwrap_or_default();
+    probe_metrics
+        .1
+        .set(register_int_counter!(
+            "probe_successful_count",
+            "The total successful count of probe"
+        )?)
+        .unwrap_or_default();
+    probe_metrics
+        .2
+        .set(register_int_counter!(
+            "probe_failed_count",
+            "The total failed count of probe"
+        )?)
+        .unwrap_or_default();
     let addr = address.parse().context("Failed to parse exporter")?;
     let make_service = make_service_fn(move |_| {
         let lightning_metrics_clone = lightning_metrics.clone();
