@@ -23,7 +23,7 @@ use crate::{
         channels::{
             close_channel, force_close_channel_with_broadcast,
             force_close_channel_without_broadcast, list_closed_channels, list_forwards,
-            list_peer_channels, local_remote_balance, open_channel, set_channel_fee,
+            list_active_channels, local_remote_balance, open_channel, set_channel_fee,
         },
         invoices::{decode_invoice, generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
@@ -96,7 +96,7 @@ impl RestApi {
             )
             .route(routes::GET_BALANCE, get(get_balance))
             .route(routes::LIST_FUNDS, get(list_funds))
-            .route(routes::LIST_PEER_CHANNELS, get(list_peer_channels))
+            .route(routes::LIST_PEER_CHANNELS, get(list_active_channels))
             .route(routes::LIST_PEERS, get(list_peers))
             .route(routes::LIST_NETWORK_NODE, get(get_network_node))
             .route(routes::LIST_NETWORK_NODES, get(list_network_nodes))

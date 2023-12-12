@@ -8,9 +8,9 @@ use std::{
 
 use anyhow::Result;
 use kld::api::codegen::{
+    get_v1_channel_active_response::GetV1ChannelActiveResponse,
     get_v1_channel_closed_response::GetV1ChannelClosedResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
-    get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
@@ -104,11 +104,11 @@ impl Api {
         deserialize::<ListFunds>(response)
     }
 
-    pub fn list_peer_channels(&self) -> Result<String> {
+    pub fn list_active_channels(&self) -> Result<String> {
         let response = self
             .request(Method::GET, routes::LIST_PEER_CHANNELS)
             .send()?;
-        deserialize::<Vec<GetV1ChannelListPeerChannelsResponse>>(response)
+        deserialize::<Vec<GetV1ChannelActiveResponse>>(response)
     }
 
     pub fn list_peers(&self) -> Result<String> {

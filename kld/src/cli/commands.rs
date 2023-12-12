@@ -61,8 +61,8 @@ pub enum KldCliSubCommand {
         #[arg()]
         public_key: String,
     },
-    /// Fetch a list of this nodes open channels.
-    ListPeerChannels,
+    /// Fetch a list of this node's active channels.
+    ListActiveChannels,
     /// Open a channel with another node.
     OpenChannel {
         /// The public key of the node to open a channel with. Optionally provide host and port [id@host:port].

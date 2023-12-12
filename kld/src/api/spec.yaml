@@ -166,12 +166,15 @@ paths:
           description: Bad request
         "500":
           description: Server error
-  /v1/channel/listPeerChannels:
+  # Note:
+  # The open channels and active channels are possible not the same, if the channel is not closed by us in a proper way.
+  # It will still open in db, because we are not hook all the channel closed event now.
+  /v1/channel/active:
     get:
       tags:
         - Channel Management
-      description: Returns data on channels that are known to the node
-      operationId: listpeerchannel
+      description: Returns data on channels that are active in channel monitor
+      operationId: channel_active
       security:
         - MacaroonAuth: []
       responses:

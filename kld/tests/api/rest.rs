@@ -11,11 +11,11 @@ use bitcoin::hashes::hex::ToHex;
 use futures::FutureExt;
 use hyper::Method;
 use kld::api::bind_api_server;
+use kld::api::codegen::get_v1_channel_active_response::{
+    GetV1ChannelActiveResponse, GetV1ChannelActiveResponseState,
+};
 use kld::api::codegen::get_v1_channel_closed_response::GetV1ChannelClosedResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
-use kld::api::codegen::get_v1_channel_list_peer_channels_response::{
-    GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseState,
-};
 use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_body::GetV1EstimateChannelLiquidityBody;
 use kld::api::codegen::get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse;
@@ -236,9 +236,9 @@ async fn test_list_funds_readonly() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_list_peer_channels_readonly() -> Result<()> {
+async fn test_list_active_channels_readonly() -> Result<()> {
     let context = create_api_server().await?;
-    let channels: Vec<GetV1ChannelListPeerChannelsResponse> =
+    let channels: Vec<GetV1ChannelActiveResponse> =
         readonly_request(&context, Method::GET, routes::LIST_PEER_CHANNELS)?
             .send()
             .await?
@@ -255,7 +255,7 @@ async fn test_list_peer_channels_readonly() -> Result<()> {
     assert!(!channel.private);
     assert!(matches!(
         channel.state,
-        GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
+        GetV1ChannelActiveResponseState::ChanneldNormal
     ));
     assert_eq!(100000, channel.to_us_msat);
     assert_eq!(1000000000, channel.total_msat);

@@ -29,7 +29,7 @@ fn run_command(args: KldCliCommand) -> Result<()> {
             fee_rate,
         } => api.withdraw(address, satoshis, fee_rate)?,
         KldCliSubCommand::ListFunds => api.list_funds()?,
-        KldCliSubCommand::ListPeerChannels => api.list_peer_channels()?,
+        KldCliSubCommand::ListActiveChannels => api.list_active_channels()?,
         KldCliSubCommand::ListPeers => api.list_peers()?,
         KldCliSubCommand::ConnectPeer { public_key } => api.connect_peer(public_key)?,
         KldCliSubCommand::DisconnectPeer { public_key } => api.disconnect_peer(public_key)?,

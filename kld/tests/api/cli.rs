@@ -5,9 +5,9 @@ use std::{
 
 use anyhow::{bail, Result};
 use kld::api::codegen::{
+    get_v1_channel_active_response::GetV1ChannelActiveResponse,
     get_v1_channel_closed_response::GetV1ChannelClosedResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
-    get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
     get_v1_estimate_channel_liquidity_response::GetV1EstimateChannelLiquidityResponse,
     get_v1_get_fees_response::GetV1GetFeesResponse, get_v1_newaddr_response::GetV1NewaddrResponse,
@@ -72,9 +72,9 @@ async fn test_cli_list_funds() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_cli_list_peer_channels() -> Result<()> {
-    let output = run_cli("list-peer-channels", &[]).await?;
-    let _: Vec<GetV1ChannelListPeerChannelsResponse> = deserialize(&output.stdout)?;
+async fn test_cli_list_active_channels() -> Result<()> {
+    let output = run_cli("list-active-channels", &[]).await?;
+    let _: Vec<GetV1ChannelActiveResponse> = deserialize(&output.stdout)?;
     Ok(())
 }
 

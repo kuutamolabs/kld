@@ -11,8 +11,8 @@ use kld::api::payloads::{
 use kld::api::routes;
 use kld::{
     api::codegen::{
-        get_v1_channel_list_peer_channels_response::{
-            GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseState,
+        get_v1_channel_active_response::{
+            GetV1ChannelActiveResponse, GetV1ChannelActiveResponseState,
         },
         get_v1_newaddr_response::GetV1NewaddrResponse,
     },
@@ -145,7 +145,7 @@ pub async fn test_start() -> Result<()> {
         7,
         matches!(
             kld_1
-                .call_rest_api::<Vec<GetV1ChannelListPeerChannelsResponse>, ()>(
+                .call_rest_api::<Vec<GetV1ChannelActiveResponse>, ()>(
                     Method::GET,
                     routes::LIST_PEER_CHANNELS,
                     ()
@@ -153,11 +153,11 @@ pub async fn test_start() -> Result<()> {
                 .await?
                 .get(0)
                 .map(|c| &c.state),
-            Some(&GetV1ChannelListPeerChannelsResponseState::ChanneldNormal)
+            Some(&GetV1ChannelActiveResponseState::ChanneldNormal)
         )
     );
     let channels = kld_1
-        .call_rest_api::<Vec<GetV1ChannelListPeerChannelsResponse>, ()>(
+        .call_rest_api::<Vec<GetV1ChannelActiveResponse>, ()>(
             Method::GET,
             routes::LIST_PEER_CHANNELS,
             (),

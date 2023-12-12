@@ -25,19 +25,19 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
+use super::codegen::get_v1_channel_active_response::GetV1ChannelActiveResponseState;
+use super::codegen::get_v1_channel_active_response::{
+    GetV1ChannelActiveResponse, GetV1ChannelActiveResponseOpener,
+};
 use super::codegen::get_v1_channel_closed_response::GetV1ChannelClosedResponseItem;
 use super::codegen::get_v1_channel_list_forwards_response::{
     GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
-};
-use super::codegen::get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponseState;
-use super::codegen::get_v1_channel_list_peer_channels_response::{
-    GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseOpener,
 };
 use super::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
 use super::internal_server;
 use super::ApiError;
 
-pub(crate) async fn list_peer_channels(
+pub(crate) async fn list_active_channels(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
     let peers = lightning_interface
@@ -53,7 +53,7 @@ pub(crate) async fn list_peer_channels(
             .context("expected channel config")
             .map_err(internal_server)?;
 
-        response.push(GetV1ChannelListPeerChannelsResponse {
+        response.push(GetV1ChannelActiveResponse {
             alias: lightning_interface
                 .alias_of(&channel.counterparty.node_id)
                 .unwrap_or_default(),
@@ -72,9 +72,9 @@ pub(crate) async fn list_peer_channels(
             funding_txid: channel.funding_txo.map(|x| x.txid.to_string()),
             htlcs: None,
             opener: if channel.is_outbound {
-                GetV1ChannelListPeerChannelsResponseOpener::Local
+                GetV1ChannelActiveResponseOpener::Local
             } else {
-                GetV1ChannelListPeerChannelsResponseOpener::Remote
+                GetV1ChannelActiveResponseOpener::Remote
             },
             peer_connected: peers
                 .iter()
@@ -87,9 +87,9 @@ pub(crate) async fn list_peer_channels(
             short_channel_id: channel.short_channel_id.map(|x| x.to_string()),
             spendable_msat: channel.outbound_capacity_msat,
             state: if channel.is_usable {
-                GetV1ChannelListPeerChannelsResponseState::ChanneldNormal
+                GetV1ChannelActiveResponseState::ChanneldNormal
             } else {
-                GetV1ChannelListPeerChannelsResponseState::Openingd
+                GetV1ChannelActiveResponseState::Openingd
             },
             our_reserve_msat: channel.unspendable_punishment_reserve.map(|x| x * 1000),
             their_reserve_msat: (channel.counterparty.unspendable_punishment_reserve * 1000),
