@@ -332,6 +332,15 @@ struct HostConfig {
     #[toml_example(default = 50000)]
     pub probe_amt_msat: Option<u64>,
 
+    /// The address of tcp connection for electrs server
+    #[serde(default)]
+    #[toml_example(default = "127.0.0.1")]
+    pub electrs_address: Option<IpAddr>,
+    /// The port of tcp connection for electrs server
+    #[serde(default)]
+    #[toml_example(default = 60001)]
+    pub electrs_port: Option<u16>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -425,6 +434,11 @@ pub struct Host {
     pub probe_interval: Option<u64>,
     /// The default probe amount in msat for the node
     pub probe_amt_msat: Option<u64>,
+
+    /// The address of tcp connection for electrs server
+    pub electrs_address: Option<IpAddr>,
+    /// The port of tcp connection for electrs server
+    pub electrs_port: Option<u16>,
 }
 
 impl Host {
@@ -893,6 +907,8 @@ fn validate_host(
         upgrade_schedule: host.upgrade_schedule.to_owned(),
         probe_interval: host.probe_interval.or(default.probe_interval),
         probe_amt_msat: host.probe_amt_msat.or(default.probe_amt_msat),
+        electrs_address: host.electrs_address,
+        electrs_port: host.electrs_port,
     })
 }
 
@@ -1186,6 +1202,8 @@ fn test_validate_host() -> Result<()> {
             upgrade_schedule: Some("*-*-* 2:00:00".to_string()),
             probe_interval: None,
             probe_amt_msat: None,
+            electrs_address: None,
+            electrs_port: None,
         }
     );
 

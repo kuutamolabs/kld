@@ -160,4 +160,10 @@ kld_api_ip_access_list = []
 # The default probe amount in msat for the node
 # probe_amt_msat = 50000
 
+# The address of tcp connection for electrs server
+# electrs_address = "127.0.0.1"
+
+# The port of tcp connection for electrs server
+# electrs_port = 60001
+
 
