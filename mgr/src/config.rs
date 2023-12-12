@@ -979,7 +979,7 @@ pub fn parse_config(
     }
     let kld_nodes = hosts
         .iter()
-        .filter(|(_, host)| host.nixos_module == "kld-node")
+        .filter(|(_, host)| host.nixos_module.starts_with("kld"))
         .count();
     if kld_nodes != 1 {
         bail!("Exactly one kld-node is required, found {}", kld_nodes);
