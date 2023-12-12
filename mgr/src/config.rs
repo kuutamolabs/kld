@@ -350,6 +350,15 @@ struct HostConfig {
     #[toml_example(default = 5)]
     pub shutdown_graceful_sec: Option<u64>,
 
+    /// The address of tcp connection for electrs server
+    #[serde(default)]
+    #[toml_example(default = "127.0.0.1")]
+    pub electrs_address: Option<IpAddr>,
+    /// The port of tcp connection for electrs server
+    #[serde(default)]
+    #[toml_example(default = 60001)]
+    pub electrs_port: Option<u16>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -448,6 +457,11 @@ pub struct Host {
 
     /// The graceful period in seconds when a shutdown signal is received
     pub shutdown_graceful_sec: Option<u64>,
+
+    /// The address of tcp connection for electrs server
+    pub electrs_address: Option<IpAddr>,
+    /// The port of tcp connection for electrs server
+    pub electrs_port: Option<u16>,
 }
 
 impl Host {
@@ -942,6 +956,8 @@ fn validate_host(
         },
         probe_targets,
         shutdown_graceful_sec: host.shutdown_graceful_sec.or(default.shutdown_graceful_sec),
+        electrs_address: host.electrs_address,
+        electrs_port: host.electrs_port,
     })
 }
 
@@ -1012,7 +1028,7 @@ pub fn parse_config(
     }
     let kld_nodes = hosts
         .iter()
-        .filter(|(_, host)| host.nixos_module == "kld-node")
+        .filter(|(_, host)| host.nixos_module.starts_with("kld"))
         .count();
     if kld_nodes != 1 {
         bail!("Exactly one kld-node is required, found {}", kld_nodes);
@@ -1237,6 +1253,8 @@ fn test_validate_host() -> Result<()> {
             probe_amt_msat: None,
             probe_targets: Vec::new(),
             shutdown_graceful_sec: None,
+            electrs_address: None,
+            electrs_port: None,
         }
     );
 
