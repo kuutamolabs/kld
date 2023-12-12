@@ -183,126 +183,163 @@ paths:
           schema:
             type: object
             properties:
-              peer_id:
-                type: string
-                description: Pub key
               peer_connected:
                 type: boolean
                 description: Peer connection status (true or false)
-              opener:
+              alias:
                 type: string
-                enum: [local, remote]
-                description: Who initiated the channel (local or remote)
-              short_channel_id:
-                type: string
-                description: Short Channel ID
+                description: Alias of the node
               channel_id:
                 type: string
-                description: Channel ID
-              funding_txid:
+              counterparty_node_id:
                 type: string
-                description: Channel funding transaction
-              private:
-                type: boolean
-                description: Private channel flag (true or false)
-              to_us_msat:
+                description: counterparty public
+              counterparty_unspendable_punishment_reserve:
                 type: integer
                 minimum: 0
-                description: Msatoshis to us
-              to_them_msat:
+              counterparty_outbound_htlc_minimum_msat:
                 type: integer
+                nullable: true
                 minimum: 0
-                description: Msatoshis to them
-              total_msat:
+              counterparty_outbound_htlc_maximum_msat:
                 type: integer
+                nullable: true
                 minimum: 0
-                description: Msatoshis total
-              their_reserve_msat:
-                type: integer
-                minimum: 0
-                description: Their channel reserve Msats
-              our_reserve_msat:
-                type: integer
-                minimum: 0
-                description: Our channel reserve Msats
-              spendable_msat:
-                type: integer
-                minimum: 0
-                description: Spendable Msats
-              receivable_msat:
-                type: integer
-                minimum: 0
-                description: Receivable Msats
-              funding:
-                type: object
-                description: Funding
-              state:
+              funding_txo:
                 type: string
-                enum: [CHANNELD_NORMAL, OPENINGD]
-                description: Channel connection status
-              fee_base_msat:
-                type: integer
-                format: int32
-                minimum: 0
-                description: Base Fee Msats
-              fee_proportional_millionths:
-                type: integer
-                format: int32
-                minimum: 0
-                description: Fee Proportion Millionth
-              dust_limit_msat:
-                type: integer
-                minimum: 0
-                description: Dust limit Msats
-              htlcs:
-                type: array
-                items:
-                  type: object
-                description: List of HTLCs
+                description: funding transaction output
               features:
                 type: array
                 items:
                   type: string
                 description: Features which apply to this channel
-              alias:
+              short_channel_id:
+                type: integer
+                nullable: true
+                minimum: 0
+              outbound_scid_alias:
+                type: integer
+                nullable: true
+                minimum: 0
+              inbound_scid_alias:
+                type: integer
+                nullable: true
+                minimum: 0
+              channel_value_satoshis:
+                type: integer
+                minimum: 0
+              unspendable_punishment_reserve:
+                type: integer
+                nullable: true
+                minimum: 0
+              user_channel_id:
+                type: integer
+                minimum: 0
+                description: user channel ID
+              feerate_sat_per_1000_weight:
+                type: integer
+                format: int32
+                nullable: true
+                minimum: 0
+              balance_msat:
+                type: integer
+                minimum: 0
+              outbound_capacity_msat:
+                type: integer
+                nullable: true
+                minimum: 0
+              next_outbound_htlc_limit_msat:
+                type: integer
+                nullable: true
+                minimum: 0
+              next_outbound_htlc_minimum_msat:
+                type: integer
+                minimum: 0
+              inbound_capacity_msat:
+                type: integer
+                minimum: 0
+              confirmations_required:
+                type: integer
+                format: int32
+                nullable: true
+                minimum: 0
+              confirmations:
+                type: integer
+                format: int32
+                nullable: true
+                minimum: 0
+              force_close_spend_delay:
+                type: integer
+                nullable: true
+                minimum: 0
+              is_outbound:
+                type: boolean
+                description: is channel inbound or outbound
+              is_channel_ready:
+                type: boolean
+              channel_shutdown_state:
                 type: string
-                description: Alias of the node
-              minimum_htlc_in_msat:
+              is_usable:
+                type: boolean
+              is_public:
+                type: boolean
+                description: is channel public or private
+              inbound_htlc_minimum_msat:
+                type: integer
+                nullable: true
+                minimum: 0
+              inbound_htlc_maximum_msat:
+                type: integer
+                nullable: true
+                minimum: 0
+              config_forwarding_fee_proportional_millionths:
+                type: integer
+                format: int32
+                minimum: 0
+              config_forwarding_fee_base_msat:
+                type: integer
+                format: int32
+                minimum: 0
+              config_cltv_expiry_delta:
                 type: integer
                 minimum: 0
-                description: Minimum HTLC we can receive on this channel
-              max_total_htlc_in_msat:
+              config_max_dust_htlc_exposure_is_fixed:
+                type: boolean
+              config_max_dust_htlc_exposure_value:
                 type: integer
                 minimum: 0
-                description: Maximum total HTLCs we can receive on this channel
-              minimum_htlc_out_msat:
+                description: if config_max_dust_htlc_exposure_is_fixed the config_max_dust_htlc_exposure_value is FixedLimitMsat else it will be FeeRateMultiplier
+              config_force_close_avoidance_max_fee_satoshis:
                 type: integer
                 minimum: 0
-                description: Minimum HTLC we can send
-              maximum_htlc_out_msat:
-                type: integer
-                minimum: 0
-                description: Maximum HTLC we can send
+              config_accept_underpaying_htlcs:
+                type: boolean
             required:
-              - peer_id
               - peer_connected
-              - opener
-              - channel_id
-              - private
-              - to_us_msat
-              - to_them_msat
-              - total_msat
-              - their_reserve_msat
-              - spendable_msat
-              - receivable_msat
-              - state
-              - fee_base_msat
-              - fee_proportional_millionths
-              - dust_limit_msat
-              - features
               - alias
-              - maximum_htlc_out_msat
-              - minimum_htlc_out_msat
+              - channel_id
+              - counterparty_node_id
+              - counterparty_unspendable_punishment_reserve
+              - channel_value_satoshis
+              - funding_txo
+              - features
+              - user_channel_id
+              - balance_msat
+              - outbound_capacity_msat
+              - next_outbound_htlc_limit_msat
+              - next_outbound_htlc_minimum_msat
+              - inbound_capacity_msat
+              - is_outbound
+              - is_channel_ready
+              - is_usable
+              - is_public
+              - config_forwarding_fee_proportional_millionths
+              - config_forwarding_fee_base_msat
+              - config_cltv_expiry_delta
+              - config_max_dust_htlc_exposure_is_fixed
+              - config_max_dust_htlc_exposure_value
+              - config_force_close_avoidance_max_fee_satoshis
+              - config_accept_underpaying_htlcs
         "400":
           description: Bad request
         "500":
@@ -411,33 +448,11 @@ paths:
                 funding_txo:
                   type: string
                   description: funding transaction output
-                # ChannelTypeFeatures
-                supports_static_remote_key:
-                  type: boolean
-                requires_static_remote_key:
-                  type: boolean
-                supports_anchors_nonzero_fee_htlc_tx:
-                  type: boolean
-                requires_anchors_nonzero_fee_htlc_tx:
-                  type: boolean
-                supports_anchors_zero_fee_htlc_tx:
-                  type: boolean
-                requires_anchors_zero_fee_htlc_tx:
-                  type: boolean
-                supports_taproot:
-                  type: boolean
-                requires_taproot:
-                  type: boolean
-                supports_scid_privacy:
-                  type: boolean
-                requires_scid_privacy:
-                  type: boolean
-                supports_zero_conf:
-                  type: boolean
-                requires_zero_conf:
-                  type: boolean
-                requires_unknown_bits:
-                  type: boolean
+                features:
+                  type: array
+                  items:
+                    type: string
+                  description: Features which apply to this channel
                 short_channel_id:
                   type: integer
                   nullable: true
@@ -556,19 +571,7 @@ paths:
                 - counterparty_unspendable_punishment_reserve
                 - channel_value_satoshis
                 - funding_txo
-                - supports_static_remote_key
-                - requires_static_remote_key
-                - supports_anchors_nonzero_fee_htlc_tx
-                - requires_anchors_nonzero_fee_htlc_tx
-                - supports_anchors_zero_fee_htlc_tx
-                - requires_anchors_zero_fee_htlc_tx
-                - supports_taproot
-                - requires_taproot
-                - supports_scid_privacy
-                - requires_scid_privacy
-                - supports_zero_conf
-                - requires_zero_conf
-                - requires_unknown_bits
+                - features
                 - user_channel_id
                 - balance_msat
                 - outbound_capacity_msat

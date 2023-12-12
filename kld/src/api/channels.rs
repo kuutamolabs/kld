@@ -25,10 +25,7 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
-use super::codegen::get_v1_channel_active_response::GetV1ChannelActiveResponseState;
-use super::codegen::get_v1_channel_active_response::{
-    GetV1ChannelActiveResponse, GetV1ChannelActiveResponseOpener,
-};
+use super::codegen::get_v1_channel_active_response::GetV1ChannelActiveResponse;
 use super::codegen::get_v1_channel_closed_response::GetV1ChannelClosedResponseItem;
 use super::codegen::get_v1_channel_list_forwards_response::{
     GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
@@ -52,54 +49,71 @@ pub(crate) async fn list_active_channels(
             .config
             .context("expected channel config")
             .map_err(internal_server)?;
+        let (config_max_dust_htlc_exposure_is_fixed, config_max_dust_htlc_exposure_value) =
+            match config.max_dust_htlc_exposure {
+                MaxDustHTLCExposure::FixedLimitMsat(value) => (true, value),
+                MaxDustHTLCExposure::FeeRateMultiplier(value) => (false, value),
+            };
 
         response.push(GetV1ChannelActiveResponse {
             alias: lightning_interface
                 .alias_of(&channel.counterparty.node_id)
                 .unwrap_or_default(),
-            channel_id: channel.channel_id.to_hex(),
-            dust_limit_msat: match config.max_dust_htlc_exposure {
-                MaxDustHTLCExposure::FixedLimitMsat(x) => x,
-                MaxDustHTLCExposure::FeeRateMultiplier(x) => x,
-            },
-            features: channel
-                .channel_type
-                .map(format_features)
-                .unwrap_or_default(),
-            fee_base_msat: config.forwarding_fee_base_msat,
-            fee_proportional_millionths: config.forwarding_fee_proportional_millionths,
-            funding: None,
-            funding_txid: channel.funding_txo.map(|x| x.txid.to_string()),
-            htlcs: None,
-            opener: if channel.is_outbound {
-                GetV1ChannelActiveResponseOpener::Local
-            } else {
-                GetV1ChannelActiveResponseOpener::Remote
-            },
             peer_connected: peers
                 .iter()
                 .find(|p| p.public_key == channel.counterparty.node_id)
                 .map(|p| p.status == PeerStatus::Connected)
                 .unwrap_or_default(),
-            peer_id: channel.counterparty.node_id.to_string(),
-            private: !channel.is_public,
-            receivable_msat: channel.inbound_capacity_msat,
-            short_channel_id: channel.short_channel_id.map(|x| x.to_string()),
-            spendable_msat: channel.outbound_capacity_msat,
-            state: if channel.is_usable {
-                GetV1ChannelActiveResponseState::ChanneldNormal
-            } else {
-                GetV1ChannelActiveResponseState::Openingd
-            },
-            our_reserve_msat: channel.unspendable_punishment_reserve.map(|x| x * 1000),
-            their_reserve_msat: (channel.counterparty.unspendable_punishment_reserve * 1000),
-            to_them_msat: ((channel.channel_value_satoshis * 1000) - channel.balance_msat),
-            minimum_htlc_in_msat: channel.inbound_htlc_minimum_msat,
-            max_total_htlc_in_msat: channel.inbound_htlc_maximum_msat,
-            minimum_htlc_out_msat: channel.next_outbound_htlc_minimum_msat,
-            maximum_htlc_out_msat: channel.next_outbound_htlc_limit_msat,
-            to_us_msat: channel.balance_msat,
-            total_msat: channel.channel_value_satoshis * 1000,
+            channel_id: channel.channel_id.to_hex(),
+            counterparty_node_id: channel.counterparty.node_id.to_string(),
+            counterparty_unspendable_punishment_reserve: channel
+                .counterparty
+                .unspendable_punishment_reserve,
+            counterparty_outbound_htlc_minimum_msat: channel
+                .counterparty
+                .outbound_htlc_minimum_msat,
+            counterparty_outbound_htlc_maximum_msat: channel
+                .counterparty
+                .outbound_htlc_maximum_msat,
+            funding_txo: channel
+                .funding_txo
+                .map(|txo| format!("{}:{}", txo.txid, txo.index))
+                .unwrap_or_default(),
+            features: channel
+                .channel_type
+                .map(format_features)
+                .unwrap_or_default(),
+            short_channel_id: channel.short_channel_id,
+            outbound_scid_alias: channel.outbound_scid_alias,
+            inbound_scid_alias: channel.inbound_scid_alias,
+            channel_value_satoshis: channel.channel_value_satoshis,
+            unspendable_punishment_reserve: channel.unspendable_punishment_reserve,
+            user_channel_id: channel.user_channel_id,
+            feerate_sat_per_1000_weight: channel.feerate_sat_per_1000_weight,
+            balance_msat: channel.balance_msat,
+            outbound_capacity_msat: channel.outbound_capacity_msat,
+            next_outbound_htlc_limit_msat: channel.next_outbound_htlc_limit_msat,
+            next_outbound_htlc_minimum_msat: channel.next_outbound_htlc_minimum_msat,
+            inbound_capacity_msat: channel.inbound_capacity_msat,
+            confirmations_required: channel.confirmations_required,
+            confirmations: channel.confirmations,
+            force_close_spend_delay: channel.force_close_spend_delay,
+            is_outbound: channel.is_outbound,
+            is_channel_ready: channel.is_channel_ready,
+            channel_shutdown_state: channel.channel_shutdown_state.map(|s| format!("{s:?}")),
+            is_usable: channel.is_usable,
+            is_public: channel.is_public,
+            inbound_htlc_minimum_msat: channel.inbound_htlc_minimum_msat,
+            inbound_htlc_maximum_msat: channel.inbound_htlc_maximum_msat,
+            config_forwarding_fee_proportional_millionths: config
+                .forwarding_fee_proportional_millionths,
+            config_forwarding_fee_base_msat: config.forwarding_fee_base_msat,
+            config_cltv_expiry_delta: config.cltv_expiry_delta,
+            config_max_dust_htlc_exposure_is_fixed,
+            config_max_dust_htlc_exposure_value,
+            config_force_close_avoidance_max_fee_satoshis: config
+                .force_close_avoidance_max_fee_satoshis,
+            config_accept_underpaying_htlcs: config.accept_underpaying_htlcs,
         })
     }
     Ok(Json(response))
@@ -376,17 +390,11 @@ pub(crate) async fn list_closed_channels(
         let config = detail.config.unwrap_or_default();
         let (config_max_dust_htlc_exposure_is_fixed, config_max_dust_htlc_exposure_value) =
             match config.max_dust_htlc_exposure {
-                lightning::util::config::MaxDustHTLCExposure::FixedLimitMsat(value) => {
-                    (true, value)
-                }
-                lightning::util::config::MaxDustHTLCExposure::FeeRateMultiplier(value) => {
-                    (false, value)
-                }
+                MaxDustHTLCExposure::FixedLimitMsat(value) => (true, value),
+                MaxDustHTLCExposure::FeeRateMultiplier(value) => (false, value),
             };
         response.push(GetV1ChannelClosedResponseItem {
             channel_id: detail.channel_id.to_hex(),
-            close_timestamp: update_timestamp.unix_timestamp(),
-            closure_reason: closure_reason.unwrap_or_default(),
             counterparty_node_id: detail.counterparty.node_id.to_string(),
             counterparty_unspendable_punishment_reserve: detail
                 .counterparty
@@ -397,71 +405,7 @@ pub(crate) async fn list_closed_channels(
                 .funding_txo
                 .map(|txo| format!("{}:{}", txo.txid, txo.index))
                 .unwrap_or_default(),
-            supports_static_remote_key: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.supports_static_remote_key())
-                .unwrap_or_default(),
-            requires_static_remote_key: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_static_remote_key())
-                .unwrap_or_default(),
-            supports_anchors_nonzero_fee_htlc_tx: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.supports_anchors_nonzero_fee_htlc_tx())
-                .unwrap_or_default(),
-            requires_anchors_nonzero_fee_htlc_tx: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_anchors_nonzero_fee_htlc_tx())
-                .unwrap_or_default(),
-            supports_anchors_zero_fee_htlc_tx: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.supports_anchors_zero_fee_htlc_tx())
-                .unwrap_or_default(),
-            requires_anchors_zero_fee_htlc_tx: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_anchors_zero_fee_htlc_tx())
-                .unwrap_or_default(),
-            supports_taproot: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.supports_taproot())
-                .unwrap_or_default(),
-            requires_taproot: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_taproot())
-                .unwrap_or_default(),
-            supports_scid_privacy: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.supports_scid_privacy())
-                .unwrap_or_default(),
-            requires_scid_privacy: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_scid_privacy())
-                .unwrap_or_default(),
-            supports_zero_conf: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.supports_zero_conf())
-                .unwrap_or_default(),
-            requires_zero_conf: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_zero_conf())
-                .unwrap_or_default(),
-            requires_unknown_bits: detail
-                .channel_type
-                .as_ref()
-                .map(|t| t.requires_unknown_bits())
-                .unwrap_or_default(),
+            features: detail.channel_type.map(format_features).unwrap_or_default(),
             short_channel_id: detail.short_channel_id,
             outbound_scid_alias: detail.outbound_scid_alias,
             inbound_scid_alias: detail.inbound_scid_alias,
@@ -498,6 +442,8 @@ pub(crate) async fn list_closed_channels(
                 .force_close_avoidance_max_fee_satoshis,
             config_accept_underpaying_htlcs: config.accept_underpaying_htlcs,
             open_timestamp: open_timestamp.unix_timestamp(),
+            close_timestamp: update_timestamp.unix_timestamp(),
+            closure_reason: closure_reason.unwrap_or_default(),
         });
     }
 
@@ -511,8 +457,8 @@ fn format_features(channel_type: ChannelTypeFeatures) -> Vec<String> {
         .filter_map(|feature| {
             let (k, v) = feature.split_once(": ")?;
             match v {
-                "supported" => Some(k.to_string()),
-                "required" => Some(k.to_string()),
+                "supported" => Some(format!("supported {k}")),
+                "required" => Some(format!("required {k}")),
                 _ => None,
             }
         })

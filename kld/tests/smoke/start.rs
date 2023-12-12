@@ -11,9 +11,7 @@ use kld::api::payloads::{
 use kld::api::routes;
 use kld::{
     api::codegen::{
-        get_v1_channel_active_response::{
-            GetV1ChannelActiveResponse, GetV1ChannelActiveResponseState,
-        },
+        get_v1_channel_active_response::GetV1ChannelActiveResponse,
         get_v1_newaddr_response::GetV1NewaddrResponse,
     },
     database::payment::PaymentStatus,
@@ -152,8 +150,8 @@ pub async fn test_start() -> Result<()> {
                 )
                 .await?
                 .get(0)
-                .map(|c| &c.state),
-            Some(&GetV1ChannelActiveResponseState::ChanneldNormal)
+                .map(|c| &c.is_usable),
+            Some(true)
         )
     );
     let channels = kld_1
@@ -206,10 +204,10 @@ pub async fn test_start() -> Result<()> {
             Method::DELETE,
             &routes::CLOSE_CHANNEL.replace(
                 ":id",
-                channel
+                &channel
                     .short_channel_id
-                    .as_ref()
-                    .context("expected short channel id")?,
+                    .context("expected short channel id")?
+                    .to_string(),
             ),
             (),
         )

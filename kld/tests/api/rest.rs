@@ -11,9 +11,7 @@ use bitcoin::hashes::hex::ToHex;
 use futures::FutureExt;
 use hyper::Method;
 use kld::api::bind_api_server;
-use kld::api::codegen::get_v1_channel_active_response::{
-    GetV1ChannelActiveResponse, GetV1ChannelActiveResponseState,
-};
+use kld::api::codegen::get_v1_channel_active_response::GetV1ChannelActiveResponse;
 use kld::api::codegen::get_v1_channel_closed_response::GetV1ChannelClosedResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
 use kld::api::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse;
@@ -245,32 +243,38 @@ async fn test_list_active_channels_readonly() -> Result<()> {
             .json()
             .await?;
     let channel = channels.get(0).context("Missing channel")?;
-    assert_eq!(TEST_PUBLIC_KEY, channel.peer_id);
+    assert_eq!(TEST_PUBLIC_KEY, channel.counterparty_node_id);
     assert!(channel.peer_connected);
+    assert_eq!(Some(TEST_SHORT_CHANNEL_ID), channel.short_channel_id);
+    assert_eq!(format!("{TEST_TX_ID:}:2"), channel.funding_txo);
+    assert!(channel.is_public);
+    assert!(channel.is_usable);
+    assert_eq!(100000, channel.balance_msat); // cln field `to_us_msat`
+    assert_eq!(1000000000, channel.channel_value_satoshis * 1000); // cln field `total_msat`
     assert_eq!(
-        Some(TEST_SHORT_CHANNEL_ID.to_string()),
-        channel.short_channel_id
-    );
-    assert_eq!(Some(TEST_TX_ID.to_string()), channel.funding_txid);
-    assert!(!channel.private);
-    assert!(matches!(
-        channel.state,
-        GetV1ChannelActiveResponseState::ChanneldNormal
-    ));
-    assert_eq!(100000, channel.to_us_msat);
-    assert_eq!(1000000000, channel.total_msat);
-    assert_eq!(999900000, channel.to_them_msat);
-    assert_eq!(5000000, channel.their_reserve_msat);
-    assert_eq!(Some(10000000), channel.our_reserve_msat);
-    assert_eq!(100000, channel.spendable_msat);
+        999900000,
+        (channel.channel_value_satoshis * 1000) - channel.balance_msat
+    ); // cln field to_them_msat`
+    assert_eq!(
+        5000000,
+        channel.counterparty_unspendable_punishment_reserve * 1000
+    ); // cln field `their_reserve_msat`
+    assert_eq!(
+        Some(10000000),
+        channel.unspendable_punishment_reserve.map(|x| x * 1000)
+    ); // cln field `our_reserve_msat`
+    assert_eq!(100000, channel.outbound_capacity_msat); // cln field `spendable_msat`
     assert_eq!(TEST_ALIAS, channel.alias);
-    assert_eq!(5000, channel.dust_limit_msat);
+    assert_eq!(5000, channel.config_max_dust_htlc_exposure_value);
     assert_eq!(
-        vec!["SCIDPrivacy".to_string(), "ZeroConf".to_string()],
+        vec![
+            "supported SCIDPrivacy".to_string(),
+            "required ZeroConf".to_string()
+        ],
         channel.features
     );
-    assert_eq!(1000, channel.fee_base_msat);
-    assert_eq!(0, channel.fee_proportional_millionths);
+    assert_eq!(1000, channel.config_forwarding_fee_base_msat); // cln field `fee_base_msat`
+    assert_eq!(0, channel.config_forwarding_fee_proportional_millionths); // cln field `fee_proportional_millionths`
     Ok(())
 }
 

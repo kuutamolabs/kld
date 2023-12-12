@@ -22,8 +22,8 @@ use crate::{
     api::{
         channels::{
             close_channel, force_close_channel_with_broadcast,
-            force_close_channel_without_broadcast, list_closed_channels, list_forwards,
-            list_active_channels, local_remote_balance, open_channel, set_channel_fee,
+            force_close_channel_without_broadcast, list_active_channels, list_closed_channels,
+            list_forwards, local_remote_balance, open_channel, set_channel_fee,
         },
         invoices::{decode_invoice, generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
