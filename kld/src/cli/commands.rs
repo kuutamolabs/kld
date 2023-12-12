@@ -190,8 +190,8 @@ pub enum KldCliSubCommand {
         #[arg(short, long)]
         status: Option<String>,
     },
-    /// Fetch a list of historic (closed) channels
-    ListChannelHistory,
+    /// Fetch a list of closed channels
+    ListClosedChannel,
     /// Decode invoice
     Decode { invoice: String },
 

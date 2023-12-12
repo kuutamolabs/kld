@@ -367,7 +367,7 @@ impl LightningInterface for MockLightning {
         Ok(vec![self.forward.clone()])
     }
 
-    async fn channel_history(&self) -> Result<Vec<ChannelRecord>> {
+    async fn list_closed_channels(&self) -> Result<Vec<ChannelRecord>> {
         Ok(vec![ChannelRecord {
             open_timestamp: microsecond_timestamp(),
             update_timestamp: microsecond_timestamp(),

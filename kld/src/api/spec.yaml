@@ -373,17 +373,17 @@ paths:
           description: Bad request
         "500":
           description: Server error
-  /v1/channel/history:
+  /v1/channel/closed:
     get:
       tags:
         - Channel Management
-      description: Fetch our channel history
-      operationId: channelhistory
+      description: list closed channel
+      operationId: closed_channel
       security:
         - MacaroonAuth: []
       responses:
         "200":
-          description: Channel history success
+          description: List closed channedl
           schema:
             type: array
             items:

@@ -506,8 +506,8 @@ impl LightningInterface for Controller {
         self.database.fetch_forwards(status).await
     }
 
-    async fn channel_history(&self) -> Result<Vec<ChannelRecord>> {
-        self.database.fetch_channel_history().await
+    async fn list_closed_channels(&self) -> Result<Vec<ChannelRecord>> {
+        self.database.fetch_closed_channels().await
     }
 
     async fn scorer(&self) -> Result<Vec<u8>> {

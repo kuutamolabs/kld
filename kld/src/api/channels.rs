@@ -25,7 +25,7 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
-use super::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
+use super::codegen::get_v1_channel_closed_response::GetV1ChannelClosedResponseItem;
 use super::codegen::get_v1_channel_list_forwards_response::{
     GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
 };
@@ -356,11 +356,11 @@ pub(crate) async fn list_forwards(
     Ok(Json(response))
 }
 
-pub(crate) async fn channel_history(
+pub(crate) async fn list_closed_channels(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let channel_history = lightning_interface
-        .channel_history()
+    let closed_channels = lightning_interface
+        .list_closed_channels()
         .await
         .map_err(internal_server)?;
 
@@ -371,7 +371,7 @@ pub(crate) async fn channel_history(
         update_timestamp,
         closure_reason,
         detail,
-    } in channel_history
+    } in closed_channels
     {
         let config = detail.config.unwrap_or_default();
         let (config_max_dust_htlc_exposure_is_fixed, config_max_dust_htlc_exposure_value) =
@@ -383,7 +383,7 @@ pub(crate) async fn channel_history(
                     (false, value)
                 }
             };
-        response.push(GetV1ChannelHistoryResponseItem {
+        response.push(GetV1ChannelClosedResponseItem {
             channel_id: detail.channel_id.to_hex(),
             close_timestamp: update_timestamp.unix_timestamp(),
             closure_reason: closure_reason.unwrap_or_default(),
@@ -480,7 +480,11 @@ pub(crate) async fn channel_history(
             is_outbound: detail.is_outbound,
             is_channel_ready: detail.is_channel_ready,
             channel_shutdown_state: detail.channel_shutdown_state.map(|s| format!("{s:?}")),
-            is_usable: detail.is_usable,
+            // Note:
+            // We only update the is_usable field of the record,
+            // and did not update the is_usable fields inside detail blob to false when it closing
+            // so do not pick the is_usable field from detail
+            is_usable: false,
             is_public: detail.is_public,
             inbound_htlc_minimum_msat: detail.inbound_htlc_minimum_msat,
             inbound_htlc_maximum_msat: detail.inbound_htlc_maximum_msat,

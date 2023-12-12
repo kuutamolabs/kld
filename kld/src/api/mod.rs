@@ -21,9 +21,9 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{
-            channel_history, close_channel, force_close_channel_with_broadcast,
-            force_close_channel_without_broadcast, list_forwards, list_peer_channels,
-            local_remote_balance, open_channel, set_channel_fee,
+            close_channel, force_close_channel_with_broadcast,
+            force_close_channel_without_broadcast, list_closed_channels, list_forwards,
+            list_peer_channels, local_remote_balance, open_channel, set_channel_fee,
         },
         invoices::{decode_invoice, generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
@@ -108,7 +108,7 @@ impl RestApi {
             .route(routes::LOCAL_REMOTE_BALANCE, get(local_remote_balance))
             .route(routes::GET_FEES, get(get_fees))
             .route(routes::LIST_FORWARDS, get(list_forwards))
-            .route(routes::LIST_CHANNEL_HISTORY, get(channel_history))
+            .route(routes::LIST_CHANNEL_HISTORY, get(list_closed_channels))
             .route(routes::DECODE_INVOICE, get(decode_invoice))
             .route(routes::SCORER, get(score))
             .layer(from_fn(readonly_auth));

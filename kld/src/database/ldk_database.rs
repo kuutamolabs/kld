@@ -218,7 +218,7 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn fetch_channel_history(&self) -> Result<Vec<ChannelRecord>> {
+    pub async fn fetch_closed_channels(&self) -> Result<Vec<ChannelRecord>> {
         let rows = self
             .durable_connection
             .get()

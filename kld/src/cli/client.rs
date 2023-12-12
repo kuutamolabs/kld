@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::Result;
 use kld::api::codegen::{
-    get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
+    get_v1_channel_closed_response::GetV1ChannelClosedResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
     get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
     get_v1_channel_localremotebal_response::GetV1ChannelLocalremotebalResponse,
@@ -337,11 +337,11 @@ impl Api {
         deserialize::<Vec<GetV1ChannelListForwardsResponseItem>>(response)
     }
 
-    pub fn channel_history(&self) -> Result<String> {
+    pub fn list_closed_channels(&self) -> Result<String> {
         let response = self
             .request(Method::GET, routes::LIST_CHANNEL_HISTORY)
             .send()?;
-        deserialize::<Vec<GetV1ChannelHistoryResponseItem>>(response)
+        deserialize::<Vec<GetV1ChannelClosedResponseItem>>(response)
     }
 
     pub fn decode(&self, invoice: String) -> Result<String> {

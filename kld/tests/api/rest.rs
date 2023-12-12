@@ -11,7 +11,7 @@ use bitcoin::hashes::hex::ToHex;
 use futures::FutureExt;
 use hyper::Method;
 use kld::api::bind_api_server;
-use kld::api::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
+use kld::api::codegen::get_v1_channel_closed_response::GetV1ChannelClosedResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
 use kld::api::codegen::get_v1_channel_list_peer_channels_response::{
     GetV1ChannelListPeerChannelsResponse, GetV1ChannelListPeerChannelsResponseState,
@@ -818,9 +818,9 @@ async fn test_fetch_forwards() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_channel_history() -> Result<()> {
+async fn test_channel_closed() -> Result<()> {
     let context = create_api_server().await?;
-    let response: Vec<GetV1ChannelHistoryResponseItem> =
+    let response: Vec<GetV1ChannelClosedResponseItem> =
         readonly_request(&context, Method::GET, routes::LIST_CHANNEL_HISTORY)?
             .send()
             .await?
