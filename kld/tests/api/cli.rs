@@ -277,7 +277,7 @@ async fn test_cli_list_forwards() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_channel_closed() -> Result<()> {
-    let output = run_cli("list-closed-channel", &[]).await?;
+    let output = run_cli("list-closed-channels", &[]).await?;
     let _: Vec<GetV1ChannelClosedResponseItem> = deserialize(&output.stdout)?;
     Ok(())
 }

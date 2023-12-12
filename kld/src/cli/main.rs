@@ -81,7 +81,7 @@ fn run_command(args: KldCliCommand) -> Result<()> {
         KldCliSubCommand::LocalRemoteBalance => api.local_remote_balance()?,
         KldCliSubCommand::GetFees => api.get_fees()?,
         KldCliSubCommand::ListForwards { status } => api.list_forwards(status)?,
-        KldCliSubCommand::ListClosedChannel => api.list_closed_channels()?,
+        KldCliSubCommand::ListClosedChannels => api.list_closed_channels()?,
         KldCliSubCommand::Decode { invoice } => api.decode(invoice)?,
         KldCliSubCommand::Scorer { path } => api.scorer(path.unwrap_or("scorer.bin".into()))?,
     };
