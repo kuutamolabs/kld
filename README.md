@@ -1,4 +1,5 @@
-# kuutamo lightning distribution - a Lighting Service Provider (LSP) node cluster
+# 🌘kuutamo lightning distribution
+### a Lighting Service Provider (LSP) router node cluster
 
 **Nota bene**: kuutamo is bleeding edge decentralized financial infrastructure. Use with caution and only with funds you are prepared to lose.
 If you want to put it into production and would like to discuss SRE overlay support, please get in touch with us at [opencore-support@kuutamo.co](mailto:opencore-support@kuutamo.co)
@@ -13,10 +14,10 @@ If you want to put it into production and would like to discuss SRE overlay supp
 ### Client side:
 - `kld-mgr`       - A CLI tool that will SSH to your server(s) to perform the initial deployment
 - `kld-cli`       - A CLI tool that uses the kld API to support LSP operations
-- `kld-tui`       - A Terminal User Interface that uses the kld API to support LSP operations
+- `kld-tui`       - A Terminal User Interface that uses the kld API to support LSP operations (WIP)
 
 ### Server side:
-- `kld`             - kuutamo lightning daemon - our LSP router node software, built on [LDK](https://github.com/lightningdevkit)
+- `kld`             - an LSP router, built on [LDK](https://github.com/lightningdevkit)
 - `cockroachdb`     - a cloud-native, distributed SQL database
 - `telegraf`        - an agent for collecting and sending metrics to any URL that supports the [Prometheus's Remote Write API](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 - `promtail`        - an agent which ships the contents of local logs to a private Grafana Loki instance or Grafana Cloud
