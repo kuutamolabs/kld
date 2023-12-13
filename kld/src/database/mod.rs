@@ -72,10 +72,7 @@ impl DBConnection for DurableConnection {
         let row = self
             .get()
             .await
-            .query_one(
-                "SELECT COUNT(*) FROM channels WHERE close_timestamp IS NULL;",
-                &[],
-            )
+            .query_one("SELECT COUNT(*) FROM channels WHERE is_usable = true;", &[])
             .await?;
         let count: i64 = row.get("count");
         Ok(count)
