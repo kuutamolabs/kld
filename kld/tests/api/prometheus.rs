@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::FutureExt;
 use lightning::chain::chaininterface::ConfirmationTarget;
+use prometheus::IntCounter;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use test_utils::{poll, ports::get_available_port};
 use time::OffsetDateTime;
 
@@ -11,6 +13,10 @@ use kld::{
     bitcoind::BitcoindMetrics, database::DBConnection, prometheus::start_prometheus_exporter,
     Service,
 };
+
+static PROBE_TOTAL_COUNT: OnceLock<IntCounter> = OnceLock::new();
+static PROBE_SUCCESSFUL_COUNT: OnceLock<IntCounter> = OnceLock::new();
+static PROBE_FAILED_COUNT: OnceLock<IntCounter> = OnceLock::new();
 
 #[tokio::test(flavor = "multi_thread")]
 pub async fn test_prometheus() -> Result<()> {
@@ -28,6 +34,11 @@ pub async fn test_prometheus() -> Result<()> {
         database,
         bitcoind,
         quit_signal().shared(),
+        (
+            &PROBE_TOTAL_COUNT,
+            &PROBE_SUCCESSFUL_COUNT,
+            &PROBE_FAILED_COUNT,
+        ),
     ));
     poll!(3, call_exporter(&address, "health").await.is_ok());
 
@@ -56,6 +67,7 @@ pub async fn test_prometheus() -> Result<()> {
         get_metric(&result, "wallet_balance")?,
         format!("{}", metrics.wallet_balance)
     );
+    assert_eq!(get_metric(&result, "channel_count")?, "1".to_string());
     assert_eq!(
         get_metric(&result, "channel_balance")?,
         format!("{}", metrics.channel.balance_msat / 1000)

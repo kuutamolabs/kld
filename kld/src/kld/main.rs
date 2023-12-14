@@ -11,8 +11,14 @@ use kld::settings::Settings;
 use kld::wallet::Wallet;
 use kld::{log_error, quit_signal, VERSION};
 use log::{error, info};
+use prometheus::IntCounter;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use std::time::Duration;
+
+static PROBE_TOTAL_COUNT: OnceLock<IntCounter> = OnceLock::new();
+static PROBE_SUCCESSFUL_COUNT: OnceLock<IntCounter> = OnceLock::new();
+static PROBE_FAILED_COUNT: OnceLock<IntCounter> = OnceLock::new();
 
 pub fn main() {
     let settings = Arc::new(Settings::load());
@@ -75,6 +81,11 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         wallet.clone(),
         &key_generator.lightning_seed(),
         quit_signal.clone(),
+        (
+            &PROBE_TOTAL_COUNT,
+            &PROBE_SUCCESSFUL_COUNT,
+            &PROBE_FAILED_COUNT,
+        ),
     )
     .await
     .context("Failed to start ldk controller")?;
@@ -96,7 +107,8 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
             info!("Received quit signal.");
             Ok(())
         },
-        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone()) => {
+        result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone(),
+                                           (&PROBE_TOTAL_COUNT, &PROBE_SUCCESSFUL_COUNT, &PROBE_FAILED_COUNT)) => {
             result.context("Prometheus exporter failed")
         },
         result = server.serve(bitcoind_client.clone(), controller.clone(), wallet.clone(), macaroon_auth, quit_signal) => {
