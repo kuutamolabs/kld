@@ -61,6 +61,8 @@ pub enum KldCliSubCommand {
         #[arg()]
         public_key: String,
     },
+    /// Fetch a list of channels
+    ListChannels,
     /// Fetch a list of this nodes open channels.
     ListPeerChannels,
     /// Open a channel with another node.
