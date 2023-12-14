@@ -104,7 +104,9 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
 
     tokio::select!(
         _ = quit_signal.clone() => {
-            info!("Received quit signal.");
+            info!("Received quit signal. Will shtudwon after {} seconds graceful period", settings.shutdown_graceful_sec);
+            tokio::time::sleep(Duration::from_secs(settings.shutdown_graceful_sec)).await;
+            info!("Force shutdown");
             Ok(())
         },
         result = start_prometheus_exporter(settings.exporter_address.clone(), controller.clone(), durable_connection.clone(), bitcoind_client.clone(), quit_signal.clone(),

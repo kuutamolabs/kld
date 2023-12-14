@@ -211,6 +211,10 @@ struct HostDefaultConfig {
     /// The list of targets to probe
     #[toml_example(default = [])]
     pub probe_targets: Option<Vec<String>>,
+
+    /// The graceful period in seconds when a shutdown signal is received
+    #[toml_example(default = 5)]
+    pub shutdown_graceful_sec: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -341,6 +345,11 @@ struct HostConfig {
     #[toml_example(default = [])]
     pub probe_targets: Vec<String>,
 
+    /// The graceful period in seconds when a shutdown signal is received
+    #[serde(default)]
+    #[toml_example(default = 5)]
+    pub shutdown_graceful_sec: Option<u64>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -436,6 +445,9 @@ pub struct Host {
     pub probe_amt_msat: Option<u64>,
     /// The list of targets to probe
     pub probe_targets: Vec<String>,
+
+    /// The graceful period in seconds when a shutdown signal is received
+    pub shutdown_graceful_sec: Option<u64>,
 }
 
 impl Host {
@@ -929,6 +941,7 @@ fn validate_host(
             None
         },
         probe_targets,
+        shutdown_graceful_sec: host.shutdown_graceful_sec.or(default.shutdown_graceful_sec),
     })
 }
 
@@ -1223,6 +1236,7 @@ fn test_validate_host() -> Result<()> {
             probe_interval: None,
             probe_amt_msat: None,
             probe_targets: Vec::new(),
+            shutdown_graceful_sec: None,
         }
     );
 

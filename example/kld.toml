@@ -74,6 +74,9 @@ extra_nixos_modules = []
 # The list of targets to probe
 # probe_targets = []
 
+# The graceful period in seconds when a shutdown signal is received
+# shutdown_graceful_sec = 5
+
 # The configuration for the host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
@@ -165,5 +168,8 @@ kld_api_ip_access_list = []
 
 # The list of targets to probe
 probe_targets = []
+
+# The graceful period in seconds when a shutdown signal is received
+# shutdown_graceful_sec = 5
 
 

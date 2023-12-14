@@ -29,6 +29,7 @@ in
     kuutamo.kld.probeInterval = cfg.probe_interval or 0;
     kuutamo.kld.probeAmtMSat = cfg.probe_amt_msat or 0;
     kuutamo.kld.probeTargets = cfg.probe_targets or [ ];
+    kuutamo.kld.shutdownGracefulSec = cfg.shutdown_graceful_sec or 5;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;

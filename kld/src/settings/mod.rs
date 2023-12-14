@@ -84,6 +84,10 @@ pub struct Settings {
     /// The targets to probe
     #[arg(long, value_delimiter = ',', env = "KLD_PROBE_TARGETS")]
     pub probe_targets: Vec<PublicKey>,
+
+    /// The graceful period in seconds when a shutdown signal is received
+    #[arg(long, default_value = "5", env = "KLD_SHUTDOWN_GRACEFUL_SEC")]
+    pub shutdown_graceful_sec: u64,
 }
 
 impl Settings {

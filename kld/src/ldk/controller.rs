@@ -809,19 +809,28 @@ impl Controller {
             let interval = settings.probe_interval;
             let amt_msat = settings.probe_amt_msat;
             let targets = settings.probe_targets.clone();
+            let shutdown_graceful_sec = settings.shutdown_graceful_sec;
+            let probe_quit_signal = quit_signal.clone();
             tokio::spawn(async move {
                 let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
                 interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                 for pk in targets.iter().cycle() {
                     interval_timer.tick().await;
-                    send_probe(
-                        &probing_cm,
-                        pk,
-                        &probing_graph,
-                        amt_msat,
-                        &probing_scorer,
-                        interval,
-                        probe_metrics,
+                    let quit = probe_quit_signal.clone();
+                    tokio::select! (
+                        _ = quit => {
+                            tokio::time::sleep(Duration::from_secs(shutdown_graceful_sec)).await;
+                            break;
+                        },
+                        _ = send_probe(
+                            &probing_cm,
+                            pk,
+                            &probing_graph,
+                            amt_msat,
+                            &probing_scorer,
+                            interval,
+                            probe_metrics,
+                        ) => {}
                     );
                 }
             });
@@ -993,7 +1002,7 @@ impl Drop for Controller {
     }
 }
 
-fn send_probe(
+async fn send_probe(
     channel_manager: &ChannelManager,
     recipient: &PublicKey,
     graph: &NetworkGraph,
