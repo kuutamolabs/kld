@@ -183,7 +183,7 @@ impl LdkDatabase {
                         is_usable,
                         is_public,
                         data
-                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
+                    ) VALUES ( $1, $2, $3, $4, $5 )",
                     &[
                         &channel.channel_id.0.as_ref(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
