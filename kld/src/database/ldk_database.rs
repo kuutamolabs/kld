@@ -264,8 +264,8 @@ impl LdkDatabase {
                     open_timestamp,
                     update_timestamp,
                     closure_reason
-            FROM
-                channels",
+                FROM
+                    channels",
                 &[],
             )
             .await?;
@@ -273,14 +273,14 @@ impl LdkDatabase {
         let mut outputs = vec![];
         for row in rows {
             let mut detail: ChannelDetails = row.read("data")?;
-            detail.is_usable = row.read("is_usable")?;
+            detail.is_usable = row.get::<&str, bool>("is_usable");
             outputs.push(ChannelRecord {
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),
                 closure_reason: row
                     .read_optional("closure_reason")?
                     .map(|r: ClosureReason| r.to_string()),
-                detail: row.read("data")?,
+                detail,
             });
         }
         Ok(outputs)
