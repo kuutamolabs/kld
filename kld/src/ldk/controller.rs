@@ -808,11 +808,14 @@ impl Controller {
             let probing_scorer = scorer.clone();
             let interval = settings.probe_interval;
             let amt_msat = settings.probe_amt_msat;
-            tokio::spawn(async move {
-                let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
-                interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                loop {
-                    interval_timer.tick().await;
+            let targets = settings.probe_targets.clone();
+            let shutdown_graceful_sec = settings.shutdown_graceful_sec;
+            let probe_quit_signal = quit_signal.clone();
+            if targets.is_empty() {
+                // If no probe target is specified, we will do random probe
+                tokio::spawn(async move {
+                    let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
+                    interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                     let rcpt = {
                         let lck = probing_graph.read_only();
                         if lck.nodes().is_empty() {
@@ -826,7 +829,36 @@ impl Controller {
                     };
                     if let Some(rcpt) = rcpt {
                         if let Ok(pk) = bitcoin::secp256k1::PublicKey::from_slice(rcpt.as_slice()) {
-                            send_probe(
+                            tokio::select! (
+                                _ = probe_quit_signal => {
+                                    tokio::time::sleep(Duration::from_secs(shutdown_graceful_sec)).await;
+                                },
+                                _ = send_probe(
+                                    &probing_cm,
+                                    &pk,
+                                    &probing_graph,
+                                    amt_msat,
+                                    &probing_scorer,
+                                    interval,
+                                    probe_metrics,
+                                ) => {}
+                            );
+                        }
+                    }
+                });
+            } else {
+                tokio::spawn(async move {
+                    let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
+                    interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                    for pk in targets.iter().cycle() {
+                        interval_timer.tick().await;
+                        let quit = probe_quit_signal.clone();
+                        tokio::select! (
+                            _ = quit => {
+                                tokio::time::sleep(Duration::from_secs(shutdown_graceful_sec)).await;
+                                break;
+                            },
+                            _ = send_probe(
                                 &probing_cm,
                                 pk,
                                 &probing_graph,
@@ -834,11 +866,11 @@ impl Controller {
                                 &probing_scorer,
                                 interval,
                                 probe_metrics,
-                            );
-                        }
+                            ) => {}
+                        );
                     }
-                }
-            });
+                });
+            }
         }
 
         let bitcoind_client_clone = bitcoind_client.clone();
@@ -1007,9 +1039,9 @@ impl Drop for Controller {
     }
 }
 
-fn send_probe(
+async fn send_probe(
     channel_manager: &ChannelManager,
-    recipient: PublicKey,
+    recipient: &PublicKey,
     graph: &NetworkGraph,
     amt_msat: u64,
     scorer: &std::sync::RwLock<Scorer>,
@@ -1022,7 +1054,7 @@ fn send_probe(
 ) {
     let chans = channel_manager.list_usable_channels();
     let chan_refs = chans.iter().collect::<Vec<_>>();
-    let mut payment_params = PaymentParameters::from_node_id(recipient, 144);
+    let mut payment_params = PaymentParameters::from_node_id(*recipient, 144);
     payment_params.max_path_count = 1;
     let in_flight_htlcs = channel_manager.compute_inflight_htlcs();
     let mut scorer = match scorer.write() {

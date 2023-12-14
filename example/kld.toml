@@ -71,6 +71,12 @@ extra_nixos_modules = []
 # The default probe amount in msat for all node
 # probe_amt_msat = 0
 
+# The list of targets to probe
+# probe_targets = []
+
+# The graceful period in seconds when a shutdown signal is received
+# shutdown_graceful_sec = 5
+
 # The configuration for the host, if any field not provided will use from host_defaults
 # For general use case, following fields is needed
 # - one of network should be configured (ipv4 or ipv6)
@@ -159,5 +165,11 @@ kld_api_ip_access_list = []
 
 # The default probe amount in msat for the node
 # probe_amt_msat = 50000
+
+# The list of targets to probe
+probe_targets = []
+
+# The graceful period in seconds when a shutdown signal is received
+# shutdown_graceful_sec = 5
 
 

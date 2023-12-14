@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose, Engine as _};
+use bitcoin::secp256k1::PublicKey;
 use hex::FromHex;
 use log::warn;
 use regex::Regex;
@@ -15,6 +16,7 @@ use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 use toml_example::TomlExample;
 use url::Url;
 
@@ -206,6 +208,13 @@ struct HostDefaultConfig {
     pub probe_interval: Option<u64>,
     /// The default probe amount in msat for all node
     pub probe_amt_msat: Option<u64>,
+    /// The list of targets to probe
+    #[toml_example(default = [])]
+    pub probe_targets: Option<Vec<String>>,
+
+    /// The graceful period in seconds when a shutdown signal is received
+    #[toml_example(default = 5)]
+    pub shutdown_graceful_sec: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize, TomlExample)]
@@ -331,6 +340,15 @@ struct HostConfig {
     #[serde(default)]
     #[toml_example(default = 50000)]
     pub probe_amt_msat: Option<u64>,
+    /// The list of targets to probe
+    #[serde(default)]
+    #[toml_example(default = [])]
+    pub probe_targets: Vec<String>,
+
+    /// The graceful period in seconds when a shutdown signal is received
+    #[serde(default)]
+    #[toml_example(default = 5)]
+    pub shutdown_graceful_sec: Option<u64>,
 
     #[serde(flatten)]
     #[toml_example(skip)]
@@ -425,6 +443,11 @@ pub struct Host {
     pub probe_interval: Option<u64>,
     /// The default probe amount in msat for the node
     pub probe_amt_msat: Option<u64>,
+    /// The list of targets to probe
+    pub probe_targets: Vec<String>,
+
+    /// The graceful period in seconds when a shutdown signal is received
+    pub shutdown_graceful_sec: Option<u64>,
 }
 
 impl Host {
@@ -862,6 +885,22 @@ fn validate_host(
     //     }
     // }
 
+    let probe_targets = if host.nixos_module.starts_with("kld") {
+        let mut targets = default.probe_targets.clone().unwrap_or_default();
+        targets.append(&mut host.probe_targets.clone());
+        targets
+    } else {
+        Vec::new()
+    };
+    for target in &probe_targets {
+        if PublicKey::from_str(target).is_err() {
+            bail!(
+                "{} is not a valid public key to be the target of probe",
+                target
+            );
+        }
+    }
+
     Ok(Host {
         name,
         nixos_module: host.nixos_module.clone(),
@@ -891,8 +930,18 @@ fn validate_host(
         network_interface: host.network_interface.to_owned(),
         kld_preset_mnemonic: Some(preset_mnemonic),
         upgrade_schedule: host.upgrade_schedule.to_owned(),
-        probe_interval: host.probe_interval.or(default.probe_interval),
-        probe_amt_msat: host.probe_amt_msat.or(default.probe_amt_msat),
+        probe_interval: if host.nixos_module.starts_with("kld") {
+            host.probe_interval.or(default.probe_interval)
+        } else {
+            None
+        },
+        probe_amt_msat: if host.nixos_module.starts_with("kld") {
+            host.probe_amt_msat.or(default.probe_amt_msat)
+        } else {
+            None
+        },
+        probe_targets,
+        shutdown_graceful_sec: host.shutdown_graceful_sec.or(default.shutdown_graceful_sec),
     })
 }
 
@@ -1186,6 +1235,8 @@ fn test_validate_host() -> Result<()> {
             upgrade_schedule: Some("*-*-* 2:00:00".to_string()),
             probe_interval: None,
             probe_amt_msat: None,
+            probe_targets: Vec::new(),
+            shutdown_graceful_sec: None,
         }
     );
 

@@ -192,6 +192,22 @@ in
         The probe amount in msat
       '';
     };
+
+    probeTargets = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = lib.mDoc ''
+        Comma-separated list of targets for probing
+      '';
+    };
+
+    shutdownGracefulSec = lib.mkOption {
+      type = lib.types.int;
+      default = 5;
+      description = ''
+        The graceful period in seconds when a shutdown signal is received
+      '';
+    };
   };
 
   config = {
@@ -258,7 +274,9 @@ in
         KLD_ELECTRS_URL = lib.mkDefault "${electrsCfg.address}:${toString electrsCfg.port}";
         KLD_PROBE_INTERVAL = lib.mkDefault "${toString cfg.probeInterval}";
         KLD_PROBE_AMT_MSAT = lib.mkDefault "${toString cfg.probeAmtMSat}";
-      } // lib.optionalAttrs (cfg.publicAddresses != [ ]) { KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses; };
+        KLD_SHUTDOWN_GRACEFUL_SEC = lib.mkDefault "${toString cfg.shutdownGracefulSec}";
+      } // lib.optionalAttrs (cfg.publicAddresses != [ ]) { KLD_PUBLIC_ADDRESSES = lib.concatStringsSep "," cfg.publicAddresses; }
+      // lib.optionalAttrs (cfg.probeTargets != [ ]) { KLD_PROBE_TARGETS = lib.concatStringsSep "," cfg.probeTargets; };
 
       path = [
         bitcoin-cli
