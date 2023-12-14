@@ -4,6 +4,7 @@ info:
   title: KLD REST API
 basePath: /
 paths:
+  # CLN client compatible
   /v1/newaddr:
     get:
       description: Generates new on-chain address for receiving funds
@@ -31,6 +32,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/peer/connect:
     post:
       description: Connect with a network peer
@@ -64,6 +66,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/estimateChannelLiquidity:
     get:
       description: Estimate channel liquidity
@@ -103,6 +106,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/getFees:
     get:
       tags:
@@ -166,6 +170,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/channel/listPeerChannels:
     get:
       tags:
@@ -304,6 +309,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/channel/listForwards:
     get:
       tags:
@@ -373,6 +379,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/channel/history:
     get:
       tags:
@@ -443,6 +450,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/pay/listPayments:
     get:
       tags:
@@ -513,6 +521,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/utility/decode/{invoiceString}:
     get:
       tags:
