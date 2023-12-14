@@ -490,8 +490,8 @@ fn format_features(channel_type: ChannelTypeFeatures) -> Vec<String> {
         .filter_map(|feature| {
             let (k, v) = feature.split_once(": ")?;
             match v {
-                "supported" => Some(k.to_string()),
-                "required" => Some(k.to_string()),
+                "supported" => Some(format!("supported {k}")),
+                "required" => Some(format!("required {k}")),
                 _ => None,
             }
         })
