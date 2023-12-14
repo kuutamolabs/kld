@@ -25,6 +25,7 @@ use crate::ldk::LightningInterface;
 use crate::ldk::PeerStatus;
 use crate::to_string_empty;
 
+use super::codegen::get_kld_channel_response::GetKldChannelResponseItem;
 use super::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use super::codegen::get_v1_channel_list_forwards_response::{
     GetV1ChannelListForwardsResponseItem, GetV1ChannelListForwardsResponseItemStatus,
@@ -37,6 +38,94 @@ use super::codegen::get_v1_channel_localremotebal_response::GetV1ChannelLocalrem
 use super::internal_server;
 use super::ApiError;
 
+pub(crate) async fn list_channels(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+) -> Result<impl IntoResponse, ApiError> {
+    let channels_in_db = lightning_interface
+        .list_channels()
+        .await
+        .map_err(internal_server)?;
+    let channels_in_mem = lightning_interface.list_active_channels();
+
+    let mut response = vec![];
+
+    for ChannelRecord {
+        open_timestamp,
+        update_timestamp,
+        closure_reason,
+        mut detail,
+    } in channels_in_db
+    {
+        let config = detail.config.unwrap_or_default();
+        let (config_max_dust_htlc_exposure_is_fixed, config_max_dust_htlc_exposure_value) =
+            match config.max_dust_htlc_exposure {
+                MaxDustHTLCExposure::FixedLimitMsat(value) => (true, value),
+                MaxDustHTLCExposure::FeeRateMultiplier(value) => (false, value),
+            };
+
+        let mut has_monitor = false;
+        for channel in &channels_in_mem {
+            // Patch the detail which in memory, these channels are listed from channel manager, and
+            // should has channel monitor on it now.
+            if channel.channel_id == detail.channel_id {
+                detail = channel.clone();
+                has_monitor = true;
+            }
+        }
+
+        response.push(GetKldChannelResponseItem {
+            channel_id: detail.channel_id.to_hex(),
+            counterparty_node_id: detail.counterparty.node_id.to_string(),
+            counterparty_unspendable_punishment_reserve: detail
+                .counterparty
+                .unspendable_punishment_reserve,
+            counterparty_outbound_htlc_minimum_msat: detail.counterparty.outbound_htlc_minimum_msat,
+            counterparty_outbound_htlc_maximum_msat: detail.counterparty.outbound_htlc_maximum_msat,
+            funding_txo: detail
+                .funding_txo
+                .map(|txo| format!("{}:{}", txo.txid, txo.index))
+                .unwrap_or_default(),
+            features: detail.channel_type.map(format_features).unwrap_or_default(),
+            short_channel_id: detail.short_channel_id,
+            outbound_scid_alias: detail.outbound_scid_alias,
+            inbound_scid_alias: detail.inbound_scid_alias,
+            channel_value_satoshis: detail.channel_value_satoshis,
+            unspendable_punishment_reserve: detail.unspendable_punishment_reserve,
+            user_channel_id: detail.user_channel_id,
+            feerate_sat_per_1000_weight: detail.feerate_sat_per_1000_weight,
+            balance_msat: detail.balance_msat,
+            outbound_capacity_msat: detail.outbound_capacity_msat,
+            next_outbound_htlc_limit_msat: detail.next_outbound_htlc_limit_msat,
+            next_outbound_htlc_minimum_msat: detail.next_outbound_htlc_minimum_msat,
+            inbound_capacity_msat: detail.inbound_capacity_msat,
+            confirmations_required: detail.confirmations_required,
+            confirmations: detail.confirmations,
+            force_close_spend_delay: detail.force_close_spend_delay,
+            is_outbound: detail.is_outbound,
+            is_channel_ready: detail.is_channel_ready,
+            channel_shutdown_state: detail.channel_shutdown_state.map(|s| format!("{s:?}")),
+            is_usable: detail.is_usable,
+            is_public: detail.is_public,
+            inbound_htlc_minimum_msat: detail.inbound_htlc_minimum_msat,
+            inbound_htlc_maximum_msat: detail.inbound_htlc_maximum_msat,
+            config_forwarding_fee_proportional_millionths: config
+                .forwarding_fee_proportional_millionths,
+            config_forwarding_fee_base_msat: config.forwarding_fee_base_msat,
+            config_cltv_expiry_delta: config.cltv_expiry_delta,
+            config_max_dust_htlc_exposure_is_fixed,
+            config_max_dust_htlc_exposure_value,
+            config_force_close_avoidance_max_fee_satoshis: config
+                .force_close_avoidance_max_fee_satoshis,
+            config_accept_underpaying_htlcs: config.accept_underpaying_htlcs,
+            has_monitor,
+            open_timestamp: open_timestamp.unix_timestamp(),
+            update_timestamp: update_timestamp.unix_timestamp(),
+            closure_reason,
+        });
+    }
+    Ok(Json(response))
+}
+
 pub(crate) async fn list_peer_channels(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -45,7 +134,7 @@ pub(crate) async fn list_peer_channels(
         .await
         .map_err(internal_server)?;
 
-    let channels = lightning_interface.list_channels();
+    let channels = lightning_interface.list_active_channels();
     let mut response = vec![];
     for channel in channels {
         let config = channel
@@ -163,7 +252,7 @@ pub(crate) async fn set_channel_fee(
 
     if channel_fee.id == "all" {
         let mut peer_channels: HashMap<PublicKey, Vec<ChannelDetails>> = HashMap::new();
-        for channel in lightning_interface.list_channels() {
+        for channel in lightning_interface.list_active_channels() {
             if let Some(channel_ids) = peer_channels.get_mut(&channel.counterparty.node_id) {
                 channel_ids.push(channel);
             } else {
@@ -185,7 +274,7 @@ pub(crate) async fn set_channel_fee(
                 });
             }
         }
-    } else if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+    } else if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
         c.channel_id.to_hex() == channel_fee.id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_fee.id
     }) {
@@ -215,7 +304,7 @@ pub(crate) async fn close_channel(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+    if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
         c.channel_id.to_hex() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
@@ -233,7 +322,7 @@ pub(crate) async fn force_close_channel_with_broadcast(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+    if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
         c.channel_id.to_hex() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
@@ -251,7 +340,7 @@ pub(crate) async fn force_close_channel_without_broadcast(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if let Some(channel) = lightning_interface.list_channels().iter().find(|c| {
+    if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
         c.channel_id.to_hex() == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
@@ -272,7 +361,7 @@ pub(crate) async fn local_remote_balance(
     let mut remote_msat = 0;
     let mut pending_msat = 0;
     let mut inactive_msat = 0;
-    for channel in lightning_interface.list_channels() {
+    for channel in lightning_interface.list_active_channels() {
         if channel.is_usable {
             local_msat += channel.balance_msat;
             remote_msat += (channel.channel_value_satoshis * 1000) - channel.balance_msat;
@@ -401,8 +490,8 @@ fn format_features(channel_type: ChannelTypeFeatures) -> Vec<String> {
         .filter_map(|feature| {
             let (k, v) = feature.split_once(": ")?;
             match v {
-                "supported" => Some(k.to_string()),
-                "required" => Some(k.to_string()),
+                "supported" => Some(format!("supported {k}")),
+                "required" => Some(format!("required {k}")),
                 _ => None,
             }
         })

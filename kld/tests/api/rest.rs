@@ -266,7 +266,10 @@ async fn test_list_peer_channels_readonly() -> Result<()> {
     assert_eq!(TEST_ALIAS, channel.alias);
     assert_eq!(5000, channel.dust_limit_msat);
     assert_eq!(
-        vec!["SCIDPrivacy".to_string(), "ZeroConf".to_string()],
+        vec![
+            "supported SCIDPrivacy".to_string(),
+            "required ZeroConf".to_string()
+        ],
         channel.features
     );
     assert_eq!(1000, channel.fee_base_msat);

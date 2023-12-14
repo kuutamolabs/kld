@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use kld::api::codegen::{
+    get_kld_channel_response::GetKldChannelResponseItem,
     get_v1_channel_history_response::GetV1ChannelHistoryResponseItem,
     get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem,
     get_v1_channel_list_peer_channels_response::GetV1ChannelListPeerChannelsResponse,
@@ -279,6 +280,13 @@ async fn test_cli_list_forwards() -> Result<()> {
 async fn test_cli_channel_history() -> Result<()> {
     let output = run_cli("list-channel-history", &[]).await?;
     let _: Vec<GetV1ChannelHistoryResponseItem> = deserialize(&output.stdout)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cli_list_channels() -> Result<()> {
+    let output = run_cli("list-channels", &[]).await?;
+    let _: Vec<GetKldChannelResponseItem> = deserialize(&output.stdout)?;
     Ok(())
 }
 

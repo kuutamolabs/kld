@@ -4,6 +4,7 @@ info:
   title: KLD REST API
 basePath: /
 paths:
+  # CLN client compatible
   /v1/newaddr:
     get:
       description: Generates new on-chain address for receiving funds
@@ -31,6 +32,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/peer/connect:
     post:
       description: Connect with a network peer
@@ -64,6 +66,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/estimateChannelLiquidity:
     get:
       description: Estimate channel liquidity
@@ -103,6 +106,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/getFees:
     get:
       tags:
@@ -166,6 +170,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/channel/listPeerChannels:
     get:
       tags:
@@ -304,6 +309,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/channel/listForwards:
     get:
       tags:
@@ -373,6 +379,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/channel/history:
     get:
       tags:
@@ -443,6 +450,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/pay/listPayments:
     get:
       tags:
@@ -513,6 +521,7 @@ paths:
           description: Bad request
         "500":
           description: Server error
+  # CLN client compatible
   /v1/utility/decode/{invoiceString}:
     get:
       tags:
@@ -574,6 +583,193 @@ paths:
             required:
               - type
               - valid
+        "400":
+          description: Bad request
+        "500":
+          description: Server error
+  /kld/channel:
+    get:
+      tags:
+        - Channel Management
+      description: list all channel
+      operationId: kld_all_channel
+      security:
+        - MacaroonAuth: []
+      responses:
+        "200":
+          description: List all channels with full details
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                channel_id:
+                  type: string
+                counterparty_node_id:
+                  type: string
+                  description: counterparty public
+                counterparty_unspendable_punishment_reserve:
+                  type: integer
+                  minimum: 0
+                counterparty_outbound_htlc_minimum_msat:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                counterparty_outbound_htlc_maximum_msat:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                funding_txo:
+                  type: string
+                  description: funding transaction output
+                features:
+                  type: array
+                  items:
+                    type: string
+                  description: Features which apply to this channel
+                short_channel_id:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                outbound_scid_alias:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                inbound_scid_alias:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                channel_value_satoshis:
+                  type: integer
+                  minimum: 0
+                unspendable_punishment_reserve:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                user_channel_id:
+                  type: integer
+                  minimum: 0
+                  description: user channel ID
+                feerate_sat_per_1000_weight:
+                  type: integer
+                  format: int32
+                  nullable: true
+                  minimum: 0
+                balance_msat:
+                  type: integer
+                  minimum: 0
+                outbound_capacity_msat:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                next_outbound_htlc_limit_msat:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                next_outbound_htlc_minimum_msat:
+                  type: integer
+                  minimum: 0
+                inbound_capacity_msat:
+                  type: integer
+                  minimum: 0
+                confirmations_required:
+                  type: integer
+                  format: int32
+                  nullable: true
+                  minimum: 0
+                confirmations:
+                  type: integer
+                  format: int32
+                  nullable: true
+                  minimum: 0
+                force_close_spend_delay:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                is_outbound:
+                  type: boolean
+                  description: is channel inbound or outbound
+                is_channel_ready:
+                  type: boolean
+                channel_shutdown_state:
+                  type: string
+                is_usable:
+                  type: boolean
+                is_public:
+                  type: boolean
+                  description: is channel public or private
+                inbound_htlc_minimum_msat:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                inbound_htlc_maximum_msat:
+                  type: integer
+                  nullable: true
+                  minimum: 0
+                config_forwarding_fee_proportional_millionths:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                config_forwarding_fee_base_msat:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                config_cltv_expiry_delta:
+                  type: integer
+                  minimum: 0
+                config_max_dust_htlc_exposure_is_fixed:
+                  type: boolean
+                config_max_dust_htlc_exposure_value:
+                  type: integer
+                  minimum: 0
+                  description: if config_max_dust_htlc_exposure_is_fixed the config_max_dust_htlc_exposure_value is FixedLimitMsat else it will be FeeRateMultiplier
+                config_force_close_avoidance_max_fee_satoshis:
+                  type: integer
+                  minimum: 0
+                config_accept_underpaying_htlcs:
+                  type: boolean
+                # The followings are extra fields not from ChannelDetails
+                has_monitor:
+                  type: boolean
+                open_timestamp:
+                  type: integer
+                  minimum: 0
+                  description: time that the channel was opened
+                update_timestamp:
+                  type: integer
+                  minimum: 0
+                  description: time that the channel was closed
+                closure_reason:
+                  type: string
+                  nullable: true
+                  description: reason the channel was closed
+              required:
+                - channel_id
+                - counterparty_node_id
+                - counterparty_unspendable_punishment_reserve
+                - channel_value_satoshis
+                - funding_txo
+                - features
+                - user_channel_id
+                - balance_msat
+                - outbound_capacity_msat
+                - next_outbound_htlc_limit_msat
+                - next_outbound_htlc_minimum_msat
+                - inbound_capacity_msat
+                - is_outbound
+                - is_channel_ready
+                - is_usable
+                - is_public
+                - config_forwarding_fee_proportional_millionths
+                - config_forwarding_fee_base_msat
+                - config_cltv_expiry_delta
+                - config_max_dust_htlc_exposure_is_fixed
+                - config_max_dust_htlc_exposure_value
+                - config_force_close_avoidance_max_fee_satoshis
+                - config_accept_underpaying_htlcs
+                - has_monitor
+                - open_timestamp
+                - update_timestamp
         "400":
           description: Bad request
         "500":
