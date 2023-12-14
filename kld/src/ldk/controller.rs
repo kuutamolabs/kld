@@ -808,35 +808,21 @@ impl Controller {
             let probing_scorer = scorer.clone();
             let interval = settings.probe_interval;
             let amt_msat = settings.probe_amt_msat;
+            let targets = settings.probe_targets.clone();
             tokio::spawn(async move {
                 let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
                 interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                loop {
+                for pk in targets.iter().cycle() {
                     interval_timer.tick().await;
-                    let rcpt = {
-                        let lck = probing_graph.read_only();
-                        if lck.nodes().is_empty() {
-                            return;
-                        }
-                        let mut it = lck
-                            .nodes()
-                            .unordered_iter()
-                            .skip(::rand::random::<usize>() % lck.nodes().len());
-                        it.next().map(|n| *n.0)
-                    };
-                    if let Some(rcpt) = rcpt {
-                        if let Ok(pk) = bitcoin::secp256k1::PublicKey::from_slice(rcpt.as_slice()) {
-                            send_probe(
-                                &probing_cm,
-                                pk,
-                                &probing_graph,
-                                amt_msat,
-                                &probing_scorer,
-                                interval,
-                                probe_metrics,
-                            );
-                        }
-                    }
+                    send_probe(
+                        &probing_cm,
+                        pk,
+                        &probing_graph,
+                        amt_msat,
+                        &probing_scorer,
+                        interval,
+                        probe_metrics,
+                    );
                 }
             });
         }
@@ -1009,7 +995,7 @@ impl Drop for Controller {
 
 fn send_probe(
     channel_manager: &ChannelManager,
-    recipient: PublicKey,
+    recipient: &PublicKey,
     graph: &NetworkGraph,
     amt_msat: u64,
     scorer: &std::sync::RwLock<Scorer>,
@@ -1022,7 +1008,7 @@ fn send_probe(
 ) {
     let chans = channel_manager.list_usable_channels();
     let chan_refs = chans.iter().collect::<Vec<_>>();
-    let mut payment_params = PaymentParameters::from_node_id(recipient, 144);
+    let mut payment_params = PaymentParameters::from_node_id(*recipient, 144);
     payment_params.max_path_count = 1;
     let in_flight_htlcs = channel_manager.compute_inflight_htlcs();
     let mut scorer = match scorer.write() {

@@ -1,6 +1,7 @@
 mod bitcoin_network;
 
 use crate::api::SocketAddress;
+use bitcoin::secp256k1::PublicKey;
 pub use bitcoin_network::Network;
 use clap::{builder::OsStr, Parser};
 
@@ -80,6 +81,9 @@ pub struct Settings {
     /// The amount in million satoshis is used to probe
     #[arg(long, default_value = "0", env = "KLD_PROBE_AMT_MSAT")]
     pub probe_amt_msat: u64,
+    /// The targets to probe
+    #[arg(long, value_delimiter = ',', env = "KLD_PROBE_TARGETS")]
+    pub probe_targets: Vec<PublicKey>,
 }
 
 impl Settings {

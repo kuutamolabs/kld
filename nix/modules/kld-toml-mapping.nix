@@ -28,6 +28,7 @@ in
     kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
     kuutamo.kld.probeInterval = cfg.probe_interval or 0;
     kuutamo.kld.probeAmtMSat = cfg.probe_amt_msat or 0;
+    kuutamo.kld.probeTargets = cfg.probe_targets or [ ];
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;
