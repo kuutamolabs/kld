@@ -79,5 +79,6 @@ pub const LIST_INVOICES: &str = "/v1/invoice/listInvoices";
 /// Decode invoice
 pub const DECODE_INVOICE: &str = "/v1/utility/decode/:invoice";
 
-/// --- Scorer ---
-pub const SCORER: &str = "/v1/scorer";
+/// --- Kuutamo Apis ---
+pub const SCORER: &str = "/kld/scorer";
+pub const LIST_CHANNELS: &str = "/kld/channels";

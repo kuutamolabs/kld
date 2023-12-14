@@ -144,8 +144,12 @@ impl LightningInterface for Controller {
             .count()
     }
 
-    fn list_channels(&self) -> Vec<ChannelDetails> {
+    fn list_active_channels(&self) -> Vec<ChannelDetails> {
         self.channel_manager.list_channels()
+    }
+
+    async fn list_channels(&self) -> Result<Vec<ChannelRecord>> {
+        self.database.fetch_channels().await
     }
 
     async fn open_channel(

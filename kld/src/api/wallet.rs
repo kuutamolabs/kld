@@ -103,7 +103,7 @@ pub(crate) async fn list_funds(
         .list_peers()
         .await
         .map_err(internal_server)?;
-    for channel in lightning_interface.list_channels() {
+    for channel in lightning_interface.list_active_channels() {
         if let Some(funding_txo) = channel.funding_txo {
             channels.push(ListFundsChannel {
                 peer_id: channel.counterparty.node_id.to_string(),

@@ -238,6 +238,42 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
+            let mut detail: ChannelDetails = row.read("data")?;
+            detail.is_usable = false;
+            outputs.push(ChannelRecord {
+                open_timestamp: row.get_timestamp("open_timestamp"),
+                update_timestamp: row.get_timestamp("update_timestamp"),
+                closure_reason: row
+                    .read_optional("closure_reason")?
+                    .map(|r: ClosureReason| r.to_string()),
+                detail,
+            });
+        }
+        Ok(outputs)
+    }
+
+    pub async fn fetch_channels(&self) -> Result<Vec<ChannelRecord>> {
+        let rows = self
+            .durable_connection
+            .get()
+            .await
+            .query(
+                "SELECT
+                    data,
+                    is_usable,
+                    open_timestamp,
+                    update_timestamp,
+                    closure_reason
+            FROM
+                channels",
+                &[],
+            )
+            .await?;
+
+        let mut outputs = vec![];
+        for row in rows {
+            let mut detail: ChannelDetails = row.read("data")?;
+            detail.is_usable = row.read("is_usable")?;
             outputs.push(ChannelRecord {
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),

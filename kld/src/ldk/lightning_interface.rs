@@ -48,7 +48,9 @@ pub trait LightningInterface: Send + Sync {
 
     fn wallet_balance(&self) -> u64;
 
-    fn list_channels(&self) -> Vec<ChannelDetails>;
+    fn list_active_channels(&self) -> Vec<ChannelDetails>;
+
+    async fn list_channels(&self) -> Result<Vec<ChannelRecord>>;
 
     fn set_channel_fee(
         &self,

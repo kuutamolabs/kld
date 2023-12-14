@@ -198,8 +198,17 @@ impl LightningInterface for MockLightning {
         self.wallet_balance
     }
 
-    fn list_channels(&self) -> Vec<ChannelDetails> {
+    fn list_active_channels(&self) -> Vec<ChannelDetails> {
         vec![self.channel.clone()]
+    }
+
+    async fn list_channels(&self) -> Result<Vec<ChannelRecord>> {
+        Ok(vec![ChannelRecord {
+            open_timestamp: microsecond_timestamp(),
+            update_timestamp: microsecond_timestamp(),
+            closure_reason: Some(ClosureReason::CooperativeClosure.to_string()),
+            detail: self.channel.clone(),
+        }])
     }
 
     fn set_channel_fee(

@@ -95,7 +95,7 @@ async fn response_examples(
             }
             if let Some(g) = CHANNEL_BALANCE.get() {
                 let mut total_channel_balance = 0;
-                let channels = lightning_metrics.list_channels();
+                let channels = lightning_metrics.list_active_channels();
                 for channel in channels {
                     total_channel_balance += channel.balance_msat;
                 }
