@@ -45,7 +45,7 @@ pub(crate) async fn list_channels(
         .list_channels()
         .await
         .map_err(internal_server)?;
-    let channels_in_mem = lightning_interface.list_active_channels();
+    let mut channels_in_mem = lightning_interface.list_active_channels();
 
     let mut response = vec![];
 
@@ -64,13 +64,17 @@ pub(crate) async fn list_channels(
             };
 
         let mut has_monitor = false;
-        for channel in &channels_in_mem {
+        let mut is_found = None;
+        for (idx, channel) in channels_in_mem.iter().enumerate() {
             // Patch the detail which in memory, these channels are listed from channel manager, and
             // should has channel monitor on it now.
             if channel.channel_id == detail.channel_id {
-                detail = channel.clone();
-                has_monitor = true;
+                is_found = Some(idx);
             }
+        }
+        if let Some(idx) = is_found {
+            detail = channels_in_mem.remove(idx);
+            has_monitor = true;
         }
 
         response.push(GetKldChannelResponseItem {
@@ -122,6 +126,17 @@ pub(crate) async fn list_channels(
             update_timestamp: update_timestamp.unix_timestamp(),
             closure_reason,
         });
+    }
+    // log error if any channel not exist in the DB
+    for channel in channels_in_mem.into_iter() {
+        log::error!(
+            "Channel miss from DB, channel: {}, funding_txo: {}",
+            channel.channel_id.to_hex(),
+            channel
+                .funding_txo
+                .map(|txo| format!("{}:{}", txo.txid, txo.index))
+                .unwrap_or_default(),
+        );
     }
     Ok(Json(response))
 }

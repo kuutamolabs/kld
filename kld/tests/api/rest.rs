@@ -11,6 +11,7 @@ use bitcoin::hashes::hex::ToHex;
 use futures::FutureExt;
 use hyper::Method;
 use kld::api::bind_api_server;
+use kld::api::codegen::get_kld_channel_response::GetKldChannelResponseItem;
 use kld::api::codegen::get_v1_channel_history_response::GetV1ChannelHistoryResponseItem;
 use kld::api::codegen::get_v1_channel_list_forwards_response::GetV1ChannelListForwardsResponseItem;
 use kld::api::codegen::get_v1_channel_list_peer_channels_response::{
@@ -232,6 +233,30 @@ async fn test_list_funds_readonly() -> Result<()> {
     assert_eq!(1000000000, channel.amount_msat);
     assert_eq!(TEST_TX_ID, channel.funding_txid);
     assert_eq!(2, channel.funding_output);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_list_channels_readonly() -> Result<()> {
+    let context = create_api_server().await?;
+    let channels: Vec<GetKldChannelResponseItem> =
+        readonly_request(&context, Method::GET, routes::LIST_CHANNELS)?
+            .send()
+            .await?
+            .json()
+            .await?;
+    let channel = channels.get(0).context("Missing channel")?;
+    assert_eq!(Some(TEST_SHORT_CHANNEL_ID), channel.short_channel_id);
+    assert_eq!(format!("{TEST_TX_ID}:2"), channel.funding_txo);
+    assert!(channel.is_public);
+    assert!(channel.is_usable);
+    assert_eq!(
+        vec![
+            "supported SCIDPrivacy".to_string(),
+            "required ZeroConf".to_string()
+        ],
+        channel.features
+    );
     Ok(())
 }
 
