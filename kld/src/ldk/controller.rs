@@ -195,13 +195,25 @@ impl LightningInterface for Controller {
         &self,
         channel_id: &ChannelId,
         counterparty_node_id: &PublicKey,
+        fee_rate: Option<u32>,
     ) -> Result<()> {
         if !self.bitcoind_client.is_synchronised().await {
             bail!("Bitcoind is synchronising blockchain")
         }
-        self.channel_manager
-            .close_channel(channel_id, counterparty_node_id)
-            .map_err(ldk_error)
+        if fee_rate.is_some() {
+            self.channel_manager
+                .close_channel_with_feerate_and_script(
+                    channel_id,
+                    counterparty_node_id,
+                    fee_rate,
+                    None,
+                )
+                .map_err(ldk_error)
+        } else {
+            self.channel_manager
+                .close_channel(channel_id, counterparty_node_id)
+                .map_err(ldk_error)
+        }
     }
 
     async fn force_close_channel(

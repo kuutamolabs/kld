@@ -21,9 +21,10 @@ use self::utility::get_info;
 use crate::{
     api::{
         channels::{
-            channel_history, close_channel, force_close_channel_with_broadcast,
-            force_close_channel_without_broadcast, list_channels, list_forwards,
-            list_peer_channels, local_remote_balance, open_channel, set_channel_fee,
+            channel_history, close_channel, close_channel_with_fee,
+            force_close_channel_with_broadcast, force_close_channel_without_broadcast,
+            list_channels, list_forwards, list_peer_channels, local_remote_balance, open_channel,
+            set_channel_fee,
         },
         invoices::{decode_invoice, generate_invoice, list_invoices},
         macaroon_auth::{admin_auth, readonly_auth},
@@ -119,6 +120,10 @@ impl RestApi {
             .route(routes::OPEN_CHANNEL, post(open_channel))
             .route(routes::SET_CHANNEL_FEE, post(set_channel_fee))
             .route(routes::CLOSE_CHANNEL, delete(close_channel))
+            .route(
+                routes::CLOSE_CHANNEL_WITH_FEE,
+                delete(close_channel_with_fee),
+            )
             .route(
                 routes::FORCE_CLOSE_CHANNEL_WITH_BROADCAST,
                 delete(force_close_channel_with_broadcast),

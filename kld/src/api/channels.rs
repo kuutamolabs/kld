@@ -324,7 +324,30 @@ pub(crate) async fn close_channel(
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
         lightning_interface
-            .close_channel(&channel.channel_id, &channel.counterparty.node_id)
+            .close_channel(&channel.channel_id, &channel.counterparty.node_id, None)
+            .await
+            .map_err(internal_server)?;
+        Ok(Json(()))
+    } else {
+        Err(ApiError::NotFound(channel_id))
+    }
+}
+
+pub(crate) async fn close_channel_with_fee(
+    Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
+    Path(channel_id): Path<String>,
+    Path(fee_rate): Path<u32>,
+) -> Result<impl IntoResponse, ApiError> {
+    if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
+        c.channel_id.to_hex() == channel_id
+            || c.short_channel_id.unwrap_or_default().to_string() == channel_id
+    }) {
+        lightning_interface
+            .close_channel(
+                &channel.channel_id,
+                &channel.counterparty.node_id,
+                Some(fee_rate),
+            )
             .await
             .map_err(internal_server)?;
         Ok(Json(()))

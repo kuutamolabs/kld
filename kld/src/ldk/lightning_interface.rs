@@ -87,6 +87,7 @@ pub trait LightningInterface: Send + Sync {
         &self,
         channel_id: &ChannelId,
         counterparty_node_id: &PublicKey,
+        fee_rate: Option<u32>,
     ) -> Result<()>;
 
     async fn force_close_channel(

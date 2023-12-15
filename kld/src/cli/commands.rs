@@ -101,10 +101,15 @@ pub enum KldCliSubCommand {
         #[arg()]
         id: String,
 
+        /// Close with fee rate in sats per 1000 weight.
+        /// This option do not work with `force_close` option
+        #[arg(short, long)]
+        fee_rate: Option<u32>,
+
         /// Force closes a channel with or without broadcasting the latest local transaction(s) .
         /// If `broadcast-flag` is `broadcast`, it will immediately broadcasting the latest local transaction(s) and rejecting new HTLCs on the given channel.
         /// If `broadcast-flag` is `no-broadcast`, it will rejecting new HTLCs on the given channel but skips broadcasting the latest local transaction(s).
-        #[arg(short, long, name = "broadcast-flag")]
+        #[arg(long, name = "broadcast-flag")]
         force_close: Option<String>,
     },
     /// Get node information from the network graph.

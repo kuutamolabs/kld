@@ -276,6 +276,7 @@ impl LightningInterface for MockLightning {
         &self,
         _channel_id: &ChannelId,
         _counterparty_node_id: &PublicKey,
+        _fee_rate: Option<u32>,
     ) -> Result<()> {
         Ok(())
     }

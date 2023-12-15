@@ -48,10 +48,12 @@ fn run_command(args: KldCliCommand) -> Result<()> {
         KldCliSubCommand::CloseChannel {
             id,
             force_close: None,
-        } => api.close_channel(id)?,
+            fee_rate,
+        } => api.close_channel(id, fee_rate)?,
         KldCliSubCommand::CloseChannel {
             id,
             force_close: Some(broadcast_flag),
+            ..
         } => {
             let need_broadcast = match broadcast_flag.as_str() {
                 "broadcast" => true,
