@@ -176,10 +176,19 @@ impl Api {
         deserialize::<SetChannelFeeResponse>(response)
     }
 
-    pub fn close_channel(&self, id: String) -> Result<String> {
-        let response = self
-            .request(Method::DELETE, &routes::CLOSE_CHANNEL.replace(":id", &id))
-            .send()?;
+    pub fn close_channel(&self, id: String, fee_rate: Option<u32>) -> Result<String> {
+        let response = if let Some(fee_rate) = fee_rate {
+            self.request(
+                Method::DELETE,
+                &routes::CLOSE_CHANNEL_WITH_FEE
+                    .replace(":id", &id)
+                    .replace(":fee_rate", &fee_rate.to_string()),
+            )
+            .send()?
+        } else {
+            self.request(Method::DELETE, &routes::CLOSE_CHANNEL.replace(":id", &id))
+                .send()?
+        };
         deserialize::<()>(response)
     }
 

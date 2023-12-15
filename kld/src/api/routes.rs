@@ -31,6 +31,8 @@ pub const OPEN_CHANNEL: &str = "/v1/channel/openChannel";
 pub const SET_CHANNEL_FEE: &str = "/v1/channel/setChannelFee";
 /// Close an existing channel with a peer.
 pub const CLOSE_CHANNEL: &str = "/v1/channel/closeChannel/:id";
+/// Close an existing channel with a peer and specified fee rate.
+pub const CLOSE_CHANNEL_WITH_FEE: &str = "/v1/channel/closeChannel/:id/:fee_rate";
 /// Force close an existing channel with a peer.
 pub const FORCE_CLOSE_CHANNEL_WITH_BROADCAST: &str =
     "/v1/channel/forceCloseChannelWithBoradCast/:id";
