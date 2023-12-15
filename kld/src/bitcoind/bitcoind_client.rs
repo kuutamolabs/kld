@@ -325,7 +325,7 @@ impl Priorities {
             background: Arc::new(PriorityClass {
                 fee_rate: AtomicU32::new(MIN_FEERATE),
                 default_fee_rate: MIN_FEERATE,
-                n_blocks: 144,
+                n_blocks: 72,
                 estimate_mode: EstimateMode::Conservative,
             }),
             normal: Arc::new(PriorityClass {
@@ -338,7 +338,7 @@ impl Priorities {
                 fee_rate: AtomicU32::new(10000),
                 default_fee_rate: 10000,
                 n_blocks: 6,
-                estimate_mode: EstimateMode::Economical,
+                estimate_mode: EstimateMode::Conservative,
             }),
         }
     }
