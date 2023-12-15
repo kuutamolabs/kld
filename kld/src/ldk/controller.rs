@@ -828,33 +828,40 @@ impl Controller {
                 tokio::spawn(async move {
                     let mut interval_timer = tokio::time::interval(Duration::from_secs(interval));
                     interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                    let rcpt = {
-                        let lck = probing_graph.read_only();
-                        if lck.nodes().is_empty() {
-                            return;
-                        }
-                        let mut it = lck
-                            .nodes()
-                            .unordered_iter()
-                            .skip(::rand::random::<usize>() % lck.nodes().len());
-                        it.next().map(|n| *n.0)
-                    };
-                    if let Some(rcpt) = rcpt {
-                        if let Ok(pk) = bitcoin::secp256k1::PublicKey::from_slice(rcpt.as_slice()) {
-                            tokio::select! (
-                                _ = probe_quit_signal => {
-                                    tokio::time::sleep(Duration::from_secs(shutdown_graceful_sec)).await;
-                                },
-                                _ = send_probe(
-                                    &probing_cm,
-                                    &pk,
-                                    &probing_graph,
-                                    amt_msat,
-                                    &probing_scorer,
-                                    interval,
-                                    probe_metrics,
-                                ) => {}
-                            );
+                    loop {
+                        interval_timer.tick().await;
+                        let quit = probe_quit_signal.clone();
+                        let rcpt = {
+                            let lck = probing_graph.read_only();
+                            if lck.nodes().is_empty() {
+                                return;
+                            }
+                            let mut it = lck
+                                .nodes()
+                                .unordered_iter()
+                                .skip(::rand::random::<usize>() % lck.nodes().len());
+                            it.next().map(|n| *n.0)
+                        };
+                        if let Some(rcpt) = rcpt {
+                            if let Ok(pk) =
+                                bitcoin::secp256k1::PublicKey::from_slice(rcpt.as_slice())
+                            {
+                                tokio::select! (
+                                    _ = quit => {
+                                        tokio::time::sleep(Duration::from_secs(shutdown_graceful_sec)).await;
+                                        break;
+                                    },
+                                    _ = send_probe(
+                                        &probing_cm,
+                                        &pk,
+                                        &probing_graph,
+                                        amt_msat,
+                                        &probing_scorer,
+                                        interval,
+                                        probe_metrics,
+                                    ) => {}
+                                );
+                            }
                         }
                     }
                 });
