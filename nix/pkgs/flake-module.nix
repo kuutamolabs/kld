@@ -1,16 +1,16 @@
-{ self, inputs, ... }: {
-  perSystem = { config, self', pkgs, system, ... }: rec {
+{ self, ... }: {
+  perSystem = { config, self', pkgs, ... }: rec {
     packages = {
       kld = pkgs.callPackage ./kld.nix {
         inherit self;
-        craneLib = inputs.crane.lib.${system};
+        craneLib = pkgs.nightlyCraneLib;
         inherit (config.packages) cockroachdb;
       };
       kld-mgr = pkgs.callPackage ./kld-mgr.nix {
         inherit self;
       };
       kld-tui = pkgs.callPackage ./kld-tui.nix {
-        craneLib = inputs.crane.lib.${system};
+        craneLib = pkgs.nightlyCraneLib;
         inherit self;
       };
       kld-ctl = pkgs.callPackage ./kld-ctl.nix {
