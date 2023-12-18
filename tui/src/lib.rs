@@ -1,3 +1,6 @@
+#![feature(let_chains)]
+#![feature(if_let_guard)]
+
 use color_eyre::eyre::Result;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;

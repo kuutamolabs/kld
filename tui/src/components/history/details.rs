@@ -37,23 +37,21 @@ impl Component for HistoryDetails {
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
         match action {
             Action::Tab(t) => self.display = t == WORD_BINDINGS.get("History"),
-            Action::History(ts) => {
-                if let Ok(conn) = self.pool.get() {
-                    let (input, output) = conn
-                        .query_row(
-                            "SELECT input, output FROM history WHERE timestamp == ?",
-                            [ts.to_string()],
-                            |row| {
-                                Ok((
-                                    row.get::<usize, String>(0).unwrap_or_default(),
-                                    row.get::<usize, String>(1).unwrap_or_default(),
-                                ))
-                            },
-                        )
-                        .unwrap_or(("".into(), "fail to fetch command history from db".into()));
-                    self.input = input;
-                    self.output = output;
-                }
+            Action::History(ts) if let Ok(conn) = self.pool.get() => {
+                let (input, output) = conn
+                    .query_row(
+                        "SELECT input, output FROM history WHERE timestamp == ?",
+                        [ts.to_string()],
+                        |row| {
+                            Ok((
+                                row.get::<usize, String>(0).unwrap_or_default(),
+                                row.get::<usize, String>(1).unwrap_or_default(),
+                            ))
+                        },
+                    )
+                    .unwrap_or(("".into(), "fail to fetch command history from db".into()));
+                self.input = input;
+                self.output = output;
             }
             _ => {}
         }
