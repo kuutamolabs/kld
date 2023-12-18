@@ -28,7 +28,7 @@ impl<'a> BitcoinManager<'a> {
         let rpc_port = get_available_port()?;
         let storage_dir = output_dir
             .path()
-            .join(&format!("bitcoind_{}", settings.node_id));
+            .join(format!("bitcoind_{}", settings.node_id));
         std::fs::create_dir(&storage_dir)?;
 
         settings.bitcoind_rpc_port = rpc_port;

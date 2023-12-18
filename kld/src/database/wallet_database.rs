@@ -235,7 +235,7 @@ impl WalletDatabase {
             self
         )?;
 
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let script: Vec<u8> = row.get(0);
                 let script: Script = script.into();
@@ -254,7 +254,7 @@ impl WalletDatabase {
             &[&script],
             self
         )?;
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let keychain: String = row.get(0);
                 let keychain: KeychainKind = serde_json::from_str(&keychain)?;
@@ -301,7 +301,7 @@ impl WalletDatabase {
             &[&txid, &(vout as i32)],
             self
         )?;
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let value: u64 = row.get::<usize, i64>(0).try_into().unwrap();
                 let keychain: String = row.get(1);
@@ -341,7 +341,7 @@ impl WalletDatabase {
             &[&txid],
             self
         )?;
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let raw_tx: Vec<u8> = row.get(0);
                 let tx: Transaction = deserialize(&raw_tx)?;
@@ -439,7 +439,7 @@ impl WalletDatabase {
     ) -> Result<Option<TransactionDetails>, Error> {
         let rows = query_blocking!("SELECT wtd.timestamp, wtd.received, wtd.sent, wtd.fee, wtd.height, wt.raw_tx FROM wallet_transaction_details wtd, wallet_transactions wt WHERE wtd.txid=wt.txid AND wtd.txid=$1", &[&txid], self)?;
 
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let timestamp: Option<u64> = row
                     .get::<usize, Option<i64>>(0)
@@ -489,7 +489,7 @@ impl WalletDatabase {
             &[&keychain],
             self
         )?;
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let value: u32 = row.get::<usize, i64>(0).try_into().unwrap();
                 Ok(Some(value))
@@ -505,7 +505,7 @@ impl WalletDatabase {
             self
         )?;
 
-        if let Some(row) = rows.get(0) {
+        if let Some(row) = rows.first() {
             Ok(Some(SyncTime {
                 block_time: BlockTime {
                     height: row.get::<usize, i64>(0).try_into().unwrap(),
@@ -524,7 +524,7 @@ impl WalletDatabase {
             self
         )?;
 
-        match rows.get(0) {
+        match rows.first() {
             Some(row) => {
                 let checksum: Vec<u8> = row.get(0);
                 Ok(Some(checksum))

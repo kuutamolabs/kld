@@ -69,10 +69,10 @@ pub fn initialize_panic_handler() -> Result<()> {
 
 pub fn initialize_logging(log_file: Option<PathBuf>, log_level: Option<String>) -> Result<()> {
     if let Some(log_file) = log_file {
-        if let Some(parent) = log_file.parent() {
-            if parent != std::path::Path::new("") {
-                std::fs::create_dir_all(parent)?;
-            }
+        if let Some(parent) = log_file.parent()
+            && parent != std::path::Path::new("")
+        {
+            std::fs::create_dir_all(parent)?;
         }
         let log_file = std::fs::File::create(&log_file)?;
         std::env::set_var(

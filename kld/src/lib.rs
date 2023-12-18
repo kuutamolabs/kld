@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 use async_trait::async_trait;
 use tokio::signal::unix::SignalKind;
 

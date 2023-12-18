@@ -816,7 +816,7 @@ where
         let mut buf = vec![];
         channel_manager.write(&mut buf)?;
         let durable_connection = self.durable_connection.clone();
-        self.runtime.spawn(async move {
+        self.runtime.spawn_blocking(async move || {
             if let Err(e) = durable_connection
                 .get()
                 .await

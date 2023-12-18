@@ -151,7 +151,7 @@ pub async fn test_start() -> Result<()> {
                     ()
                 )
                 .await?
-                .get(0)
+                .first()
                 .map(|c| &c.state),
             Some(&GetV1ChannelListPeerChannelsResponseState::ChanneldNormal)
         )
@@ -163,7 +163,7 @@ pub async fn test_start() -> Result<()> {
             (),
         )
         .await?;
-    let channel = channels.get(0).context("expected channel")?;
+    let channel = channels.first().context("expected channel")?;
 
     let keysend = KeysendRequest {
         pubkey: info_1.id,

@@ -17,18 +17,18 @@ impl KeyBindings {
     pub fn new(user_keybinding: Option<PathBuf>) -> Result<Self, config::ConfigError> {
         let mut keybindings: KeyBindings = toml::from_str(DEFAULT_KEY_CONFIG).unwrap();
 
-        if let Some(user_keybinding) = user_keybinding {
-            if let Ok(content) = std::fs::read_to_string(user_keybinding) {
-                let mut loaded_keybindings: KeyBindings = toml::from_str(&content).unwrap();
-                log::trace!("Loaded keybindings:\n{loaded_keybindings:#?}");
+        if let Some(user_keybinding) = user_keybinding
+            && let Ok(content) = std::fs::read_to_string(user_keybinding)
+        {
+            let mut loaded_keybindings: KeyBindings = toml::from_str(&content).unwrap();
+            log::trace!("Loaded keybindings:\n{loaded_keybindings:#?}");
 
-                for (mode, bindings) in loaded_keybindings.iter_mut() {
-                    let user_bindings = keybindings.entry(*mode).or_default();
-                    for (key, cmd) in bindings.iter() {
-                        user_bindings
-                            .entry(key.clone())
-                            .or_insert_with(|| cmd.clone());
-                    }
+            for (mode, bindings) in loaded_keybindings.iter_mut() {
+                let user_bindings = keybindings.entry(*mode).or_default();
+                for (key, cmd) in bindings.iter() {
+                    user_bindings
+                        .entry(key.clone())
+                        .or_insert_with(|| cmd.clone());
                 }
             }
         }

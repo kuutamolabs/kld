@@ -6,7 +6,6 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 
-
     # These flakes are only used by crane at the moment, we pin them here so
     # that flake users can override them as needed.
     flake-utils.url = "github:numtide/flake-utils";
@@ -57,8 +56,18 @@
         ./nix/treefmt/flake-module.nix
         ./nix/shell.nix
       ];
-      systems = [
-        "x86_64-linux"
-      ];
+      systems = [ "x86_64-linux" ];
+      perSystem = { pkgs, system, ... }: {
+        _module.args.pkgs = import inputs.nixpkgs {
+          system = "x86_64-linux";
+          overlays = [
+            (import inputs.rust-overlay)
+            (_self: super: rec {
+              nightlyToolchain = super.rust-bin.nightly."2023-10-24".default;
+              nightlyCraneLib = (inputs.crane.mkLib pkgs).overrideToolchain nightlyToolchain;
+            })
+          ];
+        };
+      };
     };
 }
