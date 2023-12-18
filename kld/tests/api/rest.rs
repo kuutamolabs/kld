@@ -211,7 +211,7 @@ async fn test_list_funds_readonly() -> Result<()> {
         .json()
         .await?;
 
-    let output = funds.outputs.get(0).context("Missing output")?;
+    let output = funds.outputs.first().context("Missing output")?;
     assert_eq!(TEST_TX_ID, output.txid);
     assert_eq!(0, output.output);
     assert_eq!(546000, output.amount_msat);
@@ -223,7 +223,7 @@ async fn test_list_funds_readonly() -> Result<()> {
     assert_eq!(OutputStatus::Confirmed, output.status);
     assert_eq!(Some(600000), output.block_height);
 
-    let channel = funds.channels.get(0).context("Missing channel")?;
+    let channel = funds.channels.first().context("Missing channel")?;
     assert_eq!(TEST_PUBLIC_KEY, channel.peer_id);
     assert!(channel.connected);
     assert_eq!(ChannelState::Usable, channel.state);
@@ -245,7 +245,7 @@ async fn test_list_channels_readonly() -> Result<()> {
             .await?
             .json()
             .await?;
-    let channel = channels.get(0).context("Missing channel")?;
+    let channel = channels.first().context("Missing channel")?;
     assert_eq!(Some(TEST_SHORT_CHANNEL_ID), channel.short_channel_id);
     assert_eq!(format!("{TEST_TX_ID}:2"), channel.funding_txo);
     assert!(channel.is_public);
@@ -269,7 +269,7 @@ async fn test_list_peer_channels_readonly() -> Result<()> {
             .await?
             .json()
             .await?;
-    let channel = channels.get(0).context("Missing channel")?;
+    let channel = channels.first().context("Missing channel")?;
     assert_eq!(TEST_PUBLIC_KEY, channel.peer_id);
     assert!(channel.peer_connected);
     assert_eq!(
@@ -337,7 +337,7 @@ async fn test_set_channel_fee_admin() -> Result<()> {
     .json()
     .await?;
 
-    let fee = response.0.get(0).context("Bad response")?;
+    let fee = response.0.first().context("Bad response")?;
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), fee.short_channel_id);
     assert_eq!(TEST_PUBLIC_KEY, fee.peer_id);
     assert_eq!(set_channel_fee_request().base, Some(fee.base));
@@ -362,7 +362,7 @@ async fn test_set_all_channel_fees_admin() -> Result<()> {
         .json()
         .await?;
 
-    let fee = response.0.get(0).context("Bad response")?;
+    let fee = response.0.first().context("Bad response")?;
     assert_eq!(TEST_SHORT_CHANNEL_ID.to_string(), fee.short_channel_id);
     assert_eq!(TEST_PUBLIC_KEY, fee.peer_id);
     assert_eq!(request.base, Some(fee.base));
@@ -519,7 +519,7 @@ async fn test_list_network_node_readonly() -> Result<()> {
     .await?
     .json()
     .await?;
-    let node = nodes.get(0).context("no node in response")?;
+    let node = nodes.first().context("no node in response")?;
     assert_eq!(TEST_PUBLIC_KEY, node.node_id);
     assert_eq!(TEST_ALIAS, node.alias);
     assert_eq!("010203", node.color);
@@ -537,7 +537,10 @@ async fn test_list_network_nodes_readonly() -> Result<()> {
             .await?
             .json()
             .await?;
-    assert_eq!(TEST_PUBLIC_KEY, nodes.get(0).context("bad result")?.node_id);
+    assert_eq!(
+        TEST_PUBLIC_KEY,
+        nodes.first().context("bad result")?.node_id
+    );
     Ok(())
 }
 
@@ -665,7 +668,7 @@ async fn test_list_invoice_unpaid() -> Result<()> {
         .await?
         .json()
         .await?;
-    let invoice_response = response.get(0).context("expected invoice")?;
+    let invoice_response = response.first().context("expected invoice")?;
     assert_eq!(invoice.label, invoice_response.label);
     assert_eq!(invoice.bolt11.to_string(), invoice_response.bolt11);
     assert_eq!(
@@ -700,7 +703,7 @@ async fn test_list_payments() -> Result<()> {
     .await?
     .json()
     .await?;
-    let payment_response = response.payments.get(0).context("expected payment")?;
+    let payment_response = response.payments.first().context("expected payment")?;
     assert_eq!(payment.id.0.to_hex(), payment_response.id);
     assert_eq!(
         payment.bolt11.as_ref().map(|b| b.to_string()),

@@ -65,7 +65,7 @@ impl WalletInterface for MockWallet {
         };
         let utxo = LocalUtxo {
             outpoint: OutPoint::new(self.transaction.txid(), 0),
-            txout: self.transaction.output.get(0).unwrap().clone(),
+            txout: self.transaction.output.first().unwrap().clone(),
             keychain: KeychainKind::External,
             is_spent: false,
         };
