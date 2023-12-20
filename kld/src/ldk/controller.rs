@@ -41,7 +41,6 @@ use lightning::util::errors::APIError;
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
-use ldk_lsp_client::LiquidityProviderConfig;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{process_events_async, GossipSync};
 use lightning_block_sync::poll;
@@ -66,8 +65,9 @@ use super::event_handler::EventHandler;
 use super::peer_manager::PeerManager;
 use super::{
     ldk_error, lightning_error, payment_send_failure, retryable_send_failure,
-    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, LightningInterface,
-    LiquidityManager, NetworkGraph, OnionMessenger, OpenChannelResult, Peer, PeerStatus, Scorer,
+    sign_or_creation_error, ChainMonitor, ChannelManager, KldRouter, KuutamoCustomMessageHandler,
+    LightningInterface, LiquidityManager, NetworkGraph, OnionMessenger, OpenChannelResult, Peer,
+    PeerStatus, Scorer,
 };
 
 #[async_trait]
@@ -597,7 +597,6 @@ pub struct Controller {
     scorer: Arc<std::sync::RwLock<Scorer>>,
     wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
     async_api_requests: Arc<AsyncAPIRequests>,
-    _liquidity_manager: Arc<LiquidityManager>,
 }
 
 impl Controller {
@@ -751,13 +750,14 @@ impl Controller {
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
 
-        let liquidity_manager = Arc::new(LiquidityManager::new(
+        let liquidity_manager = LiquidityManager::new(
             keys_manager.clone(),
-            Some(LiquidityProviderConfig {}),
             channel_manager.clone(),
             None,
-            chain_params,
-        ));
+            Some(chain_params),
+            None,
+            None,
+        );
 
         let gossip_sync = Arc::new_cyclic(|gossip| {
             let utxo_lookup = Arc::new(BitcoindUtxoLookup::new(
@@ -786,7 +786,7 @@ impl Controller {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
-            custom_message_handler: liquidity_manager.clone(),
+            custom_message_handler: Arc::new(KuutamoCustomMessageHandler { liquidity_manager }),
         };
         let peer_manager = Arc::new(PeerManager::new(
             lightning_msg_handler,
@@ -975,7 +975,6 @@ impl Controller {
             scorer,
             wallet,
             async_api_requests,
-            _liquidity_manager: liquidity_manager,
         })
     }
 

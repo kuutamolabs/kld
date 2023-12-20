@@ -9,10 +9,8 @@ use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use hex::FromHex;
-use ldk_lsp_client::LiquidityManager;
 use lightning::sign::KeysManager;
 use lightning::{
-    chain::Filter,
     ln::{channelmanager::SimpleArcChannelManager, peer_handler},
     onion_message::SimpleArcOnionMessenger,
     routing::gossip,
@@ -21,7 +19,7 @@ use lightning_net_tokio::SocketDescriptor;
 use log::{error, info, warn};
 use tokio::task::JoinHandle;
 
-use super::{ChainMonitor, ChannelManager, KldRouter};
+use super::{ChainMonitor, ChannelManager, KuutamoCustomMessageHandler};
 
 pub(crate) type PeerManager = peer_handler::PeerManager<
     SocketDescriptor,
@@ -35,19 +33,7 @@ pub(crate) type PeerManager = peer_handler::PeerManager<
     >,
     Arc<SimpleArcOnionMessenger<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>>,
     Arc<KldLogger>,
-    Arc<
-        LiquidityManager<
-            Arc<KeysManager>,
-            Arc<ChainMonitor>,
-            Arc<BitcoindClient>,
-            Arc<BitcoindClient>,
-            Arc<KldRouter>,
-            Arc<KeysManager>,
-            Arc<KldLogger>,
-            Arc<KeysManager>,
-            Arc<dyn Filter + Send + Sync>,
-        >,
-    >,
+    Arc<KuutamoCustomMessageHandler>,
     Arc<KeysManager>,
 >;
 
