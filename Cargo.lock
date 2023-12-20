@@ -443,6 +443,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-targets",
 ]
@@ -1418,11 +1419,11 @@ dependencies = [
  "http",
  "hyper",
  "lazy_static",
- "ldk-lsp-client",
  "lightning",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
+ "lightning-liquidity",
  "lightning-net-tokio",
  "lightning-rapid-gossip-sync",
  "log",
@@ -1492,19 +1493,6 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
-
-[[package]]
-name = "ldk-lsp-client"
-version = "0.1.0"
-source = "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kuutamo#e75f1a2a1510b6ef8d565332dda0f9230bf3ef7f"
-dependencies = [
- "bitcoin",
- "lightning",
- "lightning-invoice",
- "lightning-net-tokio",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "libc"
@@ -1591,6 +1579,19 @@ dependencies = [
  "lightning",
  "num-traits",
  "secp256k1",
+]
+
+[[package]]
+name = "lightning-liquidity"
+version = "0.1.0"
+source = "git+https://github.com/lightningdevkit/lightning-liquidity?rev=8cd4a4b#8cd4a4baf732a7e0b86cfc98785e823b0ae12c79"
+dependencies = [
+ "bitcoin",
+ "chrono",
+ "lightning",
+ "lightning-invoice",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

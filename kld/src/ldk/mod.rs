@@ -10,12 +10,16 @@ use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
 use bitcoin::hashes::hex::ToHex;
+use bitcoin::secp256k1::PublicKey;
+use lightning::ln::peer_handler::CustomMessageHandler;
 use lightning::{
     chain::{chainmonitor, Filter},
     events::HTLCDestination,
     ln::{
         channelmanager::{PaymentSendFailure, RetryableSendFailure, SimpleArcChannelManager},
+        features::{InitFeatures, NodeFeatures},
         msgs::{DecodeError, LightningError},
+        wire::CustomMessageReader,
     },
     onion_message::SimpleArcOnionMessenger,
     routing::{
@@ -34,6 +38,8 @@ use log::warn;
 
 use crate::bitcoind::BitcoindClient;
 
+use peer_manager::PeerManager;
+
 /// The minimum feerate we are allowed to send, as specify by LDK (sats/kwu).
 pub static MIN_FEERATE: u32 = 2000;
 
@@ -48,17 +54,50 @@ pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
     Arc<LdkDatabase>,
 >;
 
-pub(crate) type LiquidityManager = ldk_lsp_client::LiquidityManager<
+pub(crate) type LiquidityManager = lightning_liquidity::LiquidityManager<
     Arc<KeysManager>,
-    Arc<ChainMonitor>,
-    Arc<BitcoindClient>,
-    Arc<BitcoindClient>,
-    Arc<KldRouter>,
-    Arc<KeysManager>,
-    Arc<KldLogger>,
-    Arc<KeysManager>,
+    Arc<ChannelManager>,
+    Arc<PeerManager>,
     Arc<dyn Filter + Send + Sync>,
 >;
+
+pub(crate) struct KuutamoCustomMessageHandler {
+    liquidity_manager: LiquidityManager,
+}
+
+impl lightning::ln::wire::CustomMessageReader for KuutamoCustomMessageHandler {
+    type CustomMessage = <LiquidityManager as CustomMessageReader>::CustomMessage;
+    fn read<RD: lightning::io::Read>(
+        &self,
+        message_type: u16,
+        buffer: &mut RD,
+    ) -> Result<Option<Self::CustomMessage>, lightning::ln::msgs::DecodeError> {
+        self.liquidity_manager.read(message_type, buffer)
+    }
+}
+
+impl CustomMessageHandler for KuutamoCustomMessageHandler {
+    fn handle_custom_message(
+        &self,
+        msg: Self::CustomMessage,
+        sender_node_id: &PublicKey,
+    ) -> Result<(), LightningError> {
+        self.liquidity_manager
+            .handle_custom_message(msg, sender_node_id)
+    }
+
+    fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)> {
+        self.liquidity_manager.get_and_clear_pending_msg()
+    }
+
+    fn provided_node_features(&self) -> NodeFeatures {
+        self.liquidity_manager.provided_node_features()
+    }
+
+    fn provided_init_features(&self, their_node_id: &PublicKey) -> InitFeatures {
+        self.liquidity_manager.provided_init_features(their_node_id)
+    }
+}
 
 pub(crate) type ChannelManager =
     SimpleArcChannelManager<ChainMonitor, BitcoindClient, BitcoindClient, KldLogger>;
