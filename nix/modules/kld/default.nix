@@ -5,7 +5,7 @@
 }:
 let
   cfg = config.kuutamo.kld;
-  bitcoinCfg = if cfg.bitcoindInstance == "bitcoind" then config.services.bitcoind else config.services.bitcoind.${cfg.bitcoindInstance};
+  bitcoinCfg = config.services.bitcoind;
   bitcoinCookieDir =
     if cfg.network == "regtest" then
       "${bitcoinCfg.dataDir}/regtest"
@@ -75,11 +75,6 @@ in
       description = ''
         Path to the mnemonics
       '';
-    };
-    bitcoindInstance = lib.mkOption {
-      type = lib.types.str;
-      default = "kld-${cfg.network}";
-      description = "The instance of bitcoind";
     };
     cockroachdb = {
       clientCertPath = lib.mkOption {

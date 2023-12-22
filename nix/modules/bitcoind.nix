@@ -4,7 +4,7 @@
 }:
 let
   cfg = config.kuutamo.bitcoind;
-  bitcoincfg = config.services.bitcoind.${cfg.instanceName};
+  bitcoincfg = config.services.bitcoind;
 in
 {
   imports = [
@@ -17,11 +17,6 @@ in
       default = "main";
       description = "Bitcoin network to use.";
     };
-    instanceName = lib.mkOption {
-      type = lib.types.str;
-      default = "kld-${cfg.network}";
-      description = "Bitcoin network to use.";
-    };
     package = lib.mkOption {
       type = lib.types.package;
       description = "The Bitcoind package to use for running the service.";
@@ -30,7 +25,7 @@ in
 
   config = {
 
-    services.bitcoind.${cfg.instanceName} = {
+    services.bitcoind = {
       enable = true;
       inherit (cfg) package;
       testnet = cfg.network == "testnet";

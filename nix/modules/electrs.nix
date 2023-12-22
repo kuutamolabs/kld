@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 let
   cfg = config.kuutamo.electrs;
-  bitcoinCfg = if cfg.bitcoindInstance == "bitcoind" then config.services.bitcoind else config.services.bitcoind.${cfg.bitcoindInstance};
+  bitcoinCfg = config.services.bitcoind;
   bitcoinCookieDir =
     if cfg.network == "regtest" then
       "${bitcoinCfg.dataDir}/regtest"
@@ -25,11 +25,6 @@ in
       type = lib.types.path;
       default = "/var/lib/electrs";
       description = "The data directory for electrs.";
-    };
-    bitcoindInstance = lib.mkOption {
-      type = lib.types.str;
-      default = "kld-${if cfg.network == "bitcoin" then "main" else cfg.network}";
-      description = "The instance of bitcoind";
     };
     monitoringPort = lib.mkOption {
       type = lib.types.port;
@@ -56,7 +51,7 @@ in
 
     systemd.services.electrs = lib.mkDefault {
       wantedBy = [ "multi-user.target" ];
-      after = [ "bitcoind${if cfg.bitcoindInstance == "bitcoind" then "" else cfg.bitcoindInstance}.service" ];
+      after = [ "bitcoind-kld-${cfg.network}.service" ];
       serviceConfig = {
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
           until [ -e ${bitcoinCookieDir}/.cookie ]

@@ -28,9 +28,9 @@ in
     kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
     kuutamo.kld.probeInterval = cfg.probe_interval or 0;
     kuutamo.kld.probeAmtMSat = cfg.probe_amt_msat or 0;
-    kuutamo.kld.network = cfg.network or null;
-    kuutamo.bitcoind.network = cfg.network or null;
-    kuutamo.electrs.network =  cfg.network or null;
+    kuutamo.kld.network = cfg.network or "main";
+    kuutamo.bitcoind.network = cfg.network or "main";
+    kuutamo.electrs.network =  cfg.network or "main";
     kuutamo.electrs.address = cfg.electrs_address or "127.0.0.1";
     kuutamo.electrs.port = cfg.electrs_port or 60001;
 
