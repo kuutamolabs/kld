@@ -178,4 +178,8 @@ probe_targets = []
 # The port of tcp connection for electrs server
 # electrs_port = 60001
 
+# The lite node only config to select different blockchain network.
+# It will be mainnet if this value is unset
+# network = ""
+
 
