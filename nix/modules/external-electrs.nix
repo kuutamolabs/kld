@@ -11,5 +11,10 @@
       default = 50001;
       description = "Port to listen for RPC connections.";
     };
+    network = lib.mkOption {
+      type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
+      default = "bitcoin";
+      description = lib.mdDoc "Bitcoin network to use.";
+    };
   };
 }
