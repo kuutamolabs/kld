@@ -220,7 +220,7 @@ impl App {
                         let uri = cmd.get_uri().unwrap_or_default();
                         let input = input.to_string();
                         match cmd {
-                            Cmd::NodeInfo => {
+                            Cmd::NodeInfo | Cmd::ChanList => {
                                 thread::spawn(move || {
                                     log::trace!("query for {trigger_time:}");
                                     let output = query::get(auth, uri);
