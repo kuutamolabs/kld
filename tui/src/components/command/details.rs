@@ -46,6 +46,49 @@ struct SqlResult {
     output: String,
 }
 
+pub trait LastQuery {
+    /// show the last result of a command or on query prompt
+    fn last_result(&self, cmd: Cmd) -> (Option<u64>, String);
+}
+
+impl LastQuery for CmdDetails {
+    fn last_result(&self, cmd: Cmd) -> (Option<u64>, String) {
+        let mut last_result = String::new();
+        let last_query_time = if let Ok(conn) = self.pool.get() {
+            match conn.query_row(
+                &format!("SELECT timestamp, input, output FROM history WHERE command == '{:?}' ORDER BY timestamp DESC LIMIT 1", cmd),
+                [],
+                |row|
+                Ok(SqlResult{
+                    timestamp: row.get(0)?,
+                    input: row.get(1)?,
+                    output: row.get(2)?,
+                })){
+                Ok(result) => {
+                    if result.output.is_empty() {
+                        last_result.push_str(WORD_BINDINGS.get("On query, please wait..."));
+                        last_result.push('\n');
+                    } else {
+                        last_result.push_str(&result.input);
+                        last_result.push('\n');
+                        last_result.push_str(&result.output);
+                        last_result.push('\n');
+                    }
+                    Some(result.timestamp)
+                },
+                Err(_) => {
+                    last_result.push_str(WORD_BINDINGS.get("Can not find out previous query."));
+                    last_result.push('\n');
+                    None
+                },
+            }
+        } else {
+            None
+        };
+        (last_query_time, last_result)
+    }
+}
+
 impl Component for CmdDetails {
     fn register_action_handler(&mut self, tx: UnboundedSender<Action>) -> Result<()> {
         self.command_tx = Some(tx);
@@ -184,39 +227,8 @@ impl CmdDetails {
         f.render_widget(p, area);
     }
     fn node_info(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        // Load previous node info from data base
-        let mut info = String::new();
-        let last_query_time = if let Ok(conn) = self.pool.get() {
-            match conn.query_row(
-                "SELECT timestamp, output FROM history WHERE command == 'NodeInfo' ORDER BY timestamp DESC LIMIT 1",
-                [],
-                |row|
-                Ok(SqlResult{
-                    timestamp: row.get(0)?,
-                    input: String::new(),
-                    output: row.get(1)?,
-                })){
-                Ok(result) => {
-                    if result.output.is_empty() {
-                        info.push_str(WORD_BINDINGS.get("On query, please wait..."));
-                        info.push('\n');
-                    } else {
-                        info.push_str(&result.output);
-                        info.push('\n');
-                    }
-                    Some(result.timestamp)
-                },
-                Err(_) => {
-                    info.push_str(WORD_BINDINGS.get("Can not find out previous node information."));
-                    info.push('\n');
-                    None
-                },
-            }
-        } else {
-            info.push_str(WORD_BINDINGS.get("Fail to connect on DB."));
-            info.push('\n');
-            None
-        };
+        let (last_query_time, mut info) = self.last_result(Cmd::NodeInfo);
+
         if last_query_time.is_some() {
             info.push_str(WORD_BINDINGS.get("Press "));
             info.push_str(
@@ -307,39 +319,9 @@ impl CmdDetails {
         );
         f.render_widget(help_message, area);
     }
+
     fn show_last_result(&mut self, f: &mut Frame<'_>, area: Rect, cmd: Cmd) {
-        let mut last_result = String::new();
-        let last_query_time = if let Ok(conn) = self.pool.get() {
-            match conn.query_row(
-                &format!("SELECT timestamp, input, output FROM history WHERE command == '{:?}' ORDER BY timestamp DESC LIMIT 1", cmd),
-                [],
-                |row|
-                Ok(SqlResult{
-                    timestamp: row.get(0)?,
-                    input: row.get(1)?,
-                    output: row.get(2)?,
-                })){
-                Ok(result) => {
-                    if result.output.is_empty() {
-                        last_result.push_str(WORD_BINDINGS.get("On query, please wait..."));
-                        last_result.push('\n');
-                    } else {
-                        last_result.push_str(&result.input);
-                        last_result.push('\n');
-                        last_result.push_str(&result.output);
-                        last_result.push('\n');
-                    }
-                    Some(result.timestamp)
-                },
-                Err(_) => {
-                    last_result.push_str(WORD_BINDINGS.get("Can not find out previous query."));
-                    last_result.push('\n');
-                    None
-                },
-            }
-        } else {
-            None
-        };
+        let (last_query_time, last_result) = self.last_result(cmd);
 
         let inner =
             Paragraph::new(last_result).block(if let Some(last_query_time) = last_query_time {
