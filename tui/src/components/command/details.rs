@@ -483,7 +483,7 @@ impl CmdDetails {
                     let widths = [Constraint::Length(30), Constraint::Max(f.size().width - 30)];
                     let table = Table::new(details[self.index].clone(), widths)
                         .block(block)
-                        .header(
+                        .footer(
                             Row::new(vec![
                                 Line::raw(String::from("")),
                                 Line::raw(format!(
