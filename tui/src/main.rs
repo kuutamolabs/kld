@@ -44,7 +44,12 @@ struct Cli {
     pub secrets: PathBuf,
 
     /// The url endpoint to the kld node
-    #[clap(short, long, default_value = "http://localhost:9234", env = "NODE_URL")]
+    #[clap(
+        short,
+        long,
+        default_value = "https://localhost:2244",
+        env = "NODE_URL"
+    )]
     pub node_url: url::Url,
 }
 
