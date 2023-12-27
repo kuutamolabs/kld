@@ -50,7 +50,7 @@ impl ConnectionAuth {
             }
         };
 
-        let macaroon_path = secrets.join("readonly.macaroon");
+        let macaroon_path = secrets.join("admin.macaroon");
         if !macaroon_path.exists() {
             log::error!("no macaroon under {}", secrets.display());
             return Err(eyre!("Could not find macaroon under secrets, please provide a correct one with `--secrets`"));
