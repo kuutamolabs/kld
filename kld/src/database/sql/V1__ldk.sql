@@ -20,6 +20,8 @@ CREATE TABLE channel_monitor_updates (
     PRIMARY KEY ( out_point, update_id )
 );
 
+ALTER TABLE channel_monitor_updates CONFIGURE ZONE USING gc.ttlseconds = 600;
+
 CREATE TABLE scorer (
     id              BYTES PRIMARY KEY,
     scorer          BYTES NOT NULL,
