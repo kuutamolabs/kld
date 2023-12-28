@@ -147,9 +147,16 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn persist_channel(&self, channel: &ChannelDetails) -> Result<()> {
-        debug!("Persist channel {}", channel.channel_id);
-        if let Some(scid) = &channel.short_channel_id {
+    pub async fn init_channel(
+        &self,
+        txid: &Txid,
+        channel_id: ChannelId,
+        is_public: bool,
+        counterparty: PublicKey,
+        channel: Option<ChannelDetails>,
+    ) -> Result<()> {
+        if let Some(channel) = channel {
+            debug!("Initial record for channel {} with detail", channel_id);
             self.durable_connection
                 .get()
                 .await
@@ -157,11 +164,66 @@ impl LdkDatabase {
                     "INSERT INTO channels (
                         channel_id,
                         counterparty,
+                        txid,
+                        is_usable,
+                        is_public,
+                        data,
+                        update_timestamp
+                    ) VALUES ( $1, $2, $3, $4, $5, $6, $7)",
+                    &[
+                        &channel.channel_id.0.as_ref(),
+                        &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
+                        &format!("{txid:}"),
+                        &channel.is_usable,
+                        &channel.is_public,
+                        &channel.encode(),
+                        &to_primitive(&microsecond_timestamp()),
+                    ],
+                )
+                .await?;
+        } else {
+            debug!("Initial record for channel {} without detail", channel_id);
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPSERT INTO channels (
+                        channel_id,
+                        counterparty,
+                        txid,
+                        is_usable,
+                        is_public,
+                        update_timestamp
+                    ) VALUES ( $1, $2, $3, false, $4, $5)",
+                    &[
+                        &channel_id.0.as_ref(),
+                        &counterparty.encode(),
+                        &format!("{txid:}"),
+                        &is_public,
+                        &to_primitive(&microsecond_timestamp()),
+                    ],
+                )
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn persist_channel(&self, channel: &ChannelDetails) -> Result<()> {
+        debug!("Persist channel {}", channel.channel_id);
+        if let Some(scid) = &channel.short_channel_id {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPSERT INTO channels (
+                        channel_id,
+                        counterparty,
                         short_channel_id,
                         is_usable,
                         is_public,
-                        data
-                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
+                        data,
+                        update_timestamp
+                    ) VALUES ( $1, $2, $3, $4, $5, $6, $7)",
                     &[
                         &channel.channel_id.0.as_ref(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
@@ -169,6 +231,7 @@ impl LdkDatabase {
                         &channel.is_usable,
                         &channel.is_public,
                         &channel.encode(),
+                        &to_primitive(&microsecond_timestamp()),
                     ],
                 )
                 .await?;
@@ -177,19 +240,21 @@ impl LdkDatabase {
                 .get()
                 .await
                 .execute(
-                    "INSERT INTO channels (
+                    "UPSERT INTO channels (
                         channel_id,
                         counterparty,
                         is_usable,
                         is_public,
-                        data
-                    ) VALUES ( $1, $2, $3, $4, $5 )",
+                        data,
+                        update_timestamp
+                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
                     &[
                         &channel.channel_id.0.as_ref(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
                         &channel.is_usable,
                         &channel.is_public,
                         &channel.encode(),
+                        &to_primitive(&microsecond_timestamp()),
                     ],
                 )
                 .await?;

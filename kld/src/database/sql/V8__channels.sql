@@ -1,18 +1,19 @@
 CREATE TABLE channels (
-    channel_id                      BYTES NOT NULL,
-    counterparty                    BYTES NOT NULL,
+    channel_id                        BYTES NOT NULL,
+    counterparty                      BYTES NOT NULL,
+    txid                              BYTES NOT NULL,
 
     /* The default channel config may not be consist in the future
        So we need to keep recording the data version */
-    data_version                    INT DEFAULT 0,
+    data_version                      INT DEFAULT 0,
     /* 0 - lightning 0.0.118 */
 
-    short_channel_id                INT,
-    is_usable                          BOOLEAN NOT NULL,
-    is_public                          BOOLEAN NOT NULL,
+    short_channel_id                  INT,
+    is_usable                         BOOLEAN NOT NULL,
+    is_public                         BOOLEAN NOT NULL,
 
     /* The data of ChannelDetails */
-    data                              BYTES NOT NULL,
+    data                              BYTES,
 
     /* Kuutamo customized fields */
     open_timestamp                    TIMESTAMP NOT NULL DEFAULT current_timestamp(),

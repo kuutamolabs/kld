@@ -167,6 +167,10 @@ impl LightningInterface for Controller {
             return Err(anyhow!("Peer not connected"));
         }
         let user_channel_id: u64 = random::<u64>() / 2; // To fit into the database INT
+        let is_public = override_config
+            .map(|c| c.channel_handshake_config.announced_channel)
+            .unwrap_or_default();
+        let counterparty = their_network_key;
         let channel_id = self
             .channel_manager
             .create_channel(
@@ -183,7 +187,21 @@ impl LightningInterface for Controller {
             .insert(user_channel_id, fee_rate.unwrap_or_default())
             .await;
         let transaction = receiver.await??;
+        let detail = self
+            .channel_manager
+            .list_channels()
+            .into_iter()
+            .find(|c| c.channel_id == channel_id);
         let txid = transaction.txid();
+        if let Err(e) = self
+            .database
+            .init_channel(&txid, channel_id, is_public, counterparty, detail)
+            .await
+        {
+            // This failure will not hurt on channel, the channel detail will be updated by event
+            // later on, so we only log the error but not raise it here.
+            log_error(&e);
+        }
         Ok(OpenChannelResult {
             transaction,
             txid,
