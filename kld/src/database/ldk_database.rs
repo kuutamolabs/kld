@@ -17,7 +17,6 @@ use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
-use lightning::events::ClosureReason;
 use lightning::ln::channelmanager::{ChannelDetails, ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::SocketAddress;
 use lightning::ln::ChannelId;
@@ -40,7 +39,7 @@ use log::{debug, error};
 use super::peer::Peer;
 use super::{ChannelRecord, SpendableOutputRecord};
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{AsRef, TryInto};
 use std::io::Cursor;
 use std::ops::Deref;
 use std::sync::{Arc, OnceLock};
@@ -149,7 +148,6 @@ impl LdkDatabase {
 
     pub async fn init_channel(
         &self,
-        txid: &Txid,
         channel_id: ChannelId,
         is_public: bool,
         counterparty: PublicKey,
@@ -164,16 +162,14 @@ impl LdkDatabase {
                     "INSERT INTO channels (
                         channel_id,
                         counterparty,
-                        txid,
                         is_usable,
                         is_public,
                         data,
                         update_timestamp
-                    ) VALUES ( $1, $2, $3, $4, $5, $6, $7)",
+                    ) VALUES ( $1, $2, $3, $4, $5, $6)",
                     &[
                         &channel.channel_id.0.as_ref(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
-                        &format!("{txid:}"),
                         &channel.is_usable,
                         &channel.is_public,
                         &channel.encode(),
@@ -190,15 +186,13 @@ impl LdkDatabase {
                     "UPSERT INTO channels (
                         channel_id,
                         counterparty,
-                        txid,
                         is_usable,
                         is_public,
                         update_timestamp
-                    ) VALUES ( $1, $2, $3, false, $4, $5)",
+                    ) VALUES ( $1, $2, false, $3, $4)",
                     &[
                         &channel_id.0.as_ref(),
                         &counterparty.encode(),
-                        &format!("{txid:}"),
                         &is_public,
                         &to_primitive(&microsecond_timestamp()),
                     ],
@@ -265,7 +259,7 @@ impl LdkDatabase {
     pub async fn close_channel(
         &self,
         channel_id: &ChannelId,
-        closure_reason: &ClosureReason,
+        closure_reason: impl AsRef<str>,
     ) -> Result<()> {
         debug!("Close channel {}", channel_id.to_hex());
         self.durable_connection
@@ -275,7 +269,7 @@ impl LdkDatabase {
                 "UPDATE channels SET is_usable = false, update_timestamp = $1, closure_reason = $2 WHERE channel_id = $3",
                 &[
                     &to_primitive(&microsecond_timestamp()),
-                    &closure_reason.encode(),
+                    &closure_reason.as_ref().as_bytes(),
                     &channel_id.0.as_ref(),
                 ],
             )
@@ -309,8 +303,8 @@ impl LdkDatabase {
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),
                 closure_reason: row
-                    .read_optional("closure_reason")?
-                    .map(|r: ClosureReason| r.to_string()),
+                    .get::<&str, Option<&[u8]>>("closure_reason")
+                    .map(|b| String::from_utf8_lossy(b).to_string()),
                 detail,
             });
         }
@@ -343,8 +337,8 @@ impl LdkDatabase {
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),
                 closure_reason: row
-                    .read_optional("closure_reason")?
-                    .map(|r: ClosureReason| r.to_string()),
+                    .get::<&str, Option<&[u8]>>("closure_reason")
+                    .map(|b| String::from_utf8_lossy(b).to_string()),
                 detail,
             });
         }

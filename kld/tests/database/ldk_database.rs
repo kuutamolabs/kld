@@ -391,7 +391,9 @@ pub async fn test_channels() -> Result<()> {
     database.persist_channel(&channel).await?;
 
     let reason = ClosureReason::CooperativeClosure;
-    database.close_channel(&channel.channel_id, &reason).await?;
+    database
+        .close_channel(&channel.channel_id, format!("{reason}"))
+        .await?;
 
     let channels = database.fetch_channel_history().await?;
     assert_eq!(1, channels.len());

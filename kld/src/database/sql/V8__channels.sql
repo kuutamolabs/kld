@@ -1,7 +1,6 @@
 CREATE TABLE channels (
     channel_id                        BYTES NOT NULL,
     counterparty                      BYTES NOT NULL,
-    txid                              BYTES NOT NULL,
 
     /* The default channel config may not be consist in the future
        So we need to keep recording the data version */
