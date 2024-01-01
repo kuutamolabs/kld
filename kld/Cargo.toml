@@ -29,7 +29,7 @@ bitcoincore-rpc-json = "0.16.0"
 rust-bip39 = "1.0.0"
 base64 = "0.21.4"
 bdk = { git = "https://github.com/kuutamolabs/bdk", branch = "0.28.2-allow-begin-match-fail", features = [ "electrum" ] }
-anyhow = { version = "1.0.76", features = [ "backtrace" ] }
+anyhow = { version = "1.0.78", features = [ "backtrace" ] }
 futures = "0.3"
 rand = "0.8.5"
 log = { version = "0.4", features = ["std"] }

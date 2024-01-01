@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 kld = { path = "../kld" }
-anyhow = { version = "1.0.76", features = [ "backtrace" ] }
+anyhow = { version = "1.0.78", features = [ "backtrace" ] }
 lightning = { version = "0.0.118", features = [ "max_level_trace" ] }
 bitcoin = "0.29.2"
 rand = "0.8.5"
