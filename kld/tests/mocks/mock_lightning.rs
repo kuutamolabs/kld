@@ -204,10 +204,12 @@ impl LightningInterface for MockLightning {
 
     async fn list_channels(&self) -> Result<Vec<ChannelRecord>> {
         Ok(vec![ChannelRecord {
+            channel_id: self.channel.channel_id.to_string(),
+            counterparty: self.channel.counterparty.node_id.to_string(),
             open_timestamp: microsecond_timestamp(),
             update_timestamp: microsecond_timestamp(),
             closure_reason: Some(ClosureReason::CooperativeClosure.to_string()),
-            detail: self.channel.clone(),
+            detail: Some(self.channel.clone()),
         }])
     }
 
@@ -379,10 +381,12 @@ impl LightningInterface for MockLightning {
 
     async fn channel_history(&self) -> Result<Vec<ChannelRecord>> {
         Ok(vec![ChannelRecord {
+            channel_id: self.channel.channel_id.to_string(),
+            counterparty: self.channel.counterparty.node_id.to_string(),
             open_timestamp: microsecond_timestamp(),
             update_timestamp: microsecond_timestamp(),
             closure_reason: Some(ClosureReason::CooperativeClosure.to_string()),
-            detail: self.channel.clone(),
+            detail: Some(self.channel.clone()),
         }])
     }
 

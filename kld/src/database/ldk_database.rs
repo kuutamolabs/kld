@@ -297,16 +297,20 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
-            let mut detail: ChannelDetails = row.read("data")?;
-            detail.is_usable = false;
-            outputs.push(ChannelRecord {
-                open_timestamp: row.get_timestamp("open_timestamp"),
-                update_timestamp: row.get_timestamp("update_timestamp"),
-                closure_reason: row
-                    .get::<&str, Option<&[u8]>>("closure_reason")
-                    .map(|b| String::from_utf8_lossy(b).to_string()),
-                detail,
-            });
+            let detail: Option<ChannelDetails> = row.read_optional("data")?;
+            if let Some(mut detail) = detail {
+                detail.is_usable = false;
+                outputs.push(ChannelRecord {
+                    channel_id: detail.channel_id.to_string(),
+                    counterparty: detail.counterparty.node_id.to_string(),
+                    open_timestamp: row.get_timestamp("open_timestamp"),
+                    update_timestamp: row.get_timestamp("update_timestamp"),
+                    closure_reason: row
+                        .get::<&str, Option<&[u8]>>("closure_reason")
+                        .map(|b| String::from_utf8_lossy(b).to_string()),
+                    detail: Some(detail),
+                });
+            }
         }
         Ok(outputs)
     }
@@ -318,6 +322,8 @@ impl LdkDatabase {
             .await
             .query(
                 "SELECT
+                    channel_id,
+                    counterparty,
                     data,
                     is_usable,
                     open_timestamp,
@@ -331,9 +337,13 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
-            let mut detail: ChannelDetails = row.read("data")?;
-            detail.is_usable = row.get::<&str, bool>("is_usable");
+            let mut detail: Option<ChannelDetails> = row.read_optional("data")?;
+            if let Some(ref mut detail) = detail {
+                detail.is_usable = row.get::<&str, bool>("is_usable");
+            }
             outputs.push(ChannelRecord {
+                channel_id: row.read("channel_id")?,
+                counterparty: row.read("counterparty")?,
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),
                 closure_reason: row

@@ -402,9 +402,10 @@ pub async fn test_channels() -> Result<()> {
         update_timestamp,
         closure_reason,
         detail,
+        ..
     } = channels.first().context("expected channel")?;
     assert!(update_timestamp > open_timestamp);
-    assert_eq!(*detail, channel);
+    assert_eq!(*detail, Some(channel));
     assert_eq!(*closure_reason, Some(reason.to_string()));
 
     Ok(())
