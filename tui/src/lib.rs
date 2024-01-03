@@ -15,6 +15,9 @@ mod mode;
 mod tui;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 use app::{App, ConnectionAuth};
 
 pub struct Config {

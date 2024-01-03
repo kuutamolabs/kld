@@ -3,6 +3,8 @@
 "<tab>"     = "SwitchTab"
 "<up>"      = "NavUp"
 "<down>"    = "NavDown"
+"<left>"    = "NavLeft"
+"<right>"   = "NavRight"
 "<enter>"   = "EnderCmdMode"
 
 [Command]

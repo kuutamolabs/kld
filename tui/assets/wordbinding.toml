@@ -66,6 +66,7 @@
 "If you have any suggestion please let us know on Github." = "如果您有任何建議歡迎在Github上與我們聯繫"
 "Introduction" = "說明"
 " to cancel inputs.  " = "以取消輸入"
+"Decode response error:" = "回應解譯錯誤："
 
 [en_US]
 "NodeInfo" = "Node Information"

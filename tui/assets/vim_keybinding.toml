@@ -1,4 +1,6 @@
 [Navigate]
-"<q>" = "Quit"
-"k"  = "NavUp"
-"j"= "NavDown"
+"q" = "Quit"
+"k" = "NavUp"
+"j" = "NavDown"
+"h" = "NavLeft"
+"l" = "NavRight"
