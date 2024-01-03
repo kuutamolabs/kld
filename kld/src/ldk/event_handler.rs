@@ -82,22 +82,14 @@ impl EventHandler {
                 output_script,
                 user_channel_id,
             } => {
-                let (fee_rate, respond) = match self
+                let (fee_rate, respond) = self
                     .async_api_requests
                     .funding_transactions
                     .get(&(user_channel_id as u64))
                     .await
-                {
-                    Some((fee_rate, respond)) => (fee_rate, respond),
-                    None => {
-                        self.ldk_database
-                                .close_channel(&temporary_channel_id, format!("Can't find funding transaction for user_channel_id {user_channel_id}"))
-                                .await?;
-                        return Err(anyhow!(
-                            "Can't find funding transaction for user_channel_id {user_channel_id}"
-                        ));
-                    }
-                };
+                    .context(format!(
+                        "Can't find funding transaction for user_channel_id {user_channel_id}"
+                    ))?;
 
                 let funding_tx =
                     match self
@@ -107,12 +99,6 @@ impl EventHandler {
                         Ok(tx) => tx,
                         Err(e) => {
                             respond(Err(anyhow!("Failed funding transaction: {e}")));
-                            self.ldk_database
-                                .close_channel(
-                                    &temporary_channel_id,
-                                    format!("Fail to fund transaction: {e}"),
-                                )
-                                .await?;
                             return Err(anyhow!("Failed funding transaction: {e}"));
                         }
                     };
@@ -128,12 +114,6 @@ impl EventHandler {
                     .map_err(ldk_error)
                 {
                     respond(Err(anyhow!("Failed opening channel: {e}")));
-                    self.ldk_database
-                        .close_channel(
-                            &temporary_channel_id,
-                            format!("Fail to generate funding transaction: {e}"),
-                        )
-                        .await?;
                     bail!(e);
                 }
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
