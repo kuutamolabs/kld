@@ -549,6 +549,16 @@ impl LightningInterface for Controller {
     async fn scorer(&self) -> Result<Vec<u8>> {
         self.database.fetch_scorer_binary().await
     }
+
+    async fn update_channels(&self, channels: &[ChannelDetails]) {
+        for channel in channels {
+            if let Err(e) = self.database.persist_channel(channel).await {
+                // This failure will not hurt on channel, the channel detail will be updated by event
+                // later on, so we only log the error but not raise it here.
+                log_error(&e);
+            }
+        }
+    }
 }
 
 pub(crate) struct AsyncAPIRequests {

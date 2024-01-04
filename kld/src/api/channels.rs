@@ -41,11 +41,15 @@ use super::ApiError;
 pub(crate) async fn list_channels(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let channels_in_db = lightning_interface
-        .list_channels()
-        .await
-        .map_err(internal_server)?;
     let mut channels_in_mem = lightning_interface.list_active_channels();
+    let channels_in_db = match lightning_interface.list_channels().await {
+        Ok(channels) => channels,
+        Err(e) => {
+            log::error!("error on fetching channel records: {e}");
+            lightning_interface.update_channels(&channels_in_mem).await;
+            Vec::new()
+        }
+    };
 
     let mut response = vec![];
 

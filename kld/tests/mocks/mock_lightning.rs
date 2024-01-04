@@ -393,4 +393,6 @@ impl LightningInterface for MockLightning {
     async fn scorer(&self) -> Result<Vec<u8>> {
         Ok(Vec::new())
     }
+
+    async fn update_channels(&self, _channels: &[ChannelDetails]) {}
 }
