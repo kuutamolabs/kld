@@ -187,15 +187,10 @@ impl LightningInterface for Controller {
             .insert(user_channel_id, fee_rate.unwrap_or_default())
             .await;
         let transaction = receiver.await??;
-        let detail = self
-            .channel_manager
-            .list_channels()
-            .into_iter()
-            .find(|c| c.channel_id == channel_id);
         let txid = transaction.txid();
         if let Err(e) = self
             .database
-            .init_channel(channel_id, is_public, counterparty, detail)
+            .persist_initial_channel(channel_id, is_public, counterparty, txid)
             .await
         {
             // This failure will not hurt on channel, the channel detail will be updated by event

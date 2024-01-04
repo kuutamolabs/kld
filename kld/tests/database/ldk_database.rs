@@ -344,9 +344,11 @@ pub async fn test_channels() -> Result<()> {
     let mut type_features = ChannelTypeFeatures::empty();
     type_features.set_zero_conf_optional();
     type_features.set_scid_privacy_required();
+    let channel_id = ChannelId::from_bytes(random());
+    let initial_channel_id = ChannelId::from_bytes(random());
 
     let channel = ChannelDetails {
-        channel_id: ChannelId::from_bytes(random()),
+        channel_id,
         short_channel_id: Some(u64::MAX), // i64::MAX + 1
         user_channel_id: u128::MAX,       // u64::MAX + 1
         counterparty: ChannelCounterparty {
@@ -388,6 +390,22 @@ pub async fn test_channels() -> Result<()> {
         outbound_scid_alias: Some(u64::MAX),
         unspendable_punishment_reserve: Some(u64::MAX),
     };
+
+    database
+        .persist_initial_channel(
+            initial_channel_id,
+            true,
+            bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY).unwrap(),
+            Txid::from_hex(TEST_TX_ID)?,
+        )
+        .await?;
+    database
+        .update_initial_channel(initial_channel_id, Some((&channel_id, 0)), None::<&str>)
+        .await?;
+
+    let mut channels = database.fetch_channel_history().await?;
+    assert_eq!(0, channels.len());
+
     database.persist_channel(&channel).await?;
 
     let reason = ClosureReason::CooperativeClosure;
@@ -395,7 +413,7 @@ pub async fn test_channels() -> Result<()> {
         .close_channel(&channel.channel_id, format!("{reason}"))
         .await?;
 
-    let channels = database.fetch_channel_history().await?;
+    channels = database.fetch_channel_history().await?;
     assert_eq!(1, channels.len());
     let ChannelRecord {
         open_timestamp,

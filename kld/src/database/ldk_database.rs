@@ -146,59 +146,120 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn init_channel(
+    pub async fn persist_initial_channel(
         &self,
-        channel_id: ChannelId,
+        initial_channel_id: ChannelId,
         is_public: bool,
         counterparty: PublicKey,
-        channel: Option<ChannelDetails>,
+        txid: Txid,
     ) -> Result<()> {
-        if let Some(channel) = channel {
-            debug!("Initial record for channel {} with detail", channel_id);
+        debug!(
+            "Initial record for initial channel {}",
+            initial_channel_id.to_hex()
+        );
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "INSERT INTO initial_channels (
+                    initial_channel_id,
+                    counterparty,
+                    is_public,
+                    txid
+                ) VALUES ( $1, $2, $3, $4 )",
+                &[
+                    &initial_channel_id.0.as_ref(),
+                    &counterparty.encode(),
+                    &is_public,
+                    &txid.encode(),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_initial_channel(
+        &self,
+        initial_channel_id: ChannelId,
+        channel_id_with_vout: Option<(&ChannelId, u32)>,
+        status: Option<impl AsRef<str>>,
+    ) -> Result<()> {
+        debug!(
+            "Update record for initial channel {}",
+            initial_channel_id.to_hex()
+        );
+        if let Some((channel_id, vout)) = channel_id_with_vout {
+            let status = if let Some(status) = status {
+                status.as_ref().to_string()
+            } else {
+                "Updated by ChannelPending Event".to_string()
+            };
             self.durable_connection
                 .get()
                 .await
                 .execute(
-                    "INSERT INTO channels (
-                        channel_id,
-                        counterparty,
-                        is_usable,
-                        is_public,
-                        data,
-                        update_timestamp
-                    ) VALUES ( $1, $2, $3, $4, $5, $6)",
+                    "UPDATE initial_channels SET channel_id = $1, vout = $2, update_timestamp = $3, status = $4 WHERE initial_channel_id= $5",
                     &[
-                        &channel.channel_id.0.as_ref(),
-                        &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
-                        &channel.is_usable,
-                        &channel.is_public,
-                        &channel.encode(),
+                        &channel_id.0.as_ref(),
+                        &(vout as i32),
                         &to_primitive(&microsecond_timestamp()),
+                        &status.as_bytes(),
+                        &initial_channel_id.0.as_ref(),
+                    ],
+                )
+                .await?;
+        } else if let Some(status) = status {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPDATE initial_channels SET status = $1, update_timestamp = $2 WHERE initial_channel_id= $3",
+                    &[
+                        &status.as_ref().as_bytes(),
+                        &to_primitive(&microsecond_timestamp()),
+                        &initial_channel_id.0.as_ref(),
                     ],
                 )
                 .await?;
         } else {
-            debug!("Initial record for channel {} without detail", channel_id);
-            self.durable_connection
-                .get()
-                .await
-                .execute(
-                    "UPSERT INTO channels (
-                        channel_id,
-                        counterparty,
-                        is_usable,
-                        is_public,
-                        update_timestamp
-                    ) VALUES ( $1, $2, false, $3, $4)",
-                    &[
-                        &channel_id.0.as_ref(),
-                        &counterparty.encode(),
-                        &is_public,
-                        &to_primitive(&microsecond_timestamp()),
-                    ],
-                )
-                .await?;
+            error!(
+                "Update initial channel {} with nothing",
+                initial_channel_id.to_hex()
+            );
         }
+        Ok(())
+    }
+
+    /// Create a record for channel which is not usable and without channel detail
+    pub async fn create_channel(
+        &self,
+        channel_id: ChannelId,
+        is_public: bool,
+        counterparty: PublicKey,
+    ) -> Result<()> {
+        debug!(
+            "Create record for channel {} with detail",
+            channel_id.to_hex()
+        );
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "UPSERT INTO channels (
+                    channel_id,
+                    counterparty,
+                    is_usable,
+                    is_public,
+                    update_timestamp
+                ) VALUES ( $1, $2, false, $3, $4)",
+                &[
+                    &channel_id.0.as_ref(),
+                    &counterparty.encode(),
+                    &is_public,
+                    &to_primitive(&microsecond_timestamp()),
+                ],
+            )
+            .await?;
         Ok(())
     }
 

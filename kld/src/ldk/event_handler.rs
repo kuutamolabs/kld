@@ -117,6 +117,19 @@ impl EventHandler {
                     bail!(e);
                 }
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
+                if let Err(e) = self
+                    .ldk_database
+                    .update_initial_channel(
+                        temporary_channel_id,
+                        None,
+                        Some(format!(
+                            "Channel with user channel id {user_channel_id} has been funded"
+                        )),
+                    )
+                    .await
+                {
+                    warn!("Fail to update initial channel funded status: {e}");
+                }
                 respond(Ok(funding_tx));
             }
             Event::ChannelPending {
@@ -132,12 +145,15 @@ impl EventHandler {
                 );
                 if let Some(former_temporary_channel_id) = former_temporary_channel_id {
                     self.ldk_database
-                        .close_channel(
-                            &former_temporary_channel_id ,
-                            format!("ChannelPending channel_id change {former_temporary_channel_id:} -> {channel_id:}"),
+                        .update_initial_channel(
+                            former_temporary_channel_id,
+                            Some((&channel_id, funding_txo.vout)),
+                            None::<&str>,
                         )
                         .await?;
                 }
+
+                // Presis Channel Details if we can list, else just create channel record
                 if let Some(detail) = self
                     .channel_manager
                     .list_channels()
@@ -147,10 +163,7 @@ impl EventHandler {
                     self.ldk_database.persist_channel(detail).await?;
                 } else {
                     self.ldk_database
-                        .close_channel(
-                            &channel_id,
-                            "Channel detail missing when receiving ChannelPending",
-                        )
+                        .create_channel(channel_id, true, counterparty_node_id)
                         .await?;
                 }
             }
