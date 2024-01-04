@@ -122,7 +122,7 @@ impl EventHandler {
             Event::ChannelPending {
                 channel_id,
                 user_channel_id,
-                former_temporary_channel_id: _,
+                former_temporary_channel_id,
                 counterparty_node_id,
                 funding_txo,
             } => {
@@ -130,6 +130,14 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is pending. OutPoint: {funding_txo}",
                     channel_id.to_hex(),
                 );
+                if let Some(former_temporary_channel_id) = former_temporary_channel_id {
+                    self.ldk_database
+                        .close_channel(
+                            &former_temporary_channel_id ,
+                            format!("ChannelPending channel_id change {former_temporary_channel_id:} -> {channel_id:}"),
+                        )
+                        .await?;
+                }
                 if let Some(detail) = self
                     .channel_manager
                     .list_channels()
