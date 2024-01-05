@@ -149,15 +149,70 @@ pub(crate) async fn list_channels(
         }
     }
     // log error if any channel not exist in the DB
-    for channel in channels_in_mem.into_iter() {
+    for detail in channels_in_mem.into_iter() {
         log::error!(
             "Channel miss from DB, channel: {}, funding_txo: {}",
-            channel.channel_id.to_hex(),
-            channel
+            detail.channel_id.to_hex(),
+            detail
                 .funding_txo
                 .map(|txo| format!("{}:{}", txo.txid, txo.index))
                 .unwrap_or_default(),
         );
+        let config = detail.config.unwrap_or_default();
+        let (config_max_dust_htlc_exposure_is_fixed, config_max_dust_htlc_exposure_value) =
+            match config.max_dust_htlc_exposure {
+                MaxDustHTLCExposure::FixedLimitMsat(value) => (true, value),
+                MaxDustHTLCExposure::FeeRateMultiplier(value) => (false, value),
+            };
+        response.push(GetKldChannelResponseItem {
+            channel_id: detail.channel_id.to_hex(),
+            counterparty_node_id: detail.counterparty.node_id.to_string(),
+            counterparty_unspendable_punishment_reserve: detail
+                .counterparty
+                .unspendable_punishment_reserve,
+            counterparty_outbound_htlc_minimum_msat: detail.counterparty.outbound_htlc_minimum_msat,
+            counterparty_outbound_htlc_maximum_msat: detail.counterparty.outbound_htlc_maximum_msat,
+            funding_txo: detail
+                .funding_txo
+                .map(|txo| format!("{}:{}", txo.txid, txo.index))
+                .unwrap_or_default(),
+            features: detail.channel_type.map(format_features).unwrap_or_default(),
+            short_channel_id: detail.short_channel_id,
+            outbound_scid_alias: detail.outbound_scid_alias,
+            inbound_scid_alias: detail.inbound_scid_alias,
+            channel_value_satoshis: detail.channel_value_satoshis,
+            unspendable_punishment_reserve: detail.unspendable_punishment_reserve,
+            user_channel_id: detail.user_channel_id,
+            feerate_sat_per_1000_weight: detail.feerate_sat_per_1000_weight,
+            balance_msat: detail.balance_msat,
+            outbound_capacity_msat: detail.outbound_capacity_msat,
+            next_outbound_htlc_limit_msat: detail.next_outbound_htlc_limit_msat,
+            next_outbound_htlc_minimum_msat: detail.next_outbound_htlc_minimum_msat,
+            inbound_capacity_msat: detail.inbound_capacity_msat,
+            confirmations_required: detail.confirmations_required,
+            confirmations: detail.confirmations,
+            force_close_spend_delay: detail.force_close_spend_delay,
+            is_outbound: detail.is_outbound,
+            is_channel_ready: detail.is_channel_ready,
+            channel_shutdown_state: detail.channel_shutdown_state.map(|s| format!("{s:?}")),
+            is_usable: detail.is_usable,
+            is_public: detail.is_public,
+            inbound_htlc_minimum_msat: detail.inbound_htlc_minimum_msat,
+            inbound_htlc_maximum_msat: detail.inbound_htlc_maximum_msat,
+            config_forwarding_fee_proportional_millionths: config
+                .forwarding_fee_proportional_millionths,
+            config_forwarding_fee_base_msat: config.forwarding_fee_base_msat,
+            config_cltv_expiry_delta: config.cltv_expiry_delta,
+            config_max_dust_htlc_exposure_is_fixed,
+            config_max_dust_htlc_exposure_value,
+            config_force_close_avoidance_max_fee_satoshis: config
+                .force_close_avoidance_max_fee_satoshis,
+            config_accept_underpaying_htlcs: config.accept_underpaying_htlcs,
+            has_monitor: true,
+            open_timestamp: 0,
+            update_timestamp: 0,
+            closure_reason: Some("** Invalid Channel Record **".into()),
+        });
     }
     Ok(Json(response))
 }
