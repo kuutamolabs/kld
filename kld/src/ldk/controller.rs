@@ -190,7 +190,7 @@ impl LightningInterface for Controller {
         let txid = transaction.txid();
         if let Err(e) = self
             .database
-            .persist_initial_channel(channel_id, is_public, counterparty, txid)
+            .persist_initial_channel(&channel_id, is_public, &counterparty, &txid)
             .await
         {
             // This failure will not hurt on channel, the channel detail will be updated by event

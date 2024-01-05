@@ -148,10 +148,10 @@ impl LdkDatabase {
 
     pub async fn persist_initial_channel(
         &self,
-        initial_channel_id: ChannelId,
+        initial_channel_id: &ChannelId,
         is_public: bool,
-        counterparty: PublicKey,
-        txid: Txid,
+        counterparty: &PublicKey,
+        txid: &Txid,
     ) -> Result<()> {
         debug!(
             "Initial record for initial channel {}",
@@ -180,7 +180,7 @@ impl LdkDatabase {
 
     pub async fn update_initial_channel(
         &self,
-        initial_channel_id: ChannelId,
+        initial_channel_id: &ChannelId,
         channel_id_with_vout: Option<(&ChannelId, u32)>,
         status: Option<impl AsRef<str>>,
     ) -> Result<()> {
@@ -233,31 +233,25 @@ impl LdkDatabase {
     /// Create a record for channel which is not usable and without channel detail
     pub async fn create_channel(
         &self,
-        channel_id: ChannelId,
+        channel_id: &ChannelId,
         is_public: bool,
-        counterparty: PublicKey,
+        counterparty: &PublicKey,
     ) -> Result<()> {
         debug!(
-            "Create record for channel {} with detail",
+            "Create record for channel {} without detail",
             channel_id.to_hex()
         );
         self.durable_connection
             .get()
             .await
             .execute(
-                "UPSERT INTO channels (
+                "INSERT INTO channels (
                     channel_id,
                     counterparty,
                     is_usable,
-                    is_public,
-                    update_timestamp
-                ) VALUES ( $1, $2, false, $3, $4)",
-                &[
-                    &channel_id.0.as_ref(),
-                    &counterparty.encode(),
-                    &is_public,
-                    &to_primitive(&microsecond_timestamp()),
-                ],
+                    is_public
+                ) VALUES ( $1, $2, false, $3 )",
+                &[&channel_id.0.as_ref(), &counterparty.encode(), &is_public],
             )
             .await?;
         Ok(())
@@ -402,9 +396,10 @@ impl LdkDatabase {
             if let Some(ref mut detail) = detail {
                 detail.is_usable = row.get::<&str, bool>("is_usable");
             }
+            let counterparty: PublicKey = row.read("counterparty")?;
             outputs.push(ChannelRecord {
-                channel_id: row.read("channel_id")?,
-                counterparty: row.read("counterparty")?,
+                channel_id: ChannelId::from_bytes(row.read("channel_id")?).to_string(),
+                counterparty: counterparty.to_string(),
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),
                 closure_reason: row

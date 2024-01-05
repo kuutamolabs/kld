@@ -120,7 +120,7 @@ impl EventHandler {
                 if let Err(e) = self
                     .ldk_database
                     .update_initial_channel(
-                        temporary_channel_id,
+                        &temporary_channel_id,
                         None,
                         Some(format!(
                             "Channel with user channel id {user_channel_id} has been funded"
@@ -146,7 +146,7 @@ impl EventHandler {
                 if let Some(former_temporary_channel_id) = former_temporary_channel_id {
                     self.ldk_database
                         .update_initial_channel(
-                            former_temporary_channel_id,
+                            &former_temporary_channel_id,
                             Some((&channel_id, funding_txo.vout)),
                             None::<&str>,
                         )
@@ -163,7 +163,7 @@ impl EventHandler {
                     self.ldk_database.persist_channel(detail).await?;
                 } else {
                     self.ldk_database
-                        .create_channel(channel_id, true, counterparty_node_id)
+                        .create_channel(&channel_id, true, &counterparty_node_id)
                         .await?;
                 }
             }
