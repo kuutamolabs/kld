@@ -223,7 +223,8 @@ impl EventHandler {
                     channel_id.to_hex(),
                     transaction.txid()
                 );
-                self.ldk_database
+                if let Err(e) = self
+                    .ldk_database
                     .close_channel(
                         &channel_id,
                         format!(
@@ -231,7 +232,10 @@ impl EventHandler {
                             transaction.txid()
                         ),
                     )
-                    .await?;
+                    .await
+                {
+                    error!("Fail to close channel which funding is discarded: {e}");
+                }
             }
             Event::OpenChannelRequest { .. } => {
                 unreachable!(
