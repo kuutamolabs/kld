@@ -8,7 +8,6 @@ use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
 use super::{DurableConnection, Params};
 use anyhow::{anyhow, bail, Result};
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Txid};

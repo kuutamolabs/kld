@@ -3,8 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::{anyhow, bail, Context, Result};
 
-use bitcoin::blockdata::locktime::PackedLockTime;
-use bitcoin::hashes::hex::ToHex;
+use bitcoin::blockdata::locktime::absolute::LockTime;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
@@ -486,7 +485,7 @@ impl EventHandler {
                         Vec::new(),
                         destination_address.script_pubkey(),
                         tx_feerate,
-                        Some(PackedLockTime(best_block_height as u32)),
+                        Some(LockTime::Blocks(best_block_height as u32)),
                         &Secp256k1::new(),
                     )
                     .map_err(|()| anyhow!("Failed to build spending transaction"))?;

@@ -4,7 +4,7 @@ use super::payloads::{
 use crate::api::SocketAddress;
 use anyhow::anyhow;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
-use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
+use bitcoin::secp256k1::PublicKey;
 use lightning::routing::gossip::{ChannelInfo, ChannelUpdateInfo, NodeId, NodeInfo};
 use std::{str::FromStr, sync::Arc};
 

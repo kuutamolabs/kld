@@ -11,7 +11,7 @@ use crate::{
 };
 use anyhow::Result;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
-use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
+use bitcoin::secp256k1::PublicKey;
 use http::StatusCode;
 
 use super::{internal_server, ApiError};

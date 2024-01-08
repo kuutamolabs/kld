@@ -8,7 +8,7 @@ use bdk::{
     BlockTime, Error, KeychainKind, LocalUtxo, TransactionDetails,
 };
 use bitcoin::consensus::encode::{deserialize, serialize};
-use bitcoin::{OutPoint, Script, Transaction, TxOut, Txid};
+use bitcoin::{OutPoint, Script, ScriptBuf, Transaction, TxOut, Txid};
 use tokio::runtime::Handle;
 
 macro_rules! execute_blocking {
@@ -200,9 +200,9 @@ impl WalletDatabase {
         .map(|_| 0)
     }
 
-    fn select_script_pubkeys(&self) -> Result<Vec<Script>, Error> {
+    fn select_script_pubkeys(&self) -> Result<Vec<ScriptBuf>, Error> {
         let rows = query_blocking!("SELECT script FROM wallet_script_pubkeys", &[], self)?;
-        let mut scripts: Vec<Script> = vec![];
+        let mut scripts: Vec<ScriptBuf> = vec![];
         for row in rows {
             let raw_script: Vec<u8> = row.get(0);
             scripts.push(raw_script.into());
@@ -210,13 +210,13 @@ impl WalletDatabase {
         Ok(scripts)
     }
 
-    fn select_script_pubkeys_by_keychain(&self, keychain: String) -> Result<Vec<Script>, Error> {
+    fn select_script_pubkeys_by_keychain(&self, keychain: String) -> Result<Vec<ScriptBuf>, Error> {
         let rows = query_blocking!(
             "SELECT script FROM wallet_script_pubkeys WHERE keychain=$1",
             &[&keychain],
             self
         )?;
-        let mut scripts: Vec<Script> = vec![];
+        let mut scripts: Vec<ScriptBuf> = vec![];
         for row in rows {
             let raw_script: Vec<u8> = row.get(0);
             scripts.push(raw_script.into());
@@ -228,7 +228,7 @@ impl WalletDatabase {
         &self,
         keychain: String,
         child: u32,
-    ) -> Result<Option<Script>, Error> {
+    ) -> Result<Option<ScriptBuf>, Error> {
         let rows = query_blocking!(
             "SELECT script FROM wallet_script_pubkeys WHERE keychain=$1 AND child=$2",
             &[&keychain, &(child as i32)],
@@ -238,8 +238,7 @@ impl WalletDatabase {
         match rows.first() {
             Some(row) => {
                 let script: Vec<u8> = row.get(0);
-                let script: Script = script.into();
-                Ok(Some(script))
+                Ok(Some(script.into()))
             }
             None => Ok(None),
         }
@@ -659,7 +658,7 @@ impl BatchOperations for WalletDatabase {
         &mut self,
         keychain: KeychainKind,
         child: u32,
-    ) -> Result<Option<Script>, Error> {
+    ) -> Result<Option<ScriptBuf>, Error> {
         let keychain = serde_json::to_string(&keychain)?;
         let script = self.select_script_pubkey_by_path(keychain.clone(), child)?;
         match script {
@@ -769,7 +768,7 @@ impl Database for WalletDatabase {
         }
     }
 
-    fn iter_script_pubkeys(&self, keychain: Option<KeychainKind>) -> Result<Vec<Script>, Error> {
+    fn iter_script_pubkeys(&self, keychain: Option<KeychainKind>) -> Result<Vec<ScriptBuf>, Error> {
         match keychain {
             Some(keychain) => {
                 let keychain = serde_json::to_string(&keychain)?;
@@ -798,7 +797,7 @@ impl Database for WalletDatabase {
         &self,
         keychain: KeychainKind,
         child: u32,
-    ) -> Result<Option<Script>, Error> {
+    ) -> Result<Option<ScriptBuf>, Error> {
         let keychain = serde_json::to_string(&keychain)?;
         match self.select_script_pubkey_by_path(keychain, child)? {
             Some(script) => Ok(Some(script)),

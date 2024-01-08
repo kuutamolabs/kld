@@ -7,7 +7,7 @@ use crate::settings::Settings;
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bdk::{
-    bitcoin::util::bip32::ExtendedPrivKey,
+    bitcoin::bip32::ExtendedPrivKey,
     blockchain::{log_progress, ElectrumBlockchain, GetHeight},
     database::{BatchDatabase, BatchOperations, Database},
     electrum_client::Client,

@@ -11,7 +11,6 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
-use bitcoin::hashes::hex::ToHex;
 use lightning_invoice::{Bolt11Invoice, Bolt11InvoiceDescription};
 
 use super::{

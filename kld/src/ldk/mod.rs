@@ -9,7 +9,6 @@ use std::sync::{Arc, RwLock};
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
 use lightning::ln::peer_handler::CustomMessageHandler;
 use lightning::{
@@ -57,7 +56,6 @@ pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
 pub(crate) type LiquidityManager = lightning_liquidity::LiquidityManager<
     Arc<KeysManager>,
     Arc<ChannelManager>,
-    Arc<PeerManager>,
     Arc<dyn Filter + Send + Sync>,
 >;
 

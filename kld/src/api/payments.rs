@@ -3,7 +3,6 @@ use std::{str::FromStr, sync::Arc};
 use super::payloads::{KeysendRequest, PayInvoice, PaymentResponse};
 use anyhow::Context;
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
-use bitcoin::hashes::hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
 use crate::{

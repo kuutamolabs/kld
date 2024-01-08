@@ -12,7 +12,6 @@ use anyhow::Context;
 use axum::extract::Path;
 use axum::extract::Query;
 use axum::{response::IntoResponse, Extension, Json};
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
 use lightning::events::HTLCDestination;
 use lightning::ln::channelmanager::ChannelDetails;

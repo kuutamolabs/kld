@@ -12,7 +12,6 @@ use crate::api::SocketAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
 use lightning::chain;
