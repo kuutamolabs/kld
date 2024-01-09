@@ -30,7 +30,6 @@ static FEE: OnceLock<Gauge> = OnceLock::new();
 static BLOCK_HEIGHT: OnceLock<IntGauge> = OnceLock::new();
 
 static ON_CHAIN_SWEEP_FEE: OnceLock<IntGauge> = OnceLock::new();
-static MAX_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE: OnceLock<IntGauge> = OnceLock::new();
 static NON_ANCHOR_CHANNEL_FEE: OnceLock<IntGauge> = OnceLock::new();
 static CHANNEL_CLOSE_MINIMUM_FEE: OnceLock<IntGauge> = OnceLock::new();
 static ANCHOR_CHANNEL_FEE: OnceLock<IntGauge> = OnceLock::new();
@@ -113,13 +112,6 @@ async fn response_examples(
 
             if let Some(g) = ON_CHAIN_SWEEP_FEE.get() {
                 g.set(bitcoind.fee_for(ConfirmationTarget::OnChainSweep).into())
-            }
-            if let Some(g) = MAX_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE.get() {
-                g.set(
-                    bitcoind
-                        .fee_for(ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee)
-                        .into(),
-                )
             }
             if let Some(g) = NON_ANCHOR_CHANNEL_FEE.get() {
                 g.set(
@@ -252,12 +244,6 @@ pub async fn start_prometheus_exporter(
         .set(register_int_gauge!(
             "on_chain_sweep_fee",
             "The fee for ConfirmationTarget::OnChainSweep"
-        )?)
-        .unwrap_or_default();
-    MAX_ALLOWED_NON_ANCHOR_CHANNEL_REMOTE_FEE
-        .set(register_int_gauge!(
-            "max_allowed_non_anchor_channel_remote_fee",
-            "The fee for ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee"
         )?)
         .unwrap_or_default();
     NON_ANCHOR_CHANNEL_FEE

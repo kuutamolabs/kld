@@ -346,9 +346,6 @@ impl Priorities {
     /// Return a base class and a mulipler
     fn priority_of(&self, conf_target: &ConfirmationTarget) -> (Arc<PriorityClass>, Option<f32>) {
         match conf_target {
-            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => {
-                (self.high.clone(), Some(2.0))
-            }
             ConfirmationTarget::OnChainSweep => (self.high.clone(), None),
             ConfirmationTarget::NonAnchorChannelFee => (self.normal.clone(), None),
             ConfirmationTarget::ChannelCloseMinimum
