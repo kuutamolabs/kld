@@ -191,11 +191,11 @@ pub enum ApiError {
 }
 
 impl ApiError {
-    fn bad_request_from_std_err(err: impl std::error::Error) -> Self {
+    fn bad_request_from_std_err(err: impl std::error::Error + 'static) -> Self {
         ApiError::BadRequest(Box::new(err))
     }
 
-    fn internal_err_from_std_err(err: impl std::error::Error) -> Self {
+    fn internal_err_from_std_err(err: impl std::error::Error + 'static) -> Self {
         ApiError::InternalServerError(Box::new(err))
     }
 }
