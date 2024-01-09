@@ -21,7 +21,8 @@ use lightning::chain::Watch;
 use lightning::ln::channelmanager::{
     self, ChannelDetails, PaymentId, PaymentSendFailure, RecipientOnionFields,
 };
-use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
+use lightning::ln::channelmanager::ChainParameters;
+// use lightning::ln::channelmanager::ChannelManagerReadArgs;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
@@ -641,7 +642,7 @@ impl Controller {
         ));
         database.set_chain_monitor(chain_monitor.clone());
 
-        let is_first_start = database
+        let _is_first_start = database
             .is_first_start()
             .await
             .context("could not check if database has been initialized")?;
@@ -689,9 +690,9 @@ impl Controller {
             ProbabilisticScoringFeeParameters::default(),
         ));
 
-        let mut channel_monitors = database
-            .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
-            .await?;
+        // let mut channel_monitors = database
+        //     .fetch_channel_monitors(keys_manager.as_ref())
+        //     .await?;
         let mut user_config = UserConfig::default();
         user_config
             .channel_handshake_limits
@@ -712,7 +713,7 @@ impl Controller {
             best_block: BestBlock::new(getinfo_resp.best_block_hash, getinfo_resp.blocks as u32),
         };
         let (channel_manager_blockhash, channel_manager) = {
-            if is_first_start {
+            // if is_first_start {
                 let new_channel_manager = channelmanager::ChannelManager::new(
                     fee_estimator.clone(),
                     chain_monitor.clone(),
@@ -727,26 +728,26 @@ impl Controller {
                     0,
                 );
                 (getinfo_resp.best_block_hash, new_channel_manager)
-            } else {
-                let channel_monitor_mut_refs =
-                    channel_monitors.iter_mut().map(|(_, cm)| cm).collect();
-                let read_args = ChannelManagerReadArgs::new(
-                    keys_manager.clone(),
-                    keys_manager.clone(),
-                    keys_manager.clone(),
-                    fee_estimator.clone(),
-                    chain_monitor.clone(),
-                    broadcaster.clone(),
-                    router.clone(),
-                    KldLogger::global(),
-                    user_config,
-                    channel_monitor_mut_refs,
-                );
-                database
-                    .fetch_channel_manager(read_args)
-                    .await
-                    .context("failed to query channel manager from database")?
-            }
+            // } else {
+            //     let channel_monitor_mut_refs =
+            //         channel_monitors.iter_mut().map(|(_, cm)| cm).collect();
+            //     let read_args = ChannelManagerReadArgs::new(
+            //         keys_manager.clone(),
+            //         keys_manager.clone(),
+            //         keys_manager.clone(),
+            //         fee_estimator.clone(),
+            //         chain_monitor.clone(),
+            //         broadcaster.clone(),
+            //         router.clone(),
+            //         KldLogger::global(),
+            //         user_config,
+            //         channel_monitor_mut_refs,
+            //     );
+            //     database
+            //         .fetch_channel_manager(read_args)
+            //         .await
+            //         .context("failed to query channel manager from database")?
+            // }
         };
         let channel_manager: Arc<ChannelManager> = Arc::new(channel_manager);
 
@@ -777,7 +778,7 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
-            Arc::new(lightning::onion_message::DefaultMessageRouter {}),
+            Arc::new(lightning::onion_message::DefaultMessageRouter::new(network_graph.clone())),
             channel_manager.clone(),
             IgnoringMessageHandler {},
         ));
@@ -911,7 +912,8 @@ impl Controller {
                 chain_monitor,
                 channel_manager_blockhash,
                 channel_manager_clone.clone(),
-                channel_monitors,
+                // channel_monitors,
+                vec![]
             )
             .await
             {
@@ -990,11 +992,11 @@ impl Controller {
         chain_monitor: Arc<ChainMonitor>,
         channel_manager_blockhash: BlockHash,
         channel_manager: Arc<ChannelManager>,
-        channelmonitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
+        channel_monitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
     ) -> BlockSourceResult<()> {
         info!(
             "Syncing ChannelManager and {} ChannelMonitors to chain tip",
-            channelmonitors.len()
+            channel_monitors.len()
         );
         let mut chain_listener_channel_monitors = Vec::new();
         let mut cache = UnboundedCache::new();
@@ -1004,7 +1006,7 @@ impl Controller {
             channel_manager.as_ref() as &(dyn chain::Listen + Send + Sync),
         )];
 
-        for (blockhash, channel_monitor) in channelmonitors {
+        for (blockhash, channel_monitor) in channel_monitors {
             let outpoint = channel_monitor.get_funding_txo().0;
             chain_listener_channel_monitors.push((
                 blockhash,

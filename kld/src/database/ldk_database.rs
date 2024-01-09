@@ -7,10 +7,12 @@ use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
 use super::{DurableConnection, Params};
-use anyhow::{anyhow, bail, Result};
-use bitcoin::hashes::Hash;
+use anyhow::{anyhow, Result};
+// use anyhow::bail;
+// use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::{BlockHash, Txid};
+use bitcoin::BlockHash;
+// use bitcoin::Txid;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
@@ -623,80 +625,49 @@ impl LdkDatabase {
             .into())
     }
 
-    pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
-        &self,
-        entropy_source: &ES,
-        signer_provider: &SP,
-    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP>)>>
-where
-        //      B::Target: BroadcasterInterface,
-        //		F::Target: FeeEstimator,
-    {
-        let rows = self
-            .durable_connection
-            .wait()
-            .await
-            .query(
-                "SELECT out_point, monitor \
-            FROM channel_monitors",
-                &[],
-            )
-            .await?;
-        let mut monitors: Vec<(BlockHash, ChannelMonitor<SP::Signer>)> = vec![];
-        for row in rows {
-            let out_point: Vec<u8> = row.get("out_point");
+    // pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
+    //     &self,
+    //     entropy_source: &ES,
+    //     signer_provider: &SP,
+    // ) -> Result<Vec<(BlockHash, ChannelMonitor<SP>)>>
+    // {
+    //     let rows = self
+    //         .durable_connection
+    //         .wait()
+    //         .await
+    //         .query(
+    //             "SELECT out_point, monitor \
+    //         FROM channel_monitors",
+    //             &[],
+    //         )
+    //         .await?;
+    //     let mut monitors: Vec<(BlockHash, ChannelMonitor<SP::Signer>)> = vec![];
+    //     for row in rows {
+    //         let out_point: Vec<u8> = row.get("out_point");
 
-            let (txid_bytes, index_bytes) = out_point.split_at(32);
-            let txid = Txid::from_slice(txid_bytes).unwrap();
-            let index = u16::from_be_bytes(index_bytes.try_into().unwrap());
+    //         let (txid_bytes, index_bytes) = out_point.split_at(32);
+    //         let txid = Txid::from_slice(txid_bytes).unwrap();
+    //         let index = u16::from_be_bytes(index_bytes.try_into().unwrap());
 
-            let monitor: Vec<u8> = row.get("monitor");
-            let mut buffer = Cursor::new(&monitor);
-            match <(BlockHash, ChannelMonitor<SP::Signer>)>::read(
-                &mut buffer,
-                (entropy_source, signer_provider),
-            ) {
-                Ok((blockhash, channel_monitor)) => {
-                    if channel_monitor.get_funding_txo().0.txid != txid
-                        || channel_monitor.get_funding_txo().0.index != index
-                    {
-                        bail!("Unable to find ChannelMonitor for: {}:{}", txid, index);
-                    }
-                    /*
-                                        let update_rows = self
-                                            .client
-                                            .read()
-                                            .await
-                                            .query(
-                                                "SELECT update \
-                                            FROM channel_monitor_updates \
-                                            WHERE out_point = $1 \
-                                            ORDER BY update_id ASC",
-                                                &[&out_point],
-                                            )
-                                            .await
-                                            .unwrap();
-
-                                        let updates: Vec<ChannelMonitorUpdate> = update_rows
-                                            .iter()
-                                            .map(|row| {
-                                                let ciphertext: Vec<u8> = row.get("update");
-                                                let update = self.cipher.decrypt(&ciphertext);
-                                                ChannelMonitorUpdate::read(&mut Cursor::new(&update)).unwrap()
-                                            })
-                                            .collect();
-                                        for update in updates {
-                                            channel_monitor
-                                                .update_monitor(&update, broadcaster, fee_estimator.clone(), &KndLogger::global()).unwrap();
-                                        }
-                    */
-                    monitors.push((blockhash, channel_monitor));
-                }
-                Err(e) => bail!("Failed to deserialize ChannelMonitor: {}", e),
-            }
-        }
-        Ok(monitors)
-    }
+    //         let monitor: Vec<u8> = row.get("monitor");
+    //         let mut buffer = Cursor::new(&monitor);
+    //         match <(BlockHash, ChannelMonitor<SP::Signer>)>::read(
+    //             &mut buffer,
+    //             (entropy_source, signer_provider),
+    //         ) {
+    //             Ok((blockhash, channel_monitor)) => {
+    //                 if channel_monitor.get_funding_txo().0.txid != txid
+    //                     || channel_monitor.get_funding_txo().0.index != index
+    //                 {
+    //                     bail!("Unable to find ChannelMonitor for: {}:{}", txid, index);
+    //                 }
+    //                 monitors.push((blockhash, channel_monitor));
+    //             }
+    //             Err(e) => bail!("Failed to deserialize ChannelMonitor: {}", e),
+    //         }
+    //     }
+    //     Ok(monitors)
+    // }
 
     pub async fn fetch_channel_manager<
         M: Deref,
