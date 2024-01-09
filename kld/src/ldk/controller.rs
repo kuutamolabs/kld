@@ -173,6 +173,7 @@ impl LightningInterface for Controller {
                 channel_value_satoshis,
                 push_msat.unwrap_or_default(),
                 user_channel_id as u128,
+                None,
                 override_config,
             )
             .map_err(ldk_error)?;
@@ -1105,13 +1106,16 @@ async fn send_probe(
             if let Some(g) = probe_metrics.0.get() {
                 g.inc()
             }
+            let send_time = SystemTime::now();
             match channel_manager.send_probe(path.clone()) {
                 Ok(_) => {
                     debug!("Probe success with {amt_msat:} on {path:?}");
                     if let Some(g) = probe_metrics.1.get() {
                         g.inc()
                     }
-                    scorer.probe_successful(&path);
+                    if let Ok(duration) = send_time.elapsed() {
+                        scorer.probe_successful(&path, duration);
+                    }
                 }
                 Err(_) => {
                     trace!("Probe failed with {amt_msat:} on {path:?}");
@@ -1124,6 +1128,7 @@ async fn send_probe(
                     }
                     while let Some(pop_hop) = hops.pop() {
                         sleep(Duration::from_secs(interval));
+                        let send_time = SystemTime::now();
                         if !hops.is_empty()
                             && channel_manager
                                 .send_probe(Path {
@@ -1134,13 +1139,16 @@ async fn send_probe(
                         {
                             debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
                             hops.push(pop_hop.clone());
-                            scorer.probe_failed(
-                                &Path {
-                                    hops,
-                                    blinded_tail: blinded_tail.clone(),
-                                },
-                                pop_hop.short_channel_id,
-                            );
+                            if let Ok(duration) = send_time.elapsed() {
+                                scorer.probe_failed(
+                                    &Path {
+                                        hops,
+                                        blinded_tail: blinded_tail.clone(),
+                                    },
+                                    pop_hop.short_channel_id,
+                                    duration,
+                                );
+                            }
                             break;
                         }
                     }
