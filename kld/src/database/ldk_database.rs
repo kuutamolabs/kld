@@ -627,16 +627,10 @@ impl LdkDatabase {
             .into())
     }
 
-    pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
+    pub async fn fetch_channel_monitors<SP: SignerProvider>(
         &self,
-        entropy_source: &ES,
-        signer_provider: &SP, //		broadcaster: &B,
-                              //		fee_estimator: &F,
-    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP::Signer>)>>
-where
-        //      B::Target: BroadcasterInterface,
-        //		F::Target: FeeEstimator,
-    {
+        signer_provider: &SP,
+    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP::Signer>)>> {
         let rows = self
             .durable_connection
             .wait()
@@ -667,34 +661,6 @@ where
                     {
                         bail!("Unable to find ChannelMonitor for: {}:{}", txid, index);
                     }
-                    /*
-                                        let update_rows = self
-                                            .client
-                                            .read()
-                                            .await
-                                            .query(
-                                                "SELECT update \
-                                            FROM channel_monitor_updates \
-                                            WHERE out_point = $1 \
-                                            ORDER BY update_id ASC",
-                                                &[&out_point],
-                                            )
-                                            .await
-                                            .unwrap();
-
-                                        let updates: Vec<ChannelMonitorUpdate> = update_rows
-                                            .iter()
-                                            .map(|row| {
-                                                let ciphertext: Vec<u8> = row.get("update");
-                                                let update = self.cipher.decrypt(&ciphertext);
-                                                ChannelMonitorUpdate::read(&mut Cursor::new(&update)).unwrap()
-                                            })
-                                            .collect();
-                                        for update in updates {
-                                            channel_monitor
-                                                .update_monitor(&update, broadcaster, fee_estimator.clone(), &KndLogger::global()).unwrap();
-                                        }
-                    */
                     monitors.push((blockhash, channel_monitor));
                 }
                 Err(e) => bail!("Failed to deserialize ChannelMonitor: {}", e),

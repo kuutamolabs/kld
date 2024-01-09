@@ -690,7 +690,7 @@ impl Controller {
         ));
 
         let mut channel_monitors = database
-            .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
+            .fetch_channel_monitors(keys_manager.as_ref())
             .await?;
         let mut user_config = UserConfig::default();
         user_config
