@@ -57,13 +57,17 @@ pub(crate) async fn transfer(
     Json(wallet_transfer): Json<WalletTransfer>,
 ) -> Result<impl IntoResponse, ApiError> {
     let address = Address::from_str(&wallet_transfer.address).map_err(bad_request)?;
+
+    // XXX add network type when wallet init and do check here
+    let checked_address = address.assume_checked();
+
     let amount = if wallet_transfer.satoshis == "all" {
         u64::MAX
     } else {
         u64::from_str(&wallet_transfer.satoshis).map_err(bad_request)?
     };
     let (tx, tx_details) = wallet
-        .transfer(address, amount, wallet_transfer.fee_rate, None, vec![])
+        .transfer(checked_address, amount, wallet_transfer.fee_rate, None, vec![])
         .await
         .map_err(internal_server)?;
     let tx_hex = encode::serialize_hex(&tx);

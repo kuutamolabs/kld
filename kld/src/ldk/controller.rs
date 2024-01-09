@@ -392,7 +392,7 @@ impl LightningInterface for Controller {
         let invoice = Invoice::new(Some(label), bolt11)?;
         info!(
             "Generated invoice with payment hash {}",
-            invoice.payment_hash.0.to_hex()
+            hex::encode(invoice.payment_hash.0)
         );
         self.database.persist_invoice(&invoice).await?;
         Ok(invoice)
@@ -422,7 +422,7 @@ impl LightningInterface for Controller {
             .map_err(retryable_send_failure)?;
         info!(
             "Initiated payment of invoice with hash {}",
-            invoice.payment_hash.0.to_hex()
+            hex::encode(invoice.payment_hash.0)
         );
         self.database.persist_invoice(&invoice).await?;
         self.database.persist_payment(&payment).await?;
@@ -480,7 +480,7 @@ impl LightningInterface for Controller {
         let payment = Payment::spontaneous_outbound(payment_id, amount);
         info!(
             "Initiated keysend payment with id {}",
-            payment_id.0.to_hex()
+            hex::encode(payment_id.0)
         );
         self.database.persist_payment(&payment).await?;
         let receiver = self

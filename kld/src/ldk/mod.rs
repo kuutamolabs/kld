@@ -37,8 +37,6 @@ use log::warn;
 
 use crate::bitcoind::BitcoindClient;
 
-use peer_manager::PeerManager;
-
 /// The minimum feerate we are allowed to send, as specify by LDK (sats/kwu).
 pub static MIN_FEERATE: u32 = 2000;
 
@@ -207,7 +205,7 @@ pub fn htlc_destination_to_string(destination: &HTLCDestination) -> String {
         HTLCDestination::NextHopChannel {
             node_id: _,
             channel_id,
-        } => format!("Next hop channel ID {}", channel_id.to_hex()),
+        } => format!("Next hop channel ID {}", hex::encode(channel_id.0)),
         HTLCDestination::UnknownNextHop {
             requested_forward_scid,
         } => format!(
@@ -221,7 +219,7 @@ pub fn htlc_destination_to_string(destination: &HTLCDestination) -> String {
             requested_forward_scid
         ),
         HTLCDestination::FailedPayment { payment_hash } => {
-            format!("Failed payment with hash {}", payment_hash.0.to_hex())
+            format!("Failed payment with hash {}", hex::encode(payment_hash.0))
         }
     }
 }

@@ -27,8 +27,8 @@ use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, WriteableScore,
 };
 use lightning::sign::{
-    EntropySource, NodeSigner, SignerProvider, SpendableOutputDescriptor,
-    WriteableEcdsaChannelSigner,
+    ecdsa::WriteableEcdsaChannelSigner, EntropySource, NodeSigner, SignerProvider,
+    SpendableOutputDescriptor,
 };
 use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
@@ -162,7 +162,7 @@ impl LdkDatabase {
                         data
                     ) VALUES ( $1, $2, $3, $4, $5, $6 )",
                     &[
-                        &channel.channel_id.0.as_ref(),
+                        &channel.channel_id.0.to_vec(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
                         &(*scid as i64),
                         &channel.is_usable,
@@ -184,7 +184,7 @@ impl LdkDatabase {
                         data
                     ) VALUES ( $1, $2, $3, $4, $5 )",
                     &[
-                        &channel.channel_id.0.as_ref(),
+                        &channel.channel_id.0.to_vec(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
                         &channel.is_usable,
                         &channel.is_public,
@@ -201,7 +201,7 @@ impl LdkDatabase {
         channel_id: &ChannelId,
         closure_reason: &ClosureReason,
     ) -> Result<()> {
-        debug!("Close channel {}", channel_id.to_hex());
+        debug!("Close channel {}", hex::encode(channel_id.0));
         self.durable_connection
             .get()
             .await
@@ -210,7 +210,7 @@ impl LdkDatabase {
                 &[
                     &to_primitive(&microsecond_timestamp()),
                     &closure_reason.encode(),
-                    &channel_id.0.as_ref(),
+                    &channel_id.0.to_vec(),
                 ],
             )
             .await?;
@@ -291,9 +291,9 @@ impl LdkDatabase {
         is_spent: bool,
     ) -> Result<()> {
         let (txid, index, value) = match descriptor {
-            SpendableOutputDescriptor::StaticOutput { outpoint, output } => {
-                (outpoint.txid, outpoint.index, output.value)
-            }
+            SpendableOutputDescriptor::StaticOutput {
+                outpoint, output, ..
+            } => (outpoint.txid, outpoint.index, output.value),
             SpendableOutputDescriptor::DelayedPaymentOutput(descriptor) => (
                 descriptor.outpoint.txid,
                 descriptor.outpoint.index,
@@ -309,6 +309,7 @@ impl LdkDatabase {
         let mut data = vec![];
         descriptor.write(&mut data)?;
 
+        let txid: &[u8] = txid.as_ref();
         self.durable_connection
             .get()
             .await
@@ -320,13 +321,7 @@ impl LdkDatabase {
                     data,
                     is_spent
                 ) VALUES ($1, $2, $3, $4, $5)"#,
-                &[
-                    &txid.as_ref(),
-                    &(index as i16),
-                    &(value as i64),
-                    &data,
-                    &is_spent,
-                ],
+                &[&txid, &(index as i16), &(value as i64), &data, &is_spent],
             )
             .await?;
         Ok(())
@@ -360,8 +355,10 @@ impl LdkDatabase {
     pub async fn persist_invoice(&self, invoice: &Invoice) -> Result<()> {
         debug!(
             "Persist invoice with hash: {}",
-            invoice.payment_hash.0.to_hex()
+            hex::encode(invoice.payment_hash.0)
         );
+
+        let payment_hash: &[u8] = invoice.payment_hash.0.as_ref();
         self.durable_connection
             .get()
             .await
@@ -376,7 +373,7 @@ impl LdkDatabase {
                     timestamp
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 &[
-                    &invoice.payment_hash.0.as_ref(),
+                    &payment_hash,
                     &invoice.label,
                     &invoice.bolt11.to_string(),
                     &invoice.payee_pub_key.encode(),
@@ -458,7 +455,7 @@ impl LdkDatabase {
     }
 
     pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
-        debug!("Persist payment id: {}", payment.id.0.to_hex());
+        debug!("Persist payment id: {}", hex::encode(payment.id.0));
         self.durable_connection
             .get()
             .await
@@ -476,10 +473,10 @@ impl LdkDatabase {
                     timestamp
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 &[
-                    &payment.id.0.as_ref(),
-                    &payment.hash.as_ref().map(|x| x.0.as_ref()),
-                    &payment.preimage.as_ref().map(|x| x.0.as_ref()),
-                    &payment.secret.as_ref().map(|s| s.0.as_ref()),
+                    &payment.id.0.to_vec(),
+                    &payment.hash.as_ref().map(|x| x.0.to_vec()),
+                    &payment.preimage.as_ref().map(|x| x.0.to_vec()),
+                    &payment.secret.as_ref().map(|s| s.0.to_vec()),
                     &payment.label,
                     &payment.status,
                     &(payment.amount as i64),
@@ -518,7 +515,7 @@ impl LdkDatabase {
             WHERE 1 = 1"
             .to_string();
         if let Some(hash) = &payment_hash {
-            params.push(hash.0.as_ref());
+            params.push(hash.0.to_vec());
             query.push_str(&format!("AND p.hash = ${}", params.count()));
         }
         if let Some(direction) = direction {
@@ -560,8 +557,8 @@ impl LdkDatabase {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &forward.id,
-                    &forward.inbound_channel_id.0.as_ref(),
-                    &forward.outbound_channel_id.as_ref().map(|x| x.0.as_ref()),
+                    &forward.inbound_channel_id.0.to_vec(),
+                    &forward.outbound_channel_id.as_ref().map(|x| x.0.to_vec()),
                     &(forward.amount.map(|x| x as i64)),
                     &(forward.fee.map(|x| x as i64)),
                     &forward.status,
@@ -629,9 +626,8 @@ impl LdkDatabase {
     pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
         &self,
         entropy_source: &ES,
-        signer_provider: &SP, //		broadcaster: &B,
-                              //		fee_estimator: &F,
-    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP::Signer>)>>
+        signer_provider: &SP,
+    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP>)>>
 where
         //      B::Target: BroadcasterInterface,
         //		F::Target: FeeEstimator,
@@ -716,7 +712,7 @@ where
         read_args: ChannelManagerReadArgs<'_, M, T, ES, NS, SP, F, R, L>,
     ) -> Result<(BlockHash, ChannelManager<M, T, ES, NS, SP, F, R, L>)>
     where
-        <M as Deref>::Target: Watch<<SP::Target as SignerProvider>::Signer>,
+        <M as Deref>::Target: Watch<<SP::Target as SignerProvider>::EcdsaSigner>,
         <T as Deref>::Target: BroadcasterInterface,
         <ES as Deref>::Target: EntropySource,
         <NS as Deref>::Target: NodeSigner,
@@ -798,7 +794,7 @@ where
 impl<'a, M: Deref, T: Deref, ES: Deref, NS: Deref, SP: Deref, F: Deref, R: Deref, L: Deref, S>
     Persister<'a, M, T, ES, NS, SP, F, R, L, S> for LdkDatabase
 where
-    M::Target: 'static + Watch<<SP::Target as SignerProvider>::Signer>,
+    M::Target: 'static + Watch<<SP::Target as SignerProvider>::EcdsaSigner>,
     T::Target: 'static + BroadcasterInterface,
     ES::Target: 'static + EntropySource,
     NS::Target: 'static + NodeSigner,

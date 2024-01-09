@@ -232,7 +232,7 @@ impl<
         let mut tx_builder = wallet.build_tx();
 
         tx_builder
-            .add_recipient(output_script.clone(), *channel_value_satoshis)
+            .add_recipient(output_script.into(), *channel_value_satoshis)
             .fee_rate(self.to_bdk_fee_rate(fee_rate))
             .enable_rbf();
 

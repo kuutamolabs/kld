@@ -118,7 +118,7 @@ impl WalletDatabase {
             None => (None, None),
         };
 
-        let txid: &[u8] = &transaction.txid;
+        let txid: &[u8] = &transaction.txid.as_ref();
 
         execute_blocking!(
 			"INSERT INTO wallet_transaction_details (txid, timestamp, received, sent, fee, height) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -144,7 +144,7 @@ impl WalletDatabase {
             None => (None, None),
         };
 
-        let txid: &[u8] = &transaction.txid;
+        let txid: &[u8] = &transaction.txid.as_ref();
 
         execute_blocking!(
 			"UPDATE wallet_transaction_details SET timestamp=$1, received=$2, sent=$3, fee=$4, height=$5 WHERE txid=$6",
@@ -305,8 +305,7 @@ impl WalletDatabase {
                 let value: u64 = row.get::<usize, i64>(0).try_into().unwrap();
                 let keychain: String = row.get(1);
                 let keychain: KeychainKind = serde_json::from_str(&keychain)?;
-                let script: Vec<u8> = row.get(2);
-                let script_pubkey: Script = script.into();
+                let script_pubkey = ScriptBuf::from_bytes(row.get(2));
                 let is_spent: bool = row.get(3);
 
                 Ok(Some(LocalUtxo {
@@ -608,7 +607,7 @@ impl BatchOperations for WalletDatabase {
             utxo.txout.value,
             serde_json::to_string(&utxo.keychain)?,
             utxo.outpoint.vout,
-            &utxo.outpoint.txid,
+            utxo.outpoint.txid.as_ref(),
             utxo.txout.script_pubkey.as_bytes(),
             utxo.is_spent,
         )?;
@@ -616,19 +615,20 @@ impl BatchOperations for WalletDatabase {
     }
 
     fn set_raw_tx(&mut self, transaction: &Transaction) -> Result<(), Error> {
-        match self.select_transaction_by_txid(&transaction.txid())? {
+        let txid = transaction.txid();
+        match self.select_transaction_by_txid(txid.as_ref())? {
             Some(_) => {
-                self.update_transaction(&transaction.txid(), &serialize(transaction))?;
+                self.update_transaction(txid.as_ref(), &serialize(transaction))?;
             }
             None => {
-                self.insert_transaction(&transaction.txid(), &serialize(transaction))?;
+                self.insert_transaction(txid.as_ref(), &serialize(transaction))?;
             }
         }
         Ok(())
     }
 
     fn set_tx(&mut self, transaction: &TransactionDetails) -> Result<(), Error> {
-        match self.select_transaction_details_by_txid(&transaction.txid)? {
+        match self.select_transaction_details_by_txid(transaction.txid.as_ref())? {
             Some(_) => {
                 self.update_transaction_details(transaction)?;
             }
@@ -684,9 +684,9 @@ impl BatchOperations for WalletDatabase {
     }
 
     fn del_utxo(&mut self, outpoint: &OutPoint) -> Result<Option<LocalUtxo>, Error> {
-        match self.select_utxo_by_outpoint(&outpoint.txid, outpoint.vout)? {
+        match self.select_utxo_by_outpoint(outpoint.txid.as_ref(), outpoint.vout)? {
             Some(local_utxo) => {
-                self.delete_utxo_by_outpoint(&outpoint.txid, outpoint.vout)?;
+                self.delete_utxo_by_outpoint(outpoint.txid.as_ref(), outpoint.vout)?;
                 Ok(Some(local_utxo))
             }
             None => Ok(None),
@@ -694,9 +694,9 @@ impl BatchOperations for WalletDatabase {
     }
 
     fn del_raw_tx(&mut self, txid: &Txid) -> Result<Option<Transaction>, Error> {
-        match self.select_transaction_by_txid(txid)? {
+        match self.select_transaction_by_txid(txid.as_ref())? {
             Some(tx) => {
-                self.delete_transaction_by_txid(txid)?;
+                self.delete_transaction_by_txid(txid.as_ref())?;
                 Ok(Some(tx))
             }
             None => Ok(None),
@@ -708,12 +708,12 @@ impl BatchOperations for WalletDatabase {
         txid: &Txid,
         include_raw: bool,
     ) -> Result<Option<TransactionDetails>, Error> {
-        match self.select_transaction_details_by_txid(txid)? {
+        match self.select_transaction_details_by_txid(txid.as_ref())? {
             Some(transaction_details) => {
-                self.delete_transaction_details_by_txid(txid)?;
+                self.delete_transaction_details_by_txid(txid.as_ref())?;
 
                 if include_raw {
-                    self.delete_transaction_by_txid(txid)?;
+                    self.delete_transaction_by_txid(txid.as_ref())?;
                 }
                 Ok(Some(transaction_details))
             }
@@ -816,18 +816,18 @@ impl Database for WalletDatabase {
     }
 
     fn get_utxo(&self, outpoint: &OutPoint) -> Result<Option<LocalUtxo>, Error> {
-        self.select_utxo_by_outpoint(&outpoint.txid, outpoint.vout)
+        self.select_utxo_by_outpoint(outpoint.txid.as_ref(), outpoint.vout)
     }
 
     fn get_raw_tx(&self, txid: &Txid) -> Result<Option<Transaction>, Error> {
-        match self.select_transaction_by_txid(txid)? {
+        match self.select_transaction_by_txid(txid.as_ref())? {
             Some(tx) => Ok(Some(tx)),
             None => Ok(None),
         }
     }
 
     fn get_tx(&self, txid: &Txid, include_raw: bool) -> Result<Option<TransactionDetails>, Error> {
-        match self.select_transaction_details_by_txid(txid)? {
+        match self.select_transaction_details_by_txid(txid.as_ref())? {
             Some(mut transaction_details) => {
                 if !include_raw {
                     transaction_details.transaction = None;

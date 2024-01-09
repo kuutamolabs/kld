@@ -25,7 +25,7 @@ pub(crate) async fn list_peers(
         .map_err(internal_server)?
         .iter()
         .map(|p| Peer {
-            id: p.public_key.serialize().to_hex(),
+            id: hex::encode(p.public_key.serialize()),
             connected: p.status == PeerStatus::Connected,
             netaddr: p.net_address.as_ref().map(|a| a.to_string()),
             alias: p.alias.clone(),
@@ -54,7 +54,7 @@ pub(crate) async fn connect_peer(
     Ok((
         StatusCode::CREATED,
         Json(PostV1PeerConnectResponse {
-            id: public_key.serialize().to_hex(),
+            id: hex::encode(public_key.serialize()),
         }),
     ))
 }

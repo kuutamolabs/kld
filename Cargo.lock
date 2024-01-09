@@ -1436,6 +1436,7 @@ dependencies = [
  "bdk",
  "bincode",
  "bitcoin 0.30.2",
+ "bitcoin_hashes 0.12.0",
  "bitcoincore-rpc-json",
  "bitvec",
  "bytes",

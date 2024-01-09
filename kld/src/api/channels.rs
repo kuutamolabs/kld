@@ -77,7 +77,7 @@ pub(crate) async fn list_channels(
         }
 
         response.push(GetKldChannelResponseItem {
-            channel_id: detail.channel_id.to_hex(),
+            channel_id: hex::encode(detail.channel_id.0),
             counterparty_node_id: detail.counterparty.node_id.to_string(),
             counterparty_unspendable_punishment_reserve: detail
                 .counterparty
@@ -130,7 +130,7 @@ pub(crate) async fn list_channels(
     for channel in channels_in_mem.into_iter() {
         log::error!(
             "Channel miss from DB, channel: {}, funding_txo: {}",
-            channel.channel_id.to_hex(),
+            hex::encode(channel.channel_id.0),
             channel
                 .funding_txo
                 .map(|txo| format!("{}:{}", txo.txid, txo.index))
@@ -160,7 +160,7 @@ pub(crate) async fn list_peer_channels(
             alias: lightning_interface
                 .alias_of(&channel.counterparty.node_id)
                 .unwrap_or_default(),
-            channel_id: channel.channel_id.to_hex(),
+            channel_id: hex::encode(channel.channel_id.0),
             dust_limit_msat: match config.max_dust_htlc_exposure {
                 MaxDustHTLCExposure::FixedLimitMsat(x) => x,
                 MaxDustHTLCExposure::FeeRateMultiplier(x) => x,
@@ -253,7 +253,7 @@ pub(crate) async fn open_channel(
     let response = FundChannelResponse {
         tx: result.transaction,
         txid: result.txid.to_string(),
-        channel_id: result.channel_id.to_hex(),
+        channel_id: hex::encode(result.channel_id.0),
     };
     Ok(Json(response))
 }
@@ -283,13 +283,13 @@ pub(crate) async fn set_channel_fee(
                     base,
                     ppm,
                     peer_id: node_id.to_string(),
-                    channel_id: channel.channel_id.to_hex(),
+                    channel_id: hex::encode(channel.channel_id.0),
                     short_channel_id: to_string_empty!(channel.short_channel_id),
                 });
             }
         }
     } else if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
-        c.channel_id.to_hex() == channel_fee.id
+        hex::encode(c.channel_id.0) == channel_fee.id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_fee.id
     }) {
         let (base, ppm) = lightning_interface
@@ -304,7 +304,7 @@ pub(crate) async fn set_channel_fee(
             base,
             ppm,
             peer_id: channel.counterparty.node_id.to_string(),
-            channel_id: channel.channel_id.to_hex(),
+            channel_id: hex::encode(channel.channel_id.0),
             short_channel_id: to_string_empty!(channel.short_channel_id),
         });
     } else {
@@ -319,7 +319,7 @@ pub(crate) async fn close_channel(
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
-        c.channel_id.to_hex() == channel_id
+        hex::encode(c.channel_id.0) == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
         lightning_interface
@@ -338,7 +338,7 @@ pub(crate) async fn close_channel_with_fee(
     Path(fee_rate): Path<u32>,
 ) -> Result<impl IntoResponse, ApiError> {
     if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
-        c.channel_id.to_hex() == channel_id
+        hex::encode(c.channel_id.0) == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
         lightning_interface
@@ -360,7 +360,7 @@ pub(crate) async fn force_close_channel_with_broadcast(
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
-        c.channel_id.to_hex() == channel_id
+        hex::encode(c.channel_id.0) == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
         lightning_interface
@@ -378,7 +378,7 @@ pub(crate) async fn force_close_channel_without_broadcast(
     Path(channel_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     if let Some(channel) = lightning_interface.list_active_channels().iter().find(|c| {
-        c.channel_id.to_hex() == channel_id
+        hex::encode(c.channel_id.0) == channel_id
             || c.short_channel_id.unwrap_or_default().to_string() == channel_id
     }) {
         lightning_interface
@@ -460,13 +460,13 @@ pub(crate) async fn list_forwards(
                 .as_ref()
                 .map(htlc_destination_to_string),
             fee_msat: forward.fee,
-            in_channel: forward.inbound_channel_id.to_hex(),
+            in_channel: hex::encode(forward.inbound_channel_id.0),
             in_msat: forward.amount,
-            out_channel: forward.outbound_channel_id.map(|x| x.to_hex()),
+            out_channel: forward.outbound_channel_id.map(|x| hex::encode(x.0)),
             out_msat: forward.amount.and_then(|a| forward.fee.map(|f| a - f)),
             payment_hash: match forward.htlc_destination {
                 Some(HTLCDestination::FailedPayment { payment_hash }) => {
-                    Some(payment_hash.0.to_hex())
+                    Some(hex::encode(payment_hash.0))
                 }
                 _ => None,
             },
@@ -507,7 +507,7 @@ pub(crate) async fn channel_history(
                 .funding_txo
                 .map(|txo| format!("{}:{}", txo.txid, txo.index))
                 .unwrap_or_default(),
-            id: detail.channel_id.to_hex(),
+            id: hex::encode(detail.channel_id.0),
             is_outbound: detail.is_outbound,
             is_public: detail.is_public,
             open_timestamp: open_timestamp.unix_timestamp(),

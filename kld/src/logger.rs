@@ -57,7 +57,7 @@ impl Log for KldLogger {
 }
 
 impl Logger for KldLogger {
-    fn log(&self, record: &lightning::util::logger::Record) {
+    fn log(&self, record: lightning::util::logger::Record) {
         logger().log(
             &log::RecordBuilder::new()
                 .args(record.args)
