@@ -67,7 +67,13 @@ pub(crate) async fn transfer(
         u64::from_str(&wallet_transfer.satoshis).map_err(bad_request)?
     };
     let (tx, tx_details) = wallet
-        .transfer(checked_address, amount, wallet_transfer.fee_rate, None, vec![])
+        .transfer(
+            checked_address,
+            amount,
+            wallet_transfer.fee_rate,
+            None,
+            vec![],
+        )
         .await
         .map_err(internal_server)?;
     let tx_hex = encode::serialize_hex(&tx);

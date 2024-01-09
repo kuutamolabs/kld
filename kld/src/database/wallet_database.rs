@@ -118,7 +118,7 @@ impl WalletDatabase {
             None => (None, None),
         };
 
-        let txid: &[u8] = &transaction.txid.as_ref();
+        let txid: &[u8] = transaction.txid.as_ref();
 
         execute_blocking!(
 			"INSERT INTO wallet_transaction_details (txid, timestamp, received, sent, fee, height) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -144,7 +144,7 @@ impl WalletDatabase {
             None => (None, None),
         };
 
-        let txid: &[u8] = &transaction.txid.as_ref();
+        let txid: &[u8] = transaction.txid.as_ref();
 
         execute_blocking!(
 			"UPDATE wallet_transaction_details SET timestamp=$1, received=$2, sent=$3, fee=$4, height=$5 WHERE txid=$6",
