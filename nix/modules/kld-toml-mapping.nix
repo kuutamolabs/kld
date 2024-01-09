@@ -28,8 +28,11 @@ in
     kuutamo.kld.mnemonicPath = if (cfg ? kld_preset_mnemonic && cfg.kld_preset_mnemonic) then "/var/lib/secrets/mnemonic" else null;
     kuutamo.kld.probeInterval = cfg.probe_interval or 0;
     kuutamo.kld.probeAmtMSat = cfg.probe_amt_msat or 0;
-    kuutamo.kld.probeTargets = cfg.probe_targets or [ ];
-    kuutamo.kld.shutdownGracefulSec = cfg.shutdown_graceful_sec or 5;
+    kuutamo.kld.network = if (cfg ? network && cfg.network == "bitcoin") then "main" else (cfg.network or "main");
+    kuutamo.bitcoind.network = if (cfg ? network && cfg.network == "bitcoin") then "main" else (cfg.network or "main");
+    kuutamo.electrs.network = cfg.network or "bitcoin";
+    kuutamo.electrs.address = cfg.electrs_address or "127.0.0.1";
+    kuutamo.electrs.port = cfg.electrs_port or 60001;
 
     kuutamo.disko.disks = cfg.disks;
     kuutamo.disko.bitcoindDisks = cfg.bitcoind_disks;

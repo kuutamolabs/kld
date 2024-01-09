@@ -172,4 +172,14 @@ probe_targets = []
 # The graceful period in seconds when a shutdown signal is received
 # shutdown_graceful_sec = 5
 
+# The address of tcp connection for electrs server
+# electrs_address = "127.0.0.1"
+
+# The port of tcp connection for electrs server
+# electrs_port = 60001
+
+# The lite node only config to select different blockchain network.
+# It will be mainnet if this value is unset
+# network = ""
+
 
