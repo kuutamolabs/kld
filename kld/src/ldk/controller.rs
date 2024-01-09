@@ -953,6 +953,12 @@ impl Controller {
                         })
                     },
                     false,
+                    || {
+                        // XXX
+                        // Provide `Option<Durataion>`,
+                        // else some feature will be disabled
+                        None
+                    },
                 )
                 .await
                 {
