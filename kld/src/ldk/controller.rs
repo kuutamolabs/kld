@@ -956,12 +956,7 @@ impl Controller {
                         })
                     },
                     false,
-                    || {
-                        // XXX
-                        // Provide `Option<Durataion>`,
-                        // else some feature will be disabled
-                        None
-                    },
+                    || Some(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap()),
                 )
                 .await
                 {
