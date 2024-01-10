@@ -329,7 +329,7 @@ mod test {
 
         let res = wallet
             .transfer(
-                Address::from_str(TEST_ADDRESS)?,
+                Address::from_str(TEST_ADDRESS)?.assume_checked(),
                 u64::MAX,
                 None,
                 None,
@@ -354,7 +354,7 @@ mod test {
 
         let (tx, tx_details) = wallet
             .transfer(
-                Address::from_str(TEST_ADDRESS)?,
+                Address::from_str(TEST_ADDRESS)?.assume_checked(),
                 u64::MAX,
                 None,
                 None,

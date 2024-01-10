@@ -801,7 +801,9 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
-            Arc::new(lightning::onion_message::DefaultMessageRouter::new(network_graph.clone())),
+            Arc::new(lightning::onion_message::DefaultMessageRouter::new(
+                network_graph.clone(),
+            )),
             channel_manager.clone(),
             IgnoringMessageHandler {},
         ));
@@ -978,7 +980,13 @@ impl Controller {
                         })
                     },
                     false,
-                    || Some(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap()),
+                    || {
+                        Some(
+                            SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap(),
+                        )
+                    },
                 )
                 .await
                 {
