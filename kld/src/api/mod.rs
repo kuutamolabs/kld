@@ -190,16 +190,6 @@ pub enum ApiError {
     InternalServerError(Box<dyn std::error::Error>),
 }
 
-impl ApiError {
-    fn bad_request_from_std_err(err: impl std::error::Error + 'static) -> Self {
-        ApiError::BadRequest(Box::new(err))
-    }
-
-    fn internal_err_from_std_err(err: impl std::error::Error + 'static) -> Self {
-        ApiError::InternalServerError(Box::new(err))
-    }
-}
-
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         match self {
