@@ -40,7 +40,7 @@ impl WalletInterface for MockWallet {
 
     fn new_external_address(&self) -> Result<AddressInfo> {
         Ok(AddressInfo {
-            address: Address::from_str(TEST_ADDRESS)?,
+            address: Address::from_str(TEST_ADDRESS)?.assume_checked(),
             index: 1,
             keychain: KeychainKind::External,
         })
@@ -48,7 +48,7 @@ impl WalletInterface for MockWallet {
 
     fn new_internal_address(&self) -> Result<AddressInfo> {
         Ok(AddressInfo {
-            address: Address::from_str(TEST_ADDRESS)?,
+            address: Address::from_str(TEST_ADDRESS)?.assume_checked(),
             index: 1,
             keychain: KeychainKind::Internal,
         })
