@@ -315,6 +315,7 @@ pub async fn test_spendable_outputs() -> Result<()> {
     let (settings, _cockroach, durable_connection) = init_db_test_context(&temp_dir).await?;
 
     let database = LdkDatabase::new(settings.into(), durable_connection.into());
+    let channel_id = ChannelId::from_bytes(random());
 
     let output = TxOut::default();
     let outpoint = OutPoint {
@@ -329,11 +330,13 @@ pub async fn test_spendable_outputs() -> Result<()> {
         channel_keys_id: None,
     };
     database
-        .persist_spendable_output(&descriptor, false)
+        .persist_spendable_output(&descriptor, Some(&channel_id), false)
         .await?;
 
     // Update is_spent after it spend
-    database.persist_spendable_output(&descriptor, true).await?;
+    database
+        .persist_spendable_output(&descriptor, Some(&channel_id), true)
+        .await?;
 
     let spendable_outputs = database.fetch_spendable_outputs().await?;
     assert_eq!(1, spendable_outputs.len());

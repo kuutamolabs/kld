@@ -416,6 +416,7 @@ impl LdkDatabase {
     pub async fn persist_spendable_output(
         &self,
         descriptor: &SpendableOutputDescriptor,
+        channel_id: Option<&ChannelId>,
         is_spent: bool,
     ) -> Result<()> {
         let (txid, index, value) = match descriptor {
@@ -438,20 +439,45 @@ impl LdkDatabase {
         descriptor.write(&mut data)?;
 
         let txid: &[u8] = txid.as_ref();
-        self.durable_connection
-            .get()
-            .await
-            .execute(
-                r#"UPSERT INTO spendable_outputs (
-                    txid,
-                    "index",
-                    value,
-                    data,
-                    is_spent
-                ) VALUES ($1, $2, $3, $4, $5)"#,
-                &[&txid, &(index as i16), &(value as i64), &data, &is_spent],
-            )
-            .await?;
+        if let Some(channel_id) = channel_id {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    r#"UPSERT INTO spendable_outputs (
+                        txid,
+                        "index",
+                        value,
+                        channel_id,
+                        data,
+                        is_spent
+                    ) VALUES ($1, $2, $3, $4, $5, $6)"#,
+                    &[
+                        &txid,
+                        &(index as i16),
+                        &(value as i64),
+                        &channel_id.0.to_vec(),
+                        &data,
+                        &is_spent,
+                    ],
+                )
+                .await?;
+        } else {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    r#"UPSERT INTO spendable_outputs (
+                        txid,
+                        "index",
+                        value,
+                        data,
+                        is_spent
+                    ) VALUES ($1, $2, $3, $4, $5)"#,
+                    &[&txid, &(index as i16), &(value as i64), &data, &is_spent],
+                )
+                .await?;
+        }
         Ok(())
     }
 

@@ -530,10 +530,14 @@ impl EventHandler {
                     forwarding_channel_manager.process_pending_htlc_forwards();
                 });
             }
-            Event::SpendableOutputs { outputs, .. } => {
+            Event::SpendableOutputs {
+                outputs,
+                channel_id,
+            } => {
                 for spendable_output in outputs.iter() {
                     info!("EVENT: New {:?}", spendable_output);
-                    self.persist_spendable_output(spendable_output, false).await;
+                    self.persist_spendable_output(spendable_output, channel_id.as_ref(), false)
+                        .await;
                 }
                 let destination_address = self.wallet.new_internal_address()?;
                 let tx_feerate = self
@@ -558,7 +562,8 @@ impl EventHandler {
                 );
                 self.bitcoind_client.broadcast_transactions(&[&spending_tx]);
                 for spendable_output in outputs.iter() {
-                    self.persist_spendable_output(spendable_output, true).await;
+                    self.persist_spendable_output(spendable_output, channel_id.as_ref(), true)
+                        .await;
                 }
             }
             Event::HTLCIntercepted {
@@ -584,11 +589,12 @@ impl EventHandler {
     async fn persist_spendable_output(
         &self,
         spendable_output: &SpendableOutputDescriptor,
+        channel_id: Option<&ChannelId>,
         is_spent: bool,
     ) {
         if let Err(e) = self
             .ldk_database
-            .persist_spendable_output(spendable_output, is_spent)
+            .persist_spendable_output(spendable_output, channel_id, is_spent)
             .await
         {
             log_error(&e)
