@@ -18,10 +18,10 @@ use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
+use lightning::ln::channelmanager::ChainParameters;
 use lightning::ln::channelmanager::{
     self, ChannelDetails, PaymentId, PaymentSendFailure, RecipientOnionFields,
 };
-use lightning::ln::channelmanager::ChainParameters;
 // use lightning::ln::channelmanager::ChannelManagerReadArgs;
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::ln::ChannelId;
@@ -714,20 +714,20 @@ impl Controller {
         };
         let (channel_manager_blockhash, channel_manager) = {
             // if is_first_start {
-                let new_channel_manager = channelmanager::ChannelManager::new(
-                    fee_estimator.clone(),
-                    chain_monitor.clone(),
-                    broadcaster.clone(),
-                    router.clone(),
-                    KldLogger::global(),
-                    keys_manager.clone(),
-                    keys_manager.clone(),
-                    keys_manager.clone(),
-                    user_config,
-                    chain_params,
-                    0,
-                );
-                (getinfo_resp.best_block_hash, new_channel_manager)
+            let new_channel_manager = channelmanager::ChannelManager::new(
+                fee_estimator.clone(),
+                chain_monitor.clone(),
+                broadcaster.clone(),
+                router.clone(),
+                KldLogger::global(),
+                keys_manager.clone(),
+                keys_manager.clone(),
+                keys_manager.clone(),
+                user_config,
+                chain_params,
+                0,
+            );
+            (getinfo_resp.best_block_hash, new_channel_manager)
             // } else {
             //     let channel_monitor_mut_refs =
             //         channel_monitors.iter_mut().map(|(_, cm)| cm).collect();
@@ -778,7 +778,9 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
-            Arc::new(lightning::onion_message::DefaultMessageRouter::new(network_graph.clone())),
+            Arc::new(lightning::onion_message::DefaultMessageRouter::new(
+                network_graph.clone(),
+            )),
             channel_manager.clone(),
             IgnoringMessageHandler {},
         ));
@@ -913,7 +915,7 @@ impl Controller {
                 channel_manager_blockhash,
                 channel_manager_clone.clone(),
                 // channel_monitors,
-                vec![]
+                vec![],
             )
             .await
             {
@@ -956,7 +958,13 @@ impl Controller {
                         })
                     },
                     false,
-                    || Some(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap()),
+                    || {
+                        Some(
+                            SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap(),
+                        )
+                    },
                 )
                 .await
                 {

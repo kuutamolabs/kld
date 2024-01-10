@@ -15,7 +15,7 @@ pub async fn test_script_pubkey() -> Result<()> {
     let (settings, _cockroach, durable_connection) = init_db_test_context(&temp_dir).await?;
 
     let mut wallet_database = WalletDatabase::new(settings.into(), durable_connection.into());
-    let script = Script::from(Vec::<u8>::from_hex(
+    let script = ScriptBuf::from_bytes(Vec::<u8>::from_hex(
         "76a91402306a7c23f3e8010de41e9e591348bb83f11daa88ac",
     )?);
     let path = 42;
@@ -58,7 +58,7 @@ pub async fn test_utxo() -> Result<()> {
     let mut wallet_database = WalletDatabase::new(settings.into(), durable_connection.into());
     let outpoint =
         OutPoint::from_str("5df6e0e2761359d30a8275058e299fcc0381534545f55cf43e41983f5d4c9456:0")?;
-    let script = Script::from(Vec::<u8>::from_hex(
+    let script = ScriptBuf::from_bytes(Vec::<u8>::from_hex(
         "76a91402306a7c23f3e8010de41e9e591348bb83f11daa88ac",
     )?);
     let txout = TxOut {

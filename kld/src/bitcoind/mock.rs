@@ -87,7 +87,6 @@ impl FeeEstimator for MockBitcoindClient {
             | ConfirmationTarget::AnchorChannelFee
             | ConfirmationTarget::MinAllowedAnchorChannelRemoteFee
             | ConfirmationTarget::MinAllowedNonAnchorChannelRemoteFee => 500,
-            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => 10000,
         }
     }
 }

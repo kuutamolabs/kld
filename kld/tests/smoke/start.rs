@@ -35,7 +35,11 @@ pub async fn test_start() -> Result<()> {
         .await?;
     let bitcoin = BitcoinManager::new(&tmp_dir, &mut settings_0).await?;
     bitcoin
-        .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
+        .generate_blocks(
+            START_N_BLOCKS,
+            &Address::from_str(TEST_ADDRESS)?.assume_checked(),
+            false,
+        )
         .await?;
 
     settings_0.node_id = "start0".to_owned();
@@ -70,12 +74,16 @@ pub async fn test_start() -> Result<()> {
         .await?;
 
     bitcoin
-        .generate_blocks(1, &bitcoin::Address::from_str(&address.address)?, false)
+        .generate_blocks(
+            1,
+            &bitcoin::Address::from_str(&address.address)?.assume_checked(),
+            false,
+        )
         .await?;
     bitcoin
         .generate_blocks(
             100, // Coinbase not spendable for 100 blocks.
-            &Address::from_str(TEST_ADDRESS)?,
+            &Address::from_str(TEST_ADDRESS)?.assume_checked(),
             false,
         )
         .await?;
@@ -130,7 +138,11 @@ pub async fn test_start() -> Result<()> {
     );
 
     bitcoin
-        .generate_blocks(10, &bitcoin::Address::from_str(TEST_ADDRESS)?, true)
+        .generate_blocks(
+            10,
+            &bitcoin::Address::from_str(TEST_ADDRESS)?.assume_checked(),
+            true,
+        )
         .await?;
 
     poll!(
@@ -216,7 +228,7 @@ pub async fn test_start() -> Result<()> {
         .await?;
 
     bitcoin
-        .generate_blocks(10, &Address::from_str(TEST_ADDRESS)?, true)
+        .generate_blocks(10, &Address::from_str(TEST_ADDRESS)?.assume_checked(), true)
         .await?;
 
     poll!(
@@ -245,7 +257,11 @@ pub async fn test_manual() -> Result<()> {
     let electrs = ElectrsManager::new(&tmp_dir, &bitcoin, &mut settings).await?;
 
     bitcoin
-        .generate_blocks(START_N_BLOCKS, &Address::from_str(TEST_ADDRESS)?, false)
+        .generate_blocks(
+            START_N_BLOCKS,
+            &Address::from_str(TEST_ADDRESS)?.assume_checked(),
+            false,
+        )
         .await?;
     let _kld = KldManager::new(
         &tmp_dir,

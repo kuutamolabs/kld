@@ -318,10 +318,16 @@ pub async fn test_spendable_outputs() -> Result<()> {
 
     let output = TxOut::default();
     let outpoint = OutPoint {
-        txid: Txid::from_hex(TEST_TX_ID)?,
+        txid: Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(
+            &Vec::<u8>::from_hex(TEST_TX_ID)?[..],
+        )?),
         index: 2,
     };
-    let descriptor = SpendableOutputDescriptor::StaticOutput { outpoint, output };
+    let descriptor = SpendableOutputDescriptor::StaticOutput {
+        outpoint,
+        output,
+        channel_keys_id: None,
+    };
     database
         .persist_spendable_output(&descriptor, false)
         .await?;
@@ -362,7 +368,9 @@ pub async fn test_channels() -> Result<()> {
             outbound_htlc_maximum_msat: Some(u64::MAX),
         },
         funding_txo: Some(OutPoint {
-            txid: Txid::from_hex(TEST_TX_ID)?,
+            txid: Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(
+                &Vec::<u8>::from_hex(TEST_TX_ID)?[..],
+            )?),
             index: 0,
         }),
         is_public: true,
