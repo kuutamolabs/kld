@@ -117,7 +117,7 @@ impl LightningInterface for Controller {
     }
 
     fn network(&self) -> bitcoin::Network {
-        self.settings.bitcoin_network.into()
+        self.settings.bitcoin_network
     }
 
     fn num_active_channels(&self) -> usize {
@@ -654,7 +654,7 @@ impl Controller {
         // BitcoindClient implements the BroadcasterInterface trait, so it'll act as our transaction broadcaster.
         let broadcaster = bitcoind_client.clone();
 
-        let network = settings.bitcoin_network.into();
+        let network = settings.bitcoin_network;
 
         let chain_monitor: Arc<ChainMonitor> = Arc::new(ChainMonitor::new(
             None,
