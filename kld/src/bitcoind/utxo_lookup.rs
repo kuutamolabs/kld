@@ -39,7 +39,7 @@ impl BitcoindUtxoLookup {
             bitcoind,
             network_graph,
             gossip_sync,
-            genesis: ChainHash::using_genesis_block(settings.bitcoin_network.into()),
+            genesis: ChainHash::using_genesis_block(settings.bitcoin_network),
             runtime: tokio::runtime::Handle::current(),
         }
     }
