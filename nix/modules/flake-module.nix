@@ -22,8 +22,9 @@
       };
 
       mutinynet = { pkgs, ... }: {
-        imports = [ ./mutinynet.nix ];
+        imports = [ ./bitcoind.nix ];
         kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.custom-bitcoin;
+        kuutamo.bitcoind.network = "mutinynet";
       };
 
       electrs = { ... }: {
@@ -125,6 +126,26 @@
         self.nixosModules.electrs
         self.nixosModules.kld
         {
+          kuutamo.kld.network = "main";
+          kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
+          kuutamo.kld.certPath = "/var/lib/secrets/kld/kld.pem";
+          kuutamo.kld.keyPath = "/var/lib/secrets/kld/kld.key";
+          kuutamo.kld.cockroachdb.clientCertPath = "/var/lib/secrets/kld/client.kld.crt";
+          kuutamo.kld.cockroachdb.clientKeyPath = "/var/lib/secrets/kld/client.kld.key";
+          kuutamo.cockroachdb.rootClientCertPath = "/var/lib/secrets/cockroachdb/client.root.crt";
+          kuutamo.cockroachdb.rootClientKeyPath = "/var/lib/secrets/cockroachdb/client.root.key";
+        }
+      ];
+
+      kld-test.imports = [
+        ./kld-toml-mapping.nix
+        self.nixosModules.common-node
+        self.nixosModules.mutinynet
+        self.nixosModules.electrs
+        self.nixosModules.kld
+        {
+          kuutamo.kld.network = "signet";
+          kuutamo.electrs.network = "signet";
           kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
           kuutamo.kld.certPath = "/var/lib/secrets/kld/kld.pem";
           kuutamo.kld.keyPath = "/var/lib/secrets/kld/kld.key";
