@@ -20,6 +20,12 @@
         imports = [ ./bitcoind.nix ];
         kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.bitcoind;
       };
+
+      mutinynet = { pkgs, ... }: {
+        imports = [ ./mutinynet.nix ];
+        kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.custom-bitcoin;
+      };
+
       electrs = { ... }: {
         imports = [ ./electrs.nix ];
       };
