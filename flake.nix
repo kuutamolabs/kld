@@ -31,7 +31,7 @@
 
     nixos-images.url = "github:nix-community/nixos-images";
 
-    nixos-anywhere.url = "github:numtide/nixos-anywhere";
+    nixos-anywhere.url = "github:nix-community/nixos-anywhere";
     nixos-anywhere.inputs.nixpkgs.follows = "nixpkgs";
     nixos-anywhere.inputs.disko.follows = "disko";
     nixos-anywhere.inputs.nixos-images.follows = "nixos-images";
