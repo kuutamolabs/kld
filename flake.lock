@@ -27,11 +27,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1705281959,
-        "narHash": "sha256-9NZiSMAduz4qbFu77Cg9RNFcrjgS9UOjriD+v8FeueY=",
+        "lastModified": 1705328944,
+        "narHash": "sha256-joBgIN4n7fVKPjcmQpxq6iWHgflQ9/JwheWHt/410MY=",
         "owner": "nix-community",
         "repo": "disko",
-        "rev": "2a561be6b5dd049182af1973bb7e28f7a0ac9be2",
+        "rev": "38af7137e0cf57499f98db55e3b642038f51e849",
         "type": "github"
       },
       "original": {
@@ -156,15 +156,16 @@
         "nixos-unstable": "nixos-unstable"
       },
       "locked": {
-        "lastModified": 1705288025,
-        "narHash": "sha256-MoiBvWc5q6KOcSIyvkxtNzd/ivofsBW8npet/tjc6Wo=",
-        "owner": "nix-community",
+        "lastModified": 1705334627,
+        "narHash": "sha256-F92RyI871DSvybW7NuG2HHkdgahOug5ZN+tVGtaisxA=",
+        "owner": "yanganto",
         "repo": "nixos-images",
-        "rev": "000d4bac47a061756c29d60bc3e09a8c7283f52a",
+        "rev": "5b54c833aead53480ed09ec680cb65b706428744",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "yanganto",
+        "ref": "add-rsync",
         "repo": "nixos-images",
         "type": "github"
       }
