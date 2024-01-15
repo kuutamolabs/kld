@@ -153,7 +153,7 @@ impl EventHandler {
                         .await?;
                 }
 
-                // Presis Channel Details if we can list, else just create channel record
+                // Insert ChannelDetails if we can list, else just create a channel record.
                 if let Some(detail) = self
                     .channel_manager
                     .list_channels()

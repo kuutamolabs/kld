@@ -193,8 +193,8 @@ impl LightningInterface for Controller {
             .persist_initializing_channel(&channel_id, is_public, &counterparty, &txid)
             .await
         {
-            // This failure will not hurt on channel, the channel detail will be updated by event
-            // later on, so we only log the error but not raise it here.
+            // This failure should not cause issues, the channel detail update will be retried later,
+            // triggered on the next event, so we do not retry and only log the error but not raise it here.
             log_error(&e);
         }
         Ok(OpenChannelResult {
@@ -548,8 +548,8 @@ impl LightningInterface for Controller {
     async fn update_channels(&self, channels: &[ChannelDetails]) {
         for channel in channels {
             if let Err(e) = self.database.persist_channel(channel).await {
-                // This failure will not hurt on channel, the channel detail will be updated by event
-                // later on, so we only log the error but not raise it here.
+                // This failure should not cause issues, the channel detail update will be retried later,
+                // triggered on the next event, so we do not retry and only log the error but not raise it here.
                 log_error(&e);
             }
         }
