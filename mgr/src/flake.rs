@@ -52,7 +52,7 @@ pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
             &config.global.deployment_flake,
         );
 
-        // keep default root access for test or development, and only for testnet environment
+        // Default root access enabled for MutityNet and CI, mainnet defaults to no root access.
         if var("FLAKE_CHECK").is_ok() {
             global_fields += "keep_root = true\n";
         } else if var("DEBUG").is_ok() {
