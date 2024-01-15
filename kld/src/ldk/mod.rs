@@ -38,8 +38,6 @@ use log::warn;
 
 use crate::bitcoind::BitcoindClient;
 
-use peer_manager::PeerManager;
-
 /// The minimum feerate we are allowed to send, as specify by LDK (sats/kwu).
 pub static MIN_FEERATE: u32 = 2000;
 
@@ -57,7 +55,6 @@ pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
 pub(crate) type LiquidityManager = lightning_liquidity::LiquidityManager<
     Arc<KeysManager>,
     Arc<ChannelManager>,
-    Arc<PeerManager>,
     Arc<dyn Filter + Send + Sync>,
 >;
 

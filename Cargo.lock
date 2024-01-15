@@ -1573,7 +1573,7 @@ dependencies = [
 [[package]]
 name = "lightning-liquidity"
 version = "0.1.0"
-source = "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kld-pr-819#8cd4a4baf732a7e0b86cfc98785e823b0ae12c79"
+source = "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=fix-cyc-dep#2a9c244643969a450a71a70fc918b1124f1c6bd1"
 dependencies = [
  "bitcoin",
  "chrono",
