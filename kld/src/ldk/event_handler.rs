@@ -119,7 +119,7 @@ impl EventHandler {
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
                 if let Err(e) = self
                     .ldk_database
-                    .update_initial_channel(
+                    .update_initializing_channel(
                         &temporary_channel_id,
                         None,
                         Some(format!(
@@ -145,7 +145,7 @@ impl EventHandler {
                 );
                 if let Some(former_temporary_channel_id) = former_temporary_channel_id {
                     self.ldk_database
-                        .update_initial_channel(
+                        .update_initializing_channel(
                             &former_temporary_channel_id,
                             Some((&channel_id, funding_txo.vout)),
                             None::<&str>,

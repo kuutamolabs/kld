@@ -146,29 +146,29 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn persist_initial_channel(
+    pub async fn persist_initializing_channel(
         &self,
-        initial_channel_id: &ChannelId,
+        initializing_channel_id: &ChannelId,
         is_public: bool,
         counterparty: &PublicKey,
         txid: &Txid,
     ) -> Result<()> {
         debug!(
             "Initial record for initial channel {}",
-            initial_channel_id.to_hex()
+            initializing_channel_id.to_hex()
         );
         self.durable_connection
             .get()
             .await
             .execute(
-                "INSERT INTO initial_channels (
-                    initial_channel_id,
+                "INSERT INTO initializing_channels (
+                    initializing_channel_id,
                     counterparty,
                     is_public,
                     txid
                 ) VALUES ( $1, $2, $3, $4 )",
                 &[
-                    &initial_channel_id.0.as_ref(),
+                    &initializing_channel_id.0.as_ref(),
                     &counterparty.encode(),
                     &is_public,
                     &txid.encode(),
@@ -178,15 +178,15 @@ impl LdkDatabase {
         Ok(())
     }
 
-    pub async fn update_initial_channel(
+    pub async fn update_initializing_channel(
         &self,
-        initial_channel_id: &ChannelId,
+        initializing_channel_id: &ChannelId,
         channel_id_with_vout: Option<(&ChannelId, u32)>,
         status: Option<impl AsRef<str>>,
     ) -> Result<()> {
         debug!(
             "Update record for initial channel {}",
-            initial_channel_id.to_hex()
+            initializing_channel_id.to_hex()
         );
         if let Some((channel_id, vout)) = channel_id_with_vout {
             let status = if let Some(status) = status {
@@ -198,13 +198,13 @@ impl LdkDatabase {
                 .get()
                 .await
                 .execute(
-                    "UPDATE initial_channels SET channel_id = $1, vout = $2, update_timestamp = $3, status = $4 WHERE initial_channel_id= $5",
+                    "UPDATE initializing_channels SET channel_id = $1, vout = $2, update_timestamp = $3, status = $4 WHERE initializing_channel_id= $5",
                     &[
                         &channel_id.0.as_ref(),
                         &(vout as i32),
                         &to_primitive(&microsecond_timestamp()),
                         &status.as_bytes(),
-                        &initial_channel_id.0.as_ref(),
+                        &initializing_channel_id.0.as_ref(),
                     ],
                 )
                 .await?;
@@ -213,18 +213,18 @@ impl LdkDatabase {
                 .get()
                 .await
                 .execute(
-                    "UPDATE initial_channels SET status = $1, update_timestamp = $2 WHERE initial_channel_id= $3",
+                    "UPDATE initializing_channels SET status = $1, update_timestamp = $2 WHERE initializing_channel_id= $3",
                     &[
                         &status.as_ref().as_bytes(),
                         &to_primitive(&microsecond_timestamp()),
-                        &initial_channel_id.0.as_ref(),
+                        &initializing_channel_id.0.as_ref(),
                     ],
                 )
                 .await?;
         } else {
             error!(
                 "Update initial channel {} with nothing",
-                initial_channel_id.to_hex()
+                initializing_channel_id.to_hex()
             );
         }
         Ok(())

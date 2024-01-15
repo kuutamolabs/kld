@@ -344,7 +344,7 @@ pub async fn test_channels() -> Result<()> {
     let mut type_features = ChannelTypeFeatures::empty();
     type_features.set_zero_conf_optional();
     type_features.set_scid_privacy_required();
-    let mut initial_channel_id = ChannelId::from_bytes([0; 32]);
+    let mut initializing_channel_id = ChannelId::from_bytes([0; 32]);
     let mut channel_id = ChannelId::from_bytes([1; 32]);
     let counterparty = bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY)?;
     let txid = Txid::from_hex(TEST_TX_ID)?;
@@ -391,10 +391,14 @@ pub async fn test_channels() -> Result<()> {
     };
 
     database
-        .persist_initial_channel(&initial_channel_id, true, &counterparty, &txid)
+        .persist_initializing_channel(&initializing_channel_id, true, &counterparty, &txid)
         .await?;
     database
-        .update_initial_channel(&initial_channel_id, Some((&channel_id, 0)), None::<&str>)
+        .update_initializing_channel(
+            &initializing_channel_id,
+            Some((&channel_id, 0)),
+            None::<&str>,
+        )
         .await?;
     let mut channels = database.fetch_channels().await?;
     assert_eq!(0, channels.len());
@@ -437,15 +441,19 @@ pub async fn test_channels() -> Result<()> {
     //
     // Test create a channel without detail
     //
-    initial_channel_id = ChannelId::from_bytes([2; 32]);
+    initializing_channel_id = ChannelId::from_bytes([2; 32]);
     channel_id = ChannelId::from_bytes([3; 32]);
     channels = database.fetch_channel_history().await?;
     let previous_channel_num = channels.len();
     database
-        .persist_initial_channel(&initial_channel_id, true, &counterparty, &txid)
+        .persist_initializing_channel(&initializing_channel_id, true, &counterparty, &txid)
         .await?;
     database
-        .update_initial_channel(&initial_channel_id, Some((&channel_id, 0)), None::<&str>)
+        .update_initializing_channel(
+            &initializing_channel_id,
+            Some((&channel_id, 0)),
+            None::<&str>,
+        )
         .await?;
     channels = database.fetch_channel_history().await?;
     assert_eq!(previous_channel_num, channels.len());
