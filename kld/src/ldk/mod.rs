@@ -9,7 +9,6 @@ use std::sync::{Arc, RwLock};
 use crate::database::LdkDatabase;
 use crate::logger::KldLogger;
 use anyhow::anyhow;
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
 use lightning::ln::peer_handler::CustomMessageHandler;
 use lightning::{
@@ -206,7 +205,7 @@ pub fn htlc_destination_to_string(destination: &HTLCDestination) -> String {
         HTLCDestination::NextHopChannel {
             node_id: _,
             channel_id,
-        } => format!("Next hop channel ID {}", channel_id.to_hex()),
+        } => format!("Next hop channel ID {}", hex::encode(channel_id.0)),
         HTLCDestination::UnknownNextHop {
             requested_forward_scid,
         } => format!(
@@ -220,7 +219,7 @@ pub fn htlc_destination_to_string(destination: &HTLCDestination) -> String {
             requested_forward_scid
         ),
         HTLCDestination::FailedPayment { payment_hash } => {
-            format!("Failed payment with hash {}", payment_hash.0.to_hex())
+            format!("Failed payment with hash {}", hex::encode(payment_hash.0))
         }
     }
 }

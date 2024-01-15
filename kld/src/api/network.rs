@@ -4,7 +4,7 @@ use super::payloads::{
 use crate::api::SocketAddress;
 use anyhow::anyhow;
 use axum::{extract::Path, response::IntoResponse, Extension, Json};
-use bitcoin::{hashes::hex::ToHex, secp256k1::PublicKey};
+use bitcoin::secp256k1::PublicKey;
 use lightning::routing::gossip::{ChannelInfo, ChannelUpdateInfo, NodeId, NodeInfo};
 use std::{str::FromStr, sync::Arc};
 
@@ -117,8 +117,8 @@ fn to_api_channel(short_channel_id: &u64, channel_info: &ChannelInfo) -> Vec<Net
 
     let make_channel =
         |node_one: NodeId, node_two: NodeId, update_info: &ChannelUpdateInfo| NetworkChannel {
-            source: node_one.as_slice().to_hex(),
-            destination: node_two.as_slice().to_hex(),
+            source: hex::encode(node_one.as_array()),
+            destination: hex::encode(node_two.as_array()),
             short_channel_id: *short_channel_id,
             public: true,
             satoshis: channel_info.capacity_sats.unwrap_or_default(),
@@ -157,9 +157,9 @@ fn to_api_channel(short_channel_id: &u64, channel_info: &ChannelInfo) -> Vec<Net
 
 fn to_api_node(node_id: &NodeId, node_info: &NodeInfo) -> Option<NetworkNode> {
     node_info.announcement_info.as_ref().map(|n| NetworkNode {
-        node_id: node_id.as_slice().to_hex(),
+        node_id: hex::encode(node_id.as_array()),
         alias: n.alias.to_string(),
-        color: n.rgb.to_hex(),
+        color: hex::encode(n.rgb),
         last_timestamp: n.last_update,
         features: n.features.to_string(),
         addresses: n

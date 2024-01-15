@@ -3,8 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::{anyhow, bail, Context, Result};
 
-use bitcoin::blockdata::locktime::PackedLockTime;
-use bitcoin::hashes::hex::ToHex;
+use bitcoin::blockdata::locktime::absolute::LockTime;
 use bitcoin::secp256k1::Secp256k1;
 
 use crate::bitcoind::bitcoind_interface::BitcoindInterface;
@@ -141,7 +140,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is pending. OutPoint: {funding_txo}",
-                    channel_id.to_hex(),
+                    hex::encode(channel_id.0),
                 );
                 if let Some(former_temporary_channel_id) = former_temporary_channel_id {
                     self.ldk_database
@@ -175,7 +174,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
-                    channel_id.to_hex(),
+                    hex::encode(channel_id.0),
                 );
                 if let Some(channel_details) = self
                     .channel_manager
@@ -202,7 +201,7 @@ impl EventHandler {
                 user_channel_id,
                 ..
             } => {
-                info!("EVENT: Channel {}: {reason}.", channel_id.to_hex());
+                info!("EVENT: Channel {}: {reason}.", hex::encode(channel_id.0));
                 self.async_api_requests
                     .funding_transactions
                     .respond(
@@ -220,7 +219,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Funding discarded for channel: {}, txid: {}",
-                    channel_id.to_hex(),
+                    hex::encode(channel_id.0),
                     transaction.txid()
                 );
                 if let Err(e) = self
@@ -255,10 +254,10 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Payment claimable with hash {} of {} millisatoshis {} {}",
-                    payment_hash.0.to_hex(),
+                    hex::encode(payment_hash.0),
                     amount_msat,
                     if let Some(channel_id) = via_channel_id {
-                        format!("via channel ID {} ", channel_id.to_hex())
+                        format!("via channel ID {} ", hex::encode(channel_id.0))
                     } else {
                         String::new()
                     },
@@ -293,7 +292,7 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Payment claimed with hash {} of {} millisats",
-                    payment_hash.0.to_hex(),
+                    hex::encode(payment_hash.0),
                     amount_msat,
                 );
                 let payment = match purpose {
@@ -323,9 +322,9 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Payment with hash {}{} sent successfully{}",
-                    payment_hash.0.to_hex(),
+                    hex::encode(payment_hash.0),
                     if let Some(id) = payment_id {
-                        format!(" and ID {}", id.0.to_hex())
+                        format!(" and ID {}", hex::encode(id.0))
                     } else {
                         "".to_string()
                     },
@@ -337,14 +336,17 @@ impl EventHandler {
                 );
                 let payment_id = payment_id.context(format!(
                     "Failed to update payment with hash {}",
-                    payment_hash.0.to_hex()
+                    hex::encode(payment_hash.0)
                 ))?;
                 let (mut payment, respond) = self
                     .async_api_requests
                     .payments
                     .get(&payment_id)
                     .await
-                    .context(format!("Can't find payment for {}", payment_id.0.to_hex()))?;
+                    .context(format!(
+                        "Can't find payment for {}",
+                        hex::encode(payment_id.0)
+                    ))?;
                 payment.succeeded(payment_hash, payment_preimage, fee_paid_msat);
                 respond(Ok(payment));
             }
@@ -356,9 +358,9 @@ impl EventHandler {
                 info!(
                     "EVENT: Payment path with {} hops successful for payment with ID {}{}",
                     path.hops.len(),
-                    payment_id.0.to_hex(),
+                    hex::encode(payment_id.0),
                     payment_hash
-                        .map(|h| format!(" and hash {}", h.0.to_hex()))
+                        .map(|h| format!(" and hash {}", hex::encode(h.0)))
                         .unwrap_or_default()
                 );
             }
@@ -369,6 +371,7 @@ impl EventHandler {
                 failure,
                 path,
                 short_channel_id,
+                ..
             } => {
                 match failure {
                     PathFailure::InitialSend { err } => warn!("{}", ldk_error(err)),
@@ -380,8 +383,8 @@ impl EventHandler {
                 };
                 info!(
                     "EVENT: Payment path failed for payment with hash {}{}. Payment failed {} {}. Path: {:?}",
-                    payment_hash.0.to_hex(),
-                    payment_id.map(|id| format!(" and ID {}", id.0.to_hex())).unwrap_or_default(),
+                    hex::encode(payment_hash.0),
+                    payment_id.map(|id| format!(" and ID {}", hex::encode(id.0))).unwrap_or_default(),
                     if payment_failed_permanently {
                         "permanently"
                     } else {
@@ -402,8 +405,8 @@ impl EventHandler {
             } => {
                 info!(
                     "EVENT: Failed to send payment with ID {} and hash {}{}",
-                    payment_id.0.to_hex(),
-                    payment_hash.0.to_hex(),
+                    hex::encode(payment_id.0),
+                    hex::encode(payment_hash.0),
                     reason
                         .map(|r| format!(" for reason {r:?}"))
                         .unwrap_or_default()
@@ -413,7 +416,10 @@ impl EventHandler {
                     .payments
                     .get(&payment_id)
                     .await
-                    .context(format!("Can't find payment for {}", payment_id.0.to_hex()))?;
+                    .context(format!(
+                        "Can't find payment for {}",
+                        hex::encode(payment_id.0)
+                    ))?;
                 payment.failed(reason);
                 respond(Ok(payment));
             }
@@ -448,7 +454,7 @@ impl EventHandler {
                 };
                 let channel_str = |channel_id: &Option<ChannelId>| {
                     channel_id
-                        .map(|channel_id| format!(" with channel {}", channel_id.to_hex()))
+                        .map(|channel_id| format!(" with channel {}", hex::encode(channel_id.0)))
                         .unwrap_or_default()
                 };
                 let from_prev_str = format!(
@@ -511,7 +517,7 @@ impl EventHandler {
                 self.persist_forward(forward);
                 error!(
                     "EVENT: Failed handling HTLC with ID {id} from channel {}. {}",
-                    prev_channel_id.to_hex(),
+                    hex::encode(prev_channel_id.0),
                     htlc_destination_to_string(&failed_next_destination)
                 );
             }
@@ -542,7 +548,7 @@ impl EventHandler {
                         Vec::new(),
                         destination_address.script_pubkey(),
                         tx_feerate,
-                        Some(PackedLockTime(best_block_height as u32)),
+                        Some(LockTime::from_height(best_block_height as u32)?),
                         &Secp256k1::new(),
                     )
                     .map_err(|()| anyhow!("Failed to build spending transaction"))?;
@@ -564,9 +570,13 @@ impl EventHandler {
             } => unreachable!(),
             Event::InvoiceRequestFailed { payment_id } => {
                 // XXX Handle it
-                info!("Invoice request failed, payment id: {payment_id:}");
+                warn!("Invoice request failed, payment id: {payment_id:}");
             }
             Event::BumpTransaction(_) => unreachable!(),
+            Event::ConnectionNeeded { node_id, .. } => {
+                // XXX Handle it
+                warn!("Need to connect to node {node_id:} for onion message");
+            }
         };
         Ok(())
     }

@@ -1,9 +1,8 @@
 use std::{str::FromStr, sync::Arc};
 
 use super::payloads::{KeysendRequest, PayInvoice, PaymentResponse};
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use axum::{extract::Query, response::IntoResponse, Extension, Json};
-use bitcoin::hashes::hex::ToHex;
 use lightning::routing::gossip::NodeId;
 
 use crate::{
@@ -27,24 +26,29 @@ pub(crate) async fn keysend(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(keysend_request): Json<KeysendRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let node_id = NodeId::from_str(&keysend_request.pubkey).map_err(bad_request)?;
+    let node_id = NodeId::from_str(&keysend_request.pubkey)
+        .map_err(|_| bad_request(anyhow!("node id decode error")))?;
     let payment = lightning_interface
         .keysend_payment(node_id, keysend_request.amount)
         .await
         .map_err(internal_server)?;
     let response = PaymentResponse {
         destination: keysend_request.pubkey,
-        payment_hash: payment
-            .hash
-            .context("missing payment hash")
-            .map_err(internal_server)?
-            .0
-            .to_hex(),
+        payment_hash: hex::encode(
+            payment
+                .hash
+                .context("missing payment hash")
+                .map_err(internal_server)?
+                .0,
+        ),
         created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: Some(keysend_request.amount),
         amount_sent_msat: keysend_request.amount * 1000,
-        payment_preimage: payment.preimage.map(|i| i.0.to_hex()).unwrap_or_default(),
+        payment_preimage: payment
+            .preimage
+            .map(|i| hex::encode(i.0))
+            .unwrap_or_default(),
         status: payment.status.to_string(),
     };
     Ok(Json(response))
@@ -66,17 +70,21 @@ pub(crate) async fn pay_invoice(
         .map_err(internal_server)?;
     let response = PaymentResponse {
         destination,
-        payment_hash: payment
-            .hash
-            .context("missing payment hash")
-            .map_err(internal_server)?
-            .0
-            .to_hex(),
+        payment_hash: hex::encode(
+            payment
+                .hash
+                .context("missing payment hash")
+                .map_err(internal_server)?
+                .0,
+        ),
         created_at: payment.timestamp.unix_timestamp() as u64,
         parts: 1,
         amount_msat: amount,
         amount_sent_msat: payment.amount,
-        payment_preimage: payment.preimage.map(|i| i.0.to_hex()).unwrap_or_default(),
+        payment_preimage: payment
+            .preimage
+            .map(|i| hex::encode(i.0))
+            .unwrap_or_default(),
         status: payment.status.to_string(),
     };
     Ok(Json(response))
@@ -119,16 +127,16 @@ pub(crate) async fn list_payments(
                 }
                 _ => GetV1PayListPaymentsResponsePaymentsItemStatus::Failed,
             },
-            payment_preimage: p.preimage.map(|i| i.0.to_hex()),
+            payment_preimage: p.preimage.map(|i| hex::encode(i.0)),
             amount_sent_msat: p.amount,
             amount_msat: p.bolt11.as_ref().and_then(|b| b.amount_milli_satoshis()),
             created_at: p.timestamp.unix_timestamp() as u64,
             destination: p
                 .bolt11
                 .and_then(|b| b.payee_pub_key().map(|pk| pk.to_string())),
-            id: p.id.0.to_hex(),
+            id: hex::encode(p.id.0),
             memo: p.label,
-            payment_hash: p.hash.map(|h| h.0.to_hex()),
+            payment_hash: p.hash.map(|h| hex::encode(h.0)),
         })
         .collect();
     Ok(Json(GetV1PayListPaymentsResponse { payments }))

@@ -83,7 +83,8 @@ pub(crate) async fn estimate_channel_liquidity_range(
     Extension(lightning_interface): Extension<Arc<dyn LightningInterface + Send + Sync>>,
     Json(body): Json<GetV1EstimateChannelLiquidityBody>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let node_id = NodeId::from_str(&body.target).map_err(bad_request)?;
+    let node_id =
+        NodeId::from_str(&body.target).map_err(|_| bad_request(anyhow!("node iddecode error")))?;
     match lightning_interface
         .estimated_channel_liquidity_range(body.scid, &node_id)
         .await
