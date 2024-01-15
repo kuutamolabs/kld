@@ -7,7 +7,7 @@ use crate::settings::Settings;
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bdk::{
-    bitcoin::util::bip32::ExtendedPrivKey,
+    bitcoin::bip32::ExtendedPrivKey,
     blockchain::{log_progress, ElectrumBlockchain, GetHeight},
     database::{BatchDatabase, BatchOperations, Database},
     electrum_client::Client,
@@ -232,7 +232,7 @@ impl<
         let mut tx_builder = wallet.build_tx();
 
         tx_builder
-            .add_recipient(output_script.clone(), *channel_value_satoshis)
+            .add_recipient(output_script.into(), *channel_value_satoshis)
             .fee_rate(self.to_bdk_fee_rate(fee_rate))
             .enable_rbf();
 

@@ -12,17 +12,17 @@ use crate::api::SocketAddress;
 use crate::database::{DurableConnection, LdkDatabase, WalletDatabase};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use bitcoin::hashes::hex::ToHex;
 use bitcoin::secp256k1::PublicKey;
 use bitcoin::{BlockHash, Network, Transaction};
 use lightning::chain;
 use lightning::chain::channelmonitor::ChannelMonitor;
 use lightning::chain::BestBlock;
 use lightning::chain::Watch;
+use lightning::ln::channelmanager::ChainParameters;
+use lightning::ln::channelmanager::ChannelManagerReadArgs;
 use lightning::ln::channelmanager::{
     self, ChannelDetails, PaymentId, PaymentSendFailure, RecipientOnionFields,
 };
-use lightning::ln::channelmanager::{ChainParameters, ChannelManagerReadArgs};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::{ChannelInfo, NodeId, NodeInfo, P2PGossipSync};
@@ -178,6 +178,7 @@ impl LightningInterface for Controller {
                 channel_value_satoshis,
                 push_msat.unwrap_or_default(),
                 user_channel_id as u128,
+                None,
                 override_config,
             )
             .map_err(ldk_error)?;
@@ -406,7 +407,7 @@ impl LightningInterface for Controller {
         let invoice = Invoice::new(Some(label), bolt11)?;
         info!(
             "Generated invoice with payment hash {}",
-            invoice.payment_hash.0.to_hex()
+            hex::encode(invoice.payment_hash.0)
         );
         self.database.persist_invoice(&invoice).await?;
         Ok(invoice)
@@ -436,7 +437,7 @@ impl LightningInterface for Controller {
             .map_err(retryable_send_failure)?;
         info!(
             "Initiated payment of invoice with hash {}",
-            invoice.payment_hash.0.to_hex()
+            hex::encode(invoice.payment_hash.0)
         );
         self.database.persist_invoice(&invoice).await?;
         self.database.persist_payment(&payment).await?;
@@ -494,7 +495,7 @@ impl LightningInterface for Controller {
         let payment = Payment::spontaneous_outbound(payment_id, amount);
         info!(
             "Initiated keysend payment with id {}",
-            payment_id.0.to_hex()
+            hex::encode(payment_id.0)
         );
         self.database.persist_payment(&payment).await?;
         let receiver = self
@@ -713,7 +714,7 @@ impl Controller {
         ));
 
         let mut channel_monitors = database
-            .fetch_channel_monitors(keys_manager.as_ref(), keys_manager.as_ref())
+            .fetch_channel_monitors(keys_manager.as_ref())
             .await?;
         let mut user_config = UserConfig::default();
         user_config
@@ -800,7 +801,7 @@ impl Controller {
             keys_manager.clone(),
             keys_manager.clone(),
             KldLogger::global(),
-            Arc::new(lightning::onion_message::DefaultMessageRouter {}),
+            Arc::new(lightning::onion_message::DefaultMessageRouter::new(network_graph.clone())),
             channel_manager.clone(),
             IgnoringMessageHandler {},
         ));
@@ -977,6 +978,7 @@ impl Controller {
                         })
                     },
                     false,
+                    || Some(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap()),
                 )
                 .await
                 {
@@ -1007,11 +1009,11 @@ impl Controller {
         chain_monitor: Arc<ChainMonitor>,
         channel_manager_blockhash: BlockHash,
         channel_manager: Arc<ChannelManager>,
-        channelmonitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
+        channel_monitors: Vec<(BlockHash, ChannelMonitor<InMemorySigner>)>,
     ) -> BlockSourceResult<()> {
         info!(
             "Syncing ChannelManager and {} ChannelMonitors to chain tip",
-            channelmonitors.len()
+            channel_monitors.len()
         );
         let mut chain_listener_channel_monitors = Vec::new();
         let mut cache = UnboundedCache::new();
@@ -1021,7 +1023,7 @@ impl Controller {
             channel_manager.as_ref() as &(dyn chain::Listen + Send + Sync),
         )];
 
-        for (blockhash, channel_monitor) in channelmonitors {
+        for (blockhash, channel_monitor) in channel_monitors {
             let outpoint = channel_monitor.get_funding_txo().0;
             chain_listener_channel_monitors.push((
                 blockhash,
@@ -1123,13 +1125,16 @@ async fn send_probe(
             if let Some(g) = probe_metrics.0.get() {
                 g.inc()
             }
+            let send_time = SystemTime::now();
             match channel_manager.send_probe(path.clone()) {
                 Ok(_) => {
                     debug!("Probe success with {amt_msat:} on {path:?}");
                     if let Some(g) = probe_metrics.1.get() {
                         g.inc()
                     }
-                    scorer.probe_successful(&path);
+                    if let Ok(duration) = send_time.elapsed() {
+                        scorer.probe_successful(&path, duration);
+                    }
                 }
                 Err(_) => {
                     trace!("Probe failed with {amt_msat:} on {path:?}");
@@ -1142,6 +1147,7 @@ async fn send_probe(
                     }
                     while let Some(pop_hop) = hops.pop() {
                         sleep(Duration::from_secs(interval));
+                        let send_time = SystemTime::now();
                         if !hops.is_empty()
                             && channel_manager
                                 .send_probe(Path {
@@ -1152,13 +1158,16 @@ async fn send_probe(
                         {
                             debug!("Probe failed with channel id: {}", pop_hop.short_channel_id);
                             hops.push(pop_hop.clone());
-                            scorer.probe_failed(
-                                &Path {
-                                    hops,
-                                    blinded_tail: blinded_tail.clone(),
-                                },
-                                pop_hop.short_channel_id,
-                            );
+                            if let Ok(duration) = send_time.elapsed() {
+                                scorer.probe_failed(
+                                    &Path {
+                                        hops,
+                                        blinded_tail: blinded_tail.clone(),
+                                    },
+                                    pop_hop.short_channel_id,
+                                    duration,
+                                );
+                            }
                             break;
                         }
                     }
