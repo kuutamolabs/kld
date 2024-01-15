@@ -23,7 +23,7 @@
 
       mutinynet = { pkgs, ... }: {
         imports = [ ./bitcoind.nix ];
-        kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.custom-bitcoin;
+        kuutamo.bitcoind.package = self.packages.${pkgs.hostPlatform.system}.mutinynet-bitcoin;
         kuutamo.bitcoind.network = "mutinynet";
       };
 
