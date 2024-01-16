@@ -140,6 +140,8 @@ pub trait LightningInterface: Send + Sync {
     async fn channel_history(&self) -> Result<Vec<ChannelRecord>>;
 
     async fn scorer(&self) -> Result<Vec<u8>>;
+
+    async fn update_channels(&self, channels: &[ChannelDetails]);
 }
 
 pub struct Peer {

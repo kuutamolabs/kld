@@ -973,6 +973,7 @@ fn try_verify_kuutamo_monitoring_config(
 }
 
 /// Validated configuration
+#[derive(Clone)]
 pub struct Config {
     /// Hosts as defined in the configuration
     pub hosts: BTreeMap<String, Host>,

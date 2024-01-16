@@ -21,6 +21,7 @@
       '';
       remote-pdb = pkgs.python3.pkgs.callPackage ./remote-pdb.nix { };
       bitcoind = pkgs.bitcoind.override { withGui = false; };
+      mutinynet-bitcoin = pkgs.callPackage ./mutinynet-bitcoin.nix { };
       inherit (pkgs) electrs;
       cockroachdb = pkgs.callPackage ./cockroachdb.nix { };
       default = self'.packages.kld-mgr;

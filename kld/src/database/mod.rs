@@ -32,10 +32,12 @@ use crate::{ldk::decode_error, settings::Settings};
 use crate::{log_error, Service};
 
 pub struct ChannelRecord {
+    pub channel_id: String,
+    pub counterparty: String,
     pub open_timestamp: OffsetDateTime,
     pub update_timestamp: OffsetDateTime,
     pub closure_reason: Option<String>,
-    pub detail: ChannelDetails,
+    pub detail: Option<ChannelDetails>,
 }
 
 pub struct SpendableOutputRecord {
