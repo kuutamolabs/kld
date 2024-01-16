@@ -17,7 +17,6 @@ use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
 use lightning::chain::transaction::OutPoint;
 use lightning::chain::{self, ChannelMonitorUpdateStatus, Watch};
-use lightning::events::ClosureReason;
 use lightning::ln::channelmanager::{ChannelDetails, ChannelManager, ChannelManagerReadArgs};
 use lightning::ln::msgs::SocketAddress;
 use lightning::ln::ChannelId;
@@ -40,7 +39,7 @@ use log::{debug, error};
 use super::peer::Peer;
 use super::{ChannelRecord, SpendableOutputRecord};
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{AsRef, TryInto};
 use std::io::Cursor;
 use std::ops::Deref;
 use std::sync::{Arc, OnceLock};
@@ -147,6 +146,117 @@ impl LdkDatabase {
         Ok(())
     }
 
+    pub async fn persist_initializing_channel(
+        &self,
+        initializing_channel_id: &ChannelId,
+        is_public: bool,
+        counterparty: &PublicKey,
+        txid: &Txid,
+    ) -> Result<()> {
+        debug!(
+            "Initial record for initial channel {}",
+            initializing_channel_id.to_hex()
+        );
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "INSERT INTO initializing_channels (
+                    initializing_channel_id,
+                    counterparty,
+                    is_public,
+                    txid
+                ) VALUES ( $1, $2, $3, $4 )",
+                &[
+                    &initializing_channel_id.0.as_ref(),
+                    &counterparty.encode(),
+                    &is_public,
+                    &txid.encode(),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_initializing_channel(
+        &self,
+        initializing_channel_id: &ChannelId,
+        channel_id_with_vout: Option<(&ChannelId, u32)>,
+        status: Option<impl AsRef<str>>,
+    ) -> Result<()> {
+        debug!(
+            "Update record for initial channel {}",
+            initializing_channel_id.to_hex()
+        );
+        if let Some((channel_id, vout)) = channel_id_with_vout {
+            let status = if let Some(status) = status {
+                status.as_ref().to_string()
+            } else {
+                "Updated by ChannelPending Event".to_string()
+            };
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPDATE initializing_channels SET channel_id = $1, vout = $2, update_timestamp = $3, status = $4 WHERE initializing_channel_id= $5",
+                    &[
+                        &channel_id.0.as_ref(),
+                        &(vout as i32),
+                        &to_primitive(&microsecond_timestamp()),
+                        &status.as_bytes(),
+                        &initializing_channel_id.0.as_ref(),
+                    ],
+                )
+                .await?;
+        } else if let Some(status) = status {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    "UPDATE initializing_channels SET status = $1, update_timestamp = $2 WHERE initializing_channel_id= $3",
+                    &[
+                        &status.as_ref().as_bytes(),
+                        &to_primitive(&microsecond_timestamp()),
+                        &initializing_channel_id.0.as_ref(),
+                    ],
+                )
+                .await?;
+        } else {
+            error!(
+                "Update initial channel {} with nothing",
+                initializing_channel_id.to_hex()
+            );
+        }
+        Ok(())
+    }
+
+    /// Create a record for channel which is not usable and without channel detail
+    pub async fn create_channel(
+        &self,
+        channel_id: &ChannelId,
+        is_public: bool,
+        counterparty: &PublicKey,
+    ) -> Result<()> {
+        debug!(
+            "Create record for channel {} without detail",
+            channel_id.to_hex()
+        );
+        self.durable_connection
+            .get()
+            .await
+            .execute(
+                "INSERT INTO channels (
+                    channel_id,
+                    counterparty,
+                    is_usable,
+                    is_public
+                ) VALUES ( $1, $2, false, $3 )",
+                &[&channel_id.0.as_ref(), &counterparty.encode(), &is_public],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn persist_channel(&self, channel: &ChannelDetails) -> Result<()> {
         debug!("Persist channel {}", channel.channel_id);
         if let Some(scid) = &channel.short_channel_id {
@@ -154,14 +264,15 @@ impl LdkDatabase {
                 .get()
                 .await
                 .execute(
-                    "INSERT INTO channels (
+                    "UPSERT INTO channels (
                         channel_id,
                         counterparty,
                         short_channel_id,
                         is_usable,
                         is_public,
-                        data
-                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
+                        data,
+                        update_timestamp
+                    ) VALUES ( $1, $2, $3, $4, $5, $6, $7)",
                     &[
                         &channel.channel_id.0.as_ref(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
@@ -169,6 +280,7 @@ impl LdkDatabase {
                         &channel.is_usable,
                         &channel.is_public,
                         &channel.encode(),
+                        &to_primitive(&microsecond_timestamp()),
                     ],
                 )
                 .await?;
@@ -177,19 +289,21 @@ impl LdkDatabase {
                 .get()
                 .await
                 .execute(
-                    "INSERT INTO channels (
+                    "UPSERT INTO channels (
                         channel_id,
                         counterparty,
                         is_usable,
                         is_public,
-                        data
-                    ) VALUES ( $1, $2, $3, $4, $5 )",
+                        data,
+                        update_timestamp
+                    ) VALUES ( $1, $2, $3, $4, $5, $6 )",
                     &[
                         &channel.channel_id.0.as_ref(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
                         &channel.is_usable,
                         &channel.is_public,
                         &channel.encode(),
+                        &to_primitive(&microsecond_timestamp()),
                     ],
                 )
                 .await?;
@@ -200,7 +314,7 @@ impl LdkDatabase {
     pub async fn close_channel(
         &self,
         channel_id: &ChannelId,
-        closure_reason: &ClosureReason,
+        closure_reason: impl AsRef<str>,
     ) -> Result<()> {
         debug!("Close channel {}", channel_id.to_hex());
         self.durable_connection
@@ -210,7 +324,7 @@ impl LdkDatabase {
                 "UPDATE channels SET is_usable = false, update_timestamp = $1, closure_reason = $2 WHERE channel_id = $3",
                 &[
                     &to_primitive(&microsecond_timestamp()),
-                    &closure_reason.encode(),
+                    &closure_reason.as_ref().as_bytes(),
                     &channel_id.0.as_ref(),
                 ],
             )
@@ -238,16 +352,20 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
-            let mut detail: ChannelDetails = row.read("data")?;
-            detail.is_usable = false;
-            outputs.push(ChannelRecord {
-                open_timestamp: row.get_timestamp("open_timestamp"),
-                update_timestamp: row.get_timestamp("update_timestamp"),
-                closure_reason: row
-                    .read_optional("closure_reason")?
-                    .map(|r: ClosureReason| r.to_string()),
-                detail,
-            });
+            let detail: Option<ChannelDetails> = row.read_optional("data")?;
+            if let Some(mut detail) = detail {
+                detail.is_usable = false;
+                outputs.push(ChannelRecord {
+                    channel_id: detail.channel_id.to_string(),
+                    counterparty: detail.counterparty.node_id.to_string(),
+                    open_timestamp: row.get_timestamp("open_timestamp"),
+                    update_timestamp: row.get_timestamp("update_timestamp"),
+                    closure_reason: row
+                        .get::<&str, Option<&[u8]>>("closure_reason")
+                        .map(|b| String::from_utf8_lossy(b).to_string()),
+                    detail: Some(detail),
+                });
+            }
         }
         Ok(outputs)
     }
@@ -259,6 +377,8 @@ impl LdkDatabase {
             .await
             .query(
                 "SELECT
+                    channel_id,
+                    counterparty,
                     data,
                     is_usable,
                     open_timestamp,
@@ -272,14 +392,19 @@ impl LdkDatabase {
 
         let mut outputs = vec![];
         for row in rows {
-            let mut detail: ChannelDetails = row.read("data")?;
-            detail.is_usable = row.get::<&str, bool>("is_usable");
+            let mut detail: Option<ChannelDetails> = row.read_optional("data")?;
+            if let Some(ref mut detail) = detail {
+                detail.is_usable = row.get::<&str, bool>("is_usable");
+            }
+            let counterparty: PublicKey = row.read("counterparty")?;
             outputs.push(ChannelRecord {
+                channel_id: ChannelId::from_bytes(row.read("channel_id")?).to_string(),
+                counterparty: counterparty.to_string(),
                 open_timestamp: row.get_timestamp("open_timestamp"),
                 update_timestamp: row.get_timestamp("update_timestamp"),
                 closure_reason: row
-                    .read_optional("closure_reason")?
-                    .map(|r: ClosureReason| r.to_string()),
+                    .get::<&str, Option<&[u8]>>("closure_reason")
+                    .map(|b| String::from_utf8_lossy(b).to_string()),
                 detail,
             });
         }

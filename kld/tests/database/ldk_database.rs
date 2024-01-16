@@ -344,13 +344,17 @@ pub async fn test_channels() -> Result<()> {
     let mut type_features = ChannelTypeFeatures::empty();
     type_features.set_zero_conf_optional();
     type_features.set_scid_privacy_required();
+    let mut initializing_channel_id = ChannelId::from_bytes([0; 32]);
+    let mut channel_id = ChannelId::from_bytes([1; 32]);
+    let counterparty = bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY)?;
+    let txid = Txid::from_hex(TEST_TX_ID)?;
 
-    let channel = ChannelDetails {
-        channel_id: ChannelId::from_bytes(random()),
+    let mut channel = ChannelDetails {
+        channel_id,
         short_channel_id: Some(u64::MAX), // i64::MAX + 1
         user_channel_id: u128::MAX,       // u64::MAX + 1
         counterparty: ChannelCounterparty {
-            node_id: bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY).unwrap(),
+            node_id: counterparty,
             features: InitFeatures::empty(),
             unspendable_punishment_reserve: 0,
             forwarding_info: Some(CounterpartyForwardingInfo {
@@ -361,10 +365,7 @@ pub async fn test_channels() -> Result<()> {
             outbound_htlc_minimum_msat: Some(u64::MAX),
             outbound_htlc_maximum_msat: Some(u64::MAX),
         },
-        funding_txo: Some(OutPoint {
-            txid: Txid::from_hex(TEST_TX_ID)?,
-            index: 0,
-        }),
+        funding_txo: Some(OutPoint { txid, index: 0 }),
         is_public: true,
         is_outbound: true,
         channel_value_satoshis: u64::MAX,
@@ -381,28 +382,117 @@ pub async fn test_channels() -> Result<()> {
         inbound_htlc_minimum_msat: None,
         inbound_scid_alias: None,
         is_channel_ready: true,
-        is_usable: false,
+        is_usable: true,
         next_outbound_htlc_limit_msat: u64::MAX,
         next_outbound_htlc_minimum_msat: u64::MAX,
         outbound_capacity_msat: u64::MAX,
         outbound_scid_alias: Some(u64::MAX),
         unspendable_punishment_reserve: Some(u64::MAX),
     };
+
+    database
+        .persist_initializing_channel(&initializing_channel_id, true, &counterparty, &txid)
+        .await?;
+    database
+        .update_initializing_channel(
+            &initializing_channel_id,
+            Some((&channel_id, 0)),
+            None::<&str>,
+        )
+        .await?;
+    let mut channels = database.fetch_channels().await?;
+    assert_eq!(0, channels.len());
+    channels = database.fetch_channel_history().await?;
+    assert_eq!(0, channels.len());
+
     database.persist_channel(&channel).await?;
+    channels = database.fetch_channels().await?;
+    assert_eq!(1, channels.len());
+    let ChannelRecord {
+        closure_reason,
+        detail,
+        ..
+    } = channels.first().context("expected channel")?;
+    assert_eq!(*detail, Some(channel.clone()));
+    assert!(closure_reason.is_none());
+    channels = database.fetch_channel_history().await?;
+    assert_eq!(0, channels.len());
 
+    channel.is_usable = false;
     let reason = ClosureReason::CooperativeClosure;
-    database.close_channel(&channel.channel_id, &reason).await?;
-
-    let channels = database.fetch_channel_history().await?;
+    database
+        .close_channel(&channel.channel_id, format!("{reason}"))
+        .await?;
+    channels = database.fetch_channels().await?;
+    assert_eq!(1, channels.len());
+    channels = database.fetch_channel_history().await?;
     assert_eq!(1, channels.len());
     let ChannelRecord {
         open_timestamp,
         update_timestamp,
         closure_reason,
         detail,
+        ..
     } = channels.first().context("expected channel")?;
     assert!(update_timestamp > open_timestamp);
-    assert_eq!(*detail, channel);
+    assert_eq!(*detail, Some(channel));
+    assert_eq!(*closure_reason, Some(reason.to_string()));
+
+    //
+    // Test create a channel without detail
+    //
+    initializing_channel_id = ChannelId::from_bytes([2; 32]);
+    channel_id = ChannelId::from_bytes([3; 32]);
+    channels = database.fetch_channel_history().await?;
+    let previous_channel_num = channels.len();
+    database
+        .persist_initializing_channel(&initializing_channel_id, true, &counterparty, &txid)
+        .await?;
+    database
+        .update_initializing_channel(
+            &initializing_channel_id,
+            Some((&channel_id, 0)),
+            None::<&str>,
+        )
+        .await?;
+    channels = database.fetch_channel_history().await?;
+    assert_eq!(previous_channel_num, channels.len());
+    channels = database.fetch_channels().await?;
+    assert_eq!(previous_channel_num, channels.len());
+
+    database
+        .create_channel(&channel_id, true, &counterparty)
+        .await?;
+    channels = database.fetch_channel_history().await?;
+    assert_eq!(previous_channel_num, channels.len());
+    channels = database.fetch_channels().await?;
+    assert_eq!(previous_channel_num + 1, channels.len());
+    let ChannelRecord {
+        closure_reason,
+        detail,
+        ..
+    } = channels.last().context("expected channel")?;
+    assert!(detail.is_none());
+    assert!(closure_reason.is_none());
+
+    let reason = ClosureReason::CooperativeClosure;
+    database
+        .close_channel(&channel_id, format!("{reason}"))
+        .await?;
+    // NOTE channel_history is not hanndle any channel without details
+    channels = database.fetch_channel_history().await?;
+    assert_eq!(previous_channel_num, channels.len());
+    channels = database.fetch_channels().await?;
+    assert_eq!(previous_channel_num + 1, channels.len());
+    let ChannelRecord {
+        open_timestamp,
+        update_timestamp,
+        closure_reason,
+        detail,
+        ..
+    } = channels.last().context("expected channel")?;
+    assert!(update_timestamp > open_timestamp);
+    assert!(detail.is_none());
     assert_eq!(*closure_reason, Some(reason.to_string()));
 
     Ok(())

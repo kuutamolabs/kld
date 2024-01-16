@@ -197,6 +197,7 @@ paths:
                 description: Who initiated the channel (local or remote)
               short_channel_id:
                 type: string
+                nullable: true
                 description: Short Channel ID
               channel_id:
                 type: string

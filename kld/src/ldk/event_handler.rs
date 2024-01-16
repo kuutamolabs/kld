@@ -117,12 +117,25 @@ impl EventHandler {
                     bail!(e);
                 }
                 info!("EVENT: Channel with user channel id {user_channel_id} has been funded");
+                if let Err(e) = self
+                    .ldk_database
+                    .update_initializing_channel(
+                        &temporary_channel_id,
+                        None,
+                        Some(format!(
+                            "Channel with user channel id {user_channel_id} has been funded"
+                        )),
+                    )
+                    .await
+                {
+                    warn!("Fail to update initial channel funded status: {e}");
+                }
                 respond(Ok(funding_tx));
             }
             Event::ChannelPending {
                 channel_id,
                 user_channel_id,
-                former_temporary_channel_id: _,
+                former_temporary_channel_id,
                 counterparty_node_id,
                 funding_txo,
             } => {
@@ -130,6 +143,29 @@ impl EventHandler {
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is pending. OutPoint: {funding_txo}",
                     channel_id.to_hex(),
                 );
+                if let Some(former_temporary_channel_id) = former_temporary_channel_id {
+                    self.ldk_database
+                        .update_initializing_channel(
+                            &former_temporary_channel_id,
+                            Some((&channel_id, funding_txo.vout)),
+                            None::<&str>,
+                        )
+                        .await?;
+                }
+
+                // Insert ChannelDetails if we can list, else just create a channel record.
+                if let Some(detail) = self
+                    .channel_manager
+                    .list_channels()
+                    .iter()
+                    .find(|c| c.channel_id == channel_id)
+                {
+                    self.ldk_database.persist_channel(detail).await?;
+                } else {
+                    self.ldk_database
+                        .create_channel(&channel_id, true, &counterparty_node_id)
+                        .await?;
+                }
             }
             Event::ChannelReady {
                 channel_id,
@@ -148,6 +184,13 @@ impl EventHandler {
                     .find(|c| c.channel_id == channel_id)
                 {
                     self.ldk_database.persist_channel(channel_details).await?;
+                } else {
+                    self.ldk_database
+                        .close_channel(
+                            &channel_id,
+                            "Channel detail missing when receiving ChannelReady",
+                        )
+                        .await?;
                 }
                 info!("Broadcasting node announcement message");
                 self.peer_manager
@@ -168,7 +211,7 @@ impl EventHandler {
                     )
                     .await;
                 self.ldk_database
-                    .close_channel(&channel_id, &reason)
+                    .close_channel(&channel_id, format!("{reason}"))
                     .await?;
             }
             Event::DiscardFunding {
@@ -180,6 +223,19 @@ impl EventHandler {
                     channel_id.to_hex(),
                     transaction.txid()
                 );
+                if let Err(e) = self
+                    .ldk_database
+                    .close_channel(
+                        &channel_id,
+                        format!(
+                            "Funding discarded for channel, txid: {}",
+                            transaction.txid()
+                        ),
+                    )
+                    .await
+                {
+                    error!("Fail to close channel which funding is discarded: {e}");
+                }
             }
             Event::OpenChannelRequest { .. } => {
                 unreachable!(

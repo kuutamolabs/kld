@@ -167,6 +167,10 @@ impl LightningInterface for Controller {
             return Err(anyhow!("Peer not connected"));
         }
         let user_channel_id: u64 = random::<u64>() / 2; // To fit into the database INT
+        let is_public = override_config
+            .map(|c| c.channel_handshake_config.announced_channel)
+            .unwrap_or_default();
+        let counterparty = their_network_key;
         let channel_id = self
             .channel_manager
             .create_channel(
@@ -184,6 +188,15 @@ impl LightningInterface for Controller {
             .await;
         let transaction = receiver.await??;
         let txid = transaction.txid();
+        if let Err(e) = self
+            .database
+            .persist_initializing_channel(&channel_id, is_public, &counterparty, &txid)
+            .await
+        {
+            // This failure should not cause issues, the channel detail update will be retried later,
+            // triggered on the next event, so we do not retry and only log the error but not raise it here.
+            log_error(&e);
+        }
         Ok(OpenChannelResult {
             transaction,
             txid,
@@ -530,6 +543,16 @@ impl LightningInterface for Controller {
 
     async fn scorer(&self) -> Result<Vec<u8>> {
         self.database.fetch_scorer_binary().await
+    }
+
+    async fn update_channels(&self, channels: &[ChannelDetails]) {
+        for channel in channels {
+            if let Err(e) = self.database.persist_channel(channel).await {
+                // This failure should not cause issues, the channel detail update will be retried later,
+                // triggered on the next event, so we do not retry and only log the error but not raise it here.
+                log_error(&e);
+            }
+        }
     }
 }
 
