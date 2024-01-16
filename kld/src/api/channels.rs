@@ -163,22 +163,6 @@ pub(crate) async fn list_channels(
                 MaxDustHTLCExposure::FixedLimitMsat(value) => (true, value),
                 MaxDustHTLCExposure::FeeRateMultiplier(value) => (false, value),
             };
-
-        let mut has_monitor = false;
-        let mut is_found = None;
-        for (idx, channel) in channels_in_mem.iter().enumerate() {
-            // Patch the channel detail which is in memory.
-            // These channels are listed by channel manager,
-            // and thus have a channel monitor now.
-            if channel.channel_id == detail.channel_id {
-                is_found = Some(idx);
-            }
-        }
-        if let Some(idx) = is_found {
-            detail = channels_in_mem.remove(idx);
-            has_monitor = true;
-        }
-
         response.push(GetKldChannelResponseItem {
             channel_id: hex::encode(detail.channel_id.0),
             counterparty_node_id: detail.counterparty.node_id.to_string(),

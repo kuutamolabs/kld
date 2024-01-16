@@ -356,7 +356,9 @@ pub async fn test_channels() -> Result<()> {
     let mut initializing_channel_id = ChannelId::from_bytes([0; 32]);
     let mut channel_id = ChannelId::from_bytes([1; 32]);
     let counterparty = bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY)?;
-    let txid = Txid::from_hex(TEST_TX_ID)?;
+    let txid = Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(
+        &Vec::<u8>::from_hex(TEST_TX_ID)?[..],
+    )?);
 
     let mut channel = ChannelDetails {
         channel_id,
@@ -374,12 +376,7 @@ pub async fn test_channels() -> Result<()> {
             outbound_htlc_minimum_msat: Some(u64::MAX),
             outbound_htlc_maximum_msat: Some(u64::MAX),
         },
-        funding_txo: Some(OutPoint {
-            txid: Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(
-                &Vec::<u8>::from_hex(TEST_TX_ID)?[..],
-            )?),
-            index: 0,
-        }),
+        funding_txo: Some(OutPoint { txid, index: 0 }),
         is_public: true,
         is_outbound: true,
         channel_value_satoshis: u64::MAX,
