@@ -651,12 +651,11 @@ async fn test_generate_invoice() -> Result<()> {
         .await?
         .json()
         .await?;
-    // XXX
-    // Temp disable this test, there maybe bug in Bolt11Invoice::from_str or payment_hash,
-    // The payment_hash always "010101..." no mater the inputs changing
-    // let bolt11 = lightning_invoice::Bolt11Invoice::from_str(&response.bolt11)?;
-    // assert_eq!(bolt11.payment_hash().to_string(), "0101010101010101010101010101010101010101010101010101010101010101");
-    // assert_eq!(bolt11.payment_hash().to_string(), response.payment_hash);
+    let bolt11 = response
+        .bolt11
+        .parse::<lightning_invoice::SignedRawBolt11Invoice>()
+        .unwrap();
+    assert_eq!(bolt11.to_string(), response.payment_hash);
     assert!(response.expires_at > expiry);
     Ok(())
 }
