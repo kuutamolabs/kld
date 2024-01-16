@@ -114,8 +114,7 @@ in
       description = lib.mdDoc "Port to listen for lightning peer connections";
     };
     network = lib.mkOption {
-      type = lib.types.enum [ "main" "testnet" "regtest" ];
-      default = "main";
+      type = lib.types.enum [ "main" "testnet" "regtest" "signet" ];
       description = lib.mdDoc "Bitcoin network to use.";
     };
 

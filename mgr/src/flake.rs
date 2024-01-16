@@ -39,21 +39,27 @@ impl NixosFlake {
 
 /// Creates a flake directory
 pub fn generate_nixos_flake(config: &Config) -> Result<NixosFlake> {
+    let mut config = config.clone();
     let tmp_dir = Builder::new()
         .prefix("kuutamo-flake.")
         .tempdir()
         .context("cannot create temporary directory")?;
 
     let knd_flake = &config.global.knd_flake;
-    for (order, (name, host)) in config.hosts.iter().enumerate() {
+    for (order, (name, ref mut host)) in config.hosts.iter_mut().enumerate() {
         let mut global_fields = format!(
             "deployment_flake = \"{}\"\nupgrade_order = {order}\n",
             &config.global.deployment_flake,
         );
 
-        // keep default root access for test or development
-        if var("FLAKE_CHECK").is_ok() || var("DEBUG").is_ok() {
-            global_fields += "keep_root = true\n"
+        // Default root access enabled for MutityNet and CI, mainnet defaults to no root access.
+        if var("FLAKE_CHECK").is_ok() {
+            global_fields += "keep_root = true\n";
+        } else if var("DEBUG").is_ok() {
+            global_fields += "keep_root = true\n";
+            if host.nixos_module == "kld-node" {
+                host.nixos_module = "kld-test".to_string();
+            }
         }
 
         let host_path = tmp_dir.path().join(format!("{name}.toml"));

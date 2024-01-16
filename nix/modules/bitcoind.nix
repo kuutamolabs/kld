@@ -13,13 +13,13 @@ in
 
   options.kuutamo.bitcoind = {
     network = lib.mkOption {
-      type = lib.types.enum [ "main" "testnet" "regtest" ];
+      type = lib.types.enum [ "main" "testnet" "regtest" "mutinynet" ];
       default = "main";
       description = "Bitcoin network to use.";
     };
     instanceName = lib.mkOption {
       type = lib.types.str;
-      default = "kld-${cfg.network}";
+      default = if cfg.network == "mutinynet" then "kld-signet" else "kld-${cfg.network}";
       description = "Bitcoin network to use.";
     };
     package = lib.mkOption {
@@ -29,7 +29,6 @@ in
   };
 
   config = {
-
     services.bitcoind.${cfg.instanceName} = {
       enable = true;
       inherit (cfg) package;
@@ -44,6 +43,11 @@ in
       extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
         "-regtest"
         "-noconnect"
+      ] ++ lib.optionals (cfg.network == "mutinynet") [
+        "-signetchallenge=512102f7561d208dd9ae99bf497273e16f389bdbd6c4742ddb8e6b216e64fa2928ad8f51ae"
+        "-addnode=45.79.52.207:38333"
+        "-dnsseed=0"
+        "-signetblocktime=30"
       ];
     };
 

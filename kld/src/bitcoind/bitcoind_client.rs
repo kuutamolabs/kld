@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 
+use crate::settings::Network;
 use crate::settings::Settings;
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
@@ -54,11 +55,14 @@ impl BitcoindClient {
 
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await?.chain;
-        if bitcoind_chain != settings.bitcoin_network.to_string() {
-            bail!(
+        match (bitcoind_chain.as_ref(), settings.bitcoin_network) {
+            ("main", Network::Main) | ("main", Network::Signet) => (),
+            ("test", Network::Testnet) => (),
+            ("regtest", Network::Regtest) => (),
+            _ => bail!(
                 "Chain argument ({}) didn't match bitcoind chain ({bitcoind_chain})",
                 settings.bitcoin_network,
-            );
+            ),
         }
         Ok(bitcoind_client)
     }
