@@ -56,7 +56,7 @@ impl BitcoindClient {
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await?.chain;
         match (bitcoind_chain.as_ref(), settings.bitcoin_network) {
-            ("main", Network::Main) | ("main", Network::Signet) => (),
+            ("main", Network::Bitcoin) | ("main", Network::Signet) => (),
             ("test", Network::Testnet) => (),
             ("regtest", Network::Regtest) => (),
             _ => bail!(
