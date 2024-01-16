@@ -29,9 +29,9 @@
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
-    nixos-images.url = "github:nix-community/nixos-images";
+    nixos-images.url = "github:yanganto/nixos-images/add-rsync";
 
-    nixos-anywhere.url = "github:numtide/nixos-anywhere";
+    nixos-anywhere.url = "github:nix-community/nixos-anywhere";
     nixos-anywhere.inputs.nixpkgs.follows = "nixpkgs";
     nixos-anywhere.inputs.disko.follows = "disko";
     nixos-anywhere.inputs.nixos-images.follows = "nixos-images";

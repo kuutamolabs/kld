@@ -53,6 +53,7 @@ in
       systemd.network.networks."10-eth1".networkConfig.Address = "192.168.42.1/24";
       environment.variables.FLAKE_CHECK = "true";
       environment.systemPackages = [ pkgs.git ];
+      virtualisation.memorySize = 4096;
 
       system.activationScripts.rsa-key = ''
         ${pkgs.coreutils}/bin/install -D -m600 ${./ssh-keys/ssh} /root/.ssh/id_rsa

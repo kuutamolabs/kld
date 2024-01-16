@@ -178,6 +178,34 @@ pub fn create_lightning_certs(cert_dir: &Path, hosts: &BTreeMap<String, Host>) -
     Ok(())
 }
 
+/// Parse subject alternative name from certificate
+fn san_from_cert(cert_path: &Path) -> Result<HashSet<IpAddr>> {
+    let mut sans = HashSet::new();
+    if let Ok(data) = fs::read(cert_path) {
+        for pem in Pem::iter_from_buffer(&data) {
+            let pem = pem?;
+            let x509 = pem.parse_x509()?;
+            for ext in x509.extensions() {
+                if let ParsedExtension::SubjectAlternativeName(san) = ext.parsed_extension() {
+                    for name in san.general_names.iter() {
+                        if let GeneralName::IPAddress(byte) = name {
+                            #[allow(clippy::transmute_ptr_to_ref)]
+                            if let Some(ipv4_byte) = slice_as_array!(byte, [u8; 4]) {
+                                sans.insert(IpAddr::from(*ipv4_byte));
+                            }
+                            #[allow(clippy::transmute_ptr_to_ref)]
+                            if let Some(ipv6_byte) = slice_as_array!(byte, [u8; 16]) {
+                                sans.insert(IpAddr::from(*ipv6_byte));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(sans)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -238,32 +266,4 @@ mod tests {
         );
         Ok(())
     }
-}
-
-/// Parse subject alternative name from certificate
-fn san_from_cert(cert_path: &Path) -> Result<HashSet<IpAddr>> {
-    let mut sans = HashSet::new();
-    if let Ok(data) = fs::read(cert_path) {
-        for pem in Pem::iter_from_buffer(&data) {
-            let pem = pem?;
-            let x509 = pem.parse_x509()?;
-            for ext in x509.extensions() {
-                if let ParsedExtension::SubjectAlternativeName(san) = ext.parsed_extension() {
-                    for name in san.general_names.iter() {
-                        if let GeneralName::IPAddress(byte) = name {
-                            #[allow(clippy::transmute_ptr_to_ref)]
-                            if let Some(ipv4_byte) = slice_as_array!(byte, [u8; 4]) {
-                                sans.insert(IpAddr::from(*ipv4_byte));
-                            }
-                            #[allow(clippy::transmute_ptr_to_ref)]
-                            if let Some(ipv6_byte) = slice_as_array!(byte, [u8; 16]) {
-                                sans.insert(IpAddr::from(*ipv6_byte));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(sans)
 }
