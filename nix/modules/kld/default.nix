@@ -11,6 +11,8 @@ let
       "${bitcoinCfg.dataDir}/regtest"
     else if cfg.network == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
+    else if cfg.network == "signet" then
+      "${bitcoinCfg.dataDir}/signet"
     else bitcoinCfg.dataDir;
   cockroachCfg = config.kuutamo.cockroachdb;
   electrsCfg = config.kuutamo.electrs;
