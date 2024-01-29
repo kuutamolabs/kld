@@ -41,7 +41,7 @@ in
         else if cfg.network == "mutinynet" then
           38333
         else 8333;
-      rpc.port = 8332;
+      rpc.port = if cfg.network == "mutinynet" then 38332 else 8332;
       extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
         "-regtest"
         "-noconnect"
