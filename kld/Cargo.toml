@@ -20,7 +20,7 @@ lightning-block-sync = { version = "0.0.118", features = [ "rpc-client" ] }
 lightning-invoice = "0.26.0"
 lightning-net-tokio = "0.0.118"
 lightning-background-processor = { version = "0.0.118", features = [ "futures" ] }
-lightning-rapid-gossip-sync = "0.0.118"
+lightning-rapid-gossip-sync = "0.0.121"
 lightning-liquidity = { git = "https://github.com/kuutamolabs/ldk-lsp-client", branch = "fix-cyc-dep" }
 
 macaroon = "0.3.0"
