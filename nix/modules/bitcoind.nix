@@ -38,6 +38,8 @@ in
           18444
         else if cfg.network == "testnet" then
           18333
+        else if cfg.network == "mutinynet" then
+          38333
         else 8333;
       rpc.port = 8332;
       extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
