@@ -7,6 +7,8 @@ let
       "${bitcoinCfg.dataDir}/regtest"
     else if cfg.network == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
+    else if cfg.network == "signet" then
+      "${bitcoinCfg.dataDir}/signet"
     else bitcoinCfg.dataDir;
 in
 {
@@ -39,7 +41,7 @@ in
     network = lib.mkOption {
       type = lib.types.enum [ "bitcoin" "testnet" "signet" "regtest" ];
       default = "bitcoin";
-      description = lib.mdDoc "Bitcoin network to use.";
+      description = lib.mdDoc "Bitcoin network to use.  The signet is used for mutinynet";
     };
     logLevel = lib.mkOption {
       type = lib.types.enum [ "error" "warn" "info" "debug" "trace" ];
@@ -56,7 +58,7 @@ in
 
     systemd.services.electrs = lib.mkDefault {
       wantedBy = [ "multi-user.target" ];
-      after = [ "bitcoind${if cfg.bitcoindInstance == "bitcoind" then "" else cfg.bitcoindInstance}.service" ];
+      after = if cfg.bitcoindInstance == "bitcoind" then [ "bitcoind.service" ] else [ "bitcoind-${cfg.bitcoindInstance}.service" ];
       serviceConfig = {
         ExecStartPre = "+${pkgs.writeShellScript "setup" ''
           until [ -e ${bitcoinCookieDir}/.cookie ]
@@ -76,6 +78,7 @@ in
           --daemon-dir='${bitcoinCfg.dataDir}' \
           --daemon-rpc-addr=127.0.0.1:${toString bitcoinCfg.rpc.port} \
           --daemon-p2p-addr=127.0.0.1:${toString bitcoinCfg.port} \
+          ${if cfg.network == "signet" then "--signet-magic=a5df2dcb" else ""} \
         '';
         User = "electrs";
         Group = "electrs";
