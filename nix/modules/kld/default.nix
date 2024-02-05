@@ -11,6 +11,8 @@ let
       "${bitcoinCfg.dataDir}/regtest"
     else if cfg.network == "testnet" then
       "${bitcoinCfg.dataDir}/testnet3"
+    else if cfg.network == "signet" then
+      "${bitcoinCfg.dataDir}/signet"
     else bitcoinCfg.dataDir;
   cockroachCfg = config.kuutamo.cockroachdb;
   electrsCfg = config.kuutamo.electrs;
@@ -267,7 +269,7 @@ in
         KLD_DATA_DIR = lib.mkDefault cfg.dataDir;
         KLD_MNEMONIC_PATH = lib.mkDefault "${cfg.dataDir}/mnemonic";
         KLD_CERTS_DIR = lib.mkDefault "${cfg.dataDir}/certs";
-        KLD_BITCOIN_NETWORK = lib.mkDefault cfg.network;
+        KLD_BITCOIN_NETWORK = lib.mkDefault (if cfg.network == "main" then "bitcoin" else cfg.network);
         KLD_BITCOIN_RPC_HOST = lib.mkDefault "127.0.0.1";
         KLD_BITCOIN_RPC_PORT = lib.mkDefault (toString bitcoinCfg.rpc.port);
         KLD_ELECTRS_URL = lib.mkDefault "${electrsCfg.address}:${toString electrsCfg.port}";

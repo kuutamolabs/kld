@@ -3,6 +3,7 @@ use std::{str::FromStr, vec};
 use anyhow::Result;
 use async_trait::async_trait;
 use bdk::{wallet::AddressInfo, Balance, BlockTime, KeychainKind, LocalUtxo, TransactionDetails};
+use bitcoin::address::NetworkUnchecked;
 use bitcoin::{consensus::deserialize, hashes::hex::FromHex, Address, OutPoint, Transaction};
 use kld::wallet::WalletInterface;
 
@@ -21,7 +22,7 @@ impl WalletInterface for MockWallet {
 
     async fn transfer(
         &self,
-        _address: Address,
+        _address: Address<NetworkUnchecked>,
         amount: u64,
         _fee_rate: Option<kld::api::payloads::FeeRate>,
         _min_conf: Option<u8>,
@@ -40,7 +41,7 @@ impl WalletInterface for MockWallet {
 
     fn new_external_address(&self) -> Result<AddressInfo> {
         Ok(AddressInfo {
-            address: Address::from_str(TEST_ADDRESS)?,
+            address: Address::from_str(TEST_ADDRESS)?.assume_checked(),
             index: 1,
             keychain: KeychainKind::External,
         })
@@ -48,7 +49,7 @@ impl WalletInterface for MockWallet {
 
     fn new_internal_address(&self) -> Result<AddressInfo> {
         Ok(AddressInfo {
-            address: Address::from_str(TEST_ADDRESS)?,
+            address: Address::from_str(TEST_ADDRESS)?.assume_checked(),
             index: 1,
             keychain: KeychainKind::Internal,
         })

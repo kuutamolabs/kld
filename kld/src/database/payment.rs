@@ -175,7 +175,7 @@ impl Payment {
     pub fn of_invoice_outbound(invoice: &Invoice, label: Option<String>) -> Self {
         Payment {
             id: PaymentId(random()),
-            hash: Some(PaymentHash(*invoice.bolt11.payment_hash().as_inner())),
+            hash: Some(PaymentHash(invoice.bolt11.payment_hash().to_byte_array())),
             preimage: None,
             secret: Some(*invoice.bolt11.payment_secret()),
             label,

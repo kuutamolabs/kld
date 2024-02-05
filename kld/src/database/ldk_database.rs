@@ -2,16 +2,17 @@ use crate::database::{microsecond_timestamp, to_primitive, RowExt};
 use crate::ldk::{ldk_error, ChainMonitor};
 use crate::logger::KldLogger;
 use crate::settings::Settings;
+use bitcoin_hashes::Hash;
 
 use super::forward::{Forward, ForwardStatus, TotalForwards};
 use super::invoice::Invoice;
 use super::payment::{Payment, PaymentDirection};
 use super::{DurableConnection, Params};
-use anyhow::{anyhow, bail, Result};
-use bitcoin::hashes::hex::ToHex;
-use bitcoin::hashes::Hash;
+use anyhow::bail;
+use anyhow::{anyhow, Result};
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::{BlockHash, Txid};
+use bitcoin::BlockHash;
+use bitcoin::Txid;
 use lightning::chain::chaininterface::{BroadcasterInterface, FeeEstimator};
 use lightning::chain::chainmonitor::MonitorUpdateId;
 use lightning::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
@@ -27,8 +28,8 @@ use lightning::routing::scoring::{
     ProbabilisticScorer, ProbabilisticScoringDecayParameters, WriteableScore,
 };
 use lightning::sign::{
-    EntropySource, NodeSigner, SignerProvider, SpendableOutputDescriptor,
-    WriteableEcdsaChannelSigner,
+    ecdsa::WriteableEcdsaChannelSigner, EntropySource, NodeSigner, SignerProvider,
+    SpendableOutputDescriptor,
 };
 use lightning::util::logger::Logger;
 use lightning::util::persist::Persister;
@@ -155,8 +156,9 @@ impl LdkDatabase {
     ) -> Result<()> {
         debug!(
             "Initial record for initial channel {}",
-            initializing_channel_id.to_hex()
+            hex::encode(initializing_channel_id.0),
         );
+        // let initializing_channel_id: &[u8; 32] = initializing_channel_id.0.as_ref();
         self.durable_connection
             .get()
             .await
@@ -168,7 +170,7 @@ impl LdkDatabase {
                     txid
                 ) VALUES ( $1, $2, $3, $4 )",
                 &[
-                    &initializing_channel_id.0.as_ref(),
+                    &initializing_channel_id.0.to_vec(),
                     &counterparty.encode(),
                     &is_public,
                     &txid.encode(),
@@ -186,7 +188,7 @@ impl LdkDatabase {
     ) -> Result<()> {
         debug!(
             "Update record for initial channel {}",
-            initializing_channel_id.to_hex()
+            hex::encode(initializing_channel_id.0),
         );
         if let Some((channel_id, vout)) = channel_id_with_vout {
             let status = if let Some(status) = status {
@@ -200,11 +202,11 @@ impl LdkDatabase {
                 .execute(
                     "UPDATE initializing_channels SET channel_id = $1, vout = $2, update_timestamp = $3, status = $4 WHERE initializing_channel_id= $5",
                     &[
-                        &channel_id.0.as_ref(),
+                        &channel_id.0.to_vec(),
                         &(vout as i32),
                         &to_primitive(&microsecond_timestamp()),
                         &status.as_bytes(),
-                        &initializing_channel_id.0.as_ref(),
+                        &initializing_channel_id.0.to_vec(),
                     ],
                 )
                 .await?;
@@ -217,14 +219,14 @@ impl LdkDatabase {
                     &[
                         &status.as_ref().as_bytes(),
                         &to_primitive(&microsecond_timestamp()),
-                        &initializing_channel_id.0.as_ref(),
+                        &initializing_channel_id.0.to_vec(),
                     ],
                 )
                 .await?;
         } else {
             error!(
                 "Update initial channel {} with nothing",
-                initializing_channel_id.to_hex()
+                hex::encode(initializing_channel_id.0),
             );
         }
         Ok(())
@@ -239,7 +241,7 @@ impl LdkDatabase {
     ) -> Result<()> {
         debug!(
             "Create record for channel {} without detail",
-            channel_id.to_hex()
+            hex::encode(channel_id.0),
         );
         self.durable_connection
             .get()
@@ -251,7 +253,7 @@ impl LdkDatabase {
                     is_usable,
                     is_public
                 ) VALUES ( $1, $2, false, $3 )",
-                &[&channel_id.0.as_ref(), &counterparty.encode(), &is_public],
+                &[&channel_id.0.to_vec(), &counterparty.encode(), &is_public],
             )
             .await?;
         Ok(())
@@ -274,7 +276,7 @@ impl LdkDatabase {
                         update_timestamp
                     ) VALUES ( $1, $2, $3, $4, $5, $6, $7)",
                     &[
-                        &channel.channel_id.0.as_ref(),
+                        &channel.channel_id.0.to_vec(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
                         &(*scid as i64),
                         &channel.is_usable,
@@ -298,7 +300,7 @@ impl LdkDatabase {
                         update_timestamp
                     ) VALUES ( $1, $2, $3, $4, $5, $6 )",
                     &[
-                        &channel.channel_id.0.as_ref(),
+                        &channel.channel_id.0.to_vec(),
                         &NodeId::from_pubkey(&channel.counterparty.node_id).encode(),
                         &channel.is_usable,
                         &channel.is_public,
@@ -316,7 +318,7 @@ impl LdkDatabase {
         channel_id: &ChannelId,
         closure_reason: impl AsRef<str>,
     ) -> Result<()> {
-        debug!("Close channel {}", channel_id.to_hex());
+        debug!("Close channel {}", hex::encode(channel_id.0));
         self.durable_connection
             .get()
             .await
@@ -325,7 +327,7 @@ impl LdkDatabase {
                 &[
                     &to_primitive(&microsecond_timestamp()),
                     &closure_reason.as_ref().as_bytes(),
-                    &channel_id.0.as_ref(),
+                    &channel_id.0.to_vec(),
                 ],
             )
             .await?;
@@ -414,12 +416,13 @@ impl LdkDatabase {
     pub async fn persist_spendable_output(
         &self,
         descriptor: &SpendableOutputDescriptor,
+        channel_id: Option<&ChannelId>,
         is_spent: bool,
     ) -> Result<()> {
         let (txid, index, value) = match descriptor {
-            SpendableOutputDescriptor::StaticOutput { outpoint, output } => {
-                (outpoint.txid, outpoint.index, output.value)
-            }
+            SpendableOutputDescriptor::StaticOutput {
+                outpoint, output, ..
+            } => (outpoint.txid, outpoint.index, output.value),
             SpendableOutputDescriptor::DelayedPaymentOutput(descriptor) => (
                 descriptor.outpoint.txid,
                 descriptor.outpoint.index,
@@ -435,26 +438,46 @@ impl LdkDatabase {
         let mut data = vec![];
         descriptor.write(&mut data)?;
 
-        self.durable_connection
-            .get()
-            .await
-            .execute(
-                r#"UPSERT INTO spendable_outputs (
-                    txid,
-                    "index",
-                    value,
-                    data,
-                    is_spent
-                ) VALUES ($1, $2, $3, $4, $5)"#,
-                &[
-                    &txid.as_ref(),
-                    &(index as i16),
-                    &(value as i64),
-                    &data,
-                    &is_spent,
-                ],
-            )
-            .await?;
+        let txid: &[u8] = txid.as_ref();
+        if let Some(channel_id) = channel_id {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    r#"UPSERT INTO spendable_outputs (
+                        txid,
+                        "index",
+                        value,
+                        channel_id,
+                        data,
+                        is_spent
+                    ) VALUES ($1, $2, $3, $4, $5, $6)"#,
+                    &[
+                        &txid,
+                        &(index as i16),
+                        &(value as i64),
+                        &channel_id.0.to_vec(),
+                        &data,
+                        &is_spent,
+                    ],
+                )
+                .await?;
+        } else {
+            self.durable_connection
+                .get()
+                .await
+                .execute(
+                    r#"UPSERT INTO spendable_outputs (
+                        txid,
+                        "index",
+                        value,
+                        data,
+                        is_spent
+                    ) VALUES ($1, $2, $3, $4, $5)"#,
+                    &[&txid, &(index as i16), &(value as i64), &data, &is_spent],
+                )
+                .await?;
+        }
         Ok(())
     }
 
@@ -486,8 +509,10 @@ impl LdkDatabase {
     pub async fn persist_invoice(&self, invoice: &Invoice) -> Result<()> {
         debug!(
             "Persist invoice with hash: {}",
-            invoice.payment_hash.0.to_hex()
+            hex::encode(invoice.payment_hash.0)
         );
+
+        let payment_hash: &[u8] = invoice.payment_hash.0.as_ref();
         self.durable_connection
             .get()
             .await
@@ -502,7 +527,7 @@ impl LdkDatabase {
                     timestamp
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 &[
-                    &invoice.payment_hash.0.as_ref(),
+                    &payment_hash,
                     &invoice.label,
                     &invoice.bolt11.to_string(),
                     &invoice.payee_pub_key.encode(),
@@ -584,7 +609,7 @@ impl LdkDatabase {
     }
 
     pub async fn persist_payment(&self, payment: &Payment) -> Result<()> {
-        debug!("Persist payment id: {}", payment.id.0.to_hex());
+        debug!("Persist payment id: {}", hex::encode(payment.id.0));
         self.durable_connection
             .get()
             .await
@@ -602,10 +627,10 @@ impl LdkDatabase {
                     timestamp
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                 &[
-                    &payment.id.0.as_ref(),
-                    &payment.hash.as_ref().map(|x| x.0.as_ref()),
-                    &payment.preimage.as_ref().map(|x| x.0.as_ref()),
-                    &payment.secret.as_ref().map(|s| s.0.as_ref()),
+                    &payment.id.0.to_vec(),
+                    &payment.hash.as_ref().map(|x| x.0.to_vec()),
+                    &payment.preimage.as_ref().map(|x| x.0.to_vec()),
+                    &payment.secret.as_ref().map(|s| s.0.to_vec()),
                     &payment.label,
                     &payment.status,
                     &(payment.amount as i64),
@@ -644,7 +669,7 @@ impl LdkDatabase {
             WHERE 1 = 1"
             .to_string();
         if let Some(hash) = &payment_hash {
-            params.push(hash.0.as_ref());
+            params.push(hash.0.to_vec());
             query.push_str(&format!("AND p.hash = ${}", params.count()));
         }
         if let Some(direction) = direction {
@@ -686,8 +711,8 @@ impl LdkDatabase {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
                     &forward.id,
-                    &forward.inbound_channel_id.0.as_ref(),
-                    &forward.outbound_channel_id.as_ref().map(|x| x.0.as_ref()),
+                    &forward.inbound_channel_id.0.to_vec(),
+                    &forward.outbound_channel_id.as_ref().map(|x| x.0.to_vec()),
                     &(forward.amount.map(|x| x as i64)),
                     &(forward.fee.map(|x| x as i64)),
                     &forward.status,
@@ -752,16 +777,15 @@ impl LdkDatabase {
             .into())
     }
 
-    pub async fn fetch_channel_monitors<ES: EntropySource, SP: SignerProvider>(
+    pub async fn fetch_channel_monitors<T: EntropySource + SignerProvider>(
         &self,
-        entropy_source: &ES,
-        signer_provider: &SP, //		broadcaster: &B,
-                              //		fee_estimator: &F,
-    ) -> Result<Vec<(BlockHash, ChannelMonitor<SP::Signer>)>>
-where
-        //      B::Target: BroadcasterInterface,
-        //		F::Target: FeeEstimator,
-    {
+        source: &T,
+    ) -> Result<
+        Vec<(
+            BlockHash,
+            ChannelMonitor<<T as SignerProvider>::EcdsaSigner>,
+        )>,
+    > {
         let rows = self
             .durable_connection
             .wait()
@@ -772,54 +796,30 @@ where
                 &[],
             )
             .await?;
-        let mut monitors: Vec<(BlockHash, ChannelMonitor<SP::Signer>)> = vec![];
+        let mut monitors: Vec<(
+            BlockHash,
+            ChannelMonitor<<T as SignerProvider>::EcdsaSigner>,
+        )> = vec![];
         for row in rows {
             let out_point: Vec<u8> = row.get("out_point");
 
             let (txid_bytes, index_bytes) = out_point.split_at(32);
-            let txid = Txid::from_slice(txid_bytes).unwrap();
+            let txid = Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(txid_bytes)?);
             let index = u16::from_be_bytes(index_bytes.try_into().unwrap());
 
             let monitor: Vec<u8> = row.get("monitor");
             let mut buffer = Cursor::new(&monitor);
-            match <(BlockHash, ChannelMonitor<SP::Signer>)>::read(
-                &mut buffer,
-                (entropy_source, signer_provider),
-            ) {
+            match <(
+                BlockHash,
+                ChannelMonitor<<T as SignerProvider>::EcdsaSigner>,
+            )>::read(&mut buffer, (source, source))
+            {
                 Ok((blockhash, channel_monitor)) => {
                     if channel_monitor.get_funding_txo().0.txid != txid
                         || channel_monitor.get_funding_txo().0.index != index
                     {
                         bail!("Unable to find ChannelMonitor for: {}:{}", txid, index);
                     }
-                    /*
-                                        let update_rows = self
-                                            .client
-                                            .read()
-                                            .await
-                                            .query(
-                                                "SELECT update \
-                                            FROM channel_monitor_updates \
-                                            WHERE out_point = $1 \
-                                            ORDER BY update_id ASC",
-                                                &[&out_point],
-                                            )
-                                            .await
-                                            .unwrap();
-
-                                        let updates: Vec<ChannelMonitorUpdate> = update_rows
-                                            .iter()
-                                            .map(|row| {
-                                                let ciphertext: Vec<u8> = row.get("update");
-                                                let update = self.cipher.decrypt(&ciphertext);
-                                                ChannelMonitorUpdate::read(&mut Cursor::new(&update)).unwrap()
-                                            })
-                                            .collect();
-                                        for update in updates {
-                                            channel_monitor
-                                                .update_monitor(&update, broadcaster, fee_estimator.clone(), &KndLogger::global()).unwrap();
-                                        }
-                    */
                     monitors.push((blockhash, channel_monitor));
                 }
                 Err(e) => bail!("Failed to deserialize ChannelMonitor: {}", e),
@@ -842,7 +842,7 @@ where
         read_args: ChannelManagerReadArgs<'_, M, T, ES, NS, SP, F, R, L>,
     ) -> Result<(BlockHash, ChannelManager<M, T, ES, NS, SP, F, R, L>)>
     where
-        <M as Deref>::Target: Watch<<SP::Target as SignerProvider>::Signer>,
+        <M as Deref>::Target: Watch<<SP::Target as SignerProvider>::EcdsaSigner>,
         <T as Deref>::Target: BroadcasterInterface,
         <ES as Deref>::Target: EntropySource,
         <NS as Deref>::Target: NodeSigner,
@@ -924,7 +924,7 @@ where
 impl<'a, M: Deref, T: Deref, ES: Deref, NS: Deref, SP: Deref, F: Deref, R: Deref, L: Deref, S>
     Persister<'a, M, T, ES, NS, SP, F, R, L, S> for LdkDatabase
 where
-    M::Target: 'static + Watch<<SP::Target as SignerProvider>::Signer>,
+    M::Target: 'static + Watch<<SP::Target as SignerProvider>::EcdsaSigner>,
     T::Target: 'static + BroadcasterInterface,
     ES::Target: 'static + EntropySource,
     NS::Target: 'static + NodeSigner,

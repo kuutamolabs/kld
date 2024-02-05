@@ -50,7 +50,7 @@ impl KeyGenerator {
         engine.input(&self.mnemonic.to_seed(""));
         engine.input(extra_input.as_bytes());
         let hash = sha256::Hash::from_engine(engine);
-        hash.into_inner()
+        hash.to_byte_array()
     }
 }
 

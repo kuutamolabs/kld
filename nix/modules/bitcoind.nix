@@ -38,12 +38,15 @@ in
           18444
         else if cfg.network == "testnet" then
           18333
+        else if cfg.network == "mutinynet" then
+          38333
         else 8333;
-      rpc.port = 8332;
+      rpc.port = if cfg.network == "mutinynet" then 38332 else 8332;
       extraCmdlineOptions = lib.optionals (cfg.network == "regtest") [
         "-regtest"
         "-noconnect"
       ] ++ lib.optionals (cfg.network == "mutinynet") [
+        "-signet"
         "-signetchallenge=512102f7561d208dd9ae99bf497273e16f389bdbd6c4742ddb8e6b216e64fa2928ad8f51ae"
         "-addnode=45.79.52.207:38333"
         "-dnsseed=0"

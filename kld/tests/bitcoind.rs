@@ -16,7 +16,7 @@ pub async fn test_bitcoind_client() -> Result<()> {
     let n_blocks = 3;
     bitcoind
         .client
-        .generate_to_address(n_blocks, &Address::from_str(TEST_ADDRESS).unwrap())
+        .generate_to_address(n_blocks, &Address::from_str(TEST_ADDRESS)?.assume_checked())
         .await?;
 
     bitcoind.client.wait_for_blockchain_synchronisation().await;
@@ -38,7 +38,7 @@ pub async fn test_bitcoind_client() -> Result<()> {
         .await
         .map_err(|e| anyhow!(e.into_inner()))?;
     assert_eq!(header.height, n_blocks as u32);
-    assert_eq!(header.chainwork.low_u64(), 8);
+    assert_eq!(header.chainwork.log2(), 3.0);
 
     let block = &bitcoind
         .client

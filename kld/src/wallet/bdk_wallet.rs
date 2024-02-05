@@ -7,7 +7,7 @@ use crate::settings::Settings;
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use bdk::{
-    bitcoin::util::bip32::ExtendedPrivKey,
+    bitcoin::bip32::ExtendedPrivKey,
     blockchain::{log_progress, ElectrumBlockchain, GetHeight},
     database::{BatchDatabase, BatchOperations, Database},
     electrum_client::Client,
@@ -15,6 +15,7 @@ use bdk::{
     wallet::AddressInfo,
     Balance, FeeRate, KeychainKind, LocalUtxo, SignOptions, SyncOptions, TransactionDetails,
 };
+use bitcoin::address::NetworkUnchecked;
 use bitcoin::{Address, OutPoint, Script, Transaction};
 use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget, FeeEstimator};
 use lightning_block_sync::BlockSource;
@@ -33,6 +34,7 @@ pub struct Wallet<
     bitcoind_client: Arc<B>,
     settings: Arc<Settings>,
     blockchain: Arc<OnceLock<ElectrumBlockchain>>,
+    network: bitcoin::network::constants::Network,
 }
 
 #[async_trait]
@@ -53,7 +55,7 @@ impl<
 
     async fn transfer(
         &self,
-        address: Address,
+        address: Address<NetworkUnchecked>,
         amount: u64,
         fee_rate: Option<crate::api::payloads::FeeRate>,
         min_conf: Option<u8>,
@@ -69,14 +71,17 @@ impl<
             }
         };
 
+        let address = address.require_network(self.network)?;
+        let script_pubkey = address.script_pubkey();
+
         match self.wallet.lock() {
             Ok(wallet) => {
                 let mut tx_builder = wallet.build_tx();
                 if amount == u64::MAX {
-                    tx_builder.drain_wallet().drain_to(address.script_pubkey());
+                    tx_builder.drain_wallet().drain_to(script_pubkey);
                 } else {
                     tx_builder
-                        .add_recipient(address.script_pubkey(), amount)
+                        .add_recipient(script_pubkey, amount)
                         .drain_wallet()
                         .add_utxos(&utxos)?;
                 };
@@ -148,19 +153,21 @@ impl<
         bitcoind_client: Arc<B>,
         database: D,
     ) -> Result<Wallet<D, B>> {
-        let xprivkey = ExtendedPrivKey::new_master(settings.bitcoin_network.into(), seed)?;
+        let xprivkey = ExtendedPrivKey::new_master(settings.bitcoin_network, seed)?;
 
         let bdk_wallet = Arc::new(Mutex::new(bdk::Wallet::new(
             Bip84(xprivkey, KeychainKind::External),
             Some(Bip84(xprivkey, KeychainKind::Internal)),
-            settings.bitcoin_network.into(),
+            settings.bitcoin_network,
             database,
         )?));
+        let network = settings.bitcoin_network;
         Ok(Wallet {
             wallet: bdk_wallet,
             bitcoind_client,
             settings,
             blockchain: Arc::new(OnceLock::new()),
+            network,
         })
     }
 
@@ -232,7 +239,7 @@ impl<
         let mut tx_builder = wallet.build_tx();
 
         tx_builder
-            .add_recipient(output_script.clone(), *channel_value_satoshis)
+            .add_recipient(output_script.into(), *channel_value_satoshis)
             .fee_rate(self.to_bdk_fee_rate(fee_rate))
             .enable_rbf();
 
@@ -325,6 +332,7 @@ mod test {
             wallet: Arc::new(Mutex::new(bdk_wallet)),
             settings: Arc::new(Settings::default()),
             blockchain: Arc::new(OnceLock::new()),
+            network: bitcoin::network::constants::Network::Testnet,
         };
 
         let res = wallet
@@ -350,6 +358,7 @@ mod test {
             wallet: Arc::new(Mutex::new(bdk_wallet)),
             settings: Arc::new(Settings::default()),
             blockchain: Arc::new(OnceLock::new()),
+            network: bitcoin::network::constants::Network::Testnet,
         };
 
         let (tx, tx_details) = wallet

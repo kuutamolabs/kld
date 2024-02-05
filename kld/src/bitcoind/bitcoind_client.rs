@@ -56,9 +56,10 @@ impl BitcoindClient {
         // Check that the bitcoind we've connected to is running the network we expect
         let bitcoind_chain = bitcoind_client.get_blockchain_info().await?.chain;
         match (bitcoind_chain.as_ref(), settings.bitcoin_network) {
-            ("main", Network::Main) | ("main", Network::Signet) => (),
-            ("test", Network::Testnet) => (),
-            ("regtest", Network::Regtest) => (),
+            ("main", Network::Bitcoin)
+            | ("signet", Network::Signet)
+            | ("test", Network::Testnet)
+            | ("regtest", Network::Regtest) => (),
             _ => bail!(
                 "Chain argument ({}) didn't match bitcoind chain ({bitcoind_chain})",
                 settings.bitcoin_network,
@@ -350,9 +351,6 @@ impl Priorities {
     /// Return a base class and a mulipler
     fn priority_of(&self, conf_target: &ConfirmationTarget) -> (Arc<PriorityClass>, Option<f32>) {
         match conf_target {
-            ConfirmationTarget::MaxAllowedNonAnchorChannelRemoteFee => {
-                (self.high.clone(), Some(2.0))
-            }
             ConfirmationTarget::OnChainSweep => (self.high.clone(), None),
             ConfirmationTarget::NonAnchorChannelFee => (self.normal.clone(), None),
             ConfirmationTarget::ChannelCloseMinimum

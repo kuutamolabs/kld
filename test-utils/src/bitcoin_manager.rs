@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
+use bitcoin::address::NetworkUnchecked;
 use bitcoin::Address;
 use kld::bitcoind::BitcoindClient;
 use kld::settings::Network;
@@ -17,6 +18,7 @@ pub struct BitcoinManager<'a> {
     phantom: PhantomData<&'a TempDir>,
     pub p2p_port: u16,
     pub client: BitcoindClient,
+    network: Network,
 }
 
 impl<'a> BitcoinManager<'a> {
@@ -32,7 +34,7 @@ impl<'a> BitcoinManager<'a> {
         std::fs::create_dir(&storage_dir)?;
 
         settings.bitcoind_rpc_port = rpc_port;
-        settings.bitcoin_cookie_path = if settings.bitcoin_network == Network::Main {
+        settings.bitcoin_cookie_path = if settings.bitcoin_network == Network::Bitcoin {
             storage_dir.join(".cookie")
         } else {
             storage_dir
@@ -91,6 +93,7 @@ impl<'a> BitcoinManager<'a> {
                 phantom: PhantomData,
                 p2p_port,
                 client,
+                network: settings.bitcoin_network,
             },
             Err(_) => {
                 let _ = process.kill();
@@ -104,7 +107,7 @@ impl<'a> BitcoinManager<'a> {
     pub async fn generate_blocks(
         &self,
         n_blocks: u64,
-        address: &Address,
+        address: &Address<NetworkUnchecked>,
         delay: bool,
     ) -> Result<()> {
         for _ in 0..n_blocks {
@@ -112,7 +115,8 @@ impl<'a> BitcoinManager<'a> {
             if delay {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
-            self.client.generate_to_address(1, address).await?;
+            let checked_address = address.clone().require_network(self.network)?;
+            self.client.generate_to_address(1, &checked_address).await?;
         }
         self.client.wait_for_blockchain_synchronisation().await;
         Ok(())

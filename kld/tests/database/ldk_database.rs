@@ -315,19 +315,28 @@ pub async fn test_spendable_outputs() -> Result<()> {
     let (settings, _cockroach, durable_connection) = init_db_test_context(&temp_dir).await?;
 
     let database = LdkDatabase::new(settings.into(), durable_connection.into());
+    let channel_id = ChannelId::from_bytes(random());
 
     let output = TxOut::default();
     let outpoint = OutPoint {
-        txid: Txid::from_hex(TEST_TX_ID)?,
+        txid: Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(
+            &Vec::<u8>::from_hex(TEST_TX_ID)?[..],
+        )?),
         index: 2,
     };
-    let descriptor = SpendableOutputDescriptor::StaticOutput { outpoint, output };
+    let descriptor = SpendableOutputDescriptor::StaticOutput {
+        outpoint,
+        output,
+        channel_keys_id: None,
+    };
     database
-        .persist_spendable_output(&descriptor, false)
+        .persist_spendable_output(&descriptor, Some(&channel_id), false)
         .await?;
 
     // Update is_spent after it spend
-    database.persist_spendable_output(&descriptor, true).await?;
+    database
+        .persist_spendable_output(&descriptor, Some(&channel_id), true)
+        .await?;
 
     let spendable_outputs = database.fetch_spendable_outputs().await?;
     assert_eq!(1, spendable_outputs.len());
@@ -347,7 +356,9 @@ pub async fn test_channels() -> Result<()> {
     let mut initializing_channel_id = ChannelId::from_bytes([0; 32]);
     let mut channel_id = ChannelId::from_bytes([1; 32]);
     let counterparty = bitcoin::secp256k1::PublicKey::from_str(TEST_PUBLIC_KEY)?;
-    let txid = Txid::from_hex(TEST_TX_ID)?;
+    let txid = Txid::from_raw_hash(bitcoin_hashes::sha256d::Hash::from_slice(
+        &Vec::<u8>::from_hex(TEST_TX_ID)?[..],
+    )?);
 
     let mut channel = ChannelDetails {
         channel_id,

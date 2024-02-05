@@ -1,8 +1,8 @@
 mod bitcoin_network;
 
 use crate::api::SocketAddress;
+pub use bitcoin::network::constants::Network;
 use bitcoin::secp256k1::PublicKey;
-pub use bitcoin_network::Network;
 use clap::{builder::OsStr, Parser};
 
 #[derive(Parser, Debug, Clone)]

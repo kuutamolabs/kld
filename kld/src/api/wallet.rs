@@ -57,6 +57,7 @@ pub(crate) async fn transfer(
     Json(wallet_transfer): Json<WalletTransfer>,
 ) -> Result<impl IntoResponse, ApiError> {
     let address = Address::from_str(&wallet_transfer.address).map_err(bad_request)?;
+
     let amount = if wallet_transfer.satoshis == "all" {
         u64::MAX
     } else {
@@ -88,7 +89,7 @@ pub(crate) async fn list_funds(
             address: Address::from_script(&utxo.txout.script_pubkey, lightning_interface.network())
                 .map(|a| a.to_string())
                 .map_err(internal_server)?,
-            scriptpubkey: utxo.txout.script_pubkey.asm(),
+            scriptpubkey: utxo.txout.script_pubkey.to_asm_string(),
             status: if detail.confirmation_time.is_some() {
                 OutputStatus::Confirmed
             } else {

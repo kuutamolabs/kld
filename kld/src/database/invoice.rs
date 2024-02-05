@@ -46,7 +46,7 @@ impl Invoice {
                 raw.payment_hash()
                     .ok_or_else(|| anyhow!("missing payment hash"))?
                     .0
-                    .into_inner(),
+                    .to_byte_array(),
             ),
             label,
             bolt11,
