@@ -12,7 +12,7 @@ use hex::FromHex;
 use lightning::sign::KeysManager;
 use lightning::{
     ln::{channelmanager::SimpleArcChannelManager, peer_handler},
-    onion_message::SimpleArcOnionMessenger,
+    onion_message::messenger::SimpleArcOnionMessenger,
     routing::gossip,
 };
 use lightning_net_tokio::SocketDescriptor;
