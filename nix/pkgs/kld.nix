@@ -30,7 +30,7 @@ let
   outputHashes = {
     "git+https://github.com/kuutamolabs/bdk?branch=0.29.0-allow-begin-match-fail#d983732c7e290caff336a39981b6159b4c44c22e" = "sha256-63rvs64cGW2JzYWQQRMhIM5hILBpGjdsR8VTpjHuNPE=";
     "git+https://github.com/hyperium/mime#938484de95445a2af931515d2b7252612c575da7" = "sha256-Zdhw4wWK2ZJrv62YoJMdTHaQhIyKxtG2UCu/m3mQwy0=";
-    "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kuutamo-0.0.119#5e0076ca97a30cd02402af78f914eb7de32e1a2a" = "sha256-bIRM2qS7b3eoeCtEcw0eIRK/YpidKQ3bR9ueHR8yocc=";
+    "git+https://github.com/kuutamolabs/ldk-lsp-client?branch=kuutamo-0.0.120#e9bfcb4e86fb3f4d5fd53b601d1d2ab791dc52ba" = "sha256-SA8tvOoeTS8/qOWvWw9YJ8oCg6beJJK40l2XEcxr6C4=";
     "git+https://github.com/yanganto/ratatui?branch=table-footer#5268fd23cc85d8043335f74262b3fda729ca9750" = "sha256-j2rzlIZBF4mKLfIoNfBYAUjeBKYPJzJcnON6X8A7jbw=";
   };
   cargoArtifacts = craneLib.buildDepsOnly {

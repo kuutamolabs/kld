@@ -20,7 +20,7 @@ use lightning::{
         msgs::{DecodeError, LightningError},
         wire::CustomMessageReader,
     },
-    onion_message::SimpleArcOnionMessenger,
+    onion_message::messenger::SimpleArcOnionMessenger,
     routing::{
         gossip,
         router::DefaultRouter,
