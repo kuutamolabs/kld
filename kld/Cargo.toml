@@ -24,7 +24,7 @@ lightning-rapid-gossip-sync = "0.0.120"
 lightning-liquidity = { git = "https://github.com/kuutamolabs/ldk-lsp-client", branch = "kuutamo-0.0.120" }
 
 macaroon = "0.3.0"
-bitcoin = "0.30.2"
+bitcoin = "0.31.1"
 bitcoincore-rpc-json = "0.17.0"
 bitcoin_hashes = "0.12.0"
 rust-bip39 = "1.0.0"
