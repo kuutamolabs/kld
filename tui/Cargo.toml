@@ -20,7 +20,7 @@ libc = "0.2.153"
 log = "0.4.20"
 pretty_assertions = "1.4.0"
 r2d2 = "0.8.10"
-r2d2_sqlite = "0.23.0"
+r2d2_sqlite = "0.24.0"
 ratatui = { git = "https://github.com/yanganto/ratatui", branch = "table-footer", version = "0.25.0", features = ["serde", "macros"] }
 reqwest = { version = "0.11.22", features = ["blocking"] }
 serde = { version = "1.0.195", features = ["derive"] }
