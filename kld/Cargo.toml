@@ -15,13 +15,13 @@ path = "src/cli/main.rs"
 doctest = false
 
 [dependencies]
-lightning = { version = "0.0.120", features = ["max_level_trace", "_test_utils"] }
-lightning-block-sync = { version = "0.0.120", features = [ "rpc-client" ] }
-lightning-invoice = "0.28.0"
-lightning-net-tokio = "0.0.120"
-lightning-background-processor = { version = "0.0.120", features = [ "futures" ] }
-lightning-rapid-gossip-sync = "0.0.120"
-lightning-liquidity = { git = "https://github.com/kuutamolabs/ldk-lsp-client", branch = "kuutamo-0.0.120" }
+lightning = { version = "0.0.121", features = ["max_level_trace", "_test_utils"] }
+lightning-block-sync = { version = "0.0.121", features = [ "rpc-client" ] }
+lightning-invoice = "0.29.0"
+lightning-net-tokio = "0.0.121"
+lightning-background-processor = { version = "0.0.121", features = [ "futures" ] }
+lightning-rapid-gossip-sync = "0.0.121"
+lightning-liquidity = "=0.1.0-alpha"
 
 macaroon = "0.3.0"
 bitcoin = "0.30.2"
