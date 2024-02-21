@@ -48,6 +48,8 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
 use lightning_invoice::DEFAULT_EXPIRY_TIME;
+use lightning_liquidity::lsps2::service::LSPS2ServiceConfig;
+use lightning_liquidity::LiquidityServiceConfig;
 use log::{debug, error, info, trace, warn};
 use prometheus::IntCounter;
 use rand::random;
@@ -779,7 +781,11 @@ impl Controller {
             channel_manager.clone(),
             None,
             Some(chain_params),
-            None,
+            Some(LiquidityServiceConfig {
+                lsps2_service_config: Some(LSPS2ServiceConfig {
+                    promise_secret: Default::default(),
+                }),
+            }),
             None,
         );
 
