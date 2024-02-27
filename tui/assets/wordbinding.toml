@@ -67,6 +67,7 @@
 "Introduction" = "說明"
 " to cancel inputs.  " = "以取消輸入"
 "Decode response error:" = "回應解譯錯誤："
+"This command is not ready yet, please use kld-cli instead." = "指令尚未準備好，請使用 kld-cli 代替。"
 
 [en_US]
 "NodeInfo" = "Node Information"

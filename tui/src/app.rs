@@ -202,7 +202,7 @@ impl App {
                             }
                         })?;
                     }
-                    Action::EnderCmdMode => self.mode = Mode::Command,
+                    Action::EnterCmdMode => self.mode = Mode::Command,
                     Action::ExitCmdMode => self.mode = Mode::Navigate,
                     Action::Execute(ref cmd, ref input) => {
                         let trigger_time = unix_timestamp();

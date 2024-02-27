@@ -1,5 +1,6 @@
 pub mod details;
 pub mod list;
+pub(crate) mod parsers;
 pub mod query;
 use kld::api::routes;
 use serde::Serialize;

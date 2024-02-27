@@ -21,3 +21,4 @@ mgr/deployment
 tui/keybinding.toml
 tui/lightning_tui.log
 tui/kld_tui.log
+tui/secrets
