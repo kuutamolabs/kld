@@ -1360,18 +1360,18 @@ dependencies = [
 
 [[package]]
 name = "toml-example"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2fee6640dd28021a113ff4a22aa37ba1e9e7cf46c9709dc0be6a4b3127aaa55"
+checksum = "e6b38f0792a87dfe383ba399f3ae6a1965ee8d3afe4b7fa71ea2a1dc60a54c50"
 dependencies = [
  "toml-example-derive",
 ]
 
 [[package]]
 name = "toml-example-derive"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bec15491a187b38e9c0b1d5fa7227fc905d6365b8b00dbf9fb86c0ae691e3d90"
+checksum = "9e4a0e5b8d137aa28ee0fae3994b79295ff79ed51bce8bd9bc8f3a1f529088d8"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
