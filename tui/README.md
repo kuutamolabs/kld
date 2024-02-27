@@ -18,6 +18,7 @@ You can copy `assets/vim_keybinding.toml` or create anyone `keybinding.toml` in 
 - [x] add action inspector in debug component
 - [x] helper page
 - [x] command history
+- [x] prompt if the command is not ready
 
 We will do following items later.
 

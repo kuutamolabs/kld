@@ -137,7 +137,10 @@ impl Component for CmdDetails {
                         self.length = 0;
                         return Ok(Some(Action::Execute(Cmd::ChanList, String::new())));
                     }
-                    _ => {}
+                    _ => {
+                        // Command not implement currently, exit
+                        return Ok(Some(Action::ExitCmdMode));
+                    }
                 }
             }
             Action::ExitCmdMode => self.on_focus = None,
@@ -223,8 +226,15 @@ impl Component for CmdDetails {
                 Cmd::ChanList => self.channel_list(f, size),
                 Cmd::PeerCont => self.peer_connect(f, size),
                 _ => {
-                    let block = Block::default().borders(Borders::ALL);
-                    f.render_widget(block, size);
+                    let text = Text::from(Line::from(
+                        WORD_BINDINGS
+                            .get("This command is not ready yet, please use kld-cli instead."),
+                    ));
+                    let unimplement_prompt = Paragraph::new(text).block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                    );
+                    f.render_widget(unimplement_prompt, size);
                 }
             }
         }
