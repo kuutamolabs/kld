@@ -5,7 +5,7 @@
 "<down>"    = "NavDown"
 "<left>"    = "NavLeft"
 "<right>"   = "NavRight"
-"<enter>"   = "EnderCmdMode"
+"<enter>"   = "EnterCmdMode"
 
 [Command]
 "<esc>"   = "ExitCmdMode"

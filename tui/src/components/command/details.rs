@@ -120,7 +120,7 @@ impl Component for CmdDetails {
                     self.index += 1;
                 }
             }
-            Action::EnderCmdMode => {
+            Action::EnterCmdMode => {
                 self.on_focus = Some(0);
                 match self.selected_command {
                     Cmd::NodeInfo => {
