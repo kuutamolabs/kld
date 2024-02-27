@@ -1,4 +1,4 @@
-use crate::components::command::details::parse_channel_details;
+use crate::components::command::parsers::parse_channel_details;
 
 #[test]
 fn test_parse_channel_details() {
