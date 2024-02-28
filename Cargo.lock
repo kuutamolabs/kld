@@ -1636,13 +1636,14 @@ dependencies = [
  "lightning 0.0.121",
  "num-traits",
  "secp256k1",
+ "serde",
 ]
 
 [[package]]
 name = "lightning-liquidity"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3d38a4e9f5ecce43c46f7d362781e4dbde8816dd161950056ea1182a40ba61d"
+checksum = "64cb0be7a449f308972bdc2fc1cbebf9a42f5a9f3bd77bb3abbda9f8cf12c71e"
 dependencies = [
  "bitcoin",
  "chrono",

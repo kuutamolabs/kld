@@ -785,6 +785,7 @@ impl Controller {
                 lsps2_service_config: Some(LSPS2ServiceConfig {
                     promise_secret: Default::default(),
                 }),
+                advertise_service: false,
             }),
             None,
         );
