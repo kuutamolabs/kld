@@ -41,6 +41,7 @@ use lightning::util::errors::APIError;
 use crate::ldk::peer_manager::KuutamoPeerManger;
 use crate::logger::KldLogger;
 use crate::settings::Settings;
+use chrono::DateTime;
 use lightning::util::indexed_map::IndexedMap;
 use lightning_background_processor::{process_events_async, GossipSync};
 use lightning_block_sync::poll;
@@ -48,6 +49,9 @@ use lightning_block_sync::SpvClient;
 use lightning_block_sync::UnboundedCache;
 use lightning_block_sync::{init, BlockSourceResult};
 use lightning_invoice::DEFAULT_EXPIRY_TIME;
+use lightning_liquidity::events::Event::LSPS2Service;
+use lightning_liquidity::lsps2::event::LSPS2ServiceEvent;
+use lightning_liquidity::lsps2::msgs::RawOpeningFeeParams;
 use lightning_liquidity::lsps2::service::LSPS2ServiceConfig;
 use lightning_liquidity::LiquidityServiceConfig;
 use log::{debug, error, info, trace, warn};
@@ -831,13 +835,11 @@ impl Controller {
             KldLogger::global(),
             keys_manager.clone(),
         ));
-
-        let pm_for_liquidity = peer_manager.clone();
-        let process_msgs_callback = move || pm_for_liquidity.process_events();
+        let pm_for_kuutamo_handler = peer_manager.clone();
+        let process_msgs_callback = move || pm_for_kuutamo_handler.process_events();
         kuutamo_handler
             .liquidity_manager
             .set_process_msgs_callback(process_msgs_callback);
-
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
 
         let event_handler = EventHandler::new(
@@ -850,7 +852,123 @@ impl Controller {
             peer_manager.clone(),
             async_api_requests.clone(),
             settings.clone(),
+            kuutamo_handler.clone(),
         );
+
+        tokio::spawn(async move {
+            loop {
+                let (result, error_msg) =
+                    match kuutamo_handler.liquidity_manager.next_event_async().await {
+                        LSPS2Service(LSPS2ServiceEvent::GetInfo {
+                            request_id,
+                            counterparty_node_id,
+                            token,
+                        }) => {
+                            debug!("Response LSPS2 GetInfo to {}", counterparty_node_id);
+                            let current_time = SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .expect("Fail to fetch current time");
+                            if token == Some("kuutamo".to_string()) {
+                                // It will be happy to anyone to use this now in a small mount less than
+                                // 1_000_000, when using a token "kuutamo"
+                                (
+                                    kuutamo_handler
+                                        .liquidity_manager
+                                        .lsps2_service_handler()
+                                        .expect("lsps2 handler should be set")
+                                        .opening_fee_params_generated(
+                                            &counterparty_node_id,
+                                            request_id,
+                                            vec![RawOpeningFeeParams {
+                                                min_fee_msat: 0,
+                                                proportional: 0,
+                                                valid_until: DateTime::from_timestamp(
+                                                    current_time.as_secs() as i64 + 600,
+                                                    0,
+                                                )
+                                                .unwrap_or_default(),
+                                                min_lifetime: u32::MAX,
+                                                max_client_to_self_delay: 3600,
+                                                min_payment_size_msat: 0,
+                                                max_payment_size_msat: 1_000_001,
+                                            }],
+                                        ),
+                                    Some("Opening Generated Fee Error with kuutamo token"),
+                                )
+                            } else {
+                                // A bad token here
+                                (
+                                    kuutamo_handler
+                                        .liquidity_manager
+                                        .lsps2_service_handler()
+                                        .expect("lsps handler is not proper set")
+                                        .opening_fee_params_generated(
+                                            &counterparty_node_id,
+                                            request_id,
+                                            vec![RawOpeningFeeParams {
+                                                min_fee_msat: u64::MAX,
+                                                proportional: u32::MAX,
+                                                valid_until: Default::default(),
+                                                min_lifetime: u32::MAX,
+                                                max_client_to_self_delay: 0,
+                                                min_payment_size_msat: 0,
+                                                max_payment_size_msat: 0,
+                                            }],
+                                        ),
+                                    Some("Opening Generated Fee Error"),
+                                )
+                            }
+                        }
+                        LSPS2Service(LSPS2ServiceEvent::BuyRequest {
+                            request_id,
+                            counterparty_node_id,
+                            opening_fee_params: _,
+                            payment_size_msat,
+                        }) => {
+                            debug!("Response LSPS2 GetInfo to {}", counterparty_node_id);
+                            if payment_size_msat <= Some(1_000_001) {
+                                let intercept_scid = random::<u64>();
+                                // Based on Bolt#11 we use 9 for cltv_expiry_delta
+                                let cltv_expiry_delta = 9;
+                                let client_trusts_lsp = true;
+                                // The JIT channel will use the user channel id after than 9223372036854775808
+                                let user_channel_id =
+                                    (random::<u64>() / 2 + 9223372036854775808) as u128;
+
+                                (
+                                    kuutamo_handler
+                                        .liquidity_manager
+                                        .lsps2_service_handler()
+                                        .expect("lsps2 handler should be set")
+                                        .invoice_parameters_generated(
+                                            &counterparty_node_id,
+                                            request_id,
+                                            intercept_scid,
+                                            cltv_expiry_delta,
+                                            client_trusts_lsp,
+                                            user_channel_id,
+                                        ),
+                                    Some("Generate Invoice Parameters Fail"),
+                                )
+                            } else {
+                                // Swallow the request because the payment is higher than
+                                // expectation
+                                (Ok(()), Some("Generate Invoice with too big payment"))
+                            }
+                        }
+                        _ => (Ok(()), None),
+                    };
+
+                if let Some(error_msg) = error_msg {
+                    if let Err(e) = result {
+                        error!("{}: {:?}", error_msg, e);
+                    } else {
+                        error!("{}", error_msg);
+                    }
+                }
+
+            }
+        });
 
         if settings.probe_interval > 0 && settings.probe_amt_msat > 0 {
             info!(

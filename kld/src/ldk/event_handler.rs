@@ -28,7 +28,7 @@ use crate::wallet::{Wallet, WalletInterface};
 
 use super::controller::AsyncAPIRequests;
 use super::peer_manager::PeerManager;
-use super::{ChannelManager, NetworkGraph};
+use super::{ChannelManager, KuutamoCustomMessageHandler, NetworkGraph};
 
 pub(crate) struct EventHandler {
     channel_manager: Arc<ChannelManager>,
@@ -41,6 +41,7 @@ pub(crate) struct EventHandler {
     async_api_requests: Arc<AsyncAPIRequests>,
     settings: Arc<Settings>,
     runtime_handle: Handle,
+    kuutamo_handler: Arc<KuutamoCustomMessageHandler>,
 }
 
 impl EventHandler {
@@ -55,6 +56,7 @@ impl EventHandler {
         peer_manager: Arc<PeerManager>,
         async_api_requests: Arc<AsyncAPIRequests>,
         settings: Arc<Settings>,
+        kuutamo_handler: Arc<KuutamoCustomMessageHandler>,
     ) -> EventHandler {
         EventHandler {
             channel_manager,
@@ -67,6 +69,7 @@ impl EventHandler {
             async_api_requests,
             settings,
             runtime_handle: Handle::current(),
+            kuutamo_handler,
         }
     }
 }
@@ -172,6 +175,20 @@ impl EventHandler {
                 counterparty_node_id,
                 channel_type: _,
             } => {
+                // JIT Channels
+                if user_channel_id > 9223372036854775808 {
+                    if let Err(e) = self
+                        .kuutamo_handler
+                        .liquidity_manager
+                        .lsps2_service_handler()
+                        .expect("lsps2 handler should be set")
+                        .channel_ready(user_channel_id, &channel_id, &counterparty_node_id)
+                    {
+                        error!("JIT Channel ready fail: {e:?}");
+                    }
+                }
+
+                // LSPS2ServiceHandler::channel_ready
                 info!(
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     hex::encode(channel_id.0),
@@ -567,12 +584,26 @@ impl EventHandler {
                 }
             }
             Event::HTLCIntercepted {
-                intercept_id: _,
-                requested_next_hop_scid: _,
+                intercept_id,
+                requested_next_hop_scid,
                 payment_hash: _,
                 inbound_amount_msat: _,
-                expected_outbound_amount_msat: _,
-            } => unreachable!(),
+                expected_outbound_amount_msat,
+            } => {
+                if let Err(e) = self
+                    .kuutamo_handler
+                    .liquidity_manager
+                    .lsps2_service_handler()
+                    .expect("lsps2 handler should be set")
+                    .htlc_intercepted(
+                        requested_next_hop_scid,
+                        intercept_id,
+                        expected_outbound_amount_msat,
+                    )
+                {
+                    error!("HTLC Intercept fail: {e:?}");
+                }
+            }
             Event::InvoiceRequestFailed { payment_id } => {
                 // XXX Handle it
                 warn!("Invoice request failed, payment id: {payment_id:}");
