@@ -816,12 +816,13 @@ impl Controller {
             channel_manager.clone(),
             IgnoringMessageHandler {},
         ));
+        let kuutamo_handler = Arc::new(KuutamoCustomMessageHandler { liquidity_manager });
         let ephemeral_bytes: [u8; 32] = random();
         let lightning_msg_handler = MessageHandler {
             chan_handler: channel_manager.clone(),
             route_handler: gossip_sync.clone(),
             onion_message_handler: onion_messenger,
-            custom_message_handler: Arc::new(KuutamoCustomMessageHandler { liquidity_manager }),
+            custom_message_handler: kuutamo_handler.clone(),
         };
         let peer_manager = Arc::new(PeerManager::new(
             lightning_msg_handler,
@@ -830,6 +831,12 @@ impl Controller {
             KldLogger::global(),
             keys_manager.clone(),
         ));
+
+        let pm_for_liquidity = peer_manager.clone();
+        let process_msgs_callback = move || pm_for_liquidity.process_events();
+        kuutamo_handler
+            .liquidity_manager
+            .set_process_msgs_callback(process_msgs_callback);
 
         let async_api_requests = Arc::new(AsyncAPIRequests::new());
 
