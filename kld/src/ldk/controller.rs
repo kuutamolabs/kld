@@ -4,6 +4,7 @@ use crate::database::forward::{Forward, ForwardStatus, TotalForwards};
 use crate::database::invoice::Invoice;
 use crate::database::payment::{Payment, PaymentDirection};
 use crate::database::ChannelRecord;
+use crate::key_generator::KeyGenerator;
 use crate::wallet::{Wallet, WalletInterface};
 use crate::{log_error, MillisatAmount, Service};
 
@@ -641,7 +642,7 @@ impl Controller {
         durable_connection: Arc<DurableConnection>,
         bitcoind_client: Arc<BitcoindClient>,
         wallet: Arc<Wallet<WalletDatabase, BitcoindClient>>,
-        seed: &[u8; 32],
+        key_generator: &KeyGenerator,
         quit_signal: Shared<impl Future<Output = ()> + Send + 'static>,
         probe_metrics: (
             &'static OnceLock<IntCounter>,
@@ -682,7 +683,7 @@ impl Controller {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
         let keys_manager = Arc::new(KeysManager::new(
-            seed,
+            &key_generator.lightning_seed(),
             current_time.as_secs(),
             current_time.subsec_nanos(),
         ));
@@ -787,7 +788,7 @@ impl Controller {
             Some(chain_params),
             Some(LiquidityServiceConfig {
                 lsps2_service_config: Some(LSPS2ServiceConfig {
-                    promise_secret: Default::default(),
+                    promise_secret: key_generator.promise_seed(),
                 }),
                 advertise_service: false,
             }),
@@ -966,7 +967,6 @@ impl Controller {
                         error!("{}", error_msg);
                     }
                 }
-
             }
         });
 

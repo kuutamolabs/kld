@@ -79,7 +79,7 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
         durable_connection.clone(),
         bitcoind_client.clone(),
         wallet.clone(),
-        &key_generator.lightning_seed(),
+        &key_generator,
         quit_signal.clone(),
         (
             &PROBE_TOTAL_COUNT,
