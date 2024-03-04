@@ -21,12 +21,13 @@ lightning-invoice = "0.29.0"
 lightning-net-tokio = "0.0.121"
 lightning-background-processor = { version = "0.0.121", features = [ "futures" ] }
 lightning-rapid-gossip-sync = "0.0.121"
-lightning-liquidity = "0.1.0-alpha"
+lightning-liquidity = "0.1.0-alpha.1"
 
 macaroon = "0.3.0"
 bitcoin = "0.30.2"
 bitcoincore-rpc-json = "0.17.0"
 bitcoin_hashes = "0.12.0"
+chrono = "0.4.34"
 rust-bip39 = "1.0.0"
 base64 = "0.22.0"
 bdk = { git = "https://github.com/kuutamolabs/bdk", branch = "0.29.0-allow-begin-match-fail", features = [ "electrum" ] }

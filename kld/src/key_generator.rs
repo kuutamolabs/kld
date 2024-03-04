@@ -45,6 +45,10 @@ impl KeyGenerator {
         self.generate_key("macaroon/0")
     }
 
+    pub fn promise_seed(&self) -> [u8; 32] {
+        self.generate_key("promise_seed")
+    }
+
     fn generate_key(&self, extra_input: &str) -> [u8; 32] {
         let mut engine = sha256::HashEngine::default();
         engine.input(&self.mnemonic.to_seed(""));
