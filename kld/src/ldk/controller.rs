@@ -858,7 +858,7 @@ impl Controller {
 
         tokio::spawn(async move {
             loop {
-                let (result, error_msg) =
+                let (result, msg_prefix) =
                     match kuutamo_handler.liquidity_manager.next_event_async().await {
                         LSPS2Service(LSPS2ServiceEvent::GetInfo {
                             request_id,
@@ -894,7 +894,7 @@ impl Controller {
                                                 max_payment_size_msat: 1_000_001,
                                             }],
                                         ),
-                                    Some("Opening Generated Fee Error with kuutamo token"),
+                                    Some("Opening Generated Fee with kuutamo token"),
                                 )
                             } else {
                                 // A bad token here
@@ -916,7 +916,7 @@ impl Controller {
                                                 max_payment_size_msat: 0,
                                             }],
                                         ),
-                                    Some("Opening Generated Fee Error"),
+                                    Some("Opening Generated Fee"),
                                 )
                             }
                         }
@@ -949,22 +949,23 @@ impl Controller {
                                             client_trusts_lsp,
                                             user_channel_id,
                                         ),
-                                    Some("Generate Invoice Parameters Fail"),
+                                    Some("Generate Invoice Parameters"),
                                 )
                             } else {
                                 // Swallow the request because the payment is higher than
                                 // expectation
-                                (Ok(()), Some("Generate Invoice with too big payment"))
+                                error!("Generate Invoice with too big payment");
+                                (Ok(()), None)
                             }
                         }
                         _ => (Ok(()), None),
                     };
 
-                if let Some(error_msg) = error_msg {
+                if let Some(prefix) = msg_prefix {
                     if let Err(e) = result {
-                        error!("{}: {:?}", error_msg, e);
+                        error!("{} Error: {:?}", prefix, e);
                     } else {
-                        error!("{}", error_msg);
+                        info!("{} Done", prefix);
                     }
                 }
             }
