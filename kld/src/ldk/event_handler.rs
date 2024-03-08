@@ -18,7 +18,7 @@ use lightning::events::{Event, PathFailure, PaymentPurpose};
 use lightning::ln::ChannelId;
 use lightning::routing::gossip::NodeId;
 use lightning::sign::{KeysManager, SpendableOutputDescriptor};
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use rand::{thread_rng, Rng};
 use tokio::runtime::Handle;
 
@@ -447,6 +447,18 @@ impl EventHandler {
                 claim_from_onchain_tx,
                 outbound_amount_forwarded_msat,
             } => {
+                if let Some(next_channel_id) = next_channel_id {
+                    if let Err(e) = self
+                        .kuutamo_handler
+                        .liquidity_manager
+                        .lsps2_service_handler()
+                        .expect("lsps2 handler should be set")
+                        .payment_forwarded(next_channel_id)
+                    {
+                        trace!("LSPS2 payment forward fail: {e:?}");
+                    }
+                }
+
                 let read_only_network_graph = self.network_graph.read_only();
                 let nodes = read_only_network_graph.nodes();
                 let channels = self.channel_manager.list_channels();
@@ -529,6 +541,15 @@ impl EventHandler {
                 prev_channel_id,
                 failed_next_destination,
             } => {
+                if let Err(e) = self
+                    .kuutamo_handler
+                    .liquidity_manager
+                    .lsps2_service_handler()
+                    .expect("lsps2 handler should be set")
+                    .htlc_handling_failed(failed_next_destination.clone())
+                {
+                    trace!("LSPS2 htlc handling fail: {e:?}");
+                };
                 let forward = Forward::failure(prev_channel_id, failed_next_destination.clone());
                 let id = forward.id.to_string();
                 self.persist_forward(forward);
@@ -586,7 +607,7 @@ impl EventHandler {
             Event::HTLCIntercepted {
                 intercept_id,
                 requested_next_hop_scid,
-                payment_hash: _,
+                payment_hash,
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat,
             } => {
@@ -599,6 +620,7 @@ impl EventHandler {
                         requested_next_hop_scid,
                         intercept_id,
                         expected_outbound_amount_msat,
+                        payment_hash,
                     )
                 {
                     error!("HTLC Intercept fail: {e:?}");
