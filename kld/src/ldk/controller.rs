@@ -903,20 +903,8 @@ impl Controller {
                                         .liquidity_manager
                                         .lsps2_service_handler()
                                         .expect("lsps handler is not proper set")
-                                        .opening_fee_params_generated(
-                                            &counterparty_node_id,
-                                            request_id,
-                                            vec![RawOpeningFeeParams {
-                                                min_fee_msat: u64::MAX,
-                                                proportional: u32::MAX,
-                                                valid_until: Default::default(),
-                                                min_lifetime: u32::MAX,
-                                                max_client_to_self_delay: 0,
-                                                min_payment_size_msat: 0,
-                                                max_payment_size_msat: 0,
-                                            }],
-                                        ),
-                                    Some("Opening Generated Fee"),
+                                        .invalid_token_provided(&counterparty_node_id, request_id),
+                                    Some("Opening Generated Fee without kuutamo token"),
                                 )
                             }
                         }
