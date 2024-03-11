@@ -1467,7 +1467,7 @@ dependencies = [
  "http",
  "hyper",
  "lazy_static",
- "lightning 0.0.121",
+ "lightning",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1583,16 +1583,6 @@ dependencies = [
 
 [[package]]
 name = "lightning"
-version = "0.0.119"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32899363dc48d297838ce1264c4bb6867ede6ec11f06f3b9823f3ff403f1ccc2"
-dependencies = [
- "bitcoin",
- "hex-conservative",
-]
-
-[[package]]
-name = "lightning"
 version = "0.0.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b0c1f811ae288f86c6767055c55b5f7a721ca1e61bf1897a9ae2ec663e8aba1"
@@ -1609,7 +1599,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57d4711ad9cc33f30c2e8e876fcfd6255523fc250440abb8c374cd98e6c40e79"
 dependencies = [
  "bitcoin",
- "lightning 0.0.121",
+ "lightning",
  "lightning-rapid-gossip-sync",
 ]
 
@@ -1622,7 +1612,7 @@ dependencies = [
  "bitcoin",
  "chunked_transfer",
  "hex-conservative",
- "lightning 0.0.121",
+ "lightning",
  "serde_json",
 ]
 
@@ -1634,7 +1624,7 @@ checksum = "5b186aca4a605d4db3b85979922be287b9ebd5dedd8132963bb9dbeb8f7d2a04"
 dependencies = [
  "bech32",
  "bitcoin",
- "lightning 0.0.121",
+ "lightning",
  "num-traits",
  "secp256k1",
  "serde",
@@ -1648,7 +1638,7 @@ checksum = "9482742371d445c4ac0884eb263e60bccc06558db21e3ad5c03c16d73f1932f6"
 dependencies = [
  "bitcoin",
  "chrono",
- "lightning 0.0.121",
+ "lightning",
  "lightning-invoice",
  "serde",
  "serde_json",
@@ -1661,7 +1651,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4813cca14ed984924a6975895e80cde8673a0a105a1c7ddf3b0fb3d1ce59e6bf"
 dependencies = [
  "bitcoin",
- "lightning 0.0.121",
+ "lightning",
  "tokio",
 ]
 
@@ -1672,7 +1662,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "128d6c450cb698b46ecacc6645ebeb2b57d6f9458482635ab523863fa8378314"
 dependencies = [
  "bitcoin",
- "lightning 0.0.121",
+ "lightning",
 ]
 
 [[package]]
@@ -3226,7 +3216,7 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "kld",
- "lightning 0.0.119",
+ "lightning",
  "openssl",
  "postgres-openssl",
  "rand",
