@@ -175,20 +175,17 @@ impl EventHandler {
                 counterparty_node_id,
                 channel_type: _,
             } => {
-                // JIT Channels
-                if user_channel_id > 9223372036854775808 {
-                    if let Err(e) = self
-                        .kuutamo_handler
-                        .liquidity_manager
-                        .lsps2_service_handler()
-                        .expect("lsps2 handler should be set")
-                        .channel_ready(user_channel_id, &channel_id, &counterparty_node_id)
-                    {
-                        error!("JIT Channel ready fail: {e:?}");
-                    }
+                // DEBUG JIT Channels
+                if let Err(e) = self
+                    .kuutamo_handler
+                    .liquidity_manager
+                    .lsps2_service_handler()
+                    .expect("lsps2 handler should be set")
+                    .channel_ready(user_channel_id, &channel_id, &counterparty_node_id)
+                {
+                    error!("JIT Channel ready fail: {e:?}");
                 }
 
-                // LSPS2ServiceHandler::channel_ready
                 info!(
                     "EVENT: Channel {} - {user_channel_id} with counterparty {counterparty_node_id} is ready to use.",
                     hex::encode(channel_id.0),
@@ -455,7 +452,7 @@ impl EventHandler {
                         .expect("lsps2 handler should be set")
                         .payment_forwarded(next_channel_id)
                     {
-                        trace!("LSPS2 payment forward fail: {e:?}");
+                        error!("LSPS2 payment forward fail: {e:?}");
                     }
                 }
 
@@ -548,7 +545,7 @@ impl EventHandler {
                     .expect("lsps2 handler should be set")
                     .htlc_handling_failed(failed_next_destination.clone())
                 {
-                    trace!("LSPS2 htlc handling fail: {e:?}");
+                    error!("LSPS2 htlc handling fail: {e:?}");
                 };
                 let forward = Forward::failure(prev_channel_id, failed_next_destination.clone());
                 let id = forward.id.to_string();
