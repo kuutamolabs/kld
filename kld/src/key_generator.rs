@@ -1,13 +1,14 @@
-use bip39::Mnemonic;
 #[cfg(not(test))]
 use std::fs;
 #[cfg(test)]
 use test_utils::fake_fs as fs;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
+use bdk::keys::bip39::{Language, Mnemonic, WordCount};
+use bdk::keys::GeneratableKey;
+use bdk::miniscript::Tap;
 use bitcoin::hashes::{sha256, Hash, HashEngine};
 use log::info;
-use rand::thread_rng;
 
 // To start lets have only one primary seed to backup and derive everything else from that.
 pub struct KeyGenerator {
@@ -20,14 +21,14 @@ impl KeyGenerator {
             info!("Loading mnemonic from {mnemonic_path}");
             Mnemonic::parse(words)?
         } else {
-            let mut rng = thread_rng();
-            let mnemonic = Mnemonic::generate_in_with(&mut rng, bip39::Language::English, 24)?;
+            let mnemonic: bdk::keys::GeneratedKey<_, Tap> =
+                Mnemonic::generate((WordCount::Words24, Language::English))
+                    .map_err(|_| anyhow!("Mnemonic generation error"))?;
 
             fs::write(mnemonic_path, mnemonic.to_string())
                 .with_context(|| format!("Cannot write to {mnemonic_path}"))?;
-
             info!("Generated a new mnemonic: {}", mnemonic_path);
-            mnemonic
+            mnemonic.into_key()
         };
         Ok(KeyGenerator { mnemonic })
     }
