@@ -1479,7 +1479,7 @@ dependencies = [
  "http",
  "hyper",
  "lazy_static",
- "lightning",
+ "lightning 0.0.121 (registry+https://github.com/rust-lang/crates.io-index)",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1604,13 +1604,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.121"
+source = "git+https://github.com/tnull/rust-lightning?branch=2024-03-invoice-generated-event#35c408fca8c2e6e8d13d77a549b2c2041ce4041e"
+dependencies = [
+ "bitcoin",
+ "hex-conservative",
+ "musig2",
+]
+
+[[package]]
 name = "lightning-background-processor"
 version = "0.0.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57d4711ad9cc33f30c2e8e876fcfd6255523fc250440abb8c374cd98e6c40e79"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.121 (registry+https://github.com/rust-lang/crates.io-index)",
  "lightning-rapid-gossip-sync",
 ]
 
@@ -1623,19 +1633,18 @@ dependencies = [
  "bitcoin",
  "chunked_transfer",
  "hex-conservative",
- "lightning",
+ "lightning 0.0.121 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json",
 ]
 
 [[package]]
 name = "lightning-invoice"
 version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b186aca4a605d4db3b85979922be287b9ebd5dedd8132963bb9dbeb8f7d2a04"
+source = "git+https://github.com/tnull/rust-lightning?branch=2024-03-invoice-generated-event#35c408fca8c2e6e8d13d77a549b2c2041ce4041e"
 dependencies = [
  "bech32",
  "bitcoin",
- "lightning",
+ "lightning 0.0.121 (git+https://github.com/tnull/rust-lightning?branch=2024-03-invoice-generated-event)",
  "num-traits",
  "secp256k1",
  "serde",
@@ -1644,12 +1653,11 @@ dependencies = [
 [[package]]
 name = "lightning-liquidity"
 version = "0.1.0-alpha.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9482742371d445c4ac0884eb263e60bccc06558db21e3ad5c03c16d73f1932f6"
+source = "git+https://github.com/tnull/lightning-liquidity?branch=2024-03-invoice-generated-event#edc785b2f0947bc5ac7f9c667063113e07a80abf"
 dependencies = [
  "bitcoin",
  "chrono",
- "lightning",
+ "lightning 0.0.121 (git+https://github.com/tnull/rust-lightning?branch=2024-03-invoice-generated-event)",
  "lightning-invoice",
  "serde",
  "serde_json",
@@ -1662,7 +1670,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4813cca14ed984924a6975895e80cde8673a0a105a1c7ddf3b0fb3d1ce59e6bf"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.121 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio",
 ]
 
@@ -1673,7 +1681,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "128d6c450cb698b46ecacc6645ebeb2b57d6f9458482635ab523863fa8378314"
 dependencies = [
  "bitcoin",
- "lightning",
+ "lightning 0.0.121 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1823,6 +1831,14 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "musig2"
+version = "0.1.0"
+source = "git+https://github.com/arik-so/rust-musig2?rev=cff11e3#cff11e3b1af1691f721a120dc6acb921afa31f89"
+dependencies = [
+ "bitcoin",
 ]
 
 [[package]]
@@ -3215,7 +3231,7 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "kld",
- "lightning",
+ "lightning 0.0.121 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl",
  "postgres-openssl",
  "rand",
