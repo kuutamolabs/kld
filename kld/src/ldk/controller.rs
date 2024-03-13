@@ -1077,7 +1077,15 @@ impl Controller {
                 database_clone.clone(),
                 channel_manager_clone.clone(),
             );
-            peer_manager_clone.broadcast_node_announcement_from_settings(settings_clone);
+
+            // hourly broadcast our node to the network
+            let peer_manager_clone2 = peer_manager_clone.clone();
+            let settings_clone2 = settings_clone.clone();
+            tokio::spawn(async move {
+                info!("broadcast node");
+                peer_manager_clone2.broadcast_node_announcement_from_settings(settings_clone2);
+                tokio::time::sleep(Duration::from_secs(60)).await;
+            });
 
             tokio::spawn(async move {
                 if let Err(e) = process_events_async(
