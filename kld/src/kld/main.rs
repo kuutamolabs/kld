@@ -62,7 +62,10 @@ async fn run_kld(settings: Arc<Settings>) -> Result<()> {
     let wallet_database = WalletDatabase::new(settings.clone(), durable_connection.clone());
 
     let bitcoind_client = Arc::new(BitcoindClient::new(&settings).await?);
-    bitcoind_client.poll_for_fee_estimates();
+
+    // Hot fix the fee rate, due to Signet
+    // bitcoind_client.poll_for_fee_estimates();
+    bitcoind_client.set_lowest_fee_estimates();
 
     let wallet = Arc::new(
         Wallet::new(

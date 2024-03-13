@@ -150,6 +150,13 @@ impl BitcoindClient {
             };
         }
     }
+
+    /// To set up the lowest fee base for a testing environment
+    pub fn set_lowest_fee_estimates(&self) {
+        for class in self.priorities.list_class() {
+            Priorities::store(class, 253);
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
