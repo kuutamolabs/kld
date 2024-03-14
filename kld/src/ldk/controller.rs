@@ -736,6 +736,7 @@ impl Controller {
         user_config
             .channel_handshake_limits
             .force_announced_channel_preference = false;
+        user_config.accept_intercept_htlcs = true;
 
         let getinfo_resp = bitcoind_client.get_blockchain_info().await?;
         let chain_params = ChainParameters {
