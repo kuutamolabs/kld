@@ -855,6 +855,7 @@ impl Controller {
             settings.clone(),
             kuutamo_handler.clone(),
         );
+        let channel_manager_cloned = channel_manager.clone();
 
         tokio::spawn(async move {
             loop {
@@ -916,7 +917,7 @@ impl Controller {
                         }) => {
                             debug!("Response LSPS2 GetInfo to {}", counterparty_node_id);
                             if payment_size_msat <= Some(1_000_001) {
-                                let intercept_scid = random::<u64>();
+                                let intercept_scid = channel_manager_cloned.get_intercept_scid();
                                 // Based on Bolt#11 we use 9 for cltv_expiry_delta
                                 let cltv_expiry_delta = 9;
                                 let client_trusts_lsp = true;
