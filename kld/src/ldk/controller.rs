@@ -919,8 +919,7 @@ impl Controller {
                             debug!("Response LSPS2 GetInfo to {}", counterparty_node_id);
                             if payment_size_msat <= Some(10_000_000_001) {
                                 let intercept_scid = channel_manager_cloned.get_intercept_scid();
-                                // Based on Bolt#11 we use 9 for cltv_expiry_delta
-                                let cltv_expiry_delta = 9;
+                                let cltv_expiry_delta = 144;
                                 let client_trusts_lsp = true;
                                 // The JIT channel will use the user channel id after than 9223372036854775808
                                 let user_channel_id =
