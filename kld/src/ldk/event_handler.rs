@@ -611,6 +611,7 @@ impl EventHandler {
                 inbound_amount_msat: _,
                 expected_outbound_amount_msat,
             } => {
+                info!("HTLC Intercept: {intercept_id:?}");
                 if let Err(e) = self
                     .kuutamo_handler
                     .liquidity_manager
