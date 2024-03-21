@@ -30,7 +30,7 @@ bitcoin_hashes = "0.12.0"
 chrono = "0.4.34"
 base64 = "0.22.0"
 bdk = { git = "https://github.com/kuutamolabs/bdk", branch = "0.29.0-allow-begin-match-fail", features = [ "electrum", "all-keys" ] }
-anyhow = { version = "1.0.80", features = [ "backtrace" ] }
+anyhow = { version = "1.0.81", features = [ "backtrace" ] }
 futures = "0.3"
 rand = "0.8.5"
 log = { version = "0.4", features = ["std"] }
