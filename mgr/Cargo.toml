@@ -10,7 +10,7 @@ path = "src/main.rs"
 [workspace]
 
 [dependencies]
-anyhow = "1.0.80"
+anyhow = "1.0.81"
 log = { version = "0.4", features = ["std"] }
 serde_json = "1.0.114"
 serde_derive = "1.0.154"
