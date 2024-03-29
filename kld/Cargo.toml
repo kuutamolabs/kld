@@ -45,7 +45,7 @@ axum-server = { version = "0.5", features = ["tls-rustls"] }
 tower-http = { version = "0.4.4", features = [ "cors" ] }
 async-trait = "0.1.79"
 clap = { version = "4.5", features = ["derive", "env"] }
-reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
+reqwest = { version = "0.12", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
 thiserror = "1.0"
 uuid = { version = "1.6.1", features = [ "v4", "fast-rng" ] }
 time = "0.3.29"
