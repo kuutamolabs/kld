@@ -26,7 +26,7 @@ lightning-liquidity = "0.1.0-alpha.2"
 macaroon = "0.3.0"
 bitcoin = "0.30.2"
 bitcoincore-rpc-json = "0.17.0"
-bitcoin_hashes = "0.12.0"
+bitcoin_hashes = "0.14.0"
 chrono = "0.4.37"
 base64 = "0.22.0"
 bdk = { git = "https://github.com/kuutamolabs/bdk", branch = "0.29.0-allow-begin-match-fail", features = [ "electrum", "all-keys" ] }
