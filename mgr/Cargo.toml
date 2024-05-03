@@ -26,7 +26,7 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 lazy_static = "1.4.0"
 reqwest = { version = "0.12.4", features = ["blocking"], default-features = false }
 url = { version = "2.5", features = ["serde"] }
-base64 = "0.22.0"
+base64 = "0.22.1"
 toml-example = { version = "0.11.1", default-features = false }
 x509-parser = "0.16.0"
 slice_as_array = "1.1.0"
