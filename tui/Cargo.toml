@@ -5,7 +5,7 @@ edition = "2021"
 description = "A Tui app interacts with kuutamo products"
 
 [dependencies]
-chrono = "0.4.37"
+chrono = "0.4.38"
 clap = { version = "4.5.3", features = [ "derive", "env" ] }
 color-eyre = "0.6.3"
 config = "0.14.0"
