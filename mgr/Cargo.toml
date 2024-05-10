@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.82"
 log = { version = "0.4", features = ["std"] }
-serde_json = "1.0.116"
+serde_json = "1.0.117"
 serde_derive = "1.0.154"
 # FIXME use github version for toml support
 format_serde_error = { version = "0.3.0", features = [ "colored", "serde_json" ], default-features = false, git = "https://github.com/AlexanderThaller/format_serde_error" }
