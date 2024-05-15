@@ -22,3 +22,9 @@ updates:
       interval: "weekly"
       day: "friday"
       time: "23:50"
+  - package-ecosystem: "cargo"
+    directory: "/tui"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "23:50"
