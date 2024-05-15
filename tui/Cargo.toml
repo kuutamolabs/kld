@@ -5,7 +5,7 @@ edition = "2021"
 description = "A Tui app interacts with kuutamo products"
 
 [dependencies]
-chrono = "0.4.37"
+chrono = "0.4.38"
 clap = { version = "4.5.3", features = [ "derive", "env" ] }
 color-eyre = "0.6.3"
 config = "0.14.0"
@@ -13,10 +13,10 @@ crossterm = { version = "0.27.0", features = ["serde", "event-stream"] }
 derive_deref = "1.1.1"
 directories = "5.0.1"
 futures = "0.3.30"
-human-panic = "1.2.3"
+human-panic = "2.0.0"
 kld = { path = "../kld" }
 lazy_static = "1.4.0"
-libc = "0.2.153"
+libc = "0.2.154"
 log = "0.4.21"
 pretty_assertions = "1.4.0"
 r2d2 = "0.8.10"
