@@ -17,7 +17,7 @@ serde_derive = "1.0.154"
 # FIXME use github version for toml support
 format_serde_error = { version = "0.3.0", features = [ "colored", "serde_json" ], default-features = false, git = "https://github.com/AlexanderThaller/format_serde_error" }
 serde = { version = "1.0.202", features = ["derive"] }
-toml = "0.8.12"
+toml = "0.8.13"
 tempfile = "3"
 ctrlc = { version = "3.4", features = ["termination"] }
 nix = "0.28.0"
