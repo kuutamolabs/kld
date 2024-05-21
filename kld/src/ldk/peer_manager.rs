@@ -93,7 +93,7 @@ impl KuutamoPeerManger for Arc<PeerManager> {
                             warn!("tokio tcp stream fail into standard stream")
                         }
                     }
-                    Err(e) => warn!("fail to acept peer socket {e}"),
+                    Err(e) => warn!("fail to accept peer socket {e}"),
                 }
             }
         });

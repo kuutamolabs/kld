@@ -3,7 +3,7 @@ on:
   repository_dispatch:
   workflow_dispatch:
   schedule:
-    - cron:  '51 2 * * 0,4'
+    - cron:  '51 23 * * 5'
 permissions:
   contents: write
   pull-requests: write
@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Nix
-        uses: cachix/install-nix-action@v26
+        uses: cachix/install-nix-action@V27
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
