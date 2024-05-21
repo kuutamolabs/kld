@@ -1505,7 +1505,7 @@ dependencies = [
  "lightning 0.0.121",
  "lightning-background-processor",
  "lightning-block-sync",
- "lightning-invoice",
+ "lightning-invoice 0.29.0",
  "lightning-liquidity",
  "lightning-net-tokio",
  "lightning-rapid-gossip-sync 0.0.122",
@@ -1637,6 +1637,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.123"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd92d4aa159374be430c7590e169b4a6c0fb79018f5bc4ea1bffde536384db3"
+dependencies = [
+ "bitcoin",
+ "hex-conservative",
+]
+
+[[package]]
 name = "lightning-background-processor"
 version = "0.0.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1671,19 +1681,31 @@ dependencies = [
  "lightning 0.0.121",
  "num-traits",
  "secp256k1",
+]
+
+[[package]]
+name = "lightning-invoice"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26d07d01cf197bf2184b929b7dc94aa70d935aac6df896c256a3a9475b7e9d40"
+dependencies = [
+ "bech32",
+ "bitcoin",
+ "lightning 0.0.123",
+ "secp256k1",
  "serde",
 ]
 
 [[package]]
 name = "lightning-liquidity"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9482742371d445c4ac0884eb263e60bccc06558db21e3ad5c03c16d73f1932f6"
+checksum = "3fa6284740f64672f42145de7b0a242beea3821dae1f0eac7949a8f48799c828"
 dependencies = [
  "bitcoin",
  "chrono",
- "lightning 0.0.121",
- "lightning-invoice",
+ "lightning 0.0.123",
+ "lightning-invoice 0.31.0",
  "serde",
  "serde_json",
 ]
