@@ -1502,7 +1502,7 @@ dependencies = [
  "http",
  "hyper",
  "lazy_static",
- "lightning 0.0.121",
+ "lightning 0.0.122",
  "lightning-background-processor",
  "lightning-block-sync",
  "lightning-invoice",
@@ -1623,7 +1623,6 @@ checksum = "5b0c1f811ae288f86c6767055c55b5f7a721ca1e61bf1897a9ae2ec663e8aba1"
 dependencies = [
  "bitcoin",
  "hex-conservative",
- "regex",
 ]
 
 [[package]]
@@ -1634,6 +1633,7 @@ checksum = "0d9b36ae12b379905bfc429ce5d4e8ca4a55c8dd3de73074309bd0bcc053bcac"
 dependencies = [
  "bitcoin",
  "hex-conservative",
+ "regex",
 ]
 
 [[package]]
@@ -3266,7 +3266,7 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "kld",
- "lightning 0.0.121",
+ "lightning 0.0.122",
  "openssl",
  "postgres-openssl",
  "rand",
