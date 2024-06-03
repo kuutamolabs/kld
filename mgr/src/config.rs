@@ -350,6 +350,20 @@ struct HostConfig {
     #[toml_example(default = 5)]
     pub shutdown_graceful_sec: Option<u64>,
 
+    /// The address of tcp connection for electrs server
+    #[serde(default)]
+    #[toml_example(default = "127.0.0.1")]
+    pub electrs_address: Option<IpAddr>,
+    /// The port of tcp connection for electrs server
+    #[serde(default)]
+    #[toml_example(default = 60001)]
+    pub electrs_port: Option<u16>,
+
+    /// The lite node only config to select different blockchain network.
+    /// It will be mainnet if this value is unset
+    #[serde(default)]
+    pub network: Option<String>,
+
     #[serde(flatten)]
     #[toml_example(skip)]
     others: BTreeMap<String, toml::Value>,
@@ -448,6 +462,15 @@ pub struct Host {
 
     /// The graceful period in seconds when a shutdown signal is received
     pub shutdown_graceful_sec: Option<u64>,
+
+    /// The address of tcp connection for electrs server
+    pub electrs_address: Option<IpAddr>,
+    /// The port of tcp connection for electrs server
+    pub electrs_port: Option<u16>,
+
+    /// The lite node only config to select different blockchain network.
+    /// It will be mainnet if this value is unset
+    pub network: Option<String>,
 }
 
 impl Host {
@@ -901,6 +924,22 @@ fn validate_host(
         }
     }
 
+    let network = host.network.as_ref().map(|s| s.trim().to_lowercase());
+
+    if network.is_some() && host.nixos_module != "kld-lite-node" {
+        bail!("only lite node support specify network type")
+    }
+
+    if let Some(ref network) = network {
+        if network != "bitcoin"
+            && network != "signet"
+            && network != "testnet"
+            && network != "rignet"
+        {
+            bail!("unsupported network type")
+        }
+    }
+
     Ok(Host {
         name,
         nixos_module: host.nixos_module.clone(),
@@ -942,6 +981,9 @@ fn validate_host(
         },
         probe_targets,
         shutdown_graceful_sec: host.shutdown_graceful_sec.or(default.shutdown_graceful_sec),
+        electrs_address: host.electrs_address,
+        electrs_port: host.electrs_port,
+        network,
     })
 }
 
@@ -1013,7 +1055,7 @@ pub fn parse_config(
     }
     let kld_nodes = hosts
         .iter()
-        .filter(|(_, host)| host.nixos_module == "kld-node")
+        .filter(|(_, host)| host.nixos_module.starts_with("kld"))
         .count();
     if kld_nodes != 1 {
         bail!("Exactly one kld-node is required, found {}", kld_nodes);
@@ -1064,7 +1106,6 @@ fn decode_token(s: String) -> Result<(String, String)> {
         .map(|(u, p)| (u.trim().to_string(), p.trim().to_string()))
         .ok_or(anyhow!("token should be `username: password` pair"))
 }
-
 #[cfg(test)]
 pub(crate) const TEST_CONFIG: &str = r#"
 [global]
@@ -1097,6 +1138,33 @@ ipv6_address = "2605:9880:400::3"
 nixos_module = "cockroachdb-node"
 ipv4_address = "199.127.64.4"
 ipv6_address = "2605:9880:400::4"
+"#;
+
+#[cfg(test)]
+pub(crate) const TEST_LITE_CONFIG: &str = r#"
+[global]
+knd_flake = "github:kuutamolabs/lightning-knd"
+deployment_flake = "github:kuutamolabs/test-env-one"
+access_tokens = "github.com=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+[host_defaults]
+public_ssh_keys = [
+  '''ssh-ed25519 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA foobar'''
+]
+ipv4_cidr = 24
+ipv6_cidr = 48
+ipv4_gateway = "199.127.64.1"
+ipv6_gateway = "2605:9880:400::1"
+
+[hosts]
+[hosts.kld]
+nixos_module = "kld-lite-node"
+ipv4_address = "199.127.64.2"
+ipv6_address = "2605:9880:400::2"
+ipv6_cidr = 48
+electrs_address = "127.0.0.1"
+electrs_port = 60001
+network = "signet"
 "#;
 
 #[test]
@@ -1135,7 +1203,25 @@ pub fn test_parse_config() -> Result<()> {
         IpAddr::from_str("2605:9880:400::1").ok()
     );
 
-    parse_config(TEST_CONFIG, Path::new("/"), false, false)?;
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_lite_config() -> Result<()> {
+    use std::str::FromStr;
+
+    let config = parse_config(TEST_LITE_CONFIG, Path::new("/"), false, false)?;
+    let hosts = &config.hosts;
+    assert_eq!(
+        hosts["kld"]
+            .electrs_address
+            .context("missing electrs_address")?,
+        IpAddr::from_str("127.0.0.1").unwrap()
+    );
+    assert_eq!(
+        hosts["kld"].electrs_port.context("missing electrs_port")?,
+        60001
+    );
 
     Ok(())
 }
@@ -1238,6 +1324,9 @@ fn test_validate_host() -> Result<()> {
             probe_amt_msat: None,
             probe_targets: Vec::new(),
             shutdown_graceful_sec: None,
+            electrs_address: None,
+            electrs_port: None,
+            network: None
         }
     );
 
