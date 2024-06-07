@@ -11,4 +11,4 @@ anyhow = "1.0.85"
 clap = { version = "4.5.4", features = ["derive"] }
 serde = "1.0"
 serde_derive = "1.0.188"
-toml = "0.8.13"
+toml = "0.8.14"
