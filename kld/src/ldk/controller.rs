@@ -873,7 +873,7 @@ impl Controller {
                                 .expect("Fail to fetch current time");
                             if token == Some("kuutamo".to_string()) {
                                 // It will be happy to anyone to use this now in a small mount less than
-                                // 1_000_000, when using a token "kuutamo"
+                                // 10_000_000_000, when using a token "kuutamo"
                                 (
                                     kuutamo_handler
                                         .liquidity_manager
@@ -893,7 +893,7 @@ impl Controller {
                                                 min_lifetime: u32::MAX,
                                                 max_client_to_self_delay: 3600,
                                                 min_payment_size_msat: 0,
-                                                max_payment_size_msat: 1_000_001,
+                                                max_payment_size_msat: 10_000_000_001,
                                             }],
                                         ),
                                     Some("Opening Generated Fee with kuutamo token"),
@@ -917,10 +917,9 @@ impl Controller {
                             payment_size_msat,
                         }) => {
                             debug!("Response LSPS2 GetInfo to {}", counterparty_node_id);
-                            if payment_size_msat <= Some(1_000_001) {
+                            if payment_size_msat <= Some(10_000_000_001) {
                                 let intercept_scid = channel_manager_cloned.get_intercept_scid();
-                                // Based on Bolt#11 we use 9 for cltv_expiry_delta
-                                let cltv_expiry_delta = 9;
+                                let cltv_expiry_delta = 144;
                                 let client_trusts_lsp = true;
                                 // The JIT channel will use the user channel id after than 9223372036854775808
                                 let user_channel_id =
