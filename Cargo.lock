@@ -1617,16 +1617,6 @@ dependencies = [
 
 [[package]]
 name = "lightning"
-version = "0.0.121"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0c1f811ae288f86c6767055c55b5f7a721ca1e61bf1897a9ae2ec663e8aba1"
-dependencies = [
- "bitcoin",
- "hex-conservative",
-]
-
-[[package]]
-name = "lightning"
 version = "0.0.122"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d9b36ae12b379905bfc429ce5d4e8ca4a55c8dd3de73074309bd0bcc053bcac"
@@ -1659,14 +1649,14 @@ dependencies = [
 
 [[package]]
 name = "lightning-block-sync"
-version = "0.0.121"
+version = "0.0.122"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb75d3aca909b77ee21b2e26714c370bdc3246734fa3d4355afa503cb3c0feb"
+checksum = "8fd10facbc9c5dd311ff522e38bc605bd495a091071fc096824d62b703f7e67c"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
  "hex-conservative",
- "lightning 0.0.121",
+ "lightning 0.0.122",
  "serde_json",
 ]
 
@@ -1699,12 +1689,12 @@ dependencies = [
 
 [[package]]
 name = "lightning-net-tokio"
-version = "0.0.121"
+version = "0.0.122"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4813cca14ed984924a6975895e80cde8673a0a105a1c7ddf3b0fb3d1ce59e6bf"
+checksum = "3eee1cc77ce7c5078041df71f205ecde313a347e305b159edbcd69ac9f5989da"
 dependencies = [
  "bitcoin",
- "lightning 0.0.121",
+ "lightning 0.0.122",
  "tokio",
 ]
 
