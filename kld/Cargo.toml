@@ -19,7 +19,7 @@ lightning = { version = "0.0.121", features = ["max_level_trace", "_test_utils"]
 lightning-block-sync = { version = "0.0.121", features = [ "rpc-client" ] }
 lightning-invoice = "0.31.0"
 lightning-net-tokio = "0.0.121"
-lightning-background-processor = { version = "0.0.121", features = [ "futures" ] }
+lightning-background-processor = { version = "0.0.122", features = [ "futures" ] }
 lightning-rapid-gossip-sync = "0.0.122"
 lightning-liquidity = "0.1.0-alpha.4"
 
