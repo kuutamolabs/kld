@@ -1637,6 +1637,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightning"
+version = "0.0.123"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd92d4aa159374be430c7590e169b4a6c0fb79018f5bc4ea1bffde536384db3"
+dependencies = [
+ "bitcoin",
+ "hex-conservative",
+]
+
+[[package]]
 name = "lightning-background-processor"
 version = "0.0.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1649,14 +1659,14 @@ dependencies = [
 
 [[package]]
 name = "lightning-block-sync"
-version = "0.0.121"
+version = "0.0.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb75d3aca909b77ee21b2e26714c370bdc3246734fa3d4355afa503cb3c0feb"
+checksum = "61e1e70fa351daccede0c366cf16320b16a3e42b05ae3c7ec9c0df6b5d3a3e18"
 dependencies = [
  "bitcoin",
  "chunked_transfer",
  "hex-conservative",
- "lightning 0.0.121",
+ "lightning 0.0.123",
  "serde_json",
 ]
 

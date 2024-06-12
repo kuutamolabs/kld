@@ -16,7 +16,7 @@ doctest = false
 
 [dependencies]
 lightning = { version = "0.0.121", features = ["max_level_trace", "_test_utils"] }
-lightning-block-sync = { version = "0.0.121", features = [ "rpc-client" ] }
+lightning-block-sync = { version = "0.0.123", features = [ "rpc-client" ] }
 lightning-invoice = "0.29.0"
 lightning-net-tokio = "0.0.121"
 lightning-background-processor = { version = "0.0.121", features = [ "futures" ] }
