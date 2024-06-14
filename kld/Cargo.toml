@@ -48,7 +48,7 @@ clap = { version = "4.5", features = ["derive", "env"] }
 reqwest = { version = "0.11", features = [ "blocking", "native-tls", "json", "stream", "multipart" ] }
 thiserror = "1.0"
 uuid = { version = "1.8.0", features = [ "v4", "fast-rng" ] }
-time = "0.3.29"
+time = "0.3.36"
 hex = "0.4.3"
 
 # database
