@@ -33,4 +33,4 @@ toml = "0.8.14"
 tracing = "0.1.40"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "serde"] }
-url = "2.5.0"
+url = "2.5.2"
