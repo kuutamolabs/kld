@@ -7,7 +7,7 @@ edition = "2021"
 kld = { path = "../kld" }
 anyhow = { version = "1.0.81", features = [ "backtrace" ] }
 lightning = { version = "0.0.121", features = [ "max_level_trace" ] }
-bitcoin = "0.30.2"
+bitcoin = "0.32.2"
 rand = "0.8.5"
 reqwest = { version = "0.11", default-features = false, features = [ "blocking", "native-tls" ] }
 tokio-postgres = { version = "0.7.9", features = ["runtime", "with-bit-vec-0_6", "with-uuid-0_8"] }
