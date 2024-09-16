@@ -30,6 +30,9 @@
       electrs = { ... }: {
         imports = [ ./electrs.nix ];
       };
+      externalElectrs = { ... }: {
+        imports = [ ./external-electrs.nix ];
+      };
       cockroachdb = { pkgs, ... }: {
         imports = [ ./cockroachdb.nix ];
         kuutamo.cockroachdb.package = self.packages.${pkgs.hostPlatform.system}.cockroachdb;
@@ -146,6 +149,23 @@
         {
           kuutamo.kld.network = "signet";
           kuutamo.electrs.network = "signet";
+          kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
+          kuutamo.kld.certPath = "/var/lib/secrets/kld/kld.pem";
+          kuutamo.kld.keyPath = "/var/lib/secrets/kld/kld.key";
+          kuutamo.kld.cockroachdb.clientCertPath = "/var/lib/secrets/kld/client.kld.crt";
+          kuutamo.kld.cockroachdb.clientKeyPath = "/var/lib/secrets/kld/client.kld.key";
+          kuutamo.cockroachdb.rootClientCertPath = "/var/lib/secrets/cockroachdb/client.root.crt";
+          kuutamo.cockroachdb.rootClientKeyPath = "/var/lib/secrets/cockroachdb/client.root.key";
+        }
+      ];
+
+      kld-lite-node.imports = [
+        ./kld-toml-mapping.nix
+        self.nixosModules.common-node
+        self.nixosModules.bitcoind
+        self.nixosModules.externalElectrs
+        self.nixosModules.kld
+        {
           kuutamo.kld.caPath = "/var/lib/secrets/kld/ca.pem";
           kuutamo.kld.certPath = "/var/lib/secrets/kld/kld.pem";
           kuutamo.kld.keyPath = "/var/lib/secrets/kld/kld.key";
